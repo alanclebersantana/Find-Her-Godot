@@ -10,7 +10,7 @@ var log_lines: Array = []
 var fails := 0
 
 func frame(set: Dictionary = {}) -> void:
-	for k in ["L", "R", "J", "P", "S", "U"]:
+	for k in ["L", "R", "J", "P", "S", "U", "A"]:
 		g.keys[k] = false
 	for k in set:
 		g.keys[k] = set[k]
@@ -30,7 +30,7 @@ func S(name: String, r) -> void:
 	var bad: bool = (r is String and r != "" and not r.begins_with("ok")) or (r is bool and r == false)
 	if bad:
 		fails += 1
-	log_lines.append("%s %s: %s  [x=%d y=%d vidas=%d hp=%d]" % ["✗" if bad else "·", name, str(r), int(px()), int(P.y), g.lives, P.hp])
+	log_lines.append("%s %s: %s  [x=%d y=%d vidas=%d hp=%d %s]" % ["✗" if bad else "·", name, str(r), int(px()), int(P.y), g.lives, P.hp, P.dieMsg])
 
 func walk_to(x: float, mx: int = 1500):
 	var last := px()
@@ -162,6 +162,28 @@ func jr(n: int, dir: String):
 	hold({"J": true, dir: true}, n)
 	return wait_ground({dir: true})
 
+func on_perch() -> bool:
+	return P.onGround and P.y + P.h <= 372
+
+func boss_fight():
+	for it in 60:
+		P = g.player
+		var b: Dictionary = g.X.BOSS
+		if b.done or b.st == "flee":
+			hold({}, 120)
+			return true
+		if not ok():
+			return "state"
+		if b.st == "stun":
+			jump_to(b.x, true)
+			hold({}, 2)
+		elif not on_perch():
+			walk_to(3175)
+			jump_to(3175, true)
+		else:
+			until({}, func(): return g.X.BOSS.st == "stun" or g.X.BOSS.st == "flee" or not on_perch(), 900)
+	return "hp=%d st=%s" % [g.X.BOSS.hp, g.X.BOSS.st]
+
 func n_clues() -> int:
 	return g.CLUEGOT.size()
 
@@ -223,12 +245,19 @@ func _initialize() -> void:
 	walk_to(3200)
 	jr(16, "R")
 	S("vermelho", spec("vermelho"))
+	S("parede falsa", walk_to(2690))
+	S("sala secreta 1", g.X.found.has("s1"))
 	S("volta à saída", walk_to(2955))
 	press("U")
 	frame({"U": true})
 	hold({}, 20)
 	S("saiu com ↑", g.player.y < 500)
 	S("combina corda+gancho", g.try_combine("corda", "gancho") != "")
+	S("arena do javali", walk_to(3360))
+	S("javali apareceu", g.X.boss_active())
+	S("sobe no galho", jump_to(3175, true))
+	S("venceu o javali", boss_fight())
+	S("picareta", walk_to(3480) and g.INV.has("picareta"))
 	walk_to(3560)
 	S("caixa", jump_to(3615))
 	S("vai ao barranco", walk_to(3860))
@@ -236,6 +265,9 @@ func _initialize() -> void:
 	S("corda presa", g.LOCKS[0].done)
 	S("vai à corda", walk_to(3888))
 	S("sobe a corda", climb_to("U", func(): return P.ladder == null and P.y < 100, 500))
+	S("rocha rachada", walk_to(4140))
+	use()
+	S("quebrou a rocha", g.X.broken.has("rock1"))
 	S("moita: pista 2 e amarelo", walk_to(4480))
 	S("pistas=2 amarelo", n_clues() == 2 and spec("amarelo"))
 	S("desce do platô", walk_to(4760))
@@ -253,6 +285,23 @@ func _initialize() -> void:
 	S("desce a escada", climb_to("S", func(): return P.onGround and P.y > 800, 400))
 	S("gruta", walk_to(6160))
 	S("engrenagem e pista 3", g.INV.has("engrenagem") and n_clues() == 3)
+	S("pula na água", until({"L": true}, func(): return P.swim, 400))
+	S("mergulha", until({"L": true, "S": true}, func(): return px() < 5650 and P.y > 990, 400))
+	S("túnel", until({"L": true}, func(): return px() < 5560, 300))
+	S("bolsão de ar", until({"U": true}, func(): return P.y < 962, 300))
+	press("J")
+	hold({"J": true, "L": true}, 14)
+	S("borda", wait_ground({"L": true}))
+	S("sala secreta 2", g.X.found.has("s2"))
+	hold({"R": true}, 30)
+	S("volta mergulhando", until({"R": true, "S": true}, func(): return px() > 5600 and P.y > 1000, 400))
+	S("sai do túnel", until({"R": true}, func(): return px() > 5790, 400))
+	S("sobe", until({"U": true, "R": true}, func(): return P.y < 912, 300))
+	press("J")
+	hold({"J": true, "R": true}, 16)
+	S("fora da água", wait_ground({"R": true}))
+	S("fôlego ok", g.lives >= 3)
+	walk_to(6160)
 	S("volta à escada", walk_to(5960))
 	S("sobe", climb_to("U", func(): return P.y + P.h <= 504, 400))
 	S("sai do poço", jump_to(6050))
@@ -290,6 +339,35 @@ func _initialize() -> void:
 	walk_to(8105)
 	S("desce", climb_to("S", func(): return P.onGround and P.y > 400, 600))
 	S("combina óleo+pavio", g.try_combine("oleo", "pavio") != "")
+	S("laje do X", walk_to(7910))
+	use()
+	S("quebrou a laje", g.X.broken.has("slab"))
+	S("desce na câmara", climb_to("S", func(): return P.onGround and P.y > 800, 500))
+	S("espelho do chão", walk_to(7790))
+	use()
+	walk_to(7780)
+	press("J")
+	for i in 40:
+		frame({"J": true})
+		if i == 16:
+			press("J")
+	wait_ground()
+	S("espelhos girados", g.X.MIRRORS[0].s == 1 and g.X.MIRRORS[1].s == 1)
+	walk_to(7850)
+	frame({"L": true})
+	S("facho no cristal", hold({"A": true}, 60))
+	S("grades abertas", g.X.opened.has("cdoor"))
+	var rg = walk_to(7598)
+	S("lápis dourado %s" % str(rg), g.X.GOLD.got)
+	walk_to(7985)
+	S("plataforma de luz 1", jump_to(7995) is bool and P.y + P.h < 850)
+	S("pl. 2", jump_to(8060) is bool and P.y + P.h < 795)
+	S("pl. 3", jump_to(7988) is bool and P.y + P.h < 740)
+	S("sala secreta 3", g.X.found.has("s3"))
+	S("desce", until({"L": true}, func(): return P.onGround and P.y > 850, 300))
+	S("escada da laje", walk_to(7910))
+	S("sobe", climb_to("U", func(): return P.ladder == null and P.onGround and P.y < 480, 500))
+	walk_to(8105)
 	S("cogumelo", until({"R": true}, func(): return P.vy < -15, 300))
 	var dj := false
 	for i in 200:
@@ -318,6 +396,7 @@ func _initialize() -> void:
 	S("pistas=6 e roxo", n_clues() == 6 and spec("roxo"))
 	S("volta", crawl(9260))
 	S("sobe", climb_to("U", func(): return P.ladder == null and P.onGround and P.y < 480, 500))
+	walk_to(8105)
 	S("vilão foge", walk_to(9600))
 	S("perseguição começou", g.VIL.go)
 	walk_to(9930)
@@ -341,6 +420,7 @@ func _initialize() -> void:
 	var sa = until({}, func(): return not g.running, 300)
 	S("saída", sa is String and sa == "state")
 	var nd: int = g.DRWS.filter(func(d): return d.got).size()
+	S("segredos %d/3 dourado=%s chefe=%s" % [g.X.found.size(), str(g.X.GOLD.got), str(g.X.BOSS.done)], g.X.found.size() == 3 and g.X.GOLD.got and g.X.BOSS.done)
 	S("final: pistas=%d esp=%d des=%d lápis=%d/%d tempo=%ds" % [n_clues(), g.SPECGOT.size(), nd, g.STATS.pen, g.STATS.penTotal, g.time_left / 60], n_clues() == 6 and g.SPECGOT.size() == 6 and nd == 2)
 	for l in log_lines:
 		print(l)

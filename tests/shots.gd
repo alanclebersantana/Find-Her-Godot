@@ -75,6 +75,33 @@ func _initialize() -> void:
 					g.player.vine = g.VINES[0]
 					g.player.vr = 150.0
 					g.VINES[0].om = .03
+				elif k.begins_with("w_"):
+					g.X.weather = k.substr(2)
+				elif k == "fl":
+					g.player.face = -1
+				elif k == "pick":
+					g.INV.append("picareta")
+				elif k == "slab":
+					for c in g.X.CRACKS:
+						if c.id == "slab":
+							g.X.break_crack(c, false)
+				elif k == "m1":
+					g.X.MIRRORS[0].s = 1
+					g.X.MIRRORS[1].s = 1
+				elif k == "boss":
+					g.X.BOSS.st = "wait"
+					g.X.BOSS.done = false
+				elif k == "bstun":
+					g.X.BOSS.active = true
+					g.X.BOSS.st = "stun"
+					g.X.BOSS.x = 3500
+					g.X.BOSS.y = 500.0
+					g.X.BOSS.t = 0
+					g.X._gate_on(true)
+				elif k == "found":
+					for sc in g.X.SECRETS:
+						g.X.found[sc.id] = true
+						sc.a = 0.0
 				elif k == "noen":
 					for e in g.EN:
 						e.dead = 99

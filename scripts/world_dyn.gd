@@ -19,6 +19,10 @@ func _draw() -> void:
 	_locks(g)
 	_entrances(g)
 	_lily_mud(g)
+	WorldExtras.chalk(g, T)
+	WorldExtras.footprints(g)
+	WorldExtras.solids(g, T)
+	WorldExtras.boss(g, T)
 	if g.VIL and g.VIL.go and not g.VIL.gone:
 		var v: Dictionary = g.VIL
 		var f: int = (T / max(3, int(10 - v.get("spd", 3.3)))) % 2
@@ -36,12 +40,15 @@ func _draw() -> void:
 	for e in g.EN:
 		if e.dead > 50:
 			continue
+		if e.x < g.cam - 200 or e.x > g.cam + g.W + 200:
+			continue
 		var eo := g.e_off(e)
 		Spr.save()
 		Spr.translate(eo.x, eo.y)
 		_enemy(e)
 		Spr.restore()
 	_player(g)
+	WorldExtras.grass(g, T)
 	for f in g.FXS:
 		Spr.A(f.n, f.x, f.y, f.sc, false, 1.0 - float(f.t) / f.life)
 	for p in g.PARTS:
@@ -199,7 +206,7 @@ func _enemy(e: Dictionary) -> void:
 			Spr.translate(0, m)
 			Spr.rotate(min(PI, e.dead * .25))
 			Spr.translate(0, -m)
-	elif not Game.FLY.has(e.k):
+	elif not Game.FLY.has(e.k) and not e.k in ["spider", "mole"]:
 		Spr.translate(0, -abs(sin(T * .3 + e.x * .01)) * 1.5)
 	match e.k:
 		"frog":
@@ -218,6 +225,12 @@ func _enemy(e: Dictionary) -> void:
 				Spr.A("en_owl_dive" if e.t < 34 else "en_owl_atk", 0, 0, .95)
 			else:
 				Spr.A("en_owl1" if (T / 7) % 2 else "en_owl2", 0, 0, .95)
+		"bat":
+			WorldExtras.bat(e, T)
+		"spider":
+			WorldExtras.spider(e, T)
+		"mole":
+			WorldExtras.mole(e, T)
 		"leech":
 			Spr.A("en_puddle", 0, 6, .9)
 			if e.dead:

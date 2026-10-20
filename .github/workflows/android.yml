@@ -70,6 +70,9 @@ jobs:
       - name: Teste dos controles de toque (diagonal e analógico)
         run: ~/godot/godot --headless --path . -s tests/touch.gd | tee /tmp/touch.log && grep -q "TOUCH OK" /tmp/touch.log
 
+      - name: Teste de salvar e continuar (segredos, chefe, picareta)
+        run: ~/godot/godot --headless --path . -s tests/save_test.gd | tee /tmp/save.log && grep -q "SAVE OK" /tmp/save.log
+
       - name: Gerar APK
         run: |
           mkdir -p build

@@ -1,0 +1,338 @@
+extends RefCounted
+class_name WorldExtras
+## Desenho dos sistemas novos que ficam no mundo (escurecem com a noite):
+## capim que balança, pegadas, giz da Lia, rochas rachadas, grades, espelhos, cristais,
+## plataformas de luz, troncos e o Javali-Rei, e os inimigos novos (morcego, aranha, toupeira).
+
+const CHALK := Color(.96, .95, .9, .82)
+
+static func h(x: float, k: int = 0) -> float:
+	## ruído fixo 0..1 a partir de x
+	var v := sin(x * 12.9898 + k * 78.233) * 43758.5453
+	return v - floor(v)
+
+# ---------------------------------------------------------------- capim
+static func grass(g: Game, T: int) -> void:
+	var x0: float = g.cam - 40
+	var x1: float = g.cam + g.W + 40
+	var p: Dictionary = g.player
+	var pcx: float = p.x + p.w / 2
+	var song: String = g.AMB.get("song", "manha")
+	var col := Color(.34, .58, .2)
+	if song == "tarde":
+		col = Color(.5, .55, .2)
+	elif song == "chuva":
+		col = Color(.25, .45, .3)
+	elif song in ["noite", "perseguicao", "tunel"]:
+		col = Color(.2, .38, .26)
+	var wind: float = g.AMB.get("wind", 0.0)
+	for s in g.SOL:
+		if s.t != "ground" or s.x > x1 or s.x + s.w < x0:
+			continue
+		var xa: float = max(s.x + 6, floor(x0 / 30.0) * 30.0)
+		var xb: float = min(s.x + s.w - 6, x1)
+		var x: float = xa
+		while x < xb:
+			var r := h(x)
+			if r > .35:
+				var by: float = s.y - 3
+				var near: float = clamp(1.0 - abs(x - pcx) / 34.0, 0, 1) if abs(p.y + p.h - s.y) < 40 else 0.0
+				var push: float = sign(x - pcx) * near * 9.0
+				var sway: float = sin(T * (.03 + wind * .05) + x * .03) * (1.5 + wind * 5.0) + wind * 4.0
+				for k in 4:
+					var bx: float = x + k * 3.2 - 5
+					var hh: float = 8 + h(bx, 2) * 9
+					var lean: float = sway + push + (k - 1.5) * 1.6
+					Spr.ci.draw_polyline(PackedVector2Array([Vector2(bx, by), Vector2(bx + lean * .45, by - hh * .55), Vector2(bx + lean, by - hh)]),
+						Color(col.r * (.85 + k * .06), col.g * (.85 + k * .06), col.b, .95), 1.6, true)
+			x += 30
+
+# ---------------------------------------------------------------- pegadas
+static func footprints(g: Game) -> void:
+	for f in g.X.FOOT:
+		var a: float = clamp(1.0 - f.t / 900.0, 0, 1) * .5
+		Spr.ellipse(f.x, f.y - 1, 5, 2, Color(.12, .08, .05, a))
+		Spr.ellipse(f.x + f.f * 5, f.y - 1.5, 2.2, 1.6, Color(.12, .08, .05, a))
+
+# ---------------------------------------------------------------- giz da Lia
+static func _stroke(pts: PackedVector2Array, w: float = 3.0) -> void:
+	Spr.ci.draw_polyline(pts, CHALK, w, true)
+	var o := PackedVector2Array()
+	for q in pts:
+		o.push_back(q + Vector2(.8, .9))
+	Spr.ci.draw_polyline(o, Color(1, 1, 1, .25), 1.2, true)
+
+static func chalk(g: Game, T: int) -> void:
+	for c in g.X.CHALK:
+		if c.x < g.cam - 80 or c.x > g.cam + g.W + 80:
+			continue
+		var x: float = c.x
+		var y: float = c.y
+		match c.k:
+			"seta":
+				var d: int = int(c.get("d", 1))
+				if d == 0:
+					_stroke(PackedVector2Array([Vector2(x, y + 22), Vector2(x, y - 20)]))
+					_stroke(PackedVector2Array([Vector2(x - 10, y - 8), Vector2(x, y - 21), Vector2(x + 10, y - 8)]))
+				else:
+					_stroke(PackedVector2Array([Vector2(x - 22 * d, y), Vector2(x + 20 * d, y + 1)]))
+					_stroke(PackedVector2Array([Vector2(x + 8 * d, y - 10), Vector2(x + 21 * d, y + 1), Vector2(x + 8 * d, y + 11)]))
+				if c.get("q"):
+					Spr.text("?", x - 30 * d, y + 8, 20, CHALK, HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b)
+			"coracao":
+				var pts := PackedVector2Array()
+				for i in 25:
+					var t := TAU * i / 24.0
+					pts.push_back(Vector2(x + 16 * pow(sin(t), 3) * .7, y - (13 * cos(t) - 5 * cos(2 * t) - 2 * cos(3 * t) - cos(4 * t)) * .7))
+				_stroke(pts)
+			"papai":
+				Spr.text("PAPAI", x, y, 18, CHALK, HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b)
+				var pts2 := PackedVector2Array()
+				for i in 13:
+					var t2 := TAU * i / 12.0
+					pts2.push_back(Vector2(x + 40 + 7 * pow(sin(t2), 3), y - 8 - (6 * cos(t2) - 2.5 * cos(2 * t2) - cos(3 * t2))))
+				_stroke(pts2, 2.0)
+			"sol":
+				var o := PackedVector2Array()
+				for i in 17:
+					o.push_back(Vector2(x + cos(TAU * i / 16.0) * 10, y + sin(TAU * i / 16.0) * 10))
+				_stroke(o)
+				for i in 8:
+					var a := TAU * i / 8.0
+					_stroke(PackedVector2Array([Vector2(x + cos(a) * 14, y + sin(a) * 14), Vector2(x + cos(a) * 21, y + sin(a) * 21)]), 2.0)
+			"estrela":
+				var st := PackedVector2Array()
+				for i in 11:
+					var a2 := -PI / 2 + TAU * i / 10.0
+					var rr := 18.0 if i % 2 == 0 else 8.0
+					st.push_back(Vector2(x + cos(a2) * rr, y + sin(a2) * rr))
+				_stroke(st)
+			"flor":
+				for i in 5:
+					var a3 := TAU * i / 5.0
+					var pe := PackedVector2Array()
+					for j in 9:
+						var b := TAU * j / 8.0
+						pe.push_back(Vector2(x + cos(a3) * 9 + cos(b) * 5, y + sin(a3) * 9 + sin(b) * 5))
+					_stroke(pe, 2.0)
+				_stroke(PackedVector2Array([Vector2(x, y + 14), Vector2(x + 2, y + 34)]), 2.0)
+			"x":
+				if not g.X.broken.has("slab"):
+					_stroke(PackedVector2Array([Vector2(x - 10, y - 7), Vector2(x + 10, y + 7)]), 3.5)
+					_stroke(PackedVector2Array([Vector2(x + 10, y - 7), Vector2(x - 10, y + 7)]), 3.5)
+
+# ---------------------------------------------------------------- peças com estado
+static func solids(g: Game, T: int) -> void:
+	for s in g.SOL:
+		if s.x > g.cam + g.W + 100 or s.x + s.w < g.cam - 100:
+			continue
+		match s.t:
+			"crack":
+				_crack(s, T)
+			"bars":
+				for i in 4:
+					Spr.rect(s.x + 2 + i * 5, s.y, 3, s.h, Color(.42, .44, .5))
+				Spr.rect(s.x - 2, s.y, s.w + 4, 8, Color(.3, .3, .35))
+				Spr.rect(s.x - 2, s.y + s.h * .5, s.w + 4, 6, Color(.3, .3, .35))
+			"bossgate":
+				for i in 5:
+					var yy: float = s.y + s.h - 26 - i * 42
+					Spr.rr(s.x - 30 + (i % 2) * 10, yy, 84, 30, 14, Color("#6b4a2a"))
+					Spr.circle(s.x - 18 + (i % 2) * 10, yy + 15, 11, Color("#c9a26a"))
+					Spr.ring(s.x - 18 + (i % 2) * 10, yy + 15, 11, Color("#3a2414"), 2)
+			"bosslog":
+				_log(s.x, s.y)
+			"hatchd":
+				for i in 4:
+					Spr.rect(s.x + 2 + i * 15, s.y, 12, 8, Color("#6b4a2a"))
+				Spr.rect(s.x, s.y + 2, s.w, 3, Color("#4a3220"))
+	for l in g.X.LOGS:
+		if not l.landed and not l.dead:
+			_log(l.x, l.y)
+	# plataformas de luz
+	for gp in g.X.GHOST:
+		var a: float = gp.a
+		var c := Color(.75, .9, 1, .14 + a * .7)
+		Spr.rr(gp.x, gp.y, gp.w, 14, 6, Color(.55, .75, 1, .06 + a * .5))
+		Spr.ci.draw_rect(Rect2(gp.x, gp.y, gp.w, 14), c, false, 1.5)
+		if a > .3:
+			for k in 3:
+				Spr.circle(gp.x + 10 + k * (gp.w - 20) / 2.0, gp.y + 7, 2, Color(1, 1, 1, a * .8))
+	# espelhos
+	for m in g.X.MIRRORS:
+		var fl: float = m.flash / 14.0
+		if m.get("ceil"):
+			Spr.rect(m.x - 2, m.y - 30, 4, 18, Color(.35, .3, .25))
+		else:
+			Spr.rect(m.x - 10, m.y + 10, 20, 14, Color(.35, .3, .25))
+		Spr.save()
+		Spr.translate(m.x, m.y)
+		Spr.rotate(-PI / 4 if int(m.s) == 0 else PI / 4)
+		Spr.rr(-18, -5, 36, 10, 3, Color("#5a4a3a"))
+		Spr.rect(-15, -3, 30, 6, Color(.75 + fl * .25, .88 + fl * .1, 1))
+		Spr.rect(-13, -2, 10, 2, Color(1, 1, 1, .8))
+		Spr.restore()
+		if g.X.near_floor_mirror() == m:
+			Spr.text("✦ GIRAR", m.x, m.y - 30 + sin(T * .15) * 3, 15, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
+	# cristais
+	for c2 in g.X.CRYSTALS:
+		var e: float = 1.0 if c2.on else c2.charge / 60.0
+		var pts := PackedVector2Array([Vector2(c2.x, c2.y - 15), Vector2(c2.x + 10, c2.y - 2), Vector2(c2.x + 5, c2.y + 14), Vector2(c2.x - 5, c2.y + 14), Vector2(c2.x - 10, c2.y - 2)])
+		Spr.poly(pts, Color(.35 + e * .5, .5 + e * .45, .8 + e * .2))
+		Spr.ci.draw_polyline(pts + PackedVector2Array([pts[0]]), Color(.15, .2, .35), 2, true)
+		Spr.seg(c2.x - 3, c2.y - 9, c2.x - 6, c2.y + 4, Color(1, 1, 1, .6), 2)
+
+static func _crack(s: Dictionary, T: int) -> void:
+	var ink := Color(.12, .1, .09)
+	if s.get("kind") == "slab":
+		Spr.rect(s.x, s.y, s.w, s.h, Color(.48, .45, .42))
+		Spr.rect(s.x, s.y, s.w, 3, Color(.62, .6, .56))
+		Spr.ci.draw_polyline(PackedVector2Array([Vector2(s.x + 8, s.y + 4), Vector2(s.x + 22, s.y + 12), Vector2(s.x + 30, s.y + 6), Vector2(s.x + 44, s.y + 16), Vector2(s.x + 54, s.y + 9)]), ink, 2, true)
+		return
+	var cx: float = s.x + s.w / 2
+	var cy: float = s.y + s.h / 2
+	var pts := PackedVector2Array()
+	for i in 12:
+		var a := TAU * i / 12.0
+		var r: float = s.w * .5 * (.88 + WorldExtras.h(s.x + i, 3) * .18)
+		pts.push_back(Vector2(cx + cos(a) * r, cy + sin(a) * s.h * .52 * (.9 + WorldExtras.h(s.x - i, 4) * .14)))
+	Spr.poly(pts, Color(.5, .46, .43))
+	Spr.ci.draw_polyline(pts + PackedVector2Array([pts[0]]), ink, 2.5, true)
+	Spr.ellipse(cx - s.w * .14, cy - s.h * .2, s.w * .2, s.h * .12, Color(1, 1, 1, .18))
+	Spr.ci.draw_polyline(PackedVector2Array([Vector2(cx - 4, s.y + 4), Vector2(cx + 4, cy - 6), Vector2(cx - 6, cy + 4), Vector2(cx + 3, s.y + s.h - 6)]), ink, 2.2, true)
+	Spr.ci.draw_polyline(PackedVector2Array([Vector2(cx + 4, cy - 6), Vector2(cx + 16, cy - 2)]), ink, 1.6, true)
+
+static func _log(x: float, y: float) -> void:
+	Spr.rr(x, y, 130, 28, 13, Color("#6b4a2a"))
+	Spr.rect(x + 10, y + 5, 110, 3, Color(1, 1, 1, .1))
+	Spr.ellipse(x + 118, y + 14, 12, 13, Color("#c9a26a"))
+	Spr.ring(x + 118, y + 14, 12, Color("#3a2414"), 2)
+	Spr.ring(x + 118, y + 14, 6, Color(.35, .24, .12, .6), 1.5)
+
+# ---------------------------------------------------------------- Javali-Rei
+static func boss(g: Game, T: int) -> void:
+	var b: Dictionary = g.X.BOSS
+	if b.is_empty() or b.done or b.st == "wait":
+		return
+	var fr := 0
+	var shake_x := 0.0
+	match b.st:
+		"idle":
+			fr = 4
+		"paw":
+			fr = 4
+			shake_x = sin(T * 1.3) * 2
+		"charge", "flee":
+			fr = 5 if (T / 4) % 2 == 0 else 3
+		"stun":
+			fr = 6
+		"hit":
+			fr = 6
+		"trot":
+			fr = [0, 1, 2, 3][(T / 6) % 4]
+		_:
+			fr = 0
+	var sc := 1.12
+	Spr.ellipse(b.x, 502, 90, 12, Color(0, 0, 0, .3))
+	Spr.save()
+	Spr.translate(b.x + shake_x, b.y)
+	Spr.scale(1 if b.dir > 0 else -1, 1)
+	var tint := Color(1, .45, .4, 1) if b.red > 0 and (T / 3) % 2 == 0 else Color(1, 1, 1, 1)
+	Spr.ci.draw_texture_rect_region(Spr.tex.javali, Rect2(-105 * sc, -136 * sc + 4, 210 * sc, 140 * sc), Rect2(fr * 210, 0, 210, 140), tint)
+	# coroa de folhas (é o rei)
+	var cx := 30.0
+	var cy := -128.0 * sc + 10
+	for i in 5:
+		var a := -PI / 2 + (i - 2) * .38
+		Spr.ellipse(cx + cos(a) * 16, cy + sin(a) * 10 + 4, 7, 4, Color("#4f8a2a"), a)
+	Spr.circle(cx, cy + 6, 4, Color("#e0463a"))
+	Spr.restore()
+	if b.st == "stun":
+		for i in 4:
+			var a2 := T * .12 + TAU * i / 4.0
+			Spr.text("★", b.x + cos(a2) * 34, b.y - 136 + sin(a2) * 10, 16, Color("#ffe27a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3)
+	if b.st == "paw" and (T / 8) % 2 == 0:
+		Spr.text("!", b.x + b.dir * 30, b.y - 150, 32, Color("#ff6a4a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 5)
+
+# ---------------------------------------------------------------- inimigos novos (desenhados por código)
+static func bat(e: Dictionary, T: int) -> void:
+	var body := Color("#3b2b44")
+	var wing := Color("#55406a")
+	if e.dead:
+		Spr.ellipse(0, 0, 12, 10, body)
+		return
+	if e.get("st", 0) == 0:
+		# pendurado, de cabeça para baixo, enrolado nas asas
+		Spr.seg(-4, -2, -4, 4, Color(.2, .15, .1), 2)
+		Spr.seg(4, -2, 4, 4, Color(.2, .15, .1), 2)
+		Spr.ellipse(0, 14, 11, 13, wing)
+		Spr.ellipse(0, 26, 8, 6, body)
+		Spr.poly(PackedVector2Array([Vector2(-7, 30), Vector2(-4, 38), Vector2(-1, 30)]), body)
+		Spr.poly(PackedVector2Array([Vector2(1, 30), Vector2(4, 38), Vector2(7, 30)]), body)
+		Spr.seg(-3, 24, -1, 24, Color(1, .9, .4, .8), 1.5)
+		Spr.seg(1, 24, 3, 24, Color(1, .9, .4, .8), 1.5)
+		return
+	var f: float = sin(T * .55 + e.x)
+	for sd in [-1, 1]:
+		var tip := Vector2(sd * 30, -6 - f * 14)
+		var pts := PackedVector2Array([Vector2(sd * 5, -3), Vector2(sd * 16, -12 - f * 8), tip, Vector2(sd * 22, 3 - f * 4), Vector2(sd * 15, 1), Vector2(sd * 9, 6)])
+		Spr.poly(pts, wing)
+		Spr.ci.draw_polyline(pts, Color(.15, .1, .2), 1.5, true)
+	Spr.ellipse(0, 1, 9, 10, body)
+	Spr.poly(PackedVector2Array([Vector2(-7, -6), Vector2(-5, -16), Vector2(-1, -8)]), body)
+	Spr.poly(PackedVector2Array([Vector2(1, -8), Vector2(5, -16), Vector2(7, -6)]), body)
+	Spr.circle(-3, -2, 2.2, Color(1, .88, .35))
+	Spr.circle(3.5, -2, 2.2, Color(1, .88, .35))
+	Spr.poly(PackedVector2Array([Vector2(-2, 4), Vector2(0, 7), Vector2(2, 4)]), Color(1, 1, 1))
+
+static func spider(e: Dictionary, T: int) -> void:
+	var body := Color("#2a2233")
+	if not e.dead:
+		Spr.seg(0, e.top - e.y, 0, -8, Color(.9, .9, .9, .55), 1.2)
+	var lw: float = sin(T * .3) * 3 if e.get("st", 0) in [1, 3] else 0.0
+	for sd in [-1, 1]:
+		for k in 4:
+			var ay: float = -4 + k * 3.5
+			var kx: float = sd * (12 + k * 1.5)
+			var ky: float = ay - 9 + k * 2 + lw * (1 if k % 2 == 0 else -1)
+			Spr.ci.draw_polyline(PackedVector2Array([Vector2(sd * 4, ay), Vector2(kx, ky), Vector2(sd * (17 + k * 2), ay + 9)]), body, 2, true)
+	Spr.ellipse(0, 7, 11, 10, body)
+	Spr.ellipse(0, -4, 7, 6, Color("#3a3045"))
+	Spr.ellipse(-3, 5, 3, 2, Color(.6, .25, .7, .8))
+	Spr.circle(-2.5, -5, 2, Color.WHITE)
+	Spr.circle(2.5, -5, 2, Color.WHITE)
+	Spr.circle(-2.5, -5, 1, Color.BLACK)
+	Spr.circle(2.5, -5, 1, Color.BLACK)
+
+static func mole(e: Dictionary, T: int) -> void:
+	var st: int = e.get("st", 0)
+	var dirt := Color("#6b4a2a")
+	if e.dead:
+		Spr.ellipse(0, -8, 16, 9, Color("#6e6070"))
+		return
+	if st == 0:
+		Spr.ellipse(0, 0, 22, 9, dirt)
+		Spr.ellipse(-4, -3, 10, 4, Color("#8a6a42"))
+		if T % 10 < 5:
+			Spr.circle(10, -4, 2, Color("#4a3220"))
+		return
+	var up: float = 1.0
+	if st == 1:
+		up = .25 + sin(T * 1.2) * .08
+	elif st == 3:
+		up = clamp(1.0 - e.t / 14.0, 0, 1)
+	var yy: float = -30 * up
+	Spr.ellipse(0, 2, 24, 8, dirt)
+	if up > .1:
+		Spr.ellipse(0, yy + 14, 15, 15 * up, Color("#6e6070"))
+		Spr.ellipse(0, yy + 18, 9, 9 * up, Color("#8e8090"))
+		Spr.circle(10, yy + 9, 4, Color("#f2a0b0"))
+		Spr.circle(-1, yy + 5, 1.8, Color.BLACK)
+		Spr.circle(5, yy + 5, 1.8, Color.BLACK)
+		for k in 3:
+			Spr.seg(-14 + k * 3, yy + 22, -16 + k * 3, yy + 27, Color("#f2a0b0"), 2)
+			Spr.seg(10 + k * 3, yy + 22, 12 + k * 3, yy + 27, Color("#f2a0b0"), 2)
+		# capacete de mineiro de brinquedo
+		Spr.ci.draw_arc(Vector2(2, yy + 4), 11, PI, TAU, 16, Color("#e8b030"), 5, true)
+		Spr.circle(2, yy - 6, 3, Color("#fff4b0"))
+	Spr.ellipse(0, 4, 26, 5, dirt)

@@ -53,6 +53,9 @@ func _ready() -> void:
 	ui_layer = CanvasLayer.new()
 	ui_layer.layer = 4
 	add_child(ui_layer)
+	var front := preload("res://scripts/front.gd").new()
+	front.game = game
+	screen_layer.add_child(front)
 	var fxn := preload("res://scripts/screen_fx.gd").new()
 	fxn.game = game
 	screen_layer.add_child(fxn)
@@ -108,6 +111,12 @@ func _build_world() -> void:
 		lights.append({"n": _light(Color(.45, .75, 1), 110), "pos": Vector2(s.x, s.y - 30)})
 	lights.append({"n": _light(Color(1, .8, .5), 150), "pos": Vector2(game.DOOR.x + 30, game.DOOR.y + 20), "door": true})
 	lights.append({"n": _light(Color(1, .85, .55), 100), "vil": true})
+	# facho concentrado da lanterna, cristais e lápis dourado
+	lights.append({"n": _light(Color(1, .9, .65), 200), "beam": true})
+	for c in game.X.CRYSTALS:
+		lights.append({"n": _light(Color(.6, .85, 1), 120), "crystal": c})
+	if not game.X.GOLD.is_empty():
+		lights.append({"n": _light(Color(1, .85, .4), 90), "gold": true})
 
 func _make_light_tex() -> void:
 	var g := Gradient.new()
@@ -147,6 +156,17 @@ func _update_lights() -> void:
 		if l.has("chk"):
 			n.position = Vector2(l.chk.x, l.chk.y - 20)
 			n.energy = dark * (1.1 + sin(game.T * .3 + l.chk.x) * .12) if l.chk.on else 0.0
+		elif l.has("beam"):
+			var on: bool = game.X.focus
+			var o: Vector2 = game.X.lamp()
+			n.position = o + Vector2(p.face * 190, 0)
+			n.energy = dark * 1.25 if on else 0.0
+		elif l.has("crystal"):
+			n.position = Vector2(l.crystal.x, l.crystal.y)
+			n.energy = dark * (1.3 if l.crystal.on else l.crystal.charge / 60.0)
+		elif l.has("gold"):
+			n.position = Vector2(game.X.GOLD.x, game.X.GOLD.y)
+			n.energy = 0.0 if game.X.GOLD.got else dark * .9
 		elif l.has("vil"):
 			var v = game.VIL
 			n.energy = dark * 1.2 if (v and v.go and not v.gone) else 0.0
@@ -173,6 +193,8 @@ func _process(_d: float) -> void:
 		var px: float = game.player.x
 		if px > 8700 and px < 9420 and game.player.y < 760:
 			song = "tunel"
+		if game.X and game.X.boss_active():
+			song = "perseguicao"
 		if state == S.PLAY:
 			Audio.set_song(song)
 
@@ -786,6 +808,8 @@ func play_cut(id: String, after: Callable) -> void:
 		Audio.set_song("tema")
 	elif id == "mina":
 		Audio.set_song("vitoria")
+	elif id == "posfinal":
+		Audio.set_song("tunel")
 	var c := preload("res://scripts/ui/cutscene.gd").new(id)
 	c.theme = theme_ui
 	ui_layer.add_child(c)
@@ -843,6 +867,12 @@ func show_gallery() -> void:
 		fd.scale = Vector2(.82, .82)
 		fd.custom_minimum_size = Vector2(246, 150)
 		row.add_child(fd)
+	if Save.getv("gallery", "gold", false):
+		var gl := HBoxContainer.new()
+		gl.alignment = BoxContainer.ALIGNMENT_CENTER
+		gl.add_child(_atlas_icon("pen_gold", 34))
+		gl.add_child(_label("  O lápis dourado da Lia — encontrado!", 14, Color("#ffd76a"), Spr.font_i))
+		vb.add_child(gl)
 	vb.add_child(_label("PISTAS ENCONTRADAS", 13, Color("#b8a888")))
 	var cl := HBoxContainer.new()
 	cl.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -910,16 +940,15 @@ func _on_results() -> void:
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 30)
 	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	for t in ["⏱ Tempo  %d:%02d" % [secs / 60, secs % 60], "✏ Lápis  %d/%d" % [pen, pt], "Lápis especiais  %d/6" % ns, "Desenhos  %d/%d" % [dr, game.DRWS.size()], "Pistas  %d/6" % nc]:
+	var gold_txt := "Lápis dourado  " + ("✓" if game.X.GOLD.get("got", false) else "—")
+	var sec_txt := "Lugares secretos  %d/%d" % [game.X.found.size(), game.X.SECRETS.size()]
+	for t in ["⏱ Tempo  %d:%02d" % [secs / 60, secs % 60], "✏ Lápis  %d/%d" % [pen, pt], "Lápis especiais  %d/6" % ns, "Desenhos  %d/%d" % [dr, game.DRWS.size()], "Pistas  %d/6" % nc, gold_txt, sec_txt]:
 		grid.add_child(_label(t, 15, INK))
 	vb.add_child(grid)
 	var story := "Agora eu sei: foi Ademar Vargas, o gerente que roubava a mina. Ele levou a Lia para se vingar. Vou atrás dele — mina adentro." if nc == 6 else "Ele fugiu para a mina. Ainda faltam pistas para ter certeza de quem é... (%d/6)" % nc
 	vb.add_child(_label(story, 16, Color("#e8dcc0"), Spr.font_i, 640))
 	vb.add_child(_label("As próximas fases chegam em breve.", 13, Color(.75, .7, .6)))
-	vb.add_child(_button("CONTINUAR", func():
-		panel.queue_free()
-		panel = null
-		show_title()))
+	vb.add_child(_button("CONTINUAR", func(): play_cut("posfinal", show_title)))
 
 class _FinalDrawing extends Control:
 	## O desenho da Lia, colorido com os lápis especiais encontrados

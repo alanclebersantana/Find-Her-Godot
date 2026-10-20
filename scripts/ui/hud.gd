@@ -17,7 +17,7 @@ func _draw() -> void:
 	var W := size.x
 	var p: Dictionary = game.player
 	Spr.begin(self)
-	_box(8, 8, 262, 40)
+	_box(8, 8, 290, 40)
 	for i in Game.MAXHP:
 		Spr.A("hud_heart_full" if i < p.hp else "hud_heart_empty", 28 + i * 26, 28, .5)
 	if p.armor > 0:
@@ -29,6 +29,8 @@ func _draw() -> void:
 	for c in GameData.PEN_LIST:
 		Spr.rr(240 + k * 8, 14, 6, 26, 2, GameData.PEN_COL[c] if game.SPECGOT.has(c) else Color(.35, .31, .25, .6))
 		k += 1
+	if game.X and not game.X.GOLD.is_empty() and game.X.GOLD.got:
+		Spr.rr(240 + k * 8, 14, 6, 26, 2, Color("#ffd76a"))
 	# tempo
 	var s: int = max(0, int(ceil(game.time_left / 60.0)))
 	var low := s <= 20
@@ -46,6 +48,25 @@ func _draw() -> void:
 	_box(W - 130, 52, 122, 28)
 	Spr.A("hud_paper", W - 111, 66, .36)
 	Spr.text("desenhos %d/%d" % [nd, game.DRWS.size()], W - 96, 71, 13, Color("#ffd76a") if nd == game.DRWS.size() else Color("#cdbfa6"))
+	# fôlego (na água)
+	var X: Extras = game.X
+	if X and X.breath < Extras.BREATH:
+		var n: int = int(ceil(X.breath / float(Extras.BREATH) * 8))
+		_box(W / 2 - 92, 50, 184, 28)
+		for i in 8:
+			var on := i < n
+			var bx: float = W / 2 - 74 + i * 21
+			Spr.circle(bx, 64, 7, Color(.6, .85, 1, .85) if on else Color(.3, .35, .4, .4))
+			if on:
+				Spr.circle(bx - 2, 62, 2, Color(1, 1, 1, .8))
+	# Javali-Rei
+	if X and X.boss_active() and X.BOSS.st != "wait":
+		var b: Dictionary = X.BOSS
+		var bw := 300.0
+		_box(W / 2 - bw / 2 - 10, 52, bw + 20, 40)
+		Spr.text("JAVALI-REI", W / 2, 68, 13, Color("#ffcf9a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_title)
+		Spr.rr(W / 2 - bw / 2, 74, bw, 10, 5, Color(.2, .1, .08, .9))
+		Spr.rr(W / 2 - bw / 2, 74, bw * b.hp / float(b.maxhp), 10, 5, Color("#e0463a"))
 	# dica do lugar
 	var h := game.hint_text() if game.running else ""
 	if h != "":
@@ -59,8 +80,9 @@ func _draw() -> void:
 		var hw := 0.0
 		for ln in hl:
 			hw = max(hw, Spr.font_i.get_string_size(ln, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x)
-		Spr.rr(W / 2 - hw / 2 - 14, 92, hw + 28, hl.size() * 21 + 12, 9, Color(.04, .03, .02, .55 * hint_alpha))
-		_wrapped(hint_txt, W / 2, 110, mw, 15, Color(.93, .87, .74, hint_alpha), Spr.font_i)
+		var hy := 100.0 if (X and X.boss_active()) else 92.0
+		Spr.rr(W / 2 - hw / 2 - 14, hy, hw + 28, hl.size() * 21 + 12, 9, Color(.04, .03, .02, .55 * hint_alpha))
+		_wrapped(hint_txt, W / 2, hy + 18, mw, 15, Color(.93, .87, .74, hint_alpha), Spr.font_i)
 	# aviso (flash)
 	if game.flash_t > 0 and game.flash_msg != "":
 		var a: float = clamp(game.flash_t / 40.0, 0, 1)

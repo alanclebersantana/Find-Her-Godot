@@ -38,7 +38,7 @@ func _initialize() -> void:
 	await process_frame
 	main.panel.get_meta("ok").call()
 	var g = main.game
-	g.INV = ["corda", "gancho", "engrenagem", "oleo"]
+	g.INV = ["corda", "gancho", "engrenagem", "oleo", "picareta"]
 	g.CLUEGOT[1] = 1
 	g.CLUEGOT[3] = 1
 	g.SPECGOT["verde"] = 1
@@ -72,6 +72,12 @@ func _initialize() -> void:
 	await _cut_shot("cut_mi1", 1, .9)
 	_cut()._end()
 	await _snap("res")
+	main.play_cut("posfinal", func(): pass)
+	await process_frame
+	await _cut_shot("cut_pf0", 0, .7)
+	await _cut_shot("cut_pf1", 1, .9)
+	await _cut_shot("cut_pf2", 2, .8)
+	_cut()._end()
 	root.get_node("Save").setv("gallery", "d0", true)
 	main.show_gallery()
 	await _snap("gallery")

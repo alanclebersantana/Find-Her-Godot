@@ -32,6 +32,10 @@ func _draw() -> void:
 			"branch": branch(s)
 			"trunk": trunk(s)
 			"dirt": Spr.rect(s.x, s.y, s.w, s.h, EARTH)
+			"fakewall":
+				Spr.rect(s.x, s.y, s.w, s.h, EARTH)
+				Spr.seg(s.x + 4, s.y + 10, s.x + 14, s.y + 30, Color(0, 0, 0, .35), 1.5)
+				Spr.seg(s.x + 14, s.y + 30, s.x + 6, s.y + 52, Color(0, 0, 0, .35), 1.5)
 			"cabin": cabin(s)
 			"root": root_log(s)
 			"treehouse": treehouse(s)

@@ -32,6 +32,9 @@ func _ready() -> void:
 			var at: Texture2D = load(ap)
 			var fh := at.get_height()
 			anim[k] = {"tex": at, "n": max(1, int(round(at.get_width() / float(fh)))), "s": fh}
+	# peças extras desenhadas à parte (atlas 2 = extra.png)
+	tex["extra"] = load("res://assets/sprites/extra.png")
+	AR["it_picareta"] = [17, 12, 102, 110, 51, 55, 2]
 	var j = JSON.parse_string(FileAccess.get_file_as_string("res://assets/data/atlas.json"))
 	for n in j.atlas1:
 		var r = j.atlas1[n]
@@ -57,6 +60,8 @@ func _ready() -> void:
 	font_title = load("res://assets/fonts/Cinzel-Bold.woff2")
 
 func atlas_tex(r) -> Texture2D:
+	if r[6] == 2:
+		return tex.extra
 	return tex.atlas2 if r[6] == 1 else tex.atlas1
 
 func has(n: String) -> bool:

@@ -36,6 +36,12 @@ func _ready() -> void:
 				{"d": _s_badge_glint, "txt": "Alguma coisa brilhou na luz da lanterna. Um crachá...", "dur": 4.5},
 				{"d": _s_villain_face, "txt": "Ademar Vargas. O gerente que Tomé denunciou por roubar a mina.", "dur": 5.0},
 			]
+		"posfinal":
+			shots = [
+				{"d": _s_post_rails, "txt": "Lá no fundo da mina, longe de qualquer luz...", "dur": 4.5},
+				{"d": _s_post_pencil, "txt": "...uma mãozinha deixou cair mais um lápis nos trilhos. A Lia ainda está marcando o caminho.", "dur": 6.0},
+				{"d": _s_post_card, "txt": "Fase 2: As Profundezas da Mina — em breve.", "dur": 4.5},
+			]
 		"mina":
 			shots = [
 				{"d": _s_mine_enter, "txt": "O carrinho sumiu na boca da mina, com a Lia lá dentro.", "dur": 5.0},
@@ -313,3 +319,59 @@ func _s_mine_closed(W: float, H: float, k: float) -> void:
 	Spr.restore()
 	Spr.glow(W * .48, gy - 6, 36 + sin(t * 5) * 6, Color(.85, .6, 1, .6))
 	_vignette(W, H, .7)
+
+# ---------- depois dos créditos ----------
+func _rails(W: float, H: float, k: float, dark: float) -> void:
+	Spr.vgrad(0, 0, W, H, Color(.05, .04, .04), Color(.01, .01, .01))
+	var vx := W * .5
+	var vy := H * .38
+	for i in 14:
+		var u := pow((i + fmod(t * .4, 1.0)) / 14.0, 2.0)
+		var y: float = lerp(vy, H + 40, u)
+		var hw: float = lerp(8.0, W * .55, u)
+		Spr.rect(vx - hw, y, hw * 2, 3 + u * 10, Color(.25, .17, .1, .9 * u + .1))
+	for sd in [-1, 1]:
+		Spr.ci.draw_line(Vector2(vx + sd * 4, vy), Vector2(vx + sd * W * .32, H + 40), Color(.55, .55, .6), 3)
+	# paredes da galeria
+	Spr.poly(PackedVector2Array([Vector2(0, 0), Vector2(vx - 30, vy - 20), Vector2(vx - 30, vy + 10), Vector2(0, H)]), Color(.09, .07, .06))
+	Spr.poly(PackedVector2Array([Vector2(W, 0), Vector2(vx + 30, vy - 20), Vector2(vx + 30, vy + 10), Vector2(W, H)]), Color(.08, .06, .05))
+	for i in 5:
+		var u2 := (i + 1) / 6.0
+		var x0: float = lerp(vx - 30, 0.0, u2)
+		var x1: float = lerp(vx + 30, W, u2)
+		var yt: float = lerp(vy - 20, 0.0, u2)
+		var yb: float = lerp(vy + 10, H, u2)
+		Spr.rect(x0 - 6 * u2, yt, 12 * u2, yb - yt, Color(.3, .2, .12))
+		Spr.rect(x1 - 6 * u2, yt, 12 * u2, yb - yt, Color(.3, .2, .12))
+		Spr.rect(x0, yt, x1 - x0, 10 * u2, Color(.3, .2, .12))
+	# uma lanterna balançando, bem longe
+	var sw := sin(t * 2.0) * 6
+	Spr.glow(vx + sw, vy - 4, 46, Color(1, .75, .4, .5 * dark))
+	Spr.circle(vx + sw, vy - 4, 2.5, Color(1, .9, .6, dark))
+
+func _s_post_rails(W: float, H: float, k: float) -> void:
+	_rails(W, H, k, clamp(k * 2, 0, 1))
+	_vignette(W, H, .8)
+
+func _s_post_pencil(W: float, H: float, k: float) -> void:
+	_rails(W, H, k, 1.0)
+	# o lápis rola pelo trilho até parar
+	var e: float = clamp(k * 1.6, 0, 1)
+	var px: float = lerp(W * .5, W * .42, e)
+	var py: float = lerp(H * .45, H * .8, e)
+	var sc: float = lerp(.3, 1.6, e)
+	Spr.save()
+	Spr.translate(px, py)
+	Spr.rotate(e * 9.0)
+	Spr.A("pen_vermelho", 0, 0, sc)
+	Spr.restore()
+	if e >= 1:
+		Spr.glow(px, py, 40 + sin(t * 4) * 6, Color(1, .5, .4, .4))
+	_vignette(W, H, .75)
+
+func _s_post_card(W: float, H: float, k: float) -> void:
+	Spr.vgrad(0, 0, W, H, Color(.06, .05, .04), Color(0, 0, 0))
+	var a: float = clamp(k * 3, 0, 1)
+	Spr.text("FASE 2", W / 2, H * .36, 22, Color(.8, .72, .6, a), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_title)
+	Spr.text("AS PROFUNDEZAS DA MINA", W / 2, H * .36 + 54, 40, Color(.95, .82, .55, a), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_title, 6)
+	Spr.text("em breve", W / 2, H * .36 + 96, 18, Color(.8, .75, .65, a * .8), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_i)

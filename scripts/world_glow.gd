@@ -92,6 +92,7 @@ func _draw() -> void:
 				var rx: float = a + fmod(T * 13 + k * 97, b5 - a)
 				var rr := 4 + (T + k * 5) % 12
 				Spr.ci.draw_arc(Vector2(rx, s.y + 2), rr, 0, TAU, 16, Color(.86, .92, .86, .5), 1.2)
+	_extras(g, T)
 	# moitas (escondem passagens)
 	var p: Dictionary = g.player
 	for bsh in g.BUSH:
@@ -120,3 +121,78 @@ func _ground_obj(n: String, o: Dictionary, sc: float, glow: Color, flat: bool) -
 	Spr.A(n, 0, -r[3] * sc / 2, sc)
 	Spr.restore()
 	return cy
+
+## Sistemas novos que brilham ou ficam na frente: facho, raio dos espelhos, lápis dourado, água,
+## bolhas, ondinhas, mariposas, vaga-lumes e a "tampa" das salas secretas ainda não achadas.
+func _extras(g: Game, T: int) -> void:
+	var X: Extras = g.X
+	var p: Dictionary = g.player
+	var dark: float = g.AMB.dark
+	# lápis dourado
+	if not X.GOLD.is_empty() and not X.GOLD.got:
+		var gy: float = X.GOLD.y + sin(T * .07) * 3
+		Spr.glow(X.GOLD.x, gy, 46 + sin(T * .15) * 5, Color(1, .85, .35, .55))
+		Spr.save()
+		Spr.translate(X.GOLD.x, gy)
+		Spr.rotate(-.5)
+		Spr.A("pen_gold", 0, 0, 1.1)
+		Spr.restore()
+		if T % 8 == 0:
+			g.PARTS.append({"x": X.GOLD.x + (randf() - .5) * 26, "y": gy + (randf() - .5) * 20, "vx": 0, "vy": -.5, "life": 22, "col": Color("#ffe27a")})
+	# água (na frente do Tomé)
+	for w in X.WATER:
+		if w.x > g.cam + g.W or w.x + w.w < g.cam:
+			continue
+		Spr.vgrad(w.x, w.y, w.w, w.h, Color(.2, .45, .55, .42), Color(.05, .16, .24, .7))
+		var pts := PackedVector2Array()
+		var x: float = w.x
+		while x <= w.x + w.w:
+			pts.push_back(Vector2(x, w.y + sin(x * .06 + T * .07) * 1.6))
+			x += 8
+		Spr.line(pts, Color(.75, .92, 1, .65), 2)
+		Spr.rect(w.x, w.y, w.w, w.h, Color(.02, .03, .08, dark * .55))
+	for b in X.BUB:
+		Spr.ring(b.x, b.y, 2 + b.t * .02, Color(.85, .95, 1, .7), 1.2)
+	for r in X.RIP:
+		var a: float = 1.0 - r.t / 50.0
+		Spr.ci.draw_arc(Vector2(r.x, r.y), (4 + r.t * .7) * r.s, 0, TAU, 20, Color(.85, .95, .9, .45 * a), 1.2)
+	# facho da lanterna
+	if X.focus:
+		var o := X.lamp()
+		var f: float = p.face
+		var L := Extras.BEAM_LEN
+		var spread: float = tan(Extras.BEAM_ANG) * L
+		var cone := PackedVector2Array([o, Vector2(o.x + f * L, o.y - spread), Vector2(o.x + f * L, o.y + spread)])
+		var ca := .16 + dark * .22
+		Spr.ci.draw_polygon(cone, PackedColorArray([Color(1, .92, .65, ca + .15), Color(1, .9, .6, 0), Color(1, .9, .6, 0)]))
+		var core := PackedVector2Array([o, Vector2(o.x + f * L * .8, o.y - spread * .35), Vector2(o.x + f * L * .8, o.y + spread * .35)])
+		Spr.ci.draw_polygon(core, PackedColorArray([Color(1, .95, .75, ca + .2), Color(1, .95, .7, 0), Color(1, .95, .7, 0)]))
+		Spr.glow(o.x, o.y, 26, Color(1, .9, .6, .6))
+	if X.BEAM.size() >= 2:
+		var pl := PackedVector2Array(X.BEAM)
+		Spr.ci.draw_polyline(pl, Color(1, .9, .55, .35), 9, true)
+		Spr.ci.draw_polyline(pl, Color(1, .97, .8, .95), 3, true)
+		Spr.glow(X.BEAM[X.BEAM.size() - 1].x, X.BEAM[X.BEAM.size() - 1].y, 22, Color(1, .95, .7, .7))
+	for c in X.CRYSTALS:
+		if c.on or c.charge > 0:
+			Spr.glow(c.x, c.y, 30 + c.charge * .5, Color(.6, .85, 1, .25 + c.charge / 120.0))
+	# mariposas em volta da lanterna
+	if g.lantern_lit and dark > .35:
+		var o2 := X.lamp()
+		for m in X.MOTHS:
+			var mx: float = o2.x + cos(m.a) * m.r
+			var my: float = o2.y + sin(m.a * 1.3) * m.r * .6 - 6
+			var fl: float = abs(sin(m.ph))
+			Spr.ellipse(mx - 2.5, my, 3.5 * fl + .5, 2.5, Color(.92, .88, .78, .85))
+			Spr.ellipse(mx + 2.5, my, 3.5 * fl + .5, 2.5, Color(.92, .88, .78, .85))
+			Spr.circle(mx, my, 1.2, Color(.5, .45, .4))
+	# vaga-lumes (fogem da lanterna)
+	for ff in X.FIRE:
+		var bl: float = .45 + .55 * max(0.0, sin(ff.ph))
+		Spr.glow(ff.x, ff.y, 9, Color(.85, 1, .45, .5 * bl * (.4 + dark)))
+		Spr.circle(ff.x, ff.y, 1.6, Color(1, 1, .7, bl))
+	# salas secretas ainda tampadas
+	var mod := Color(1, 1, 1).lerp(Color(.035, .05, .1), clamp(dark, 0, 1) * .97)
+	for sc in X.SECRETS:
+		if sc.a > 0:
+			Spr.rect(sc.x - 2, sc.y - 2, sc.w + 4, sc.h + 4, Color(.165 * mod.r, .102 * mod.g, .055 * mod.b, sc.a))

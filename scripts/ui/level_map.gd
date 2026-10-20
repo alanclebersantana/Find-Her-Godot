@@ -39,6 +39,18 @@ func _draw() -> void:
 	for sw in game.SWAMP:
 		var a2: Vector2 = P.call(sw.x, sw.y)
 		draw_rect(Rect2(a2.x, a2.y, sw.w * sx, 5), Color(.3, .55, .5))
+	for wr in game.X.WATER:
+		var aw: Vector2 = P.call(wr.x, wr.y)
+		draw_rect(Rect2(aw.x, aw.y, max(2.0, wr.w * sx), max(2.0, wr.h * sy)), Color(.35, .65, .85, .8))
+	if not game.X.GOLD.is_empty():
+		var gq: Vector2 = P.call(game.X.GOLD.x, game.X.GOLD.y)
+		if game.X.GOLD.got:
+			_icon("pen_gold", gq, 16)
+		elif game.X.found.has("s3"):
+			draw_string(Spr.font_b, gq + Vector2(-4, 5), "?", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("#ffd76a"))
+	if not game.X.BOSS.is_empty() and not game.X.BOSS.done:
+		var bq: Vector2 = P.call((game.X.BOSS.x0 + game.X.BOSS.x1) / 2.0, 470)
+		draw_string(Spr.font_b, bq + Vector2(-6, 0), "☠", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("#ff9a7a"))
 	for c in game.CHK:
 		var q: Vector2 = P.call(c.x, c.y)
 		draw_circle(q + Vector2(0, -5), 4, Color("#ff9a3a") if c.on else Color(.5, .45, .4))
@@ -72,7 +84,7 @@ func _draw() -> void:
 	for d2 in game.DRWS:
 		if d2.got:
 			nd += 1
-	var txt := "Pistas %d/6   ·   Lápis especiais %d/6   ·   Desenhos %d/%d   ·   ● você   ● fogueira" % [nc, ns, nd, game.DRWS.size()]
+	var txt := "Pistas %d/6  ·  Lápis especiais %d/6  ·  Desenhos %d/%d  ·  Segredos %d/%d  ·  ● você  ● fogueira" % [nc, ns, nd, game.DRWS.size(), game.X.found.size(), game.X.SECRETS.size()]
 	draw_string(Spr.font, Vector2(0, h + 50), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("#e8dcc0"))
 
 func _icon(n: String, c: Vector2, hgt: float) -> void:

@@ -5,6 +5,7 @@ const ITEM_INFO := {
 	"corda": ["Corda", "🪢"], "gancho": ["Gancho de ferro", "🪝"], "gancho_corda": ["Gancho com corda", "🪝"],
 	"engrenagem": ["Engrenagem", "⚙️"], "manivela_q": ["Manivela quebrada", "🔩"], "manivela": ["Manivela", "🔧"],
 	"pavio": ["Pavio", "🧵"], "oleo": ["Lata de óleo", "🛢️"], "lanterna_acesa": ["Lanterna acesa", "🏮"],
+	"picareta": ["Picareta", "⛏️"],
 }
 const RECIPES := [
 	["corda", "gancho", "gancho_corda", "Você amarrou a corda no gancho!"],
