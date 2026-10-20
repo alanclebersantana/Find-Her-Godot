@@ -8,7 +8,7 @@ const GL := 600.0
 
 func _process(_d: float) -> void:
 	if game and game.L:
-		position = Vector2(game.cam, game.cam_y)
+		position = Vector2(round(game.rcam), round(game.rcam_y))
 	queue_redraw()
 
 func _draw() -> void:
@@ -16,8 +16,8 @@ func _draw() -> void:
 		return
 	Spr.begin(self)
 	var w := game.W + 4
-	var ox := -game.cam * PX
-	var oy: float = -(game.cam_y - game.L.top) * PX
+	var ox := -game.rcam * PX
+	var oy: float = -(game.rcam_y - game.L.top) * PX
 	var bh: float = game.H + max(0.0, (game.L.bottom - game.L.top) - game.H) * PX
 	var ws := game.section_weights()
 	var first := true

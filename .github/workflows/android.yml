@@ -67,6 +67,9 @@ jobs:
       - name: Teste automático (Fase 1 do começo ao fim)
         run: ~/godot/godot --headless --path . -s tests/route.gd
 
+      - name: Teste dos controles de toque (diagonal e analógico)
+        run: ~/godot/godot --headless --path . -s tests/touch.gd | tee /tmp/touch.log && grep -q "TOUCH OK" /tmp/touch.log
+
       - name: Gerar APK
         run: |
           mkdir -p build

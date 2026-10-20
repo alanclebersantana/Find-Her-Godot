@@ -14,6 +14,7 @@ var modulate_node: CanvasModulate
 var player_light: PointLight2D
 var lights: Array = []
 var touch: Array = []
+var stick: Control
 var top_buttons: HBoxContainer
 var snd_btn: Button
 var panel: Control = null
@@ -160,7 +161,10 @@ func _process(_d: float) -> void:
 		game.W = vs.x
 		game.H = vs.y
 		var sh := Vector2((randf() - .5) * game.shake, (randf() - .5) * game.shake)
-		game.camera.position = Vector2(round(game.cam), round(game.cam_y)) + sh
+		game.update_render_cam()
+		if stick.mode == "analog" and stick.finger != -1:
+			game.axis_x = stick.axis
+		game.camera.position = Vector2(round(game.rcam), round(game.rcam_y)) + sh
 		_update_lights()
 		var under: bool = game.L.has("under") and game.player.y > game.L.under
 		Audio.set_rain(game.AMB.rain * (.35 if under else 1.0) if state == S.PLAY else 0.0)
@@ -201,6 +205,7 @@ func _input(e: InputEvent) -> void:
 			panel.get_meta("ok").call()
 			return
 		if KEYMAP.has(e.keycode):
+			game.axis_x = 1.0
 			_set_key(KEYMAP[e.keycode], e.pressed)
 	elif e is InputEventJoypadButton:
 		var m := {JOY_BUTTON_A: "J", JOY_BUTTON_X: "A", JOY_BUTTON_B: "P", JOY_BUTTON_DPAD_LEFT: "L", JOY_BUTTON_DPAD_RIGHT: "R", JOY_BUTTON_DPAD_UP: "U", JOY_BUTTON_DPAD_DOWN: "S", JOY_BUTTON_BACK: "B"}
@@ -215,8 +220,9 @@ func _input(e: InputEvent) -> void:
 			_set_key(m[e.button_index], e.pressed)
 	elif e is InputEventJoypadMotion:
 		if e.axis == JOY_AXIS_LEFT_X:
-			_set_key("L", e.axis_value < -.4)
-			_set_key("R", e.axis_value > .4)
+			_set_key("L", e.axis_value < -.3)
+			_set_key("R", e.axis_value > .3)
+			game.axis_x = clamp(abs(e.axis_value) * 1.25, .4, 1.0)
 		elif e.axis == JOY_AXIS_LEFT_Y:
 			_set_key("U", e.axis_value < -.55)
 			_set_key("S", e.axis_value > .55)
@@ -234,7 +240,12 @@ func _notification(what: int) -> void:
 
 # ---------- botões de toque ----------
 func _make_touch() -> void:
-	var defs = [["L", "pad_L", 76], ["R", "pad_R", 76], ["U", "pad_U", 76], ["S", "pad_S", 76], ["J", "btn_jump", 108], ["A", "btn_use", 86]]
+	stick = preload("res://scripts/ui/touch_stick.gd").new()
+	stick.set_anchors_preset(Control.PRESET_FULL_RECT)
+	stick.mode = Save.getv("opt", "stick", "dpad")
+	stick.changed.connect(_on_stick)
+	hud_layer.add_child(stick)
+	var defs = [["J", "btn_jump", 112], ["A", "btn_use", 90]]
 	for d in defs:
 		var b := TouchScreenButton.new()
 		var t: Texture2D = load("res://assets/ui/%s.png" % d[1])
@@ -245,7 +256,6 @@ func _make_touch() -> void:
 		sh.radius = t.get_width() * .62
 		b.shape = sh
 		b.shape_centered = true
-		b.passby_press = d[0] in ["L", "R", "U", "S"]
 		b.visibility_mode = TouchScreenButton.VISIBILITY_TOUCHSCREEN_ONLY
 		b.modulate = Color(1, 1, 1, .85)
 		var k: String = d[0]
@@ -256,6 +266,19 @@ func _make_touch() -> void:
 		hud_layer.add_child(b)
 		touch.append(b)
 
+func _on_stick(st: Dictionary) -> void:
+	for k in st:
+		_set_key(k, st[k])
+	game.axis_x = stick.axis if stick.mode == "analog" else 1.0
+
+func _stick_label() -> String:
+	return "Controle: " + ("analógico" if Save.getv("opt", "stick", "dpad") == "analog" else "direcional (8 direções)")
+
+func _toggle_stick() -> void:
+	var m := "dpad" if Save.getv("opt", "stick", "dpad") == "analog" else "analog"
+	Save.setv("opt", "stick", m)
+	stick.set_mode(m)
+
 func _layout() -> void:
 	var vs := get_viewport().get_visible_rect().size
 	for b in touch:
@@ -263,10 +286,6 @@ func _layout() -> void:
 		var s: float = b.get_meta("size")
 		var pos := Vector2.ZERO
 		match k:
-			"L": pos = Vector2(14, vs.y - 96 - s)
-			"R": pos = Vector2(14 + 2 * 70, vs.y - 96 - s)
-			"U": pos = Vector2(14 + 70, vs.y - 166 - s)
-			"S": pos = Vector2(14 + 70, vs.y - 22 - s)
 			"J": pos = Vector2(vs.x - 18 - s, vs.y - 34 - s)
 			"A": pos = Vector2(vs.x - 18 - 108 - 22 - s, vs.y - 52 - s)
 		b.position = pos
@@ -274,7 +293,7 @@ func _layout() -> void:
 func _make_top_buttons() -> void:
 	top_buttons = HBoxContainer.new()
 	top_buttons.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	top_buttons.position = Vector2(-200, 90)
+	top_buttons.position = Vector2(-262, 90)
 	top_buttons.add_theme_constant_override("separation", 8)
 	hud_layer.add_child(top_buttons)
 	var bag := TextureButton.new()
@@ -312,6 +331,9 @@ func _show_hud(v: bool) -> void:
 	top_buttons.visible = v
 	for b in touch:
 		b.visible = v
+	stick.visible = v
+	if not v:
+		stick._release()
 
 # ======================================================================
 #  TELAS
@@ -485,6 +507,13 @@ func show_title() -> void:
 		vbt.text = "Vibração: " + ("sim" if Save.getv("opt", "vibrate", true) else "não"))
 	row2.add_child(vbt)
 	vb.add_child(row2)
+	var stb := Button.new()
+	stb.text = _stick_label()
+	stb.focus_mode = Control.FOCUS_NONE
+	stb.pressed.connect(func():
+		_toggle_stick()
+		stb.text = _stick_label())
+	vb.add_child(stb)
 	vb.add_child(_label("Teclado: ← → andar · ↑ ↓ subir/abaixar · Espaço pular · F usar · M mochila", 12, Color(.8, .75, .65, .8)))
 	panel.set_meta("ok", func(): start_level(not run.is_empty()))
 
@@ -536,6 +565,12 @@ func _toggle_pause() -> void:
 		var vb := _overlay(.7)
 		vb.add_child(_label("PAUSA", 34, GOLD, Spr.font_title))
 		vb.add_child(_button("CONTINUAR", close_panel))
+		var stb2 := _button(_stick_label(), func(): pass)
+		stb2.custom_minimum_size = Vector2(320, 46)
+		stb2.pressed.connect(func():
+			_toggle_stick()
+			stb2.text = _stick_label())
+		vb.add_child(stb2)
 		vb.add_child(_button("MENU INICIAL", func():
 			panel.queue_free()
 			panel = null

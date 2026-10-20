@@ -37,6 +37,8 @@ func _initialize() -> void:
 		g.player.x = x - 12
 		g.player.y = y - 34
 		g.player.vx = 0
+		g.player.vine = null
+		g.player.ladder = null
 		g.player.vy = 0
 		g.player.spawnX = g.player.x
 		g.player.spawnY = g.player.y
@@ -53,6 +55,18 @@ func _initialize() -> void:
 				elif k == "vil":
 					g.VIL.go = true
 					g.VIL.x = 9470
+				elif k == "lad0":
+					g.player.ladder = g.CLIMB[0]
+				elif k == "netc":
+					g.player.ladder = g.CLIMB[2]
+				elif k == "rope":
+					g.INV.append("gancho_corda")
+					g.use_lock(g.LOCKS[0])
+					g.player.ladder = g.CLIMB.back()
+				elif k == "vine":
+					g.player.vine = g.VINES[0]
+					g.player.vr = 150.0
+					g.VINES[0].om = .03
 				elif k == "noen":
 					for e in g.EN:
 						e.dead = 99

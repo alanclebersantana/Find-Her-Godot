@@ -36,7 +36,11 @@ func _draw() -> void:
 	for e in g.EN:
 		if e.dead > 50:
 			continue
+		var eo := g.e_off(e)
+		Spr.save()
+		Spr.translate(eo.x, eo.y)
 		_enemy(e)
+		Spr.restore()
 	_player(g)
 	for f in g.FXS:
 		Spr.A(f.n, f.x, f.y, f.sc, false, 1.0 - float(f.t) / f.life)
@@ -218,6 +222,13 @@ func _enemy(e: Dictionary) -> void:
 
 # ---------- o Tomé ----------
 func _player(g: Game) -> void:
+	var off := g.ip_off()
+	Spr.save()
+	Spr.translate(off.x, off.y)
+	_player_draw(g)
+	Spr.restore()
+
+func _player_draw(g: Game) -> void:
 	var p: Dictionary = g.player
 	if p.iframe > 0 and (T / 4) % 2 == 0 and p.dyingT == 0:
 		return
@@ -238,16 +249,45 @@ func _player(g: Game) -> void:
 		Spr.frame(pai2, 8, 130, 160, 65, 156, 0, 0, .48, p.face < 0)
 		Spr.restore()
 		return
+	# subindo: escada/rede (de costas), corda (de lado) e cipó (pendurado pela mão)
+	if not (p.iframe > 40) and (p.ladder or p.vine):
+		var mv := int(p.climbA / 22) % 2
+		if p.vine:
+			var v: Dictionary = p.vine
+			var hx: float = v.x + sin(v.th) * p.vr
+			var hy: float = v.y + cos(v.th) * p.vr
+			var t: Texture2D = Spr.tex.pai_vine_a if abs(v.om) > .02 else Spr.tex.pai_vine_b
+			var ax := 63.0 if t == Spr.tex.pai_vine_a else 60.0
+			Spr.save()
+			Spr.translate(hx, hy)
+			Spr.rotate(-v.th)
+			Spr.scale(-.56 if p.face < 0 else .56, .56)
+			Spr.ci.draw_texture(t, Vector2(-ax, -2))
+			Spr.restore()
+		elif p.ladder.kind == "rope":
+			var t2: Texture2D = Spr.tex.pai_rope_a if mv else Spr.tex.pai_rope_b
+			var rx := 46.0 if mv else 52.0
+			var lx: float = p.ladder.x + p.ladder.w / 2
+			Spr.save()
+			Spr.translate(lx, by + 4)
+			Spr.scale(.56, .56)
+			Spr.ci.draw_texture(t2, Vector2(-rx, -t2.get_height()))
+			Spr.restore()
+		else:
+			var t3: Texture2D = Spr.tex.pai_climb
+			var lx2: float = p.ladder.x + p.ladder.w / 2 if p.ladder.kind == "ladder" else cx
+			var bob := -2.0 if mv else 0.0
+			Spr.save()
+			Spr.translate(lx2, by + 6 + bob)
+			Spr.scale(-.56 if mv else .56, .56)
+			Spr.ci.draw_texture(t3, Vector2(-t3.get_width() / 2.0, -t3.get_height()))
+			Spr.restore()
+		_armor(p, cx, by)
+		return
 	# poses novas (atlas 2)
 	if not (p.iframe > 40):
 		var n := ""
-		if p.ladder:
-			var mv := int(p.climbA / 24) % 2
-			if p.ladder.kind == "ladder":
-				n = "pai_lad1" if mv else "pai_lad2"
-			else:
-				n = "pai_rope1" if mv else "pai_rope2"
-		elif p.crouch:
+		if p.crouch:
 			if p.slideT:
 				n = "pai_slide"
 			elif abs(p.vx) > .3:
@@ -258,8 +298,6 @@ func _player(g: Game) -> void:
 			n = "pai_" + p.act
 		elif p.onGround and abs(p.vx) < .3 and p.lookT > 10:
 			n = "pai_lookup"
-		elif p.vine:
-			n = "pai_vine1" if abs(p.vine.om) > .02 else "pai_vine2"
 		elif p.pushT > 0 and p.onGround:
 			n = ["pai_push1", "pai_push2", "pai_push3"][(T / 10) % 3]
 		elif p.run and p.onGround and abs(p.vx) > 3:
@@ -267,11 +305,7 @@ func _player(g: Game) -> void:
 		if n != "":
 			if p.onGround:
 				Spr.ellipse(cx, by + 1, 18, 4, Color(0, 0, 0, .22))
-			var lx: float = p.ladder.x + p.ladder.w / 2 if (p.ladder and p.ladder.kind != "net") else cx
-			if p.vine:
-				Spr.A(n, cx, p.y + 6 + p.h * 1.62, .56, p.face < 0)
-			else:
-				Spr.A(n, lx, by + (8 if p.ladder else 0), .56, p.face < 0)
+			Spr.A(n, cx, by, .56, p.face < 0)
 			_armor(p, cx, by)
 			return
 	# folhas de sprites antigas (parado, andar, pulo, planar, mergulho)

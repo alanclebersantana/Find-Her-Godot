@@ -88,6 +88,15 @@ var tps := 60
 var shown_crate := false
 var rng := RandomNumberGenerator.new()
 var camera: Camera2D
+# interpolação do desenho entre passos fixos (movimento liso em telas de 90/120 Hz)
+var prev_px := 0.0
+var prev_py := 0.0
+var prev_cam := 0.0
+var prev_cam_y := 0.0
+var rcam := 0.0
+var rcam_y := 0.0
+# analógico: inclinação horizontal (1 = digital / máximo)
+var axis_x := 1.0
 
 func _ready() -> void:
 	camera = Camera2D.new()
@@ -160,6 +169,12 @@ func load_level(i: int) -> void:
 		di += 1
 	DOOR = {"x": L.door.x, "y": L.door.y, "w": 60, "h": 90, "locked": false}
 	_p1_load()
+	# objetos perto do chão ficam pousados nele (não flutuando)
+	for arr in [COINS, ITEMS, CLUES, SPECS]:
+		for o in arr:
+			o.ry = _rest_y(o.x, o.y)
+	for c in CLK:
+		c.ry = _rest_y(c.x, c.y, 110)
 	_reset_player(L.spawn.x - 12, L.spawn.y - 34)
 	time_left = int(L.get("time", 180)) * 60
 	coins = 0
@@ -171,6 +186,13 @@ func load_level(i: int) -> void:
 	cam_y = clamp(player.y - H * .55, L.top, max(L.top, L.bottom - H))
 	flash_t = 0
 	running = true
+
+func _rest_y(x: float, y: float, reach: float = 48) -> float:
+	var best := INF
+	for s in SOL:
+		if x >= s.x - 2 and x <= s.x + s.w + 2 and s.y >= y - 4 and s.y - y <= reach and s.y < best:
+			best = s.y
+	return best if best < INF else -1.0
 
 func _p1_load() -> void:
 	CLIMB = []
@@ -427,9 +449,41 @@ func section_weights() -> Dictionary:
 # ======================================================================
 #  PASSO
 # ======================================================================
+func _save_prev() -> void:
+	prev_px = player.x
+	prev_py = player.y
+	prev_cam = cam
+	prev_cam_y = cam_y
+	for e in EN:
+		e.ppx = e.x
+		e.ppy = e.y
+
+## deslocamento para desenhar o Tomé na posição "entre" dois passos
+func ip_off() -> Vector2:
+	var f := Engine.get_physics_interpolation_fraction()
+	if abs(player.x - prev_px) > 60 or abs(player.y - prev_py) > 60:
+		return Vector2.ZERO
+	return Vector2((prev_px - player.x) * (1 - f), (prev_py - player.y) * (1 - f))
+
+func e_off(e: Dictionary) -> Vector2:
+	var f := Engine.get_physics_interpolation_fraction()
+	if not e.has("ppx") or abs(e.x - e.ppx) > 60 or abs(e.y - e.ppy) > 60:
+		return Vector2.ZERO
+	return Vector2((e.ppx - e.x) * (1 - f), (e.ppy - e.y) * (1 - f))
+
+func update_render_cam() -> void:
+	var f := Engine.get_physics_interpolation_fraction()
+	if abs(cam - prev_cam) > 80 or abs(cam_y - prev_cam_y) > 80:
+		rcam = cam
+		rcam_y = cam_y
+	else:
+		rcam = lerpf(prev_cam, cam, f)
+		rcam_y = lerpf(prev_cam_y, cam_y, f)
+
 func step() -> void:
 	if not running:
 		return
+	_save_prev()
 	if hit_stop > 0:
 		hit_stop -= 1
 		return
@@ -607,7 +661,7 @@ func step() -> void:
 				if abs(player.vx) < 1.3:
 					player.slideT = 0
 			else:
-				player.vx += (want * 1.5 - player.vx) * .25
+				player.vx += (want * 1.8 - player.vx) * .25
 		else:
 			var run: bool = player.run and not player.puff
 			var acc: float = PUFF_ACC if player.puff else (( RUN_ACC if run else ACCg) if player.onGround else ACCa)
@@ -630,6 +684,8 @@ func step() -> void:
 			var top2 := top
 			if player.mud and player.onGround:
 				top2 = min(top, 1.9)
+			if axis_x < 1 and player.onGround and not player.run:
+				top2 = top2 * axis_x
 			if wet and want == 0:
 				player.vx *= .995 / FRIC
 			if kd("L") and not player.slam:
@@ -662,6 +718,8 @@ func step() -> void:
 		move_y(player.vy)
 	if player.onGround and not was_ground and prev_vy > 6:
 		player.squash = min(1, prev_vy / 14)
+		if prev_vy > 10:
+			Audio.vib(18)
 		burst(player.x + player.w / 2, player.y + player.h, 5, Color("#b7a77f"))
 		fx("fx_dust", player.x + player.w / 2, player.y + player.h - 6, 16, .08 + prev_vy * .01, -.2)
 	if player.run and player.onGround and T % 8 == 0:
@@ -750,7 +808,8 @@ func step() -> void:
 			STATS.pen += 1
 			gain_coin(c.x, c.y)
 	for c in CLK:
-		if not c.got and hit(player, R(c.x - 18, c.y - 18, 36, 36)):
+		var cyy: float = c.ry - 16 if c.ry > 0 else c.y
+		if not c.got and hit(player, R(c.x - 18, cyy - 18, 36, 36)):
 			c.got = true
 			time_left += 20 * 60
 			flash("Ampulheta: +20 segundos.")
@@ -824,9 +883,14 @@ func _camera() -> void:
 	cam_y = clamp(cam_y, L.top, max(L.top, L.bottom - H))
 
 func snap_camera() -> void:
+	prev_px = -99999
 	cam = clamp(player.x + player.w / 2 - W / 2, 0, max(0, L.spanX - W))
 	cam_focus = player.y
 	cam_y = clamp(player.y - H * .55, L.top, max(L.top, L.bottom - H))
+	prev_cam = cam
+	prev_cam_y = cam_y
+	rcam = cam
+	rcam_y = cam_y
 
 # ======================================================================
 #  COLISÃO
@@ -838,6 +902,10 @@ func move_x(dx: float) -> void:
 			continue
 		# degrau baixo: sobe sozinho
 		if player._g and not s.get("crate") and (player.y + player.h) - s.y <= 12 and (player.y + player.h) - s.y > 0:
+			player.y = s.y - player.h
+			continue
+		# ajuda na quina: no ar, descendo ou no alto do pulo, com os pés só um pouco abaixo do topo
+		if player._g == null and player.coyote <= 0 and not player.ladder and player.vy > -1.5 and (player.y + player.h) - s.y <= 10 and (player.y + player.h) - s.y > 0:
 			player.y = s.y - player.h
 			continue
 		if dx > 0:

@@ -18,7 +18,7 @@ var font_title: Font
 func _ready() -> void:
 	for k in ["atlas1", "atlas2"]:
 		tex[k] = load("res://assets/sprites/%s.png" % k)
-	for k in ["pai", "pai2", "javali", "chao", "tronco", "galho", "filha"]:
+	for k in ["pai", "pai2", "javali", "chao", "tronco", "galho", "filha", "pai_climb", "pai_rope_a", "pai_rope_b", "pai_vine_a", "pai_vine_b"]:
 		tex[k] = load("res://assets/sprites/%s.png" % k)
 	for k in ["bosque", "tarde", "pantano", "noite"]:
 		tex["bg_" + k] = load("res://assets/bg/%s.jpg" % k)
