@@ -51,6 +51,10 @@ func _draw() -> void:
 	_box(W - 130, 52, 122, 28)
 	Spr.A("hud_paper", W - 111, 66, .36)
 	Spr.text("desenhos %d/%d" % [nd, game.DRWS.size()], W - 96, 71, 13, Color("#ffd76a") if nd == game.DRWS.size() else Color("#cdbfa6"))
+	# controlando o Pipoca
+	if game.M and game.M.ctrl:
+		_box(8, 54, 228, 30)
+		Spr.text("Controlando o PIPOCA", 20, 75, 15, Color("#ffe9a0"), HORIZONTAL_ALIGNMENT_LEFT, Spr.font_b)
 	# fôlego (na água)
 	var X: Extras = game.X
 	if X and X.breath < Extras.BREATH:

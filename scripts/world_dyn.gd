@@ -23,6 +23,7 @@ func _draw() -> void:
 	WorldExtras.footprints(g)
 	WorldExtras.crawl(g, T)
 	WorldExtras.solids(g, T)
+	WorldExtras.mech(g, T)
 	WorldExtras.boss(g, T)
 	if g.VIL and g.VIL.go and not g.VIL.gone:
 		var v: Dictionary = g.VIL
@@ -36,7 +37,7 @@ func _draw() -> void:
 	for c in g.CHK:
 		_campfire(c)
 	for c in g.CR:
-		if not c.dead:
+		if not c.dead and c.t != "push":
 			_crate(c)
 	for e in g.EN:
 		if e.dead > 50:
@@ -49,7 +50,14 @@ func _draw() -> void:
 		_enemy(e)
 		Spr.restore()
 	WorldExtras.tocas(g, T)
-	WorldExtras.dog(g, T)
+	if g.M and g.M.ctrl:
+		var doff := g.ip_off()
+		Spr.save()
+		Spr.translate(doff.x, doff.y)
+		WorldExtras.dog(g, T)
+		Spr.restore()
+	else:
+		WorldExtras.dog(g, T)
 	_player(g)
 	WorldExtras.grass(g, T)
 	for f in g.FXS:
@@ -249,10 +257,18 @@ func _enemy(e: Dictionary) -> void:
 
 # ---------- o Tomé ----------
 func _player(g: Game) -> void:
+	if g.M and g.M.ctrl:
+		# o jogador está com o Pipoca: o Tomé fica parado onde estava
+		var real: Dictionary = g.player
+		g.player = g.M.tome
+		_player_draw(g)
+		g.player = real
+		return
 	var off := g.ip_off()
 	Spr.save()
 	Spr.translate(off.x, off.y)
 	_player_draw(g)
+	WorldExtras.tool_fx(g, T)
 	Spr.restore()
 
 func _player_draw(g: Game) -> void:
@@ -311,6 +327,14 @@ func _player_draw(g: Game) -> void:
 			Spr.restore()
 		_armor(p, cx, by)
 		return
+	# Tomé em peças com "ossos" (se as artes de assets/rig/tome existirem)
+	if not (p.iframe > 40) and Rig.ready("tome"):
+		var air2: float = clamp(1 - abs(p.vy) / 16.0, .3, 1) if not p.onGround else 1.0
+		Spr.ellipse(cx, by + 1, 17 * air2, 4 * air2, Color(0, 0, 0, .25 * air2))
+		var sqv := Vector2(1 + p.squash * .25, 1 - p.squash * .3)
+		Rig.draw_pose("tome", cx, by, p.face, Rig.pose_for(p, T), sqv)
+		_armor(p, cx, by)
+		return
 	# poses novas (atlas 2)
 	if not (p.iframe > 40):
 		var n := ""
@@ -323,6 +347,8 @@ func _player_draw(g: Game) -> void:
 				n = "pai_crouch"
 		elif p.actT > 0 and p.act in ["throw1", "throw2", "gear"]:
 			n = "pai_" + p.act
+		elif p.actT > 0 and p.act == "swing":
+			n = "pai_throw1" if p.actT > 14 else "pai_throw2"
 		elif p.onGround and abs(p.vx) < .3 and p.lookT > 10:
 			n = "pai_lookup"
 		elif p.pushT > 0 and p.onGround:

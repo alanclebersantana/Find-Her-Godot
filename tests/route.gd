@@ -164,6 +164,22 @@ func jr(n: int, dir: String):
 	hold({"J": true, dir: true}, n)
 	return wait_ground({dir: true})
 
+func wall_climb():
+	var dir := "R"
+	press("J")
+	hold({"J": true, dir: true}, 10)
+	for i in 18:
+		P = g.player
+		until({dir: true}, func(): return g.player.wsl > 0 or g.player.onGround, 90)
+		P = g.player
+		if P.onGround:
+			return P.y + P.h <= 102
+		press("J")
+		frame({"J": true})
+		dir = "L" if dir == "R" else "R"
+		hold({"J": true}, 6)
+	return "wall@%d,%d" % [int(px()), int(P.y)]
+
 func on_perch() -> bool:
 	return P.onGround and P.y + P.h <= 372
 
@@ -216,6 +232,9 @@ func _initialize() -> void:
 	S("desce", climb_to("S", func(): return P.onGround and P.y > 400, 500))
 	walk_to(1470)
 	S("caixa ★", hop("R", 5))
+	S("empurra a caixa", until({"R": true}, func(): return g.M.PUSH[0].x >= 1799 and g.M.PUSH[0].y >= 449, 700))
+	S("portão abriu", until({}, func(): return g.M.GATES[0].open > .85, 200))
+	S("pula a caixa", jump_to(1940, true))
 	S("sob o galho", walk_to(1990))
 	S("salto duplo ao galho", djump("R"))
 	walk_to(2180)
@@ -259,7 +278,6 @@ func _initialize() -> void:
 	S("javali apareceu", g.X.boss_active())
 	S("sobe no galho", jump_to(3175, true))
 	S("venceu o javali", boss_fight())
-	S("picareta", walk_to(3480) and g.INV.has("picareta"))
 	walk_to(3560)
 	S("caixa", jump_to(3615))
 	S("vai ao barranco", walk_to(3860))
@@ -267,17 +285,33 @@ func _initialize() -> void:
 	S("corda presa", g.LOCKS[0].done)
 	S("vai à corda", walk_to(3888))
 	S("sobe a corda", climb_to("U", func(): return P.ladder == null and P.y < 100, 500))
+	S("rocha rachada", walk_to(3950))
+	press("G")
+	hold({}, 26)
+	S("golpe quebrou a rocha", g.X.broken.has("rock1"))
 	S("cachorro amarrado", walk_to(4050))
 	use()
 	S("Pipoca solto", g.X.dog_free())
-	S("rocha rachada", walk_to(4140))
-	use()
-	S("quebrou a rocha", g.X.broken.has("rock1"))
+	S("portão alto", walk_to(4130))
+	hold({}, 20)
+	press("D")
+	frame()
+	S("controla o Pipoca", g.M.ctrl)
+	S("Pipoca pela portinhola até a placa", walk_to(4226))
+	S("portão abriu", until({}, func(): return g.M.GATES[1].open > .85, 200))
+	press("D")
+	frame()
+	S("de volta ao Tomé", not g.M.ctrl and g.X.DOG.st == "stay")
 	S("toca", walk_to(4290))
 	use()
 	S("Pipoca buscou o desenho", until({}, func(): return g.DRWS[2].got, 700))
 	S("moita: pista 2 e amarelo", walk_to(4480))
 	S("pistas=2 amarelo", n_clues() == 2 and spec("amarelo"))
+	S("poço entre paredes", walk_to(4640))
+	S("pulo na parede", wall_climb())
+	walk_to(4585)
+	hold({"R": true}, 8)
+	S("desce pelo poço", wait_ground())
 	S("desce do platô", walk_to(4760))
 	walk_to(4830)
 	S("armadura", jump_to(4889))
@@ -336,9 +370,18 @@ func _initialize() -> void:
 	S("noite", walk_to(7150))
 	S("caixa", jump_to(7215))
 	S("porta do galpão", walk_to(7470))
-	S("rasteja p/ dentro", crawl(7690))
+	hold({}, 20)
+	press("D")
+	frame()
+	S("Pipoca", g.M.ctrl)
+	S("Pipoca entra pela portinhola", walk_to(7700))
 	S("óleo", g.INV.has("oleo"))
-	S("rasteja p/ fora", crawl(7830))
+	S("Pipoca sai", walk_to(7470))
+	press("D")
+	frame()
+	S("Tomé", not g.M.ctrl)
+	S("telhado do galpão", jump_to(7545, true))
+	S("desce do telhado", walk_to(7840))
 	S("escada da coruja", walk_to(8105))
 	S("sobe", climb_to("U", func(): return P.ladder == null and P.onGround and P.y + P.h <= 42, 500))
 	S("pavio", walk_to(8140))

@@ -29,7 +29,28 @@ func _draw() -> void:
 		first = false
 		_layer(k, ox, oy, w, bh, al)
 
+const LAYER_PX := [.04, .16, .3, .48]
+
+## cenário em camadas (quando as artes novas existem): cada camada anda numa velocidade
+func _layers(k: String, w: float, al: float) -> void:
+	var ls: Array = Spr.tex["bgl_" + k]
+	var H: float = game.H
+	for i in ls.size():
+		var t: Texture2D = ls[i]
+		var f: float = LAYER_PX[min(i, 3)]
+		var lh: float = H * (1.12 + i * .04)
+		var sc: float = lh / t.get_height()
+		var tw: float = t.get_width() * sc
+		var y: float = H - lh + clamp(-(game.rcam_y - 140.0) * f * .35, -60.0, 140.0)
+		var x: float = fposmod(-game.rcam * f, tw - 1) - (tw - 1)
+		while x < w:
+			Spr.img(t, x, y, tw, lh, Rect2(), al)
+			x += tw - 1
+
 func _layer(k: String, ox: float, oy: float, w: float, bh: float, al: float) -> void:
+	if Spr.tex.has("bgl_" + k):
+		_layers(k, w, al)
+		return
 	var t: Texture2D = Spr.tex["bg_" + k]
 	if k == "bosque":
 		var sc := bh / t.get_height()

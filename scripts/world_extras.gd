@@ -162,6 +162,12 @@ static func solids(g: Game, T: int) -> void:
 					Spr.ring(s.x - 18 + (i % 2) * 10, yy + 15, 11, Color("#3a2414"), 2)
 			"bosslog":
 				_log(s.x, s.y)
+			"dogdoor":
+				Spr.rr(s.x - 2, s.y, s.w + 4, s.h, 3, Color("#3a2414"))
+				Spr.rr(s.x, s.y + 2, s.w, s.h - 3, 3, Color("#a8804a"))
+				Spr.circle(s.x + s.w / 2, s.y + 15, 3, Color(.3, .2, .1))
+				for k in 3:
+					Spr.circle(s.x + s.w / 2 - 4 + k * 4, s.y + 9, 1.5, Color(.3, .2, .1))
 			"hatchd":
 				for i in 4:
 					Spr.rect(s.x + 2 + i * 15, s.y, 12, 8, Color("#6b4a2a"))
@@ -478,3 +484,102 @@ static func dog(g: Game, T: int) -> void:
 		var p: Dictionary = g.player
 		if abs(p.x + p.w / 2 - d.x) < 70 and abs(p.y + p.h - d.y) < 50:
 			Spr.text("✦ SOLTAR", x, y - 70 + sin(T * .15) * 3, 16, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
+
+# ---------------------------------------------------------------- golpe, defesa e parede
+static func tool_fx(g: Game, T: int) -> void:
+	var p: Dictionary = g.player
+	var cx: float = p.x + p.w / 2
+	var f: float = p.face
+	if p.get("act", "") == "swing" and p.actT > 0:
+		# arco do golpe da picareta
+		var k: float = 1.0 - (p.actT - 0.0) / 22.0
+		if p.actT <= 17 and p.actT >= 6:
+			var a0: float = -1.9
+			var a1: float = lerpf(-1.6, 1.1, clamp((17 - p.actT) / 9.0, 0, 1))
+			var pts := PackedVector2Array()
+			var steps := 10
+			for i in steps + 1:
+				var a: float = lerpf(a0, a1, i / float(steps))
+				pts.push_back(Vector2(cx + f * cos(a) * 42, p.y + 14 + sin(a) * 34))
+			Spr.ci.draw_polyline(pts, Color(1, .95, .8, .55 * (1.0 - k * .6)), 7, true)
+			Spr.ci.draw_polyline(pts, Color(1, 1, 1, .9 * (1.0 - k * .5)), 2.5, true)
+			var tip: Vector2 = pts[pts.size() - 1]
+			Spr.save()
+			Spr.translate(tip.x, tip.y)
+			Spr.rotate(a1 * f + (0.0 if f > 0 else PI))
+			Spr.A("it_picareta", 0, 0, .3, f < 0)
+			Spr.restore()
+	if p.get("guard", false):
+		var lx: float = cx + f * 18
+		var ly: float = p.y + 12
+		Spr.glow(lx, ly, 46 + sin(T * .4) * 3, Color(1, .9, .55, .45))
+		Spr.ci.draw_arc(Vector2(lx, ly), 28, -1.1 if f > 0 else PI - 1.1, 1.1 if f > 0 else PI + 1.1, 18, Color(1, .95, .7, .75), 3, true)
+	if p.get("wslide", false):
+		Spr.rect(cx + f * (p.w / 2) - 1, p.y + 4, 3, p.h - 6, Color(1, 1, 1, .12))
+
+# ---------------------------------------------------------------- placas, portões, caixas e tábuas que caem
+static func mech(g: Game, T: int) -> void:
+	var M: Mech = g.M
+	if M == null:
+		return
+	for pl in M.PLATES:
+		var dd: float = pl.d * 4
+		Spr.rr(pl.x - 4, pl.y - 2, pl.w + 8, 10, 4, Color(.25, .22, .2))
+		Spr.rr(pl.x, pl.y - 8 + dd, pl.w, 10, 3, Color(.62, .58, .5) if not pl.on else Color(.95, .82, .45))
+		Spr.rect(pl.x + 6, pl.y - 7 + dd, pl.w - 12, 2, Color(1, 1, 1, .25))
+		if pl.on:
+			Spr.glow(pl.x + pl.w / 2, pl.y - 4, 30, Color(1, .85, .4, .35))
+	for gt in M.GATES:
+		var lift: float = gt.open * (gt.h - 18)
+		var y0: float = gt.y - lift
+		var hh: float = gt.h
+		Spr.rect(gt.x - 8, gt.y - 10, 6, gt.h + 10, Color("#4a3220"))
+		Spr.rect(gt.x + gt.w + 2, gt.y - 10, 6, gt.h + 10, Color("#4a3220"))
+		var by: float = max(y0, gt.y - 6)
+		Spr.save()
+		var col := Color("#9a7040")
+		var ink := Color("#3a2414")
+		var x: float = gt.x - 8
+		while x < gt.x + gt.w + 8:
+			Spr.rect(x - 1, y0, 9, hh + 1, ink)
+			Spr.rect(x, y0, 7, hh, col)
+			Spr.rect(x + 1, y0, 2, hh, Color(1, 1, 1, .12))
+			Spr.poly(PackedVector2Array([Vector2(x - 1, y0), Vector2(x + 3.5, y0 - 10), Vector2(x + 8, y0)]), col)
+			x += 9
+		for yy in [y0 + 16, y0 + hh * .5, y0 + hh - 30]:
+			Spr.rect(gt.x - 12, yy, gt.w + 24, 9, ink)
+			Spr.rect(gt.x - 11, yy + 1, gt.w + 22, 7, Color("#6b4a2a"))
+		Spr.restore()
+		if gt.get("dogpass"):
+			# portinhola para o cachorro, embaixo
+			var fy: float = gt.y + gt.h - 24
+			if gt.open < .3:
+				Spr.rr(gt.x - 3, fy, gt.w + 6, 24, 4, Color("#3a2414"))
+				Spr.rr(gt.x - 1, fy + 3, gt.w + 2, 19, 3, Color("#a8804a"))
+				var px: float = gt.x + gt.w / 2
+				Spr.circle(px, fy + 15, 3.2, Color(.3, .2, .1))
+				for k in 3:
+					Spr.circle(px - 4 + k * 4, fy + 9, 1.6, Color(.3, .2, .1))
+	for c in M.PUSH:
+		if c.dead:
+			continue
+		Spr.rr(c.x, c.y, c.w, c.h, 5, Color("#8a6238"))
+		Spr.rect(c.x + 5, c.y + 5, c.w - 10, c.h - 10, Color("#a57a48"))
+		Spr.seg(c.x + 6, c.y + 6, c.x + c.w - 6, c.y + c.h - 6, Color("#6b4a2a"), 5)
+		Spr.seg(c.x + c.w - 6, c.y + 6, c.x + 6, c.y + c.h - 6, Color("#6b4a2a"), 5)
+		Spr.ci.draw_rect(Rect2(c.x, c.y, c.w, c.h), Color("#3a2414"), false, 3)
+		if g.player.get("pushT", 0) > 0 and Game.hit(g.R(g.player.x - 6, g.player.y, g.player.w + 12, g.player.h), c):
+			Spr.text("⇆", c.x + c.w / 2, c.y - 10, 16, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3)
+	for s in M.CRUMB:
+		var shake: float = (sin(T * 1.7) * 2.0) if (s.ct > 0 and not s.fallen) else 0.0
+		var yy: float = s.y + s.fy
+		if s.fallen and s.fy > 400:
+			continue
+		var a: float = 1.0 if not s.fallen else clamp(1.0 - s.fy / 400.0, 0, 1)
+		var wood := Color(.42, .29, .17, a)
+		if s.get("trestle") and not s.fallen:
+			for lx in [s.x + 8, s.x + s.w - 16]:
+				Spr.rect(lx, s.y + 10, 8, 700 - s.y, Color("#4a3220"))
+		Spr.rr(s.x + shake, yy, s.w, 16, 6, wood)
+		Spr.seg(s.x + 12 + shake, yy + 4, s.x + 30 + shake, yy + 12, Color(0, 0, 0, .45 * a), 1.5)
+		Spr.seg(s.x + s.w - 20 + shake, yy + 3, s.x + s.w - 34 + shake, yy + 13, Color(0, 0, 0, .45 * a), 1.5)

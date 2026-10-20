@@ -80,6 +80,8 @@ func ground(s: Dictionary) -> void:
 	Spr.rect(x_a, s.y - 30 + t.get_height(), x_b - x_a, s.h, Color("#34200f"))
 
 func plat(s: Dictionary) -> void:
+	if s.get("crumble"):
+		return
 	if s.get("trestle"):
 		var wood := Color("#4a3220")
 		for lx in [s.x + 8, s.x + s.w - 16]:

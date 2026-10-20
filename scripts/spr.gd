@@ -41,6 +41,14 @@ func _ready() -> void:
 		tex[k] = load("res://assets/sprites/%s.png" % k)
 	for k in ["bosque", "tarde", "pantano", "noite"]:
 		tex["bg_" + k] = load("res://assets/bg/%s.jpg" % k)
+		# cenário em camadas pintadas (opcional): assets/bg/<trecho>/1_ceu.jpg, 2_longe.png, 3_meio.png, 4_perto.png
+		var layers: Array = []
+		for ln in ["1_ceu.jpg", "2_longe.png", "3_meio.png", "4_perto.png"]:
+			var lp: String = "res://assets/bg/%s/%s" % [k, ln]
+			if ResourceLoader.exists(lp):
+				layers.append(load(lp))
+		if layers.size() >= 2:
+			tex["bgl_" + k] = layers
 	for k in ANIM_NAMES:
 		var ap := "res://assets/sprites/tome/%s.png" % k
 		if ResourceLoader.exists(ap):

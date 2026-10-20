@@ -17,6 +17,9 @@ var touch: Array = []
 var stick: Control
 var top_buttons: HBoxContainer
 var snd_btn: Button
+var dog_btn: TextureButton
+var tex_dog: Texture2D = preload("res://assets/ui/btn_dog.png")
+var tex_tome: Texture2D = preload("res://assets/ui/btn_tome.png")
 var panel: Control = null
 var bag_sel := ""
 var theme_ui: Theme
@@ -24,6 +27,7 @@ var light_tex: Texture2D
 const KEYMAP := {
 	KEY_LEFT: "L", KEY_A: "L", KEY_RIGHT: "R", KEY_D: "R", KEY_UP: "U", KEY_W: "U", KEY_DOWN: "S", KEY_S: "S",
 	KEY_SPACE: "J", KEY_Z: "J", KEY_K: "J", KEY_C: "P", KEY_F: "A", KEY_E: "A", KEY_X: "A", KEY_V: "A", KEY_R: "B",
+	KEY_G: "G", KEY_J: "G", KEY_Q: "D",
 }
 const GOLD := Color("#e8d39a")
 const INK := Color("#f0e4c8")
@@ -177,6 +181,9 @@ func _update_lights() -> void:
 			n.energy = dark * 1.1
 
 func _process(_d: float) -> void:
+	if dog_btn and game.X:
+		dog_btn.visible = top_buttons.visible and game.X.dog_free()
+		dog_btn.texture_normal = tex_tome if game.M.ctrl else tex_dog
 	if game.L and game.running:
 		var vs := get_viewport().get_visible_rect().size
 		game.W = vs.x
@@ -244,7 +251,7 @@ func _input(e: InputEvent) -> void:
 			game.axis_x = 1.0
 			_set_key(KEYMAP[e.keycode], e.pressed)
 	elif e is InputEventJoypadButton:
-		var m := {JOY_BUTTON_A: "J", JOY_BUTTON_X: "A", JOY_BUTTON_B: "P", JOY_BUTTON_DPAD_LEFT: "L", JOY_BUTTON_DPAD_RIGHT: "R", JOY_BUTTON_DPAD_UP: "U", JOY_BUTTON_DPAD_DOWN: "S", JOY_BUTTON_BACK: "B"}
+		var m := {JOY_BUTTON_A: "J", JOY_BUTTON_X: "A", JOY_BUTTON_B: "P", JOY_BUTTON_DPAD_LEFT: "L", JOY_BUTTON_DPAD_RIGHT: "R", JOY_BUTTON_DPAD_UP: "U", JOY_BUTTON_DPAD_DOWN: "S", JOY_BUTTON_BACK: "B", JOY_BUTTON_RIGHT_SHOULDER: "G", JOY_BUTTON_LEFT_SHOULDER: "D"}
 		if e.button_index == JOY_BUTTON_Y and e.pressed:
 			if state == S.PLAY:
 				open_bag()
@@ -281,7 +288,7 @@ func _make_touch() -> void:
 	stick.mode = Save.getv("opt", "stick", "dpad")
 	stick.changed.connect(_on_stick)
 	hud_layer.add_child(stick)
-	var defs = [["J", "btn_jump", 112], ["A", "btn_use", 90]]
+	var defs = [["J", "btn_jump", 112], ["A", "btn_use", 90], ["G", "btn_golpe", 86]]
 	for d in defs:
 		var b := TouchScreenButton.new()
 		var t: Texture2D = load("res://assets/ui/%s.png" % d[1])
@@ -336,6 +343,7 @@ func _layout() -> void:
 		match k:
 			"J": pos = Vector2(vs.x - 18 - sz, vs.y - 34 - sz)
 			"A": pos = Vector2(vs.x - 18 - js - 30 - sz, vs.y - 52 - sz)
+			"G": pos = Vector2(vs.x - 18 - (js + sz) / 2, vs.y - 34 - js - 18 - sz)
 		if left:
 			pos.x = vs.x - pos.x - sz
 		b.position = pos
@@ -343,7 +351,11 @@ func _layout() -> void:
 func _make_top_buttons() -> void:
 	top_buttons = HBoxContainer.new()
 	top_buttons.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	top_buttons.position = Vector2(-262, 90)
+	top_buttons.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	top_buttons.offset_left = -12
+	top_buttons.offset_right = -12
+	top_buttons.offset_top = 90
+	top_buttons.offset_bottom = 90
 	top_buttons.add_theme_constant_override("separation", 8)
 	hud_layer.add_child(top_buttons)
 	var bag := TextureButton.new()
@@ -367,6 +379,16 @@ func _make_top_buttons() -> void:
 	top_buttons.add_child(rb)
 	var pb := _small_btn("II", _toggle_pause)
 	top_buttons.add_child(pb)
+	dog_btn = TextureButton.new()
+	dog_btn.texture_normal = load("res://assets/ui/btn_dog.png")
+	dog_btn.ignore_texture_size = true
+	dog_btn.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+	dog_btn.custom_minimum_size = Vector2(60, 60)
+	dog_btn.tooltip_text = "Trocar entre o Tomé e o Pipoca (Q)"
+	dog_btn.pressed.connect(func(): game.keys["Dp"] = true)
+	dog_btn.visible = false
+	top_buttons.add_child(dog_btn)
+	top_buttons.move_child(dog_btn, 0)
 
 func _small_btn(t: String, cb: Callable) -> Button:
 	var b := Button.new()

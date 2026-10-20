@@ -60,6 +60,7 @@ var DRAWN := {}
 var STATS := {"pen": 0, "penTotal": 0}
 var AMB := {"dark": 0.0, "rain": 0.0, "night": 0.0, "tint": "", "song": "manha", "fog": 0.0, "wind": 0.0}
 var X: Extras
+var M: Mech
 var player: Dictionary = {}
 var keys := {}
 var T := 0
@@ -191,6 +192,8 @@ func load_level(i: int) -> void:
 		c.ry = _rest_y(c.x, c.y, 110)
 	X = Extras.new(self)
 	X.load_level()
+	M = Mech.new(self)
+	M.load_level()
 	_reset_player(L.spawn.x - 12, L.spawn.y - 34)
 	time_left = int(L.get("time", 180)) * 60
 	coins = 0
@@ -262,18 +265,24 @@ func _p1_load() -> void:
 		VIL.x = VIL.x0
 		VIL.go = false
 		VIL.gone = false
-	INV = []
+	INV = ["picareta"]
 	lantern_lit = not L.has("lanternOutX")
 	look_y = 0
 	STATS = {"pen": 0, "penTotal": L.get("coins", []).size()}
 
 func _reset_player(x: float, y: float) -> void:
-	player = {"x": x, "y": y, "w": 24, "h": 34, "vx": 0.0, "vy": 0.0, "onGround": false, "face": 1, "puff": false, "slam": false,
+	player = make_body(x, y)
+	if M:
+		M.ctrl = false
+
+func make_body(x: float, y: float) -> Dictionary:
+	return {"x": x, "y": y, "w": 24, "h": 34, "vx": 0.0, "vy": 0.0, "onGround": false, "face": 1, "puff": false, "slam": false,
 		"coyote": 0, "jbuf": 0, "airJumps": 1, "cutOk": false, "hp": MAXHP, "iframe": 0, "armor": 0, "squash": 0.0, "landT": 0, "anim": 0.0,
 		"run": 0, "rdir": 1, "tR": -99, "tL": -99, "hR": false, "hL": false, "holdT": 0, "skidT": 0, "spawnX": x, "spawnY": y,
 		"vine": null, "vr": 0.0, "vineCD": 0, "dyingT": 0, "exitT": 0, "_g": null, "actT": 0, "act": "", "pushT": 0, "leap": 0,
 		"crouch": false, "slideT": 0, "ladder": null, "ladderCD": 0, "dropT": 0, "lookT": 0, "climbA": 0.0, "mud": false,
-		"nearE": null, "nearL": null, "blink": 0, "turnT": 0, "lastFace": 1, "dieMsg": "", "swim": false, "water": null}
+		"nearE": null, "nearL": null, "blink": 0, "turnT": 0, "lastFace": 1, "dieMsg": "", "swim": false, "water": null,
+		"wall": 0, "wallT": 0, "wsl": 0, "lastWall": 0, "wlock": 0, "wslide": false, "guard": false, "dog": false}
 
 # ======================================================================
 #  UTILIDADES
@@ -310,8 +319,15 @@ func fx(n: String, x: float, y: float, life: int, sc: float, vy: float = 0.0) ->
 
 func blockers() -> Array:
 	var b: Array = []
+	var dog: bool = player.get("dog", false)
 	for s in SOL:
 		if s.get("ghost") and not s.on:
+			continue
+		if s.get("fallen"):
+			continue
+		if s.get("open", 0.0) > .85:
+			continue
+		if dog and s.get("dogpass"):
 			continue
 		b.append(s)
 	for c in CR:
@@ -416,6 +432,15 @@ func hint_text() -> String:
 			continue
 		return m
 	return ""
+
+func touching_wall(dir: int) -> bool:
+	var probe := R(player.x + (player.w if dir > 0 else -3.0), player.y + 6, 3, player.h - 14)
+	for s in blockers():
+		if s.get("oneway") or s.get("crate") or s.get("lily"):
+			continue
+		if hit(probe, s):
+			return true
+	return false
 
 func can_stand() -> bool:
 	for s in blockers():
@@ -568,6 +593,30 @@ func step() -> void:
 	X.pre_step()
 	if player.dyingT > 0:
 		return
+	M.pre()
+	# encostado numa parede no ar (para deslizar e pular de parede em parede)
+	player.wslide = false
+	if player.wsl > 0:
+		player.wsl -= 1
+	if player.wlock > 0:
+		player.wlock -= 1
+	if player.onGround or player.ladder or player.vine or player.swim:
+		player.lastWall = 0
+		player.wall = 0
+		player.wallT = 0
+	elif not player.dog and not player.crouch:
+		var wd := 0
+		if touching_wall(1):
+			wd = 1
+		elif touching_wall(-1):
+			wd = -1
+		if wd != 0:
+			player.wall = wd
+			player.wallT = 6
+		elif player.wallT > 0:
+			player.wallT -= 1
+		else:
+			player.wall = 0
 	if pressed("B"):
 		player.x = player.spawnX
 		player.y = player.spawnY
@@ -648,7 +697,7 @@ func step() -> void:
 		X.swim()
 	else:
 		# planar
-		player.puff = (kd("P") or (kd("J") and player.airJumps == 0 and player.vy > .5)) and not player.onGround and not player.slam and player.vy > -1.5
+		player.puff = (kd("P") or (kd("J") and player.airJumps == 0 and player.vy > .5)) and not player.onGround and not player.slam and player.vy > -1.5 and not player.dog and player.wall == 0
 		# pulos
 		var g0 = player._g
 		if pressed("J"):
@@ -664,16 +713,33 @@ func step() -> void:
 		var mudF := .78 if player.mud else 1.0
 		if player.jbuf > 0:
 			if player.onGround or player.coyote > 0:
-				player.vy = JUMP * mudF
+				player.vy = (JUMP * .9 if player.dog else JUMP) * mudF
 				Audio.play("jump", -6)
 				player.onGround = false
 				player.coyote = 0
-				player.airJumps = 1
+				player.airJumps = 0 if player.dog else 1
 				player.jbuf = 0
 				player.cutOk = true
 				player.slam = false
 				player.squash = -.5
 				burst(player.x + player.w / 2, player.y + player.h, 6, Color("#cdbfa6"))
+			elif player.wall != 0 and player.wall != player.lastWall and not player.dog and (player.wsl > 0 or player.airJumps == 0):
+				# pulo na parede: empurra para o lado oposto e devolve o pulo duplo
+				player.lastWall = player.wall
+				player.vx = -player.wall * 6.4
+				player.vy = JUMP * .93
+				player.face = -player.wall
+				player.wlock = 11
+				player.wall = 0
+				player.wallT = 0
+				player.airJumps = 1
+				player.jbuf = 0
+				player.cutOk = true
+				player.puff = false
+				player.squash = -.4
+				Audio.play("jump", -4)
+				fx("fx_dust", player.x + (player.w if player.face < 0 else 0.0), player.y + player.h / 2, 16, .12, -.1)
+				burst(player.x + player.w / 2 - player.face * 12, player.y + player.h / 2, 8, Color("#cdbfa6"))
 			elif player.airJumps > 0:
 				player.vy = DJUMP
 				Audio.play("dj", -6)
@@ -691,11 +757,16 @@ func step() -> void:
 		if player.cutOk and not kd("J") and player.vy < -3.5 and not player.slam and player.leap <= 0:
 			player.vy = -3.5
 		# mergulho
-		if pressed("S") and not player.onGround and not player.slam:
+		if pressed("S") and not player.onGround and not player.slam and not player.dog:
 			player.slam = true
 			player.puff = false
 			player.vy = max(player.vy, 4)
-		# horizontal
+		# horizontal (logo depois de pular na parede, o controle fica um instante travado)
+		var held_l: bool = keys.get("L", false)
+		var held_r: bool = keys.get("R", false)
+		if player.wlock > 0:
+			keys.L = false
+			keys.R = false
 		if player.crouch:
 			var want := -1 if (kd("L") and not kd("R")) else (1 if (kd("R") and not kd("L")) else 0)
 			if want != 0:
@@ -734,6 +805,10 @@ func step() -> void:
 				top2 = top2 * axis_x
 			if X.focus:
 				top2 = min(top2, 1.6)
+			if player.guard:
+				top2 = min(top2, 1.2)
+			if player.dog:
+				top2 = top2 * 1.18
 			if wet and want == 0:
 				player.vx *= .995 / FRIC
 			if kd("L") and not player.slam:
@@ -744,6 +819,8 @@ func step() -> void:
 				player.face = 1
 			else:
 				player.vx *= FRIC if player.onGround else (.9 if player.slam else .985)
+		keys.L = held_l
+		keys.R = held_r
 	# vertical
 	if not player.vine and not player.ladder and not player.swim:
 		var g := GRAV
@@ -757,6 +834,14 @@ func step() -> void:
 		if kd("J") and not player.puff and not player.slam and abs(player.vy) < 1.6:
 			g *= .55
 		player.vy = clamp(player.vy + g, -20, maxv)
+		if player.wall != 0 and not player.onGround and player.vy > 1.5 and kd("R" if player.wall > 0 else "L") and player.wlock == 0:
+			player.vy = min(player.vy, 2.3)
+			player.wslide = true
+			player.wsl = 6
+			player.face = player.wall
+			player.slam = false
+			if T % 6 == 0:
+				PARTS.append({"x": player.x + (player.w if player.wall > 0 else 0.0), "y": player.y + 6, "vx": -player.wall * .6, "vy": -.4, "life": 14, "col": Color(.85, .78, .62, .7)})
 
 	var prev_vy: float = player.vy
 	var was_ground: bool = player.onGround
@@ -795,7 +880,7 @@ func step() -> void:
 		player.blink = 8
 	player.anim += abs(player.vx) * .06
 	# agarrar cipó
-	if not player.vine and not player.onGround and player.vineCD <= 0 and not player.ladder:
+	if not player.vine and not player.onGround and player.vineCD <= 0 and not player.ladder and not player.dog:
 		var hx: float = player.x + player.w / 2
 		var hy: float = player.y + 6
 		for v in VINES:
@@ -872,7 +957,7 @@ func step() -> void:
 	# fogueiras
 	for k in CHK.size():
 		var c: Dictionary = CHK[k]
-		if not c.on and abs(player.x + player.w / 2 - c.x) < 26 and abs(player.y + player.h - c.y) < 60:
+		if not c.on and not player.dog and abs(player.x + player.w / 2 - c.x) < 26 and abs(player.y + player.h - c.y) < 60:
 			c.on = true
 			player.spawnX = c.x - 12
 			player.spawnY = c.y - 34
@@ -917,7 +1002,7 @@ func step() -> void:
 				hurt(1, e.x)
 	player.x = clamp(player.x, 0, L.spanX - player.w)
 	# saída (porta da mina)
-	if hit(player, R(DOOR.x + 10, DOOR.y, DOOR.w - 20, DOOR.h)) and not DOOR.locked and (VIL == null or VIL.gone):
+	if not player.dog and hit(player, R(DOOR.x + 10, DOOR.y, DOOR.w - 20, DOOR.h)) and not DOOR.locked and (VIL == null or VIL.gone):
 		player.exitT = 40
 		burst(DOOR.x + DOOR.w / 2, DOOR.y + DOOR.h / 2, 20, Color("#ffe9a0"))
 		Audio.play("door")
@@ -1052,6 +1137,9 @@ func move_x(dx: float) -> void:
 	for s in blockers():
 		if s.get("oneway") or not hit(player, s):
 			continue
+		if s.get("crate") and dx != 0 and M.try_push(s, dx):
+			if not hit(player, s):
+				continue
 		# degrau baixo: sobe sozinho
 		if player._g and not s.get("crate") and (player.y + player.h) - s.y <= 12 and (player.y + player.h) - s.y > 0:
 			player.y = s.y - player.h
@@ -1106,7 +1194,8 @@ func move_y(dy: float) -> void:
 func _land(s: Dictionary) -> void:
 	player.onGround = true
 	player.coyote = COY
-	player.airJumps = 1
+	player.airJumps = 0 if player.get("dog") else 1
+	player.lastWall = 0
 	player._g = s
 	player.vy = 0
 
@@ -1121,7 +1210,7 @@ func _p1_pre(pcx: float) -> void:
 	# entradas de esconderijo
 	var nearE = null
 	for e in ENTR:
-		if player.onGround and pcx > e.x and pcx < e.x + e.w and abs(player.y + player.h - (e.y + e.h)) < 16:
+		if player.onGround and not player.dog and pcx > e.x and pcx < e.x + e.w and abs(player.y + player.h - (e.y + e.h)) < 16:
 			nearE = e
 	if nearE and (keys.get("Sp", false) or (nearE.get("exit") and keys.get("Up", false))) and not player.ladder:
 		keys.Sp = false
@@ -1143,7 +1232,7 @@ func _p1_pre(pcx: float) -> void:
 		if pcx > c.x - 6 and pcx < c.x + c.w + 6 and player.y + player.h > c.y - 2 and player.y < c.y + c.h:
 			z = c
 			break
-	if not player.ladder and z and not player.vine and player.ladderCD <= 0:
+	if not player.ladder and z and not player.vine and player.ladderCD <= 0 and not player.dog:
 		var at_top: bool = player.onGround and abs(player.y + player.h - z.y) < 6
 		if (kd("U") and not at_top) or (kd("S") and at_top):
 			stand_up()
@@ -1162,10 +1251,10 @@ func _p1_pre(pcx: float) -> void:
 		if not (pcx > l2.x - 10 and pcx < l2.x + l2.w + 10 and player.y + player.h > l2.y - 4 and player.y < l2.y + l2.h + 4):
 			player.ladder = null
 	# abaixar / deslizar
-	var wantC: bool = player.onGround and kd("S") and not player.ladder and nearE == null and not player.vine
+	var wantC: bool = player.onGround and kd("S") and not player.ladder and nearE == null and not player.vine and not player.dog
 	# passagem baixa à frente: o Tomé se abaixa sozinho (e só levanta quando sair de baixo)
 	var mdir := -1 if (kd("L") and not kd("R")) else (1 if (kd("R") and not kd("L")) else 0)
-	if player.onGround and not player.ladder and not player.vine and not player.swim and X.crawl_auto(mdir):
+	if player.onGround and not player.ladder and not player.vine and not player.swim and not player.dog and X.crawl_auto(mdir):
 		if not player.crouch and X.a_notes < 5:
 			X.a_notes = 5
 			note("Passagem baixa: o Tomé se abaixa sozinho. (↓ também abaixa)")
@@ -1313,7 +1402,7 @@ func _p1_post(pcx: float, _pcy: float) -> void:
 	# usar perto de um obstáculo
 	var nearL = null
 	for l in LOCKS:
-		if not l.done and hit(player, R(l.x - 40, l.y - 40, l.w + 80, l.h + 80)):
+		if not l.done and not player.dog and hit(player, R(l.x - 40, l.y - 40, l.w + 80, l.h + 80)):
 			nearL = l
 			break
 	player.nearL = nearL
@@ -1327,6 +1416,7 @@ func _p1_post(pcx: float, _pcy: float) -> void:
 			flash(lock_msg(nearL), 260)
 			Audio.vib(15)
 	X.post()
+	M.post()
 	# vilão foge
 	if VIL:
 		if not VIL.go and pcx > VIL.trig:
@@ -1400,6 +1490,15 @@ func _update_coal() -> void:
 				else:
 					c.vy = 0
 					c.vx *= .97
+		if c.get("ref"):
+			for e in EN:
+				if not e.dead and hit(R(c.x - 11, c.y - 11, 22, 22), ebox(e)):
+					kill_enemy(e, "hit")
+					c.life = 0
+			continue
+		if c.life > 0 and player.dyingT == 0 and hit(player, R(c.x - 11, c.y - 11, 22, 22)) and M.blocks(c.x - c.vx * 10):
+			M.reflect(c)
+			continue
 		if c.life > 0 and player.dyingT == 0 and hit(player, R(c.x - 11, c.y - 11, 22, 22)):
 			hurt(1, c.x - c.vx * 10)
 			c.life = 0
@@ -1726,6 +1825,13 @@ func break_crate(c: Dictionary) -> void:
 func hurt(d: int, from_x: float) -> void:
 	if player.iframe > 0 or player.dyingT > 0:
 		return
+	if player.get("dog"):
+		M.dog_hurt()
+		return
+	if M.blocks(from_x):
+		M.on_block(from_x)
+		player.iframe = 20
+		return
 	var kb = func():
 		player.iframe = 70
 		shake = max(shake, 8)
@@ -1754,6 +1860,9 @@ func hurt(d: int, from_x: float) -> void:
 
 func die(msg: String) -> void:
 	if player.dyingT > 0 or not running:
+		return
+	if player.get("dog"):
+		M.dog_hurt()
 		return
 	lives -= 1
 	shake = 14
@@ -1810,7 +1919,7 @@ func save_checkpoint(k: int) -> void:
 			coins_got.append(c.ci)
 	Save.save_run({"level": level_idx, "chk": k, "lives": lives, "inv": INV.duplicate(), "items": got_items, "locks": locks,
 		"clues": CLUEGOT.keys(), "specs": SPECGOT.keys(), "drawn": DRAWN.keys(), "coins": coins_got, "coin_life": coin_life,
-		"pen": STATS.pen, "lit": lantern_lit, "time": time_left, "x": X.save_data()})
+		"pen": STATS.pen, "lit": lantern_lit, "time": time_left, "x": X.save_data(), "m": M.save_data()})
 
 func restore_run(d: Dictionary) -> void:
 	## Continua do ponto salvo: refaz a fase no estado da fogueira
@@ -1849,6 +1958,7 @@ func restore_run(d: Dictionary) -> void:
 	STATS.pen = int(d.get("pen", 0))
 	lantern_lit = d.get("lit", lantern_lit)
 	X.restore(d.get("x", {}))
+	M.restore(d.get("m", {}))
 	var k: int = int(d.get("chk", -1))
 	for i in CHK.size():
 		if i <= k:

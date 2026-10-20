@@ -125,7 +125,7 @@
    "t": "ground",
    "x": 0,
    "y": 500,
-   "w": 2700,
+   "w": 1800,
    "h": 140
   },
   {
@@ -560,21 +560,24 @@
    "x": 11120,
    "y": 440,
    "w": 80,
-   "trestle": 1
+   "trestle": 1,
+   "crumble": 1
   },
   {
    "t": "plat",
    "x": 11250,
    "y": 410,
    "w": 80,
-   "trestle": 1
+   "trestle": 1,
+   "crumble": 1
   },
   {
    "t": "plat",
    "x": 11380,
    "y": 440,
    "w": 80,
-   "trestle": 1
+   "trestle": 1,
+   "crumble": 1
   },
   {
    "t": "ground",
@@ -749,13 +752,67 @@
   },
   {
    "t": "crack",
-   "x": 4180,
+   "x": 3985,
    "y": 40,
    "w": 62,
    "h": 60,
    "id": "rock1",
    "kind": "boulder",
    "msg": "Crack! A rocha virou cascalho. Caminho livre."
+  },
+  {
+   "t": "ground",
+   "x": 1870,
+   "y": 500,
+   "w": 830,
+   "h": 140
+  },
+  {
+   "t": "dirt",
+   "x": 1800,
+   "y": 520,
+   "w": 70,
+   "h": 120
+  },
+  {
+   "t": "pgate",
+   "x": 1905,
+   "y": 240,
+   "w": 22,
+   "h": 260,
+   "id": "g1"
+  },
+  {
+   "t": "stone",
+   "x": 4680,
+   "y": 100,
+   "w": 50,
+   "h": 340
+  },
+  {
+   "t": "pgate",
+   "x": 4160,
+   "y": -420,
+   "w": 22,
+   "h": 520,
+   "id": "g2",
+   "dogpass": 1
+  },
+  {
+   "t": "dogdoor",
+   "x": 7500,
+   "y": 476,
+   "w": 20,
+   "h": 24,
+   "dogpass": 1
+  },
+  {
+   "t": "dogdoor",
+   "x": 7780,
+   "y": 476,
+   "w": 20,
+   "h": 24,
+   "dogpass": 1
   }
  ],
  "swamp": [
@@ -1107,18 +1164,16 @@
    "x": 2602,
    "y": 922,
    "item": "heart"
+  },
+  {
+   "t": "push",
+   "x": 1600,
+   "y": 430,
+   "w": 70,
+   "h": 70
   }
  ],
  "enemies": [
-  {
-   "k": "boar",
-   "x": 1700,
-   "y": 500,
-   "r": [
-    1560,
-    1940
-   ]
-  },
   {
    "k": "leech",
    "x": 5838,
@@ -1823,6 +1878,14 @@
   [
    8008,
    708
+  ],
+  [
+   4693,
+   78
+  ],
+  [
+   4717,
+   78
   ]
  ],
  "clocks": [
@@ -1841,6 +1904,10 @@
   [
    8062,
    700
+  ],
+  [
+   4705,
+   52
   ]
  ],
  "door": {
@@ -1897,6 +1964,28 @@
   "chase": 1
  },
  "hints": [
+  {
+   "a": 1300,
+   "b": 1500,
+   "t": "GOLPE (botão da picareta / tecla G): derruba bichos e quebra caixas e rochas. Segure o botão para se defender com a lanterna."
+  },
+  {
+   "a": 1540,
+   "b": 1905,
+   "t": "O portão só abre com peso na placa. Empurre a caixa grande até cair no buraco da placa."
+  },
+  {
+   "a": 4100,
+   "b": 4200,
+   "yl": 140,
+   "t": "Portão alto com portinhola de cachorro. Troque para o Pipoca (botão do cachorro / Q), passe pela portinhola e pare na placa."
+  },
+  {
+   "a": 4590,
+   "b": 4700,
+   "yg": 110,
+   "t": "Entre duas paredes: encoste numa, aperte PULAR para saltar para a outra. Lá em cima tem lápis!"
+  },
   {
    "a": 0,
    "b": 600,
@@ -1964,9 +2053,9 @@
    "t": "A tempestade apagou a lanterna! Procure óleo e um pavio."
   },
   {
-   "a": 7480,
-   "b": 7520,
-   "t": "A porta do galpão é baixa: abaixe-se (↓)."
+   "a": 7440,
+   "b": 7530,
+   "t": "A porta do galpão está trancada... mas tem uma portinhola de cachorro! Troque para o Pipoca (botão do cachorro / tecla Q)."
   },
   {
    "a": 8380,
@@ -2014,11 +2103,11 @@
    "t": "Uma toca pequena demais para o Tomé. Com o Pipoca junto, toque ✦ USAR aqui."
   },
   {
-   "a": 4040,
-   "b": 4260,
+   "a": 3900,
+   "b": 4060,
    "yl": 140,
    "crack": "rock1",
-   "t": "Uma rocha rachada fecha o caminho. Use a picareta: ✦ USAR."
+   "t": "Rocha rachada no caminho: dê um GOLPE com a picareta (botão da picareta / tecla G)."
   },
   {
    "a": 7840,
@@ -2240,6 +2329,20 @@
    "x": 4310,
    "y": 100,
    "id": 1
+  }
+ ],
+ "plates": [
+  {
+   "x": 1800,
+   "y": 520,
+   "w": 70,
+   "gate": "g1"
+  },
+  {
+   "x": 4196,
+   "y": 100,
+   "w": 60,
+   "gate": "g2"
   }
  ]
 }

@@ -238,13 +238,17 @@ func post() -> void:
 		if weather_msg_t == 0 and weather_text() != "":
 			g.note(weather_text())
 	# ✦ USAR: picareta, espelho do chão
-	if g.keys.get("Ap", false):
+	if g.M.is_dog():
+		if g.keys.get("Ap", false):
+			g.keys.Ap = false
+			g.M.dog_action()
+	elif g.keys.get("Ap", false):
 		if _use_dog() or _use_toca() or _use_crack() or _use_mirror():
 			g.keys.Ap = false
 			focus_block = true
 	if not g.kd("A"):
 		focus_block = false
-	focus = g.kd("A") and not focus_block and g.lantern_lit and p.nearL == null and p.ladder == null and p.vine == null and not p.swim and p.dyingT == 0
+	focus = g.kd("A") and not focus_block and not g.M.is_dog() and g.lantern_lit and p.nearL == null and p.ladder == null and p.vine == null and not p.swim and p.dyingT == 0
 	if focus and a_notes < 1:
 		a_notes = 1
 		g.note("Facho concentrado: espanta corujas e morcegos e revela o que está escondido no escuro.")
@@ -657,36 +661,11 @@ func _boss() -> void:
 			var feet: float = p.y + p.h
 			var from_top: bool = p.vy > 0.5 and feet - bb.y < 34
 			if from_top and b.st == "stun":
-				b.hp -= 1
-				b.red = 30
 				p.vy = Game.STOMP * 1.05
 				p.y = bb.y - p.h - 1
 				p.cutOk = false
 				p.airJumps = 1
-				g.hit_stop = 7
-				g.shake = 14
-				Audio.play("stomp")
-				Audio.play("hurt", -8)
-				Audio.vib(70)
-				g.burst(b.x, bb.y, 22, Color("#e0a0a0"))
-				if b.hp <= 0:
-					b.st = "flee"
-					b.t = 0
-					_gate_on(false)
-					for l in LOGS:
-						if l.s:
-							g.SOL.erase(l.s)
-							g.fx("fx_pieces", l.s.x + 65, l.s.y + 10, 20, .35, -.4)
-						l.dead = true
-					g.flash("O Javali-Rei fugiu para o mato! E deixou cair... uma picareta!", 260)
-					var it := {"x": b.item[0], "y": b.item[1], "id": "picareta", "got": false}
-					it.ry = g._rest_y(it.x, it.y)
-					g.ITEMS.append(it)
-					Audio.play("door", -4)
-				else:
-					b.st = "hit"
-					b.t = 0
-					g.flash("Acertou! Falta%s %d." % ["m" if b.hp > 1 else "", b.hp], 120)
+				boss_damage()
 			elif from_top:
 				p.vy = -8.5
 				p.y = bb.y - p.h - 1
@@ -695,6 +674,38 @@ func _boss() -> void:
 				g.note("O couro dele é duro! Faça ele bater na árvore ou no barranco primeiro.")
 			elif b.st == "charge" or b.st == "intro":
 				g.hurt(1, b.x)
+
+## acerto no Javali-Rei tonto (pulo nas costas ou golpe de picareta)
+func boss_damage() -> void:
+	var b: Dictionary = BOSS
+	if b.st != "stun":
+		return
+	b.hp -= 1
+	b.red = 30
+	g.hit_stop = 7
+	g.shake = 14
+	Audio.play("stomp")
+	Audio.play("roar", -10)
+	Audio.vib(70)
+	g.burst(b.x, b.y - 100, 22, Color("#e0a0a0"))
+	if b.hp <= 0:
+		b.st = "flee"
+		b.t = 0
+		_gate_on(false)
+		for l in LOGS:
+			if l.s:
+				g.SOL.erase(l.s)
+				g.fx("fx_pieces", l.s.x + 65, l.s.y + 10, 20, .35, -.4)
+			l.dead = true
+		g.flash("O Javali-Rei fugiu para o mato! Você ganhou uma armadura de casca de árvore (aguenta 1 golpe).", 260)
+		g.player.armor = 1
+		for i in 12:
+			g.gain_coin(b.item[0], b.item[1] - 20, true)
+		Audio.play("door", -4)
+	else:
+		b.st = "hit"
+		b.t = 0
+		g.flash("Acertou! Falta%s %d." % ["m" if b.hp > 1 else "", b.hp], 120)
 
 func boss_reset() -> void:
 	if BOSS.is_empty() or BOSS.done:
@@ -714,9 +725,6 @@ func boss_finish_silent() -> void:
 		return
 	BOSS.done = true
 	BOSS.active = false
-	var it := {"x": BOSS.item[0], "y": BOSS.item[1], "id": "picareta", "got": g.INV.has("picareta")}
-	it.ry = g._rest_y(it.x, it.y)
-	g.ITEMS.append(it)
 
 func _logs() -> void:
 	var p: Dictionary = g.player
@@ -872,7 +880,7 @@ func _use_toca() -> bool:
 			continue
 		if not dog_free():
 			g.flash("Uma toca estreita, cheirando a cachorro. O Tomé não cabe aí...", 200)
-		elif DOG.st in ["follow", "sit"]:
+		elif DOG.st in ["follow", "sit", "stay"]:
 			DOG.st = "to_toca"
 			DOG.toca = tc
 			DOG.t = 0
@@ -896,7 +904,7 @@ func _dog() -> void:
 		DOG.bark -= 1
 	DOG.moving = false
 	# caminho do Tomé no chão
-	if p.onGround and not p.ladder and not p.vine and not p.swim and p.dyingT == 0:
+	if p.onGround and not p.ladder and not p.vine and not p.swim and p.dyingT == 0 and not p.get("dog"):
 		var cur := Vector2(pcx, feet)
 		if TRAIL.is_empty() or TRAIL[TRAIL.size() - 1].distance_to(cur) > 6:
 			TRAIL.append(cur)
@@ -904,6 +912,13 @@ func _dog() -> void:
 				TRAIL.pop_front()
 				DOG.i = max(0, DOG.i - 1)
 	match DOG.st:
+		"ctrl", "dig":
+			pass
+		"stay":
+			DOG.moving = false
+			if dog_dist() > 1400:
+				DOG.st = "follow"
+				_resync()
 		"tied":
 			DOG.x = DOG.x0 + sin(DOG.t * .03) * 16
 			DOG.face = 1 if cos(DOG.t * .03) > 0 else -1

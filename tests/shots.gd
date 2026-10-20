@@ -84,6 +84,17 @@ func _initialize() -> void:
 					g.X.DOG.x = x - 50
 					g.X.DOG.y = y
 					g.X.TRAIL = [Vector2(x - 50, y)]
+				elif k == "dog":
+					g.X.DOG.st = "follow"
+					g.X.DOG.x = x - 50
+					g.X.DOG.y = y
+					g.X.TRAIL = [Vector2(x - 50, y), Vector2(x, y)]
+				elif k == "ctrl":
+					g.X.DOG.st = "follow"
+					g.X.DOG.x = x
+					g.X.DOG.y = y
+					g.player.onGround = true
+					g.M.toggle_dog()
 				elif k == "fl":
 					g.player.face = -1
 				elif k == "pick":
