@@ -1,5 +1,7 @@
 extends Node
-## Efeitos, música por trecho e chuva. Os WAV ficam em assets/audio (gerados por tools/make_audio.py).
+## Efeitos, música por trecho, som ambiente e chuva.
+## Músicas e ambientes (OGG) são gravados com instrumentos reais por tools/make_music.py;
+## os efeitos curtos (WAV) vêm de tools/make_audio.py e tools/make_music.py.
 
 var on := true
 var sfx := {}
@@ -8,6 +10,13 @@ var music: AudioStreamPlayer
 var music2: AudioStreamPlayer
 var rain: AudioStreamPlayer
 var song := ""
+var amb: AudioStreamPlayer
+var amb2: AudioStreamPlayer
+var amb_name := ""
+## volume de cada música (dB) para todas soarem parecidas
+const SONG_DB := {"perseguicao": -3.0, "vitoria": -6.0, "tarde": -8.0, "tema": -6.0}
+## som ambiente de cada trecho
+const AMB_FOR := {"manha": "passaros", "tarde": "passaros", "chuva": "sapos", "noite": "grilos", "tunel": "caverna", "perseguicao": "vento"}
 var rain_target := 0.0
 const NAMES := ["jump", "dj", "pen", "stomp", "hurt", "item", "clue", "combine", "unlock", "splash", "slide", "fire", "thunder", "door", "spring", "climb", "die", "special"]
 
@@ -23,6 +32,10 @@ func _ready() -> void:
 	music2 = AudioStreamPlayer.new()
 	add_child(music)
 	add_child(music2)
+	amb = AudioStreamPlayer.new()
+	amb2 = AudioStreamPlayer.new()
+	add_child(amb)
+	add_child(amb2)
 	rain = AudioStreamPlayer.new()
 	rain.stream = _loop(load("res://assets/audio/rain.wav"))
 	rain.volume_db = -60
@@ -56,12 +69,27 @@ func play(n: String, vol_db: float = 0.0) -> void:
 	players[0].stream = sfx[n]
 	players[0].play()
 
-## Troca a música com um cruzamento suave
+func _stream(base: String) -> AudioStream:
+	## procura .ogg (instrumentos reais) e, se não houver, .wav (sintetizado); devolve em loop
+	for ext in ["ogg", "wav"]:
+		var path := "res://assets/audio/%s.%s" % [base, ext]
+		if ResourceLoader.exists(path):
+			var st = load(path)
+			if st is AudioStreamOggVorbis:
+				var c: AudioStreamOggVorbis = st.duplicate()
+				c.loop = true
+				return c
+			return _loop(st)
+	return null
+
+## Troca a música com um cruzamento suave (e o som ambiente do trecho junto)
 func set_song(n: String) -> void:
 	if n == song or n == "":
 		return
+	var s := _stream("mus_" + n)
+	if s == null:
+		return
 	song = n
-	var s := _loop(load("res://assets/audio/mus_%s.wav" % n))
 	var old := music
 	music = music2
 	music2 = old
@@ -69,14 +97,34 @@ func set_song(n: String) -> void:
 	music.volume_db = -40
 	music.play()
 	var tw := create_tween()
-	tw.tween_property(music, "volume_db", -6.0, 1.2)
-	tw.parallel().tween_property(music2, "volume_db", -40.0, 1.2)
+	tw.tween_property(music, "volume_db", SONG_DB.get(n, -7.0), 1.4)
+	tw.parallel().tween_property(music2, "volume_db", -40.0, 1.4)
 	tw.tween_callback(music2.stop)
+	set_amb(AMB_FOR.get(n, ""))
+
+func set_amb(n: String) -> void:
+	if n == amb_name:
+		return
+	amb_name = n
+	var old := amb
+	amb = amb2
+	amb2 = old
+	var tw := create_tween()
+	if n != "":
+		var s := _stream("amb_" + n)
+		if s:
+			amb.stream = s
+			amb.volume_db = -40
+			amb.play()
+			tw.tween_property(amb, "volume_db", -13.0, 2.0)
+	tw.parallel().tween_property(amb2, "volume_db", -40.0, 2.0)
+	tw.tween_callback(amb2.stop)
 
 func stop_music() -> void:
 	music.stop()
 	music2.stop()
 	song = ""
+	set_amb("")
 
 func set_rain(v: float) -> void:
 	rain_target = v

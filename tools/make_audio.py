@@ -1,4 +1,4 @@
-"""Gera os efeitos sonoros e as músicas (provisórias) do Find Her como WAV.
+"""Gera os efeitos sonoros sintetizados do Find Her como WAV.
 Uso: python3 tools/make_audio.py   (requer numpy)
 Os sons imitam o sintetizador da versão HTML; troque por áudio profissional quando tiver."""
 import numpy as np, wave, os
@@ -53,19 +53,5 @@ sfx('die',.8,lambda b:[tone(b,f,i*.12,.18,'square',.08) for i,f in enumerate([52
 sfx('special',.5,lambda b:[tone(b,f,i*.06,.25,'triangle',.12) for i,f in enumerate([784,988,1175,1568])])
 # chuva (loop de 4 s com emenda suave)
 n=SR*4;x=lowpass(np.random.rand(n+SR)*2-1,1600);a=x[:n].copy();f=SR;w=np.linspace(0,1,f);a[:f]=a[:f]*w+x[n:n+f]*(1-w);save('rain',a*.9)
-# músicas (loops)
-SONGS={'manha':dict(bpm=112,scale=[0,2,4,7,9],root=60,wave='triangle'),'tarde':dict(bpm=100,scale=[0,2,4,7,9],root=57,wave='triangle'),
- 'chuva':dict(bpm=84,scale=[0,3,5,7,10],root=57,wave='sine'),'noite':dict(bpm=70,scale=[0,3,5,7,8],root=55,wave='sine'),'tunel':dict(bpm=60,scale=[0,1,5,7,8],root=50,wave='sine')}
-mf=lambda m:440*2**((m-69)/12)
-for name,S in SONGS.items():
-    spb=60/S['bpm']/2;steps=64;L=steps*spb;b=np.zeros(int((L+3)*SR))
-    for st0 in range(steps):
-        st=st0%32;seed=(st*7+3)%11;t=st0*spb
-        bass=S['root']-12+S['scale'][[0,0,3,3,1,1,4,4][(st//4)%8]%len(S['scale'])]
-        if st%4==0:tone(b,mf(bass),t,spb*3.6,'triangle',.05)
-        if seed%3!=0:
-            deg=S['scale'][(seed+st//8+(st0//32))%len(S['scale'])]+(12 if st%16>11 else 0);tone(b,mf(S['root']+deg),t,spb*1.6,S['wave'],.035)
-    # eco suave
-    d=int(spb*3*SR);e=b.copy();e[d:]+=b[:-d]*.28;b=e
-    n=int(L*SR);loop=b[:n].copy();loop[:len(b)-n]+=b[n:];save('mus_'+name,loop,2.2)
-print('ok',sorted(os.listdir(OUT)))
+# As músicas, os ambientes e os efeitos 'clue item pen special door combine die fire' são gravados com
+# instrumentos reais por tools/make_music.py (rode-o depois deste script).

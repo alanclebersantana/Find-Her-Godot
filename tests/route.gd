@@ -174,6 +174,7 @@ func _initialize() -> void:
 	g.load_level(0)
 	var with_en := OS.get_cmdline_user_args().has("inimigos")
 	if not with_en:
+		g.no_coal = true
 		for e in g.EN:
 			e.dead = 99
 	P = g.player
@@ -317,8 +318,26 @@ func _initialize() -> void:
 	S("pistas=6 e roxo", n_clues() == 6 and spec("roxo"))
 	S("volta", crawl(9260))
 	S("sobe", climb_to("U", func(): return P.ladder == null and P.onGround and P.y < 480, 500))
-	S("vilão", walk_to(9500))
-	walk_to(9740)
+	S("vilão foge", walk_to(9600))
+	S("perseguição começou", g.VIL.go)
+	walk_to(9930)
+	S("1º buraco", jump_to(10100))
+	walk_to(10220)
+	S("desliza sob a viga", crawl(10350))
+	walk_to(10585)
+	S("2º buraco", jump_to(10790, true))
+	walk_to(10850)
+	S("pula o carrinho parado", jump_to(11000, true))
+	walk_to(11070)
+	S("tábua 1", jump_to(11160))
+	S("tábua 2", jump_to(11290))
+	S("tábua 3", jump_to(11420))
+	S("chão", jump_to(11530))
+	walk_to(11670)
+	S("viga 2", crawl(11800))
+	S("vilão entrou na mina", until({"R": true}, func(): return g.VIL.gone or px() > 12100, 900))
+	S("vilão entrou", until({}, func(): return g.VIL.gone, 400))
+	walk_to(12215)
 	var sa = until({}, func(): return not g.running, 300)
 	S("saída", sa is String and sa == "state")
 	var nd: int = g.DRWS.filter(func(d): return d.got).size()

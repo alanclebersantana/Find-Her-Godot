@@ -21,7 +21,7 @@ func _draw() -> void:
 	_lily_mud(g)
 	if g.VIL and g.VIL.go and not g.VIL.gone:
 		var v: Dictionary = g.VIL
-		var f := (T / 8) % 2
+		var f: int = (T / max(3, int(10 - v.get("spd", 3.3)))) % 2
 		Spr.A("lia_scared", v.x + 44, v.y - 58, .5)
 		Spr.A("vg_cart1" if f else "vg_cart2", v.x, v.y + 2, 1)
 	for v in g.VINES:
@@ -58,20 +58,39 @@ func _deco(g: Game) -> void:
 		k += 1
 	if 6940 > cam - 200 and 6940 < cam + g.W + 200:
 		Spr.A("sw_boat", 6940, 520, .8, true)
-	# mina: trilhos, carrinho e porta
-	if cam + g.W > 9300:
-		var xa: float = max(9380, floor((cam - 10) / 18) * 18)
-		var xb: float = min(9900, cam + g.W + 10)
+	# mina: trilhos (com pontes sobre os buracos), carrinho parado e porta
+	var rx0: float = g.L.villain.x0 - 160 if g.L.has("villain") else 9380.0
+	if cam + g.W > rx0:
+		var xa: float = max(rx0, floor((cam - 10) / 18) * 18)
+		var xb: float = min(g.L.spanX, cam + g.W + 10)
 		var x := xa
 		while x < xb:
-			Spr.rect(x, 494, 11, 7, Color("#4a3220"))
+			var over_pit := false
+			for pit in g.L.get("pits", []):
+				if x > pit[0] and x < pit[1]:
+					over_pit = true
+			if over_pit:
+				if int(x) % 72 < 18:
+					Spr.rect(x, 495, 6, 140, Color("#2e2014"))
+			else:
+				Spr.rect(x, 494, 11, 7, Color("#4a3220"))
 			x += 18
-		Spr.rect(max(9380, cam - 10), 491, xb - max(9380, cam - 10), 4, Color("#8a8f98"))
-		Spr.A("mi_cart_full", 9560, 502, .8)
-		if g.VIL and g.VIL.go:
-			Spr.AB("mi_door_open", 9625, 500 - 221, 230, 221)
-		else:
-			Spr.AB("mi_door_closed", 9636, 500 - 207, 210, 207)
+		Spr.rect(max(rx0, cam - 10), 491, xb - max(rx0, cam - 10), 4, Color("#8a8f98"))
+		var gx: float = g.DOOR.x - 60
+		if gx > cam - 300 and gx < cam + g.W + 300:
+			Spr.A("mi_cart_full", gx - 70, 502, .8)
+			if g.VIL and g.VIL.go and not g.VIL.gone:
+				Spr.AB("mi_door_open", gx, 500 - 221, 230, 221)
+			else:
+				Spr.AB("mi_door_closed", gx + 11, 500 - 207, 210, 207)
+	# carvão atirado pelo Ademar
+	for c in g.COAL:
+		Spr.save()
+		Spr.translate(c.x, c.y)
+		Spr.rotate(c.rot)
+		Spr.poly(PackedVector2Array([Vector2(-8, -3), Vector2(-3, -8), Vector2(6, -6), Vector2(8, 2), Vector2(2, 8), Vector2(-7, 5)]), Color(.13, .13, .15))
+		Spr.poly(PackedVector2Array([Vector2(-3, -6), Vector2(3, -5), Vector2(0, -1)]), Color(.45, .45, .5, .8))
+		Spr.restore()
 	# portão da comporta e parede escura do túnel
 	for s in g.SOL:
 		if s.t == "barrier":
@@ -306,6 +325,42 @@ func _player_draw(g: Game) -> void:
 			if p.onGround:
 				Spr.ellipse(cx, by + 1, 18, 4, Color(0, 0, 0, .22))
 			Spr.A(n, cx, by, .56, p.face < 0)
+			_armor(p, cx, by)
+			return
+	# animações novas (se existirem em assets/sprites/tome/)
+	if not Spr.anim.is_empty() and not (p.iframe > 40) and not p.puff and not p.slam:
+		var key := ""
+		var f := 0
+		if not p.onGround:
+			key = "jump" if p.vy < 0 else "fall"
+		elif p.landT > 0:
+			key = "land"
+		elif abs(p.vx) > .4:
+			key = "run" if p.run and Spr.anim.has("run") else "walk"
+		else:
+			key = "idle"
+		if Spr.anim.has(key):
+			var a: Dictionary = Spr.anim[key]
+			var n: int = a.n
+			match key:
+				"walk", "run":
+					f = int(p.anim * (1.6 if p.run else 1.2) * n / 4.0) % n
+				"idle":
+					f = (T / 7) % n
+				"jump":
+					f = int(clamp((p.vy + 12) / 12.0, 0, .999) * n)
+				"fall":
+					f = int(clamp(p.vy / 10.0, 0, .999) * n)
+				"land":
+					f = int((1 - p.landT / 8.0) * (n - 1))
+			var sz: float = a.s
+			var k2 := 78.0 / sz
+			Spr.ellipse(cx, by + 1, 16, 4, Color(0, 0, 0, .25 if p.onGround else .12))
+			Spr.save()
+			Spr.translate(cx, by)
+			Spr.scale(p.face * k2, k2)
+			Spr.ci.draw_texture_rect_region(a.tex, Rect2(-sz / 2, -sz, sz, sz), Rect2(f * sz, 0, sz, sz), Color(1, 1, 1, Spr.alpha))
+			Spr.restore()
 			_armor(p, cx, by)
 			return
 	# folhas de sprites antigas (parado, andar, pulo, planar, mergulho)

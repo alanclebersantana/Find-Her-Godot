@@ -77,6 +77,8 @@ var thunder_t := 200
 var lightning := 0
 var thunder_snd := 0
 var PARTS: Array = []
+var COAL: Array = []
+var no_coal := false
 var FXS: Array = []
 var cam := 0.0
 var cam_y := 0.0
@@ -84,6 +86,7 @@ var cam_focus := 0.0
 var W := 960.0
 var H := 540.0
 var running := false
+var max_x := 0.0          # até onde o Tomé já chegou (para o mapa)
 var tps := 60
 var shown_crate := false
 var rng := RandomNumberGenerator.new()
@@ -109,6 +112,7 @@ func _ready() -> void:
 # ======================================================================
 func load_level(i: int) -> void:
 	level_idx = i
+	max_x = 0.0
 	L = JSON.parse_string(FileAccess.get_file_as_string("res://assets/data/level%d.json" % (i + 1)))
 	SOL = []
 	for s in L.solids:
@@ -181,6 +185,7 @@ func load_level(i: int) -> void:
 	T = 0
 	PARTS = []
 	FXS = []
+	COAL = []
 	cam = clamp(player.x - W / 2, 0, max(0, L.spanX - W))
 	cam_focus = player.y
 	cam_y = clamp(player.y - H * .55, L.top, max(L.top, L.bottom - H))
@@ -252,7 +257,7 @@ func _p1_load() -> void:
 
 func _reset_player(x: float, y: float) -> void:
 	player = {"x": x, "y": y, "w": 24, "h": 34, "vx": 0.0, "vy": 0.0, "onGround": false, "face": 1, "puff": false, "slam": false,
-		"coyote": 0, "jbuf": 0, "airJumps": 1, "cutOk": false, "hp": MAXHP, "iframe": 0, "armor": 0, "squash": 0.0, "anim": 0.0,
+		"coyote": 0, "jbuf": 0, "airJumps": 1, "cutOk": false, "hp": MAXHP, "iframe": 0, "armor": 0, "squash": 0.0, "landT": 0, "anim": 0.0,
 		"run": 0, "rdir": 1, "tR": -99, "tL": -99, "hR": false, "hL": false, "holdT": 0, "skidT": 0, "spawnX": x, "spawnY": y,
 		"vine": null, "vr": 0.0, "vineCD": 0, "dyingT": 0, "exitT": 0, "_g": null, "actT": 0, "act": "", "pushT": 0, "leap": 0,
 		"crouch": false, "slideT": 0, "ladder": null, "ladderCD": 0, "dropT": 0, "lookT": 0, "climbA": 0.0, "mud": false,
@@ -429,7 +434,7 @@ func ambient() -> void:
 func section_weights() -> Dictionary:
 	## peso de cada cenário de fundo conforme a posição (para o fundo trocar suavemente)
 	var S: Array = L.get("sections", [])
-	var map := {"manha": "bosque", "tarde": "tarde", "chuva": "pantano", "noite": "noite"}
+	var map := {"manha": "bosque", "tarde": "tarde", "chuva": "pantano", "noite": "noite", "tunel": "noite", "perseguicao": "noite"}
 	var px: float = player.x + player.w / 2
 	var out := {}
 	if S.is_empty():
@@ -513,6 +518,7 @@ func step() -> void:
 				level_won.emit()
 		return
 	T += 1
+	max_x = max(max_x, player.x + 300)
 	if shake > 0:
 		shake *= .85
 	for k in ["iframe", "vineCD", "actT", "pushT", "leap", "skidT"]:
@@ -718,6 +724,7 @@ func step() -> void:
 		move_y(player.vy)
 	if player.onGround and not was_ground and prev_vy > 6:
 		player.squash = min(1, prev_vy / 14)
+		player.landT = 8
 		if prev_vy > 10:
 			Audio.vib(18)
 		burst(player.x + player.w / 2, player.y + player.h, 5, Color("#b7a77f"))
@@ -725,6 +732,8 @@ func step() -> void:
 	if player.run and player.onGround and T % 8 == 0:
 		fx("fx_dust", player.x + player.w / 2 - player.face * 14, player.y + player.h - 5, 14, .09, -.25)
 	player.squash *= .78
+	if player.landT > 0:
+		player.landT -= 1
 	if player.slam and player.onGround:
 		shake = max(shake, 9)
 		burst(player.x + player.w / 2, player.y + player.h, 16, Color("#d9c290"))
@@ -770,6 +779,7 @@ func step() -> void:
 		if not d.got and hit(player, R(d.x - 22, d.y - 22, 44, 44)):
 			d.got = true
 			DRAWN["%d:%d" % [level_idx, d.i]] = 1
+			Save.setv("gallery", "d%d" % int(d.i), true)
 			flash(d.txt, 280)
 			burst(d.x, d.y, 24, Color("#f6efdc"))
 			Audio.play("clue")
@@ -795,6 +805,9 @@ func step() -> void:
 		note("Aqui não há o que usar. Perto de um obstáculo, ✦ USAR tenta abrir caminho.")
 	if player.y > L.bottom + 60:
 		die("Você caiu.")
+	for pit in L.get("pits", []):
+		if pcx > pit[0] and pcx < pit[1] and player.y > 660 and player.dyingT == 0:
+			die("Você caiu no buraco.")
 	if not running or player.dyingT > 0:
 		_tick_fx()
 		_camera()
@@ -850,7 +863,7 @@ func step() -> void:
 				hurt(1, e.x)
 	player.x = clamp(player.x, 0, L.spanX - player.w)
 	# saída (porta da mina)
-	if hit(player, R(DOOR.x + 10, DOOR.y, DOOR.w - 20, DOOR.h)) and not DOOR.locked:
+	if hit(player, R(DOOR.x + 10, DOOR.y, DOOR.w - 20, DOOR.h)) and not DOOR.locked and (VIL == null or VIL.gone):
 		player.exitT = 40
 		burst(DOOR.x + DOOR.w / 2, DOOR.y + DOOR.h / 2, 20, Color("#ffe9a0"))
 		Audio.play("door")
@@ -1139,6 +1152,7 @@ func _p1_post(pcx: float, _pcy: float) -> void:
 		if not c.got and hit(player, R(c.x - 20, c.y - 20, 40, 40)):
 			c.got = true
 			CLUEGOT[int(c.id)] = 1
+			Save.setv("gallery", "c%d" % int(c.id), true)
 			Audio.play("clue")
 			Audio.vib(80)
 			clue_opened.emit(int(c.id))
@@ -1172,10 +1186,25 @@ func _p1_post(pcx: float, _pcy: float) -> void:
 			Audio.play("thunder")
 			shake = 10
 		if VIL.go and not VIL.gone:
-			VIL.x += 3.3
+			if VIL.get("chase"):
+				# perseguição: o carrinho fica sempre um pouco à frente (nunca dá para alcançar)
+				var d: float = VIL.x - pcx
+				var v: float = clamp(2.4 + (420.0 - d) * .02, 1.0, 6.8)
+				VIL.x += v
+				VIL.spd = v
+				VIL.coal_t = VIL.get("coal_t", 70) - 1
+				if VIL.coal_t <= 0 and d > 140 and d < 720 and not no_coal and player.dyingT == 0:
+					VIL.coal_t = 80 + rng.randi() % 50
+					COAL.append({"x": VIL.x - 40, "y": VIL.y - 74, "vx": -(2.6 + rng.randf() * 1.6), "vy": -5.5 - rng.randf() * 1.5, "b": 0, "life": 260, "rot": 0.0})
+					Audio.play("stomp", -10)
+			else:
+				VIL.x += 3.3
 			if VIL.x > VIL.gateX:
 				VIL.gone = true
 				burst(VIL.gateX, VIL.y - 30, 20, Color("#ffd28a"))
+				Audio.play("door", -4)
+				shake = 6
+	_update_coal()
 	ambient()
 	# raio na tempestade
 	if AMB.rain > .6:
@@ -1190,6 +1219,31 @@ func _p1_post(pcx: float, _pcy: float) -> void:
 			Audio.play("thunder", -4)
 	if lightning > 0:
 		lightning -= 1
+
+func _update_coal() -> void:
+	for c in COAL:
+		c.vy += .35
+		c.x += c.vx
+		c.y += c.vy
+		c.rot += c.vx * .08
+		c.life -= 1
+		for s in SOL:
+			if s.get("oneway"):
+				continue
+			if c.x > s.x and c.x < s.x + s.w and c.y + 7 >= s.y and c.y + 7 <= s.y + 20 and c.vy > 0:
+				c.y = s.y - 7
+				if c.b < 1:
+					c.vy = -c.vy * .45
+					c.b += 1
+					burst(c.x, c.y + 6, 4, Color(.3, .3, .32))
+				else:
+					c.vy = 0
+					c.vx *= .97
+		if player.dyingT == 0 and hit(player, R(c.x - 8, c.y - 8, 16, 16)):
+			hurt(1, c.x + 30)
+			c.life = 0
+			burst(c.x, c.y, 8, Color(.25, .25, .27))
+	COAL = COAL.filter(func(c): return c.life > 0 and c.y < L.bottom)
 
 func use_lock(l: Dictionary) -> void:
 	l.done = true
@@ -1425,6 +1479,9 @@ func respawn() -> void:
 	player.armor = armor
 	player.iframe = 80
 	time_left = int(L.get("time", 180)) * 60
+	COAL.clear()
+	if VIL and VIL.go and not VIL.gone and VIL.get("chase"):
+		VIL.x = min(player.x + 420, VIL.gateX - 10)
 	snap_camera()
 	flash(msg + " Vidas: %d" % lives)
 

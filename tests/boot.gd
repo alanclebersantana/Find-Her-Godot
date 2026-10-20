@@ -6,6 +6,11 @@ func _initialize() -> void:
 	await process_frame
 	main.start_level(false)
 	await process_frame
+	for c in main.ui_layer.get_children():
+		if c.has_method("_end"):
+			print("cutscene: ", c.scene_id)
+			c._end()
+	await process_frame
 	main.panel.get_meta("ok").call()
 	for i in 120:
 		await physics_frame

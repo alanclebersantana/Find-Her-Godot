@@ -13,6 +13,11 @@ func _draw() -> void:
 	Spr.begin(self)
 	if L.has("under"):
 		Spr.rect(x0, L.under, x1 - x0, L.bottom - L.under + 200, EARTH)
+	for pit in L.get("pits", []):
+		if pit[1] < x0 or pit[0] > x1:
+			continue
+		Spr.vgrad(pit[0], 480, pit[1] - pit[0], 200, Color(.03, .02, .04, .0), Color(.02, .015, .03, 1))
+		Spr.rect(pit[0], 680, pit[1] - pit[0], L.bottom - 480, Color(.02, .015, .03))
 	for c in L.get("caves", []):
 		if c.x + c.w < x0 or c.x > x1:
 			continue
@@ -41,6 +46,8 @@ func _draw() -> void:
 			"stone": stone(s)
 			"hill": hill(s)
 			"shed": shed(s)
+			"beam": beam(s)
+			"cart": Spr.AB("mi_cart", s.x - 8, s.y + s.h - 84, s.w + 16, 84)
 
 # ---------- peças ----------
 func tile_h(t: Texture2D, x0_: float, x1_: float, y: float, src: Rect2 = Rect2()) -> void:
@@ -69,6 +76,12 @@ func ground(s: Dictionary) -> void:
 	Spr.rect(x_a, s.y - 30 + t.get_height(), x_b - x_a, s.h, Color("#34200f"))
 
 func plat(s: Dictionary) -> void:
+	if s.get("trestle"):
+		var wood := Color("#4a3220")
+		for lx in [s.x + 8, s.x + s.w - 16]:
+			Spr.rect(lx, s.y + 10, 8, 700 - s.y, wood)
+		Spr.seg(s.x + 12, s.y + 30, s.x + s.w - 12, s.y + 120, wood, 5)
+		Spr.seg(s.x + s.w - 12, s.y + 30, s.x + 12, s.y + 120, wood, 5)
 	Spr.rr(s.x, s.y, s.w, 16, 6, Color("#6b4a2a"))
 	Spr.rect(s.x + 6, s.y + 2, s.w - 12, 3, Color(1, 1, 1, .12))
 	if s.get("hatch"):
@@ -201,3 +214,17 @@ func shed(s: Dictionary) -> void:
 	while x < s.x + s.w:
 		Spr.rect(x, s.y + 30, 3, 90, Color(0, 0, 0, .3))
 		x += 30
+
+func beam(s: Dictionary) -> void:
+	# viga baixa de escoramento da mina: só passa abaixado
+	var wood := Color("#3e2a18")
+	Spr.rect(s.x - 18, s.y - 160, 14, s.h + 160 + 24, wood)
+	Spr.rect(s.x + s.w + 4, s.y - 160, 14, s.h + 160 + 24, wood)
+	planks(s, true)
+	Spr.rect(s.x - 24, s.y - 6, s.w + 48, 14, Color("#5a3d22"))
+	var y: float = s.y + s.h - 10
+	var x: float = s.x
+	while x < s.x + s.w:
+		Spr.rect(x, y, 10, 8, Color(.85, .7, .2, .85))
+		Spr.rect(x + 10, y, 10, 8, Color(.1, .08, .05, .85))
+		x += 20

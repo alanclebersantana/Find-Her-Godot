@@ -14,6 +14,10 @@ var font: Font
 var font_i: Font
 var font_b: Font
 var font_title: Font
+## Animações extras do Tomé (opcionais): assets/sprites/tome/<nome>.png, quadros QUADRADOS lado a lado,
+## pés no centro da base. Se o arquivo existir, o jogo usa no lugar das poses antigas.
+var anim := {}
+const ANIM_NAMES := ["idle", "walk", "run", "jump", "fall", "land", "crawl", "push"]
 
 func _ready() -> void:
 	for k in ["atlas1", "atlas2"]:
@@ -22,6 +26,12 @@ func _ready() -> void:
 		tex[k] = load("res://assets/sprites/%s.png" % k)
 	for k in ["bosque", "tarde", "pantano", "noite"]:
 		tex["bg_" + k] = load("res://assets/bg/%s.jpg" % k)
+	for k in ANIM_NAMES:
+		var ap := "res://assets/sprites/tome/%s.png" % k
+		if ResourceLoader.exists(ap):
+			var at: Texture2D = load(ap)
+			var fh := at.get_height()
+			anim[k] = {"tex": at, "n": max(1, int(round(at.get_width() / float(fh)))), "s": fh}
 	var j = JSON.parse_string(FileAccess.get_file_as_string("res://assets/data/atlas.json"))
 	for n in j.atlas1:
 		var r = j.atlas1[n]

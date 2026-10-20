@@ -2,7 +2,7 @@ extends Node
 ## Cena principal: monta o mundo, as camadas, o HUD, os controles de toque e as telas
 ## (início, abertura da fase, mochila, pista, placar, fim de jogo, pausa).
 
-enum S { TITLE, INTRO, PLAY, BAG, CLUE, RESULTS, OVER, PAUSE }
+enum S { TITLE, INTRO, PLAY, BAG, CLUE, RESULTS, OVER, PAUSE, CUT }
 var state := S.TITLE
 var game: Game
 var hud: Control
@@ -37,7 +37,7 @@ func _ready() -> void:
 	game.name = "Game"
 	add_child(game)
 	game.clue_opened.connect(_on_clue)
-	game.results_ready.connect(_on_results)
+	game.results_ready.connect(_on_level_end)
 	game.game_over.connect(_on_over)
 	game.level_won.connect(_on_results)
 	glow_layer = CanvasLayer.new()
@@ -63,6 +63,7 @@ func _ready() -> void:
 	hud_layer.add_child(hud)
 	_make_top_buttons()
 	_make_touch()
+	apply_controls()
 	_show_hud(false)
 	get_viewport().size_changed.connect(_layout)
 	_layout()
@@ -271,23 +272,37 @@ func _on_stick(st: Dictionary) -> void:
 		_set_key(k, st[k])
 	game.axis_x = stick.axis if stick.mode == "analog" else 1.0
 
-func _stick_label() -> String:
-	return "Controle: " + ("analógico" if Save.getv("opt", "stick", "dpad") == "analog" else "direcional (8 direções)")
-
-func _toggle_stick() -> void:
-	var m := "dpad" if Save.getv("opt", "stick", "dpad") == "analog" else "analog"
-	Save.setv("opt", "stick", m)
-	stick.set_mode(m)
+func apply_controls() -> void:
+	var sz: float = {"P": .85, "M": 1.0, "G": 1.2}[Save.getv("opt", "btn_size", "M")]
+	var op: float = {"clara": .45, "media": .75, "forte": .95}[Save.getv("opt", "btn_alpha", "media")]
+	stick.ui_scale = sz
+	stick.opacity = op
+	stick.left_handed = Save.getv("opt", "left", false)
+	stick.mode = Save.getv("opt", "stick", "dpad")
+	stick._release()
+	for b in touch:
+		var base: float = b.get_meta("size") * sz
+		var t: Texture2D = b.texture_normal
+		b.scale = Vector2.ONE * base / float(t.get_width())
+		b.modulate = Color(1, 1, 1, op)
+	_layout()
 
 func _layout() -> void:
 	var vs := get_viewport().get_visible_rect().size
+	var left: bool = Save.getv("opt", "left", false)
+	var js := 112.0
+	for b in touch:
+		if b.get_meta("k") == "J":
+			js = b.scale.x * b.texture_normal.get_width()
 	for b in touch:
 		var k: String = b.get_meta("k")
-		var s: float = b.get_meta("size")
+		var sz: float = b.scale.x * b.texture_normal.get_width()
 		var pos := Vector2.ZERO
 		match k:
-			"J": pos = Vector2(vs.x - 18 - s, vs.y - 34 - s)
-			"A": pos = Vector2(vs.x - 18 - 108 - 22 - s, vs.y - 52 - s)
+			"J": pos = Vector2(vs.x - 18 - sz, vs.y - 34 - sz)
+			"A": pos = Vector2(vs.x - 18 - js - 30 - sz, vs.y - 52 - sz)
+		if left:
+			pos.x = vs.x - pos.x - sz
 		b.position = pos
 
 func _make_top_buttons() -> void:
@@ -452,7 +467,7 @@ func show_title() -> void:
 	state = S.TITLE
 	game.running = false
 	_show_hud(false)
-	Audio.set_song("manha")
+	Audio.set_song("tema")
 	var vb := _overlay(.35)
 	var img := TextureRect.new()
 	img.texture = load("res://assets/ui/cena1.jpg")
@@ -473,49 +488,70 @@ func show_title() -> void:
 	vb.add_child(_button("NOVO JOGO" if not run.is_empty() else "COMEÇAR", func(): start_level(false)))
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 8)
-	vb.add_child(_label("Velocidade", 14, Color("#cdbfa6")))
-	var cur := int(Save.getv("opt", "tps", 60))
-	for o in [["CALMA", 44], ["MÉDIA", 52], ["RÁPIDA", 60]]:
-		var b := Button.new()
-		b.text = o[0]
-		b.focus_mode = Control.FOCUS_NONE
-		b.toggle_mode = true
-		b.button_pressed = cur == o[1]
-		var v: int = o[1]
-		b.pressed.connect(func():
-			Save.setv("opt", "tps", v)
-			Engine.physics_ticks_per_second = v
-			show_title())
-		row.add_child(b)
+	row.add_theme_constant_override("separation", 10)
+	var gb := _button("GALERIA", show_gallery)
+	gb.custom_minimum_size = Vector2(150, 46)
+	row.add_child(gb)
+	var ob := _button("OPÇÕES", func(): show_options(false))
+	ob.custom_minimum_size = Vector2(150, 46)
+	row.add_child(ob)
 	vb.add_child(row)
-	var row2 := HBoxContainer.new()
-	row2.alignment = BoxContainer.ALIGNMENT_CENTER
-	row2.add_theme_constant_override("separation", 8)
-	var sb := Button.new()
-	sb.text = "Som: " + ("ligado" if Audio.on else "desligado")
-	sb.focus_mode = Control.FOCUS_NONE
-	sb.pressed.connect(func():
-		Audio.set_on(not Audio.on)
-		sb.text = "Som: " + ("ligado" if Audio.on else "desligado"))
-	row2.add_child(sb)
-	var vbt := Button.new()
-	vbt.text = "Vibração: " + ("sim" if Save.getv("opt", "vibrate", true) else "não")
-	vbt.focus_mode = Control.FOCUS_NONE
-	vbt.pressed.connect(func():
-		Save.setv("opt", "vibrate", not Save.getv("opt", "vibrate", true))
-		vbt.text = "Vibração: " + ("sim" if Save.getv("opt", "vibrate", true) else "não"))
-	row2.add_child(vbt)
-	vb.add_child(row2)
-	var stb := Button.new()
-	stb.text = _stick_label()
-	stb.focus_mode = Control.FOCUS_NONE
-	stb.pressed.connect(func():
-		_toggle_stick()
-		stb.text = _stick_label())
-	vb.add_child(stb)
-	vb.add_child(_label("Teclado: ← → andar · ↑ ↓ subir/abaixar · Espaço pular · F usar · M mochila", 12, Color(.8, .75, .65, .8)))
+	vb.add_child(_label("Teclado: ← → andar · ↑ ↓ subir/abaixar · Espaço pular · F usar · M mochila · N mapa", 12, Color(.8, .75, .65, .8)))
 	panel.set_meta("ok", func(): start_level(not run.is_empty()))
+
+## Tela de opções (do início ou da pausa)
+func show_options(from_pause: bool) -> void:
+	var vb := _overlay(.86)
+	vb.add_child(_label("OPÇÕES", 32, GOLD, Spr.font_title))
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 14)
+	grid.add_theme_constant_override("v_separation", 8)
+	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	vb.add_child(grid)
+	var opt_row = func(title: String, key: String, opts: Array, def):
+		var l := _label(title, 16, Color("#e8dcc0"))
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		l.custom_minimum_size = Vector2(190, 0)
+		grid.add_child(l)
+		var hb := HBoxContainer.new()
+		hb.add_theme_constant_override("separation", 6)
+		var cur = Save.getv("opt", key, def)
+		for o in opts:
+			var b := Button.new()
+			b.text = o[0]
+			b.focus_mode = Control.FOCUS_NONE
+			b.toggle_mode = true
+			b.button_pressed = cur == o[1]
+			b.add_theme_font_size_override("font_size", 15)
+			var val = o[1]
+			b.pressed.connect(func():
+				Save.setv("opt", key, val)
+				if key == "tps":
+					Engine.physics_ticks_per_second = val
+				if key == "sound":
+					Audio.set_on(val)
+				apply_controls()
+				show_options(from_pause))
+			hb.add_child(b)
+		grid.add_child(hb)
+	opt_row.call("Controle", "stick", [["Direcional", "dpad"], ["Analógico", "analog"]], "dpad")
+	opt_row.call("Tamanho dos botões", "btn_size", [["Pequeno", "P"], ["Médio", "M"], ["Grande", "G"]], "M")
+	opt_row.call("Transparência", "btn_alpha", [["Clara", "clara"], ["Média", "media"], ["Forte", "forte"]], "media")
+	opt_row.call("Mão", "left", [["Destro", false], ["Canhoto", true]], false)
+	opt_row.call("Velocidade", "tps", [["Calma", 44], ["Média", 52], ["Rápida", 60]], 60)
+	opt_row.call("Som", "sound", [["Ligado", true], ["Desligado", false]], true)
+	opt_row.call("Vibração", "vibrate", [["Sim", true], ["Não", false]], true)
+	vb.add_child(_label("Destro: movimento à esquerda e PULAR à direita. Canhoto: ao contrário.", 13, Color(.8, .75, .65), Spr.font_i))
+	var back := func():
+		if from_pause:
+			_pause_menu()
+		else:
+			panel.queue_free()
+			panel = null
+			show_title()
+	vb.add_child(_button("VOLTAR", back))
+	panel.set_meta("ok", back)
 
 func start_level(cont: bool) -> void:
 	game.CLUEGOT.clear()
@@ -531,7 +567,10 @@ func start_level(cont: bool) -> void:
 		game.load_level(0)
 	_build_world()
 	game.running = false
-	show_intro(cont)
+	if cont:
+		show_intro(true)
+	else:
+		play_cut("abertura", func(): show_intro(false))
 
 func show_intro(cont: bool) -> void:
 	state = S.INTRO
@@ -562,22 +601,21 @@ func _toggle_pause() -> void:
 		state = S.PAUSE
 		_clear_keys()
 		_show_hud(false)
-		var vb := _overlay(.7)
-		vb.add_child(_label("PAUSA", 34, GOLD, Spr.font_title))
-		vb.add_child(_button("CONTINUAR", close_panel))
-		var stb2 := _button(_stick_label(), func(): pass)
-		stb2.custom_minimum_size = Vector2(320, 46)
-		stb2.pressed.connect(func():
-			_toggle_stick()
-			stb2.text = _stick_label())
-		vb.add_child(stb2)
-		vb.add_child(_button("MENU INICIAL", func():
-			panel.queue_free()
-			panel = null
-			show_title()))
-		panel.set_meta("ok", close_panel)
+		_pause_menu()
 	elif state == S.PAUSE:
 		close_panel()
+
+func _pause_menu() -> void:
+	var vb := _overlay(.7)
+	vb.add_child(_label("PAUSA", 34, GOLD, Spr.font_title))
+	vb.add_child(_button("CONTINUAR", close_panel))
+	vb.add_child(_button("MAPA DA FASE", func(): show_map(true)))
+	vb.add_child(_button("OPÇÕES", func(): show_options(true)))
+	vb.add_child(_button("MENU INICIAL", func():
+		panel.queue_free()
+		panel = null
+		show_title()))
+	panel.set_meta("ok", close_panel)
 
 # ---------- mochila ----------
 func open_bag() -> void:
@@ -667,7 +705,16 @@ func _render_bag(msg: String) -> void:
 		b2.add_child(inner2)
 		clues.add_child(b2)
 	vb.add_child(clues)
-	vb.add_child(_button("FECHAR", close_panel))
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 10)
+	var mb := _button("MAPA", func(): show_map(false, true))
+	mb.custom_minimum_size = Vector2(150, 46)
+	row.add_child(mb)
+	var fb := _button("FECHAR", close_panel)
+	fb.custom_minimum_size = Vector2(150, 46)
+	row.add_child(fb)
+	vb.add_child(row)
 	panel.set_meta("ok", close_panel)
 
 func _bag_tap(id: String) -> void:
@@ -681,6 +728,14 @@ func _bag_tap(id: String) -> void:
 
 # ---------- pista ----------
 func _on_clue(id: int, from_bag: bool = false) -> void:
+	if id == 6 and not from_bag:
+		state = S.CUT
+		_clear_keys()
+		play_cut("cracha", func(): _show_clue(6, false))
+		return
+	_show_clue(id, from_bag)
+
+func _show_clue(id: int, from_bag: bool) -> void:
 	state = S.CLUE
 	_clear_keys()
 	_show_hud(false)
@@ -719,6 +774,108 @@ class _Badge extends Control:
 		Spr.text("ADEMAR VARGAS", x + w / 2, h * .785, 9, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b)
 		Spr.text("GERENTE · MINA", x + w / 2, h * .83, 7, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 
+# ---------- cenas da história ----------
+func play_cut(id: String, after: Callable) -> void:
+	if panel:
+		panel.queue_free()
+		panel = null
+	state = S.CUT
+	_show_hud(false)
+	_clear_keys()
+	if id == "abertura":
+		Audio.set_song("tema")
+	elif id == "mina":
+		Audio.set_song("vitoria")
+	var c := preload("res://scripts/ui/cutscene.gd").new(id)
+	c.theme = theme_ui
+	ui_layer.add_child(c)
+	c.finished.connect(after)
+
+func _on_level_end() -> void:
+	play_cut("mina", _on_results)
+
+# ---------- mapa da fase ----------
+## from_pause: volta ao menu de pausa; from_bag: volta à mochila; senão volta ao jogo
+func show_map(from_pause: bool, from_bag: bool = false) -> void:
+	var vb := _overlay(.9)
+	vb.add_child(_label("MAPA DA FASE", 30, GOLD, Spr.font_title))
+	var m := preload("res://scripts/ui/level_map.gd").new()
+	m.game = game
+	var vs := get_viewport().get_visible_rect().size
+	m.custom_minimum_size = Vector2(min(vs.x - 60, 1100), 250)
+	vb.add_child(m)
+	vb.add_child(_label("As fogueiras acesas são onde você volta. \"?\" = algo que ficou para trás num trecho já visitado.", 13, Color(.8, .75, .65), Spr.font_i, 700))
+	var back := func():
+		if from_pause:
+			_pause_menu()
+		elif from_bag:
+			state = S.BAG
+			_render_bag("")
+		else:
+			close_panel()
+	vb.add_child(_button("VOLTAR", back))
+	panel.set_meta("ok", back)
+
+# ---------- galeria ----------
+func show_gallery() -> void:
+	var vb := _overlay(.92)
+	vb.add_child(_label("GALERIA DA LIA", 30, GOLD, Spr.font_title))
+	vb.add_child(_label("Os desenhos que você encontrou pelo caminho.", 14, Color(.85, .8, .7), Spr.font_i))
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 22)
+	vb.add_child(row)
+	var KD := preload("res://scripts/ui/kid_drawing.gd")
+	for i in 2:
+		var d = KD.new()
+		d.kind = i
+		d.locked = not Save.getv("gallery", "d%d" % i, false)
+		row.add_child(d)
+	var fin = Save.getv("gallery", "final", null)
+	if fin == null:
+		var d3 = KD.new()
+		d3.locked = true
+		row.add_child(d3)
+	else:
+		var fd := _FinalDrawing.new()
+		for c in fin:
+			fd.specs[c] = 1
+		fd.scale = Vector2(.82, .82)
+		fd.custom_minimum_size = Vector2(246, 150)
+		row.add_child(fd)
+	vb.add_child(_label("PISTAS ENCONTRADAS", 13, Color("#b8a888")))
+	var cl := HBoxContainer.new()
+	cl.alignment = BoxContainer.ALIGNMENT_CENTER
+	cl.add_theme_constant_override("separation", 10)
+	for i in range(1, 7):
+		if Save.getv("gallery", "c%d" % i, false):
+			var ic := _atlas_icon("clb_%d" % i, 64)
+			ic.tooltip_text = GameData.CLUE_INFO[i][0]
+			cl.add_child(ic)
+		else:
+			var q := _label("?", 34, Color(.5, .45, .38))
+			q.custom_minimum_size = Vector2(64, 64)
+			cl.add_child(q)
+	vb.add_child(cl)
+	var best := Save.best(0)
+	if not best.is_empty():
+		vb.add_child(_label("Melhor resultado no Bosque: %s   ·   lápis %d   ·   pistas %d/6" % ["★".repeat(int(best.get("stars", 0))), int(best.get("pen", 0)), int(best.get("clues", 0))], 14, Color("#ffd76a")))
+	var b := HBoxContainer.new()
+	b.alignment = BoxContainer.ALIGNMENT_CENTER
+	b.add_theme_constant_override("separation", 10)
+	var rb := _button("REVER ABERTURA", func(): play_cut("abertura", show_title))
+	rb.custom_minimum_size = Vector2(200, 46)
+	b.add_child(rb)
+	var back := func():
+		panel.queue_free()
+		panel = null
+		show_title()
+	var vb2 := _button("VOLTAR", back)
+	vb2.custom_minimum_size = Vector2(150, 46)
+	b.add_child(vb2)
+	vb.add_child(b)
+	panel.set_meta("ok", back)
+
 # ---------- placar ----------
 func _on_results() -> void:
 	state = S.RESULTS
@@ -739,6 +896,9 @@ func _on_results() -> void:
 	if pen >= pt * .9 and nc == 6 and ns == 6:
 		stars = 3
 	Save.set_best(0, {"stars": stars, "pen": pen, "clues": nc, "specs": ns})
+	var prev: Array = Save.getv("gallery", "final", [])
+	if game.SPECGOT.size() >= prev.size():
+		Save.setv("gallery", "final", game.SPECGOT.keys())
 	Save.clear_run()
 	var vb := _overlay(.86)
 	vb.add_child(_label("FIM DO BOSQUE", 14, Color("#cdbfa6")))

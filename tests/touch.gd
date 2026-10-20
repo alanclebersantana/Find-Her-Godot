@@ -22,6 +22,10 @@ func _initialize() -> void:
 		await process_frame
 	main.start_level(false)
 	await process_frame
+	for c in main.ui_layer.get_children():
+		if c.has_method("_end"):
+			c._end()
+	await process_frame
 	main.panel.get_meta("ok").call()
 	var g = main.game
 	g.clue_opened.disconnect(main._on_clue)

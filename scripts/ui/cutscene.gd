@@ -1,0 +1,315 @@
+extends Control
+## Cenas curtas da história: quadros com zoom/pan lento, legenda que vai aparecendo letra a letra,
+## toque para avançar e botão PULAR. Cenas: "abertura", "cracha", "mina".
+
+signal finished
+
+var scene_id := "abertura"
+var shots: Array = []
+var idx := 0
+var t := 0.0            # tempo no quadro atual (s)
+var fade := 1.0         # preto entre quadros
+var done := false
+var skip_btn: Button
+var cena: Texture2D
+var img_rect := Rect2()   # onde a última imagem de fundo foi desenhada (para posicionar coisas sobre ela)
+
+const INK := Color("#f0e4c8")
+
+func _init(id: String = "abertura") -> void:
+	scene_id = id
+
+func _ready() -> void:
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	cena = load("res://assets/ui/cena1.jpg")
+	mouse_filter = Control.MOUSE_FILTER_STOP
+	match scene_id:
+		"abertura":
+			shots = [
+				{"d": _s_porch, "txt": "Toda tarde, a Lia desenhava na varanda enquanto o pai voltava da mina.", "dur": 5.5},
+				{"d": _s_shadow, "txt": "Naquele dia, uma sombra chegou antes dele.", "dur": 4.5},
+				{"d": _s_pencils, "txt": "Tomé encontrou só os lápis espalhados... e uma trilha de cores entrando no bosque.", "dur": 6.0},
+				{"d": _s_lantern, "txt": "— Aguenta firme, filha. O papai está indo.", "dur": 4.5},
+			]
+		"cracha":
+			shots = [
+				{"d": _s_badge_glint, "txt": "Alguma coisa brilhou na luz da lanterna. Um crachá...", "dur": 4.5},
+				{"d": _s_villain_face, "txt": "Ademar Vargas. O gerente que Tomé denunciou por roubar a mina.", "dur": 5.0},
+			]
+		"mina":
+			shots = [
+				{"d": _s_mine_enter, "txt": "O carrinho sumiu na boca da mina, com a Lia lá dentro.", "dur": 5.0},
+				{"d": _s_mine_closed, "txt": "O portão bateu. Mas no chão, mais um lápis: a trilha continua mina adentro.", "dur": 6.0},
+			]
+	skip_btn = Button.new()
+	skip_btn.text = "PULAR  ›"
+	skip_btn.focus_mode = Control.FOCUS_NONE
+	skip_btn.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	skip_btn.position = Vector2(-150, 18)
+	skip_btn.custom_minimum_size = Vector2(130, 44)
+	skip_btn.pressed.connect(_end)
+	add_child(skip_btn)
+
+func _process(d: float) -> void:
+	if done:
+		return
+	t += d
+	var dur: float = shots[idx].dur
+	if t < .5:
+		fade = 1.0 - t / .5
+	elif t > dur - .45:
+		fade = clamp((t - (dur - .45)) / .45, 0, 1)
+	else:
+		fade = 0.0
+	if t >= dur:
+		_next()
+	queue_redraw()
+
+func _gui_input(e: InputEvent) -> void:
+	if (e is InputEventMouseButton and e.pressed) or (e is InputEventScreenTouch and e.pressed):
+		_tap()
+		accept_event()
+
+func _unhandled_input(e: InputEvent) -> void:
+	if e is InputEventKey and e.pressed and not e.echo:
+		if e.keycode == KEY_ESCAPE:
+			_end()
+		else:
+			_tap()
+		get_viewport().set_input_as_handled()
+
+func _tap() -> void:
+	var full: String = shots[idx].txt
+	if _shown_chars() < full.length():
+		t = max(t, full.length() / 38.0 + .6)   # completa a legenda
+	else:
+		_next()
+
+func _next() -> void:
+	idx += 1
+	t = 0.0
+	if idx >= shots.size():
+		_end()
+
+func _end() -> void:
+	if done:
+		return
+	done = true
+	finished.emit()
+	queue_free()
+
+func _shown_chars() -> int:
+	return int(max(0.0, t - .6) * 38.0)
+
+# ----------------------------------------------------------------------
+func _draw() -> void:
+	if done or idx >= shots.size():
+		return
+	var W := size.x
+	var H := size.y
+	draw_rect(Rect2(0, 0, W, H), Color.BLACK)
+	var dur: float = shots[idx].dur
+	var k: float = clamp(t / dur, 0, 1)
+	Spr.begin(self)
+	shots[idx].d.call(W, H, k)
+	Spr.begin(self)
+	# barras de cinema
+	draw_rect(Rect2(0, 0, W, 34), Color.BLACK)
+	draw_rect(Rect2(0, H - 92, W, 92), Color(0, 0, 0, .9))
+	var full: String = shots[idx].txt
+	var n: int = min(full.length(), _shown_chars())
+	var shown := full.substr(0, n)
+	var f: Font = Spr.font_i
+	var fs := 22
+	var lines := _wrap(shown, f, fs, W - 160)
+	var y := H - 92 + 34 - (lines.size() - 1) * 13
+	for ln in lines:
+		var tw := f.get_string_size(ln, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		draw_string_outline(f, Vector2(W / 2 - tw / 2, y), ln, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 4, Color(0, 0, 0, .9))
+		draw_string(f, Vector2(W / 2 - tw / 2, y), ln, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, INK)
+		y += 27
+	# pontinhos de progresso
+	for i in shots.size():
+		draw_circle(Vector2(W / 2 - (shots.size() - 1) * 9 + i * 18, H - 14), 4, Color(1, .9, .7, .9 if i == idx else .25))
+	if n >= full.length() and fmod(t, 1.0) < .6:
+		draw_string(Spr.font, Vector2(W - 120, H - 12), "toque ›", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1, .9, .7, .6))
+	if fade > 0:
+		draw_rect(Rect2(0, 0, W, H), Color(0, 0, 0, fade))
+
+func _wrap(s: String, f: Font, fs: int, maxw: float) -> Array:
+	var out: Array = []
+	var cur := ""
+	for word in s.split(" "):
+		var tryv := word if cur == "" else cur + " " + word
+		if f.get_string_size(tryv, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > maxw and cur != "":
+			out.append(cur)
+			cur = word
+		else:
+			cur = tryv
+	out.append(cur)
+	return out
+
+## Imagem que cobre a tela com zoom/pan: foco (fx,fy) em 0..1 vai de z0 a z1
+func _kb(tex: Texture2D, W: float, H: float, k: float, f0: Vector2, f1: Vector2, z0: float, z1: float, mod: Color = Color.WHITE) -> void:
+	var e := k * k * (3 - 2 * k)
+	var z: float = lerp(z0, z1, e)
+	var f: Vector2 = f0.lerp(f1, e)
+	var tw := float(tex.get_width())
+	var th := float(tex.get_height())
+	var base: float = max(W / tw, H / th) * z
+	var dw := tw * base
+	var dh := th * base
+	var x: float = clamp(W / 2 - f.x * dw, W - dw, 0)
+	var y: float = clamp(H / 2 - f.y * dh, H - dh, 0)
+	img_rect = Rect2(x, y, dw, dh)
+	draw_texture_rect(tex, img_rect, false, mod)
+
+## ponto da imagem (em pixels da imagem original) -> tela
+func _ip(tex: Texture2D, px: float, py: float) -> Vector2:
+	return img_rect.position + Vector2(px / tex.get_width() * img_rect.size.x, py / tex.get_height() * img_rect.size.y)
+
+func _vignette(W: float, H: float, a: float) -> void:
+	Spr.vgrad(0, 0, W, H * .35, Color(0, 0, 0, a), Color(0, 0, 0, 0))
+	Spr.vgrad(0, H * .65, W, H * .35, Color(0, 0, 0, 0), Color(0, 0, 0, a))
+	Spr.hgrad(0, 0, W * .25, H, Color(0, 0, 0, a), Color(0, 0, 0, 0))
+	Spr.hgrad(W * .75, 0, W * .25, H, Color(0, 0, 0, 0), Color(0, 0, 0, a))
+
+func _tome(x: float, by: float, sc: float, fr: int = 0, flip: bool = false, lamp: bool = true) -> void:
+	if lamp:
+		var fl := 1.0 + sin(t * 9) * .04
+		Spr.glow(x + (-38 if flip else 38) * sc / .5, by - 70 * sc / .5, 190 * sc / .5 * fl, Color(1, .82, .45, .45))
+	Spr.ellipse(x, by + 2, 34 * sc / .5, 7 * sc / .5, Color(0, 0, 0, .3))
+	Spr.frame(Spr.tex.pai, fr, 130, 160, 65, 156, x, by, sc, flip)
+
+# ---------- abertura ----------
+func _s_porch(W: float, H: float, k: float) -> void:
+	_kb(cena, W, H, k, Vector2(.36, .62), Vector2(.4, .6), 1.6, 1.35)
+	_vignette(W, H, .5)
+
+func _s_shadow(W: float, H: float, k: float) -> void:
+	var dark: float = lerp(1.0, .55, k)
+	_kb(cena, W, H, k, Vector2(.5, .6), Vector2(.72, .78), 1.3, 1.7, Color(dark, dark * .92, dark * .9))
+	_vignette(W, H, .6 + k * .3)
+
+func _s_pencils(W: float, H: float, k: float) -> void:
+	_kb(Spr.tex.bg_noite, W, H, k, Vector2(.3, .7), Vector2(.45, .7), 1.25, 1.4, Color(.6, .6, .75))
+	var gy := H * .78
+	Spr.vgrad(0, gy - 30, W, H - gy + 30, Color(.05, .04, .06, 0), Color(.05, .04, .06, .9))
+	# lápis espalhados e um desenho amassado
+	var pens := ["vermelho", "azul", "amarelo", "verde", "laranja", "roxo"]
+	for i in pens.size():
+		var px := W * (.18 + i * .1) + sin(i * 2.3) * 30
+		Spr.save()
+		Spr.translate(px, gy + 8 + (i % 2) * 10)
+		Spr.rotate(1.2 + i * .7)
+		Spr.A("pen_" + pens[i], 0, 0, .9)
+		Spr.restore()
+	Spr.save()
+	Spr.translate(W * .62, gy + 4)
+	Spr.rotate(-.3)
+	Spr.A("drawing", 0, 0, .9)
+	Spr.restore()
+	# Tomé chega pela esquerda
+	var tx: float = lerp(-80.0, W * .38, clamp(k * 1.6, 0, 1))
+	var walking := k < .62
+	_tome(tx, gy + 10, .62, [1, 2, 3, 2][int(t * 8) % 4] if walking else 0)
+	_vignette(W, H, .7)
+
+func _s_lantern(W: float, H: float, k: float) -> void:
+	Spr.vgrad(0, 0, W, H, Color(.05, .05, .1), Color(.02, .02, .03))
+	var fl := 1.0 + sin(t * 7) * .05
+	Spr.glow(W * .5 + 70, H * .45, 420 * fl, Color(1, .78, .4, .35))
+	var z: float = lerp(1.0, 1.12, k)
+	_tome(W * .5, H * .5 + 230 * z, 1.45 * z, 0, false, false)
+	Spr.glow(W * .5 + 110 * z, H * .5 + 30 * z, 120 * fl, Color(1, .9, .6, .55))
+	_vignette(W, H, .8)
+
+# ---------- crachá ----------
+func _s_badge_glint(W: float, H: float, k: float) -> void:
+	Spr.vgrad(0, 0, W, H, Color(.06, .05, .05), Color(.02, .02, .02))
+	Spr.glow(W * .5, H * .5, 380, Color(1, .8, .45, .25))
+	var cx := W * .5
+	var cy := H * .48
+	Spr.save()
+	Spr.translate(cx, cy)
+	Spr.rotate(-.12 + k * .08)
+	Spr.scale(1.4 + k * .3, 1.4 + k * .3)
+	Spr.rr(-70, -46, 140, 92, 8, Color("#d9c38a"))
+	Spr.rr(-64, -40, 128, 80, 6, Color("#efe2bb"))
+	Spr.rect(-56, -30, 38, 46, Color(.4, .35, .3))
+	Spr.rect(-8, -26, 62, 6, Color(.35, .3, .25))
+	Spr.rect(-8, -14, 50, 5, Color(.35, .3, .25))
+	Spr.rect(-8, -2, 56, 5, Color(.35, .3, .25))
+	Spr.restore()
+	var g: float = clamp(sin(k * PI * 2.2), 0, 1)
+	Spr.glow(cx + 60, cy - 30, 70 * g + 5, Color(1, 1, .9, .9 * g))
+	Spr.seg(cx + 60 - 40 * g, cy - 30, cx + 60 + 40 * g, cy - 30, Color(1, 1, .95, g), 2)
+	Spr.seg(cx + 60, cy - 30 - 40 * g, cx + 60, cy - 30 + 40 * g, Color(1, 1, .95, g), 2)
+	_vignette(W, H, .8)
+
+func _s_villain_face(W: float, H: float, k: float) -> void:
+	Spr.vgrad(0, 0, W, H, Color(.18, .05, .05), Color(.03, .01, .01))
+	var r = Spr.AR.get("vg_face")
+	var z: float = lerp(1.0, 1.15, k)
+	if r != null:
+		var hh: float = H * .56 * z
+		var ww: float = hh * r[2] / r[3]
+		var cy := H * .44
+		Spr.glow(W / 2, cy, hh * .8, Color(1, .25, .15, .35))
+		draw_texture_rect_region(Spr.atlas_tex(r), Rect2(W / 2 - ww / 2, cy - hh / 2, ww, hh), Rect2(r[0], r[1], r[2], r[3]), Color(1, .85, .8))
+	var ta: float = clamp(k * 3 - .3, 0, 1)
+	Spr.text("ADEMAR VARGAS", W * .5, H - 112, 34, Color(1, .8, .6, ta), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_title, 6)
+	_vignette(W, H, .85)
+
+# ---------- entrada da mina ----------
+## fundo da noite com a boca da mina no centro; devolve o ponto da entrada (base) e a escala
+func _mine_bg(W: float, H: float, k: float, dark: float) -> Array:
+	var bg: Texture2D = Spr.tex.bg_noite
+	_kb(bg, W, H, k, Vector2(.53, .6), Vector2(.53, .62), 2.0, 2.15, Color(dark, dark, dark * 1.1))
+	var door := _ip(bg, 957, 470)
+	var sc: float = img_rect.size.x / bg.get_width()
+	return [door, sc]
+
+func _s_mine_enter(W: float, H: float, k: float) -> void:
+	var m := _mine_bg(W, H, k, .8)
+	var door: Vector2 = m[0]
+	var sc: float = m[1]
+	# o carrinho sobe os trilhos e encolhe até sumir no túnel
+	var e: float = clamp(k * 1.25, 0, 1)
+	var start := Vector2(W * .3, H * 1.02)
+	var p: Vector2 = start.lerp(door + Vector2(0, -6 * sc), e)
+	var z: float = lerp(1.5, .22 * sc, e)
+	var al: float = clamp((1.0 - e) * 4.0, 0, 1)
+	var f := int(t * 7) % 2
+	Spr.A("lia_scared", p.x + 44 * z, p.y - 60 * z, .55 * z, false, al)
+	Spr.A("vg_cart1" if f else "vg_cart2", p.x, p.y, 1.1 * z, false, al)
+	_vignette(W, H, .7)
+
+func _s_mine_closed(W: float, H: float, k: float) -> void:
+	var m := _mine_bg(W, H, k, .62)
+	var door: Vector2 = m[0]
+	var sc: float = m[1]
+	# portão de tábuas fechado na boca do túnel
+	var dw := 82.0 * sc
+	var dh := 118.0 * sc
+	var drop: float = clamp(k * 4, 0, 1)
+	var dy: float = door.y - dh * drop
+	Spr.rect(door.x - dw / 2, dy, dw, dh * drop, Color(.33, .21, .12))
+	for i in 5:
+		Spr.rect(door.x - dw / 2 + i * dw / 5 + 1, dy, 2, dh * drop, Color(.18, .11, .06))
+	Spr.rect(door.x - dw / 2, dy + dh * drop * .3, dw, 6 * sc, Color(.2, .14, .08))
+	Spr.rect(door.x - dw / 2, dy + dh * drop * .7, dw, 6 * sc, Color(.2, .14, .08))
+	if drop >= 1:
+		Spr.rect(door.x - 6 * sc, door.y - dh * .5, 12 * sc, 14 * sc, Color(.55, .55, .6))
+	# Tomé chega e encontra o lápis roxo
+	var gy := H - 104
+	var tx: float = lerp(-80.0, W * .34, clamp(k * 1.5, 0, 1))
+	var walking := k < .66
+	_tome(tx, gy, .9, [1, 2, 3, 2][int(t * 8) % 4] if walking else 0)
+	Spr.save()
+	Spr.translate(W * .48, gy - 4)
+	Spr.rotate(1.4)
+	Spr.A("pen_roxo", 0, 0, 1.2)
+	Spr.restore()
+	Spr.glow(W * .48, gy - 6, 36 + sin(t * 5) * 6, Color(.85, .6, 1, .6))
+	_vignette(W, H, .7)

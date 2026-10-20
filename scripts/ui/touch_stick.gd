@@ -15,6 +15,9 @@ var state := {"L": false, "R": false, "U": false, "S": false}
 var axis := 1.0
 var tex := {}
 var home := Vector2.ZERO
+var ui_scale := 1.0
+var opacity := .8
+var left_handed := false
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -27,13 +30,16 @@ func set_mode(m: String) -> void:
 
 func _home() -> Vector2:
 	var vs := get_viewport_rect().size
-	return Vector2(118, vs.y - 128)
+	var x := 118.0 * ui_scale
+	return Vector2(vs.x - x if left_handed else x, vs.y - 128 * ui_scale)
 
 func _in_zone(p: Vector2) -> bool:
 	var vs := get_viewport_rect().size
 	if mode == "dpad":
-		return p.distance_to(_home()) < radius * 1.9
-	# analógico: metade esquerda, abaixo do HUD
+		return p.distance_to(_home()) < radius * ui_scale * 1.9
+	# analógico: metade do lado do polegar, abaixo do HUD
+	if left_handed:
+		return p.x > vs.x * .54 and p.y > vs.y * .3
 	return p.x < vs.x * .46 and p.y > vs.y * .3
 
 func _input(e: InputEvent) -> void:
@@ -61,14 +67,15 @@ func _release() -> void:
 
 func _update(p: Vector2) -> void:
 	var v := p - center
-	if mode == "analog" and v.length() > radius:
+	var rr := radius * ui_scale
+	if mode == "analog" and v.length() > rr:
 		# o analógico acompanha o dedo quando ele passa da borda
-		center += v - v.normalized() * radius
+		center += v - v.normalized() * rr
 		v = p - center
-	knob = v.limit_length(radius)
+	knob = v.limit_length(rr)
 	var s := {"L": false, "R": false, "U": false, "S": false}
 	axis = 1.0
-	if v.length() >= dead:
+	if v.length() >= dead * ui_scale:
 		if mode == "dpad":
 			# 8 setores de 45°: direita, ↘, baixo, ↙, esquerda, ↖, cima, ↗
 			var sec := int(round(atan2(v.y, v.x) / (PI / 4))) % 8
@@ -84,8 +91,8 @@ func _update(p: Vector2) -> void:
 				6: s.U = true
 				7: s.U = true; s.R = true
 		else:
-			var x := v.x / radius
-			var y := v.y / radius
+			var x := v.x / rr
+			var y := v.y / rr
 			if x > .3:
 				s.R = true
 			elif x < -.3:
@@ -107,22 +114,24 @@ func _process(_d: float) -> void:
 	queue_redraw()
 
 func _draw() -> void:
+	var r := radius * ui_scale
+	var al := opacity
 	if mode == "dpad":
 		var c := _home()
-		draw_circle(c, radius * 1.18, Color(.1, .08, .05, .28))
+		draw_circle(c, r * 1.18, Color(.1, .08, .05, .35 * al))
 		var off := {"L": Vector2(-1, 0), "R": Vector2(1, 0), "U": Vector2(0, -1), "S": Vector2(0, 1)}
 		for k in off:
 			var t: Texture2D = tex[k]
-			var sz := 62.0
-			var pos: Vector2 = c + off[k] * 58 - Vector2(sz, sz) / 2
+			var sz := 62.0 * ui_scale
+			var pos: Vector2 = c + off[k] * 58 * ui_scale - Vector2(sz, sz) / 2
 			var on: bool = state[k]
-			draw_texture_rect(t, Rect2(pos, Vector2(sz, sz)), false, Color(1.25, 1.2, 1, 1) if on else Color(1, 1, 1, .78))
+			draw_texture_rect(t, Rect2(pos, Vector2(sz, sz)), false, Color(1.25, 1.2, 1, min(1, al + .25)) if on else Color(1, 1, 1, al))
 		if finger != -1:
-			draw_circle(c + knob, 12, Color(1, .95, .8, .35))
+			draw_circle(c + knob, 12 * ui_scale, Color(1, .95, .8, .4 * al))
 	else:
 		var c2 := center if finger != -1 else _home()
-		var a := .55 if finger != -1 else .28
-		draw_circle(c2, radius, Color(.1, .08, .05, a * .7))
-		draw_arc(c2, radius, 0, TAU, 48, Color(.93, .85, .65, a), 3, true)
-		draw_circle(c2 + knob, 30, Color(.93, .85, .65, a + .2))
-		draw_arc(c2 + knob, 30, 0, TAU, 32, Color(.35, .25, .12, a + .2), 2, true)
+		var a := (.7 if finger != -1 else .38) * al
+		draw_circle(c2, r, Color(.1, .08, .05, a * .7))
+		draw_arc(c2, r, 0, TAU, 48, Color(.93, .85, .65, a), 3, true)
+		draw_circle(c2 + knob, 30 * ui_scale, Color(.93, .85, .65, a + .15))
+		draw_arc(c2 + knob, 30 * ui_scale, 0, TAU, 32, Color(.35, .25, .12, a + .15), 2, true)

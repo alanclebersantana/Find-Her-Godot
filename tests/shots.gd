@@ -16,6 +16,10 @@ func _initialize() -> void:
 		return
 	main.start_level(false)
 	await process_frame
+	for c in main.ui_layer.get_children():
+		if c.has_method("_end"):
+			c._end()
+	await process_frame
 	if args.size() > 0 and args[0] == "intro":
 		for i in 10:
 			await process_frame
@@ -55,6 +59,10 @@ func _initialize() -> void:
 				elif k == "vil":
 					g.VIL.go = true
 					g.VIL.x = 9470
+				elif k == "chase":
+					g.VIL.go = true
+					g.VIL.x = x + 380
+					g.lantern_lit = true
 				elif k == "lad0":
 					g.player.ladder = g.CLIMB[0]
 				elif k == "netc":
