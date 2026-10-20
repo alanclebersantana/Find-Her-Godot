@@ -47,6 +47,26 @@ static func grass(g: Game, T: int) -> void:
 						Color(col.r * (.85 + k * .06), col.g * (.85 + k * .06), col.b, .95), 1.6, true)
 			x += 30
 
+# ---------------------------------------------------------------- passagens baixas
+static func crawl(g: Game, T: int) -> void:
+	var p: Dictionary = g.player
+	var pcx: float = p.x + p.w / 2
+	for c in g.X.CRAWL:
+		if c.x > g.cam + g.W + 50 or c.x + c.w < g.cam - 50:
+			continue
+		var gap: float = c.y - c.top
+		# vão escuro embaixo, com a borda de baixo do obstáculo bem marcada
+		Spr.vgrad(c.x - 4, c.top, c.w + 8, gap, Color(0, 0, 0, .65), Color(0, 0, 0, .25))
+		Spr.rect(c.x - 4, c.top - 3, c.w + 8, 3, Color(1, .9, .6, .35))
+		var near: bool = abs(pcx - (c.x + c.w / 2)) < c.w / 2 + 170 and abs(p.y + p.h - c.y) < 40 and not p.crouch
+		if near:
+			var b := sin(T * .15) * 4
+			var cx: float = c.x + c.w / 2
+			var iy: float = min(c.top - 40, c.y - 70) + b
+			Spr.circle(cx, iy, 22, Color(0, 0, 0, .35))
+			Spr.ci.draw_texture_rect(Spr.tex.pad_S, Rect2(cx - 18, iy - 18, 36, 36), false, Color(1, 1, 1, .95))
+			Spr.text("abaixe", cx, iy + 34, 13, Color(1, .93, .7, .9), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3)
+
 # ---------------------------------------------------------------- pegadas
 static func footprints(g: Game) -> void:
 	for f in g.X.FOOT:
@@ -256,6 +276,18 @@ static func boss(g: Game, T: int) -> void:
 
 # ---------------------------------------------------------------- inimigos novos (desenhados por código)
 static func bat(e: Dictionary, T: int) -> void:
+	if not e.dead and e.get("st", 0) == 0 and Spr.novos.has("morcego"):
+		Spr.save()
+		Spr.translate(0, 40)
+		Spr.novo("morcego", 0, 40, false)
+		Spr.restore()
+		return
+	if not e.dead and Spr.novos.has("morcego"):
+		Spr.save()
+		Spr.translate(0, 18)
+		Spr.novo("morcego", 1 + (T / 4) % 4, 44, false)
+		Spr.restore()
+		return
 	var body := Color("#3b2b44")
 	var wing := Color("#55406a")
 	if e.dead:
@@ -286,6 +318,14 @@ static func bat(e: Dictionary, T: int) -> void:
 	Spr.poly(PackedVector2Array([Vector2(-2, 4), Vector2(0, 7), Vector2(2, 4)]), Color(1, 1, 1))
 
 static func spider(e: Dictionary, T: int) -> void:
+	if Spr.novos.has("aranha"):
+		if not e.dead:
+			Spr.seg(0, e.top - e.y, 0, -8, Color(.9, .9, .9, .55), 1.2)
+		Spr.save()
+		Spr.translate(0, 16)
+		Spr.novo("aranha", (T / 8) % 4 if e.get("st", 0) in [1, 3] else (T / 20) % 2, 36, false)
+		Spr.restore()
+		return
 	var body := Color("#2a2233")
 	if not e.dead:
 		Spr.seg(0, e.top - e.y, 0, -8, Color(.9, .9, .9, .55), 1.2)
@@ -307,14 +347,46 @@ static func spider(e: Dictionary, T: int) -> void:
 static func mole(e: Dictionary, T: int) -> void:
 	var st: int = e.get("st", 0)
 	var dirt := Color("#6b4a2a")
-	if e.dead:
-		Spr.ellipse(0, -8, 16, 9, Color("#6e6070"))
+	var fur := Color("#6e6070")
+	var helm: bool = e.get("helm", false) and not e.get("helm_off", false)
+	var nn := "toupeira_capacete" if helm else "toupeira"
+	if not e.dead and Spr.novos.has(nn):
+		var f := 0
+		match st:
+			1: f = 1 + (T / 6) % 2
+			2: f = 4 if (e.t > 8 and e.t < 20) else 3
+			3: f = 2
+			5: f = 5
+		Spr.novo(nn, f, 56 if st in [2, 5] else 40, e.dir < 0)
+		if st == 5:
+			for k in 3:
+				var a := T * .15 + TAU * k / 3.0
+				Spr.text("★", cos(a) * 18, -36 + sin(a) * 5, 11, Color("#ffe27a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 2)
 		return
-	if st == 0:
-		Spr.ellipse(0, 0, 22, 9, dirt)
-		Spr.ellipse(-4, -3, 10, 4, Color("#8a6a42"))
+	if e.dead:
+		Spr.ellipse(0, -8, 16, 9, fur)
+		return
+	if st == 0 or st == 6:
+		var sh: float = sin(T * 1.4) * 2.0 if st == 6 else 0.0
+		Spr.ellipse(sh, 0, 22, 9, dirt)
+		Spr.ellipse(-4 + sh, -3, 10, 4, Color("#8a6a42"))
+		if helm:
+			Spr.ci.draw_arc(Vector2(sh + 4, -6), 6, PI, TAU, 10, Color("#e8b030"), 3, true)
 		if T % 10 < 5:
 			Spr.circle(10, -4, 2, Color("#4a3220"))
+		return
+	if st == 5:
+		# de barriga para cima, tonta
+		Spr.ellipse(0, 2, 24, 6, dirt)
+		Spr.ellipse(0, -10, 17, 11, fur)
+		Spr.ellipse(0, -12, 10, 7, Color("#9a8ca0"))
+		for k in 4:
+			var lx := -10.0 + k * 7
+			Spr.seg(lx, -18, lx + sin(T * .4 + k) * 2, -24, Color("#f2a0b0"), 2)
+		Spr.circle(16, -8, 4, Color("#f2a0b0"))
+		for k in 3:
+			var a := T * .15 + TAU * k / 3.0
+			Spr.text("★", cos(a) * 18, -30 + sin(a) * 5, 11, Color("#ffe27a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 2)
 		return
 	var up: float = 1.0
 	if st == 1:
@@ -324,15 +396,85 @@ static func mole(e: Dictionary, T: int) -> void:
 	var yy: float = -30 * up
 	Spr.ellipse(0, 2, 24, 8, dirt)
 	if up > .1:
-		Spr.ellipse(0, yy + 14, 15, 15 * up, Color("#6e6070"))
+		Spr.ellipse(0, yy + 14, 15, 15 * up, fur)
 		Spr.ellipse(0, yy + 18, 9, 9 * up, Color("#8e8090"))
 		Spr.circle(10, yy + 9, 4, Color("#f2a0b0"))
 		Spr.circle(-1, yy + 5, 1.8, Color.BLACK)
 		Spr.circle(5, yy + 5, 1.8, Color.BLACK)
+		var arm: float = -8.0 if (st == 2 and e.t > 8 and e.t < 18) else 0.0
 		for k in 3:
-			Spr.seg(-14 + k * 3, yy + 22, -16 + k * 3, yy + 27, Color("#f2a0b0"), 2)
-			Spr.seg(10 + k * 3, yy + 22, 12 + k * 3, yy + 27, Color("#f2a0b0"), 2)
-		# capacete de mineiro de brinquedo
-		Spr.ci.draw_arc(Vector2(2, yy + 4), 11, PI, TAU, 16, Color("#e8b030"), 5, true)
-		Spr.circle(2, yy - 6, 3, Color("#fff4b0"))
+			Spr.seg(-14 + k * 3, yy + 22 + arm, -16 + k * 3, yy + 27 + arm, Color("#f2a0b0"), 2)
+			Spr.seg(10 + k * 3, yy + 22 + arm, 12 + k * 3, yy + 27 + arm, Color("#f2a0b0"), 2)
+		if helm:
+			Spr.ci.draw_arc(Vector2(2, yy + 4), 11, PI, TAU, 16, Color("#e8b030"), 5, true)
+			Spr.circle(2, yy - 6, 3, Color("#fff4b0"))
+		if st == 2 and e.t < 16:
+			Spr.circle(e.dir * 14, yy + 2, 6, Color("#7a5a3a"))
 	Spr.ellipse(0, 4, 26, 5, dirt)
+
+# ---------------------------------------------------------------- Pipoca e as tocas
+static func tocas(g: Game, T: int) -> void:
+	var p: Dictionary = g.player
+	for tc in g.X.TOCAS:
+		if tc.x < g.cam - 100 or tc.x > g.cam + g.W + 100:
+			continue
+		Spr.ellipse(tc.x, tc.y - 10, 34, 18, Color("#6a5e52"))
+		Spr.ellipse(tc.x - 10, tc.y - 18, 16, 9, Color("#857868"))
+		Spr.ellipse(tc.x + 2, tc.y - 4, 14, 10, Color("#120c08"))
+		for k in 3:
+			Spr.circle(tc.x - 26 + k * 24, tc.y - 2, 5, Color("#4a3f36"))
+		var near: bool = abs(p.x + p.w / 2 - tc.x) < 80 and abs(p.y + p.h - tc.y) < 50
+		if not tc.done and near:
+			var lbl := "✦ BUSCA, PIPOCA!" if g.X.dog_free() else "?"
+			Spr.text(lbl, tc.x, tc.y - 46 + sin(T * .15) * 3, 15, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
+
+static func dog(g: Game, T: int) -> void:
+	var d: Dictionary = g.X.DOG
+	if d.is_empty() or d.st == "in_toca":
+		return
+	var x: float = d.x
+	var y: float = d.y + d.hy
+	if d.st == "tied":
+		# estaca e corda
+		Spr.rect(d.x0 - 64, d.y - 34, 6, 36, Color("#5a3e24"))
+		Spr.ci.draw_polyline(PackedVector2Array([Vector2(d.x0 - 61, d.y - 24), Vector2((d.x0 - 61 + x) / 2, d.y - 12), Vector2(x - d.face * 6, d.y - 30)]), Color("#c9a26a"), 2.5, true)
+	Spr.ellipse(x, d.y + 1, 20, 4, Color(0, 0, 0, .25))
+	var fr := "dog0"
+	if d.moving:
+		fr = "dog%d" % (int(d.anim) % 4)
+	var sc := .4
+	var bob: float = 0.0 if d.moving else sin(T * .1) * .015
+	if d.st == "sit":
+		bob = -.06
+	Spr.save()
+	Spr.translate(x, y)
+	var nf := 6 + (T / 20) % 2
+	if d.moving:
+		nf = int(d.anim) % 6
+	if d.bark > 0:
+		nf = 8 + (T / 6) % 2
+	if d.st == "dig":
+		nf = 10 + (T / 6) % 2
+	if d.carry:
+		nf = 12
+	if d.st == "tied" and not d.moving:
+		nf = 13
+	if not Spr.novo("pipoca", nf, 54, d.face < 0):
+		if d.st == "dig":
+			Spr.rotate(d.face * .25)
+		Spr.scale(sc if d.face > 0 else -sc, sc * (1.0 + bob))
+		Spr.A(fr, 0, 0, 1.0)
+	Spr.restore()
+	if d.carry:
+		Spr.save()
+		Spr.translate(x + d.face * 26, y - 30)
+		Spr.rotate(.3 * d.face)
+		Spr.A("drawing", 0, 0, .35)
+		Spr.restore()
+	if d.bark > 0:
+		var k: float = d.bark / 30.0
+		Spr.text("AU!", x + d.face * 28, y - 58 - (1.0 - k) * 8, 16, Color(1, 1, 1, k), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
+	if d.st == "tied":
+		var p: Dictionary = g.player
+		if abs(p.x + p.w / 2 - d.x) < 70 and abs(p.y + p.h - d.y) < 50:
+			Spr.text("✦ SOLTAR", x, y - 70 + sin(T * .15) * 3, 16, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)

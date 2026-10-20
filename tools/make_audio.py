@@ -55,3 +55,18 @@ sfx('special',.5,lambda b:[tone(b,f,i*.06,.25,'triangle',.12) for i,f in enumera
 n=SR*4;x=lowpass(np.random.rand(n+SR)*2-1,1600);a=x[:n].copy();f=SR;w=np.linspace(0,1,f);a[:f]=a[:f]*w+x[n:n+f]*(1-w);save('rain',a*.9)
 # As músicas, os ambientes e os efeitos 'clue item pen special door combine die fire' são gravados com
 # instrumentos reais por tools/make_music.py (rode-o depois deste script).
+
+# rugido do Javali-Rei e latido do Pipoca
+from scipy.signal import lfilter, butter
+rg=np.random.default_rng(3)
+n=int(1.6*SR);t=np.arange(n)/SR
+f=95+25*np.sin(2*np.pi*6*t)+np.interp(t,[0,.3,1.6],[60,0,-30]);ph=2*np.pi*np.cumsum(f)/SR
+saw=sum(np.sin(k*ph)/k for k in range(1,14))
+nz=lfilter(*butter(2,[300/(SR/2),1800/(SR/2)],'band'),rg.standard_normal(n))
+r=(saw*.6+nz*2.2)*np.interp(t,[0,.12,1.1,1.6],[0,1,.8,0])*(1+.35*np.sin(2*np.pi*23*t))
+r=lfilter(*butter(2,2400/(SR/2)),r);save('roar',r/np.max(np.abs(r))*.9)
+def au(d=.16,f0=520):
+    n=int(d*SR);t=np.arange(n)/SR;ph=2*np.pi*np.cumsum(f0*np.exp(-t*4)+180)/SR
+    x=sum(np.sin(k*ph)*(.8**k) for k in range(1,10))+lfilter(*butter(2,[800/(SR/2),3000/(SR/2)],'band'),rg.standard_normal(n))*1.5
+    return x*np.interp(t,[0,.01,d*.4,d],[0,1,.6,0])
+b=np.concatenate([au(),np.zeros(int(.07*SR)),au(.14,600)]);save('bark',b/np.max(np.abs(b))*.9)

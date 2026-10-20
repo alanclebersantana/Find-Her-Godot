@@ -44,7 +44,7 @@ func _draw() -> void:
 			else:
 				Spr.A("hourglass", c.x, c.y + 16 + sin(T * .08 + c.x) * 3, .48)
 	for d in g.DRWS:
-		if not d.got:
+		if not d.got and not d.get("hidden"):
 			Spr.glow(d.x, d.y, 34, Color(1, .94, .78, .45))
 			Spr.save()
 			Spr.translate(d.x, d.y + sin(T * .06) * 3)
@@ -92,6 +92,7 @@ func _draw() -> void:
 				var rx: float = a + fmod(T * 13 + k * 97, b5 - a)
 				var rr := 4 + (T + k * 5) % 12
 				Spr.ci.draw_arc(Vector2(rx, s.y + 2), rr, 0, TAU, 16, Color(.86, .92, .86, .5), 1.2)
+	_projectiles(g, T)
 	_extras(g, T)
 	# moitas (escondem passagens)
 	var p: Dictionary = g.player
@@ -196,3 +197,30 @@ func _extras(g: Game, T: int) -> void:
 	for sc in X.SECRETS:
 		if sc.a > 0:
 			Spr.rect(sc.x - 2, sc.y - 2, sc.w + 4, sc.h + 4, Color(.165 * mod.r, .102 * mod.g, .055 * mod.b, sc.a))
+
+## Carvão em brasa (Vargas) e torrões de terra (toupeira): grandes, brilhando, com sombra no chão.
+func _projectiles(g: Game, T: int) -> void:
+	for c in g.COAL:
+		var dirt: bool = c.get("k", "") == "dirt"
+		var gy: float = c.get("gy", -1.0)
+		if gy > 0 and gy > c.y:
+			var k: float = clamp(1.0 - (gy - c.y) / 300.0, .25, 1.0)
+			Spr.ellipse(c.x, gy - 1, 14 * k, 4 * k, Color(.8, .15, .05, .45 * k) if not dirt else Color(0, 0, 0, .35 * k))
+		if dirt:
+			Spr.save()
+			Spr.translate(c.x, c.y)
+			Spr.rotate(c.rot)
+			Spr.poly(PackedVector2Array([Vector2(-10, -4), Vector2(-4, -10), Vector2(7, -8), Vector2(10, 2), Vector2(3, 10), Vector2(-9, 6)]), Color("#6b4a2a"))
+			Spr.poly(PackedVector2Array([Vector2(-4, -7), Vector2(4, -6), Vector2(0, -1)]), Color("#9a7448"))
+			Spr.restore()
+			continue
+		var fl: float = .8 + sin(T * .6 + c.x) * .2
+		Spr.glow(c.x, c.y, 34 * fl, Color(1, .45, .1, .55))
+		Spr.save()
+		Spr.translate(c.x, c.y)
+		Spr.rotate(c.rot)
+		Spr.scale(1.5, 1.5)
+		Spr.poly(PackedVector2Array([Vector2(-8, -3), Vector2(-3, -8), Vector2(6, -6), Vector2(8, 2), Vector2(2, 8), Vector2(-7, 5)]), Color(.16, .12, .12))
+		Spr.ci.draw_polyline(PackedVector2Array([Vector2(-5, -2), Vector2(0, 1), Vector2(4, -3)]), Color(1, .6, .15, fl), 1.6, true)
+		Spr.ci.draw_polyline(PackedVector2Array([Vector2(-2, 5), Vector2(1, 2), Vector2(5, 4)]), Color(1, .45, .1, fl), 1.4, true)
+		Spr.restore()

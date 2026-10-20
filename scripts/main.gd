@@ -181,11 +181,13 @@ func _process(_d: float) -> void:
 		var vs := get_viewport().get_visible_rect().size
 		game.W = vs.x
 		game.H = vs.y
-		var sh := Vector2((randf() - .5) * game.shake, (randf() - .5) * game.shake)
+		var amp: float = game.shake * (.55 if Save.getv("opt", "shake", true) else 0.0)
+		var tt := Time.get_ticks_msec() / 1000.0
+		var sh := Vector2(sin(tt * 53.0) + sin(tt * 31.0) * .5, cos(tt * 47.0) + sin(tt * 29.0) * .5) * amp * .5
 		game.update_render_cam()
 		if stick.mode == "analog" and stick.finger != -1:
 			game.axis_x = stick.axis
-		game.camera.position = Vector2(round(game.rcam), round(game.rcam_y)) + sh
+		game.camera.position = Vector2(game.rcam, game.rcam_y) + sh
 		_update_lights()
 		var under: bool = game.L.has("under") and game.player.y > game.L.under
 		Audio.set_rain(game.AMB.rain * (.35 if under else 1.0) if state == S.PLAY else 0.0)
@@ -197,6 +199,14 @@ func _process(_d: float) -> void:
 			song = "perseguicao"
 		if state == S.PLAY:
 			Audio.set_song(song)
+		var in_cine: bool = not game.CINE.is_empty()
+		if state == S.PLAY and top_buttons.visible == in_cine:
+			top_buttons.visible = not in_cine
+			stick.visible = not in_cine
+			for b in touch:
+				b.visible = not in_cine
+			if in_cine:
+				stick._release()
 
 func _physics_process(_d: float) -> void:
 	if state == S.PLAY:
@@ -214,6 +224,9 @@ func _clear_keys() -> void:
 	game.keys.clear()
 
 func _input(e: InputEvent) -> void:
+	if state == S.PLAY and not game.CINE.is_empty() and ((e is InputEventScreenTouch and e.pressed) or (e is InputEventMouseButton and e.pressed)):
+		game.keys["Jp"] = true
+		return
 	if e is InputEventKey and not e.echo:
 		if e.pressed and (e.keycode == KEY_ESCAPE or e.keycode == KEY_P):
 			_toggle_pause()
@@ -564,6 +577,7 @@ func show_options(from_pause: bool) -> void:
 	opt_row.call("Velocidade", "tps", [["Calma", 44], ["Média", 52], ["Rápida", 60]], 60)
 	opt_row.call("Som", "sound", [["Ligado", true], ["Desligado", false]], true)
 	opt_row.call("Vibração", "vibrate", [["Sim", true], ["Não", false]], true)
+	opt_row.call("Tremor da tela", "shake", [["Sim", true], ["Não", false]], true)
 	vb.add_child(_label("Destro: movimento à esquerda e PULAR à direita. Canhoto: ao contrário.", 13, Color(.8, .75, .65), Spr.font_i))
 	var back := func():
 		if from_pause:
@@ -847,13 +861,14 @@ func show_gallery() -> void:
 	vb.add_child(_label("Os desenhos que você encontrou pelo caminho.", 14, Color(.85, .8, .7), Spr.font_i))
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 22)
+	row.add_theme_constant_override("separation", 14)
 	vb.add_child(row)
 	var KD := preload("res://scripts/ui/kid_drawing.gd")
-	for i in 2:
+	for i in 3:
 		var d = KD.new()
-		d.kind = i
+		d.kind = [0, 1, 3][i]
 		d.locked = not Save.getv("gallery", "d%d" % i, false)
+		d.custom_minimum_size = Vector2(196, 128)
 		row.add_child(d)
 	var fin = Save.getv("gallery", "final", null)
 	if fin == null:
@@ -864,8 +879,8 @@ func show_gallery() -> void:
 		var fd := _FinalDrawing.new()
 		for c in fin:
 			fd.specs[c] = 1
-		fd.scale = Vector2(.82, .82)
-		fd.custom_minimum_size = Vector2(246, 150)
+		fd.scale = Vector2(.66, .66)
+		fd.custom_minimum_size = Vector2(198, 128)
 		row.add_child(fd)
 	if Save.getv("gallery", "gold", false):
 		var gl := HBoxContainer.new()

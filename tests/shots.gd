@@ -38,6 +38,8 @@ func _initialize() -> void:
 		var p = a.split(",")
 		var x := float(p[0])
 		var y := float(p[1])
+		g.CINE = {}
+		g.X.boss_reset()
 		g.player.x = x - 12
 		g.player.y = y - 34
 		g.player.vx = 0
@@ -77,6 +79,11 @@ func _initialize() -> void:
 					g.VINES[0].om = .03
 				elif k.begins_with("w_"):
 					g.X.weather = k.substr(2)
+				elif k == "dog":
+					g.X.DOG.st = "follow"
+					g.X.DOG.x = x - 50
+					g.X.DOG.y = y
+					g.X.TRAIL = [Vector2(x - 50, y)]
 				elif k == "fl":
 					g.player.face = -1
 				elif k == "pick":

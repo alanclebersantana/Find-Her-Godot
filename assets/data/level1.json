@@ -1054,6 +1054,12 @@
    "x": 8535,
    "y": 92,
    "txt": "Um desenho da Lia: a lanterna do papai espantando o escuro."
+  },
+  {
+   "x": 4310,
+   "y": 80,
+   "toca": 1,
+   "txt": "Um desenho da Lia: ela abraçando o Pipoca! Ele tinha guardado na toca."
   }
  ],
  "vines": [
@@ -1237,7 +1243,8 @@
    "r": [
     7130,
     7460
-   ]
+   ],
+   "helm": 1
   }
  ],
  "coins": [
@@ -1993,6 +2000,20 @@
    "t": "Suba num galho! Deixe o Javali-Rei bater na árvore ou no barranco e pule nas costas dele quando ficar tonto."
   },
   {
+   "a": 3990,
+   "b": 4170,
+   "yl": 140,
+   "dogtied": 1,
+   "t": "Um cachorro amarrado e assustado! Chegue perto e toque ✦ USAR para soltá-lo."
+  },
+  {
+   "a": 4250,
+   "b": 4380,
+   "yl": 140,
+   "toca": 1,
+   "t": "Uma toca pequena demais para o Tomé. Com o Pipoca junto, toque ✦ USAR aqui."
+  },
+  {
    "a": 4040,
    "b": 4260,
    "yl": 140,
@@ -2023,6 +2044,12 @@
    "b": 2900,
    "yg": 860,
    "t": "A Lia desenhou uma seta apontando para a parede... será que dá para passar?"
+  },
+  {
+   "a": 7100,
+   "b": 7480,
+   "yl": 520,
+   "t": "Toupeira de capacete! Pisar não adianta: deixe o Pipoca farejar e puxá-la para fora."
   }
  ],
  "pits": [
@@ -2202,6 +2229,17 @@
    "x": 12030,
    "y": 445,
    "k": "coracao"
+  }
+ ],
+ "dog": {
+  "x": 4070,
+  "y": 100
+ },
+ "tocas": [
+  {
+   "x": 4310,
+   "y": 100,
+   "id": 1
   }
  ]
 }

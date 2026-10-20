@@ -18,7 +18,7 @@ const SONG_DB := {"perseguicao": -3.0, "vitoria": -6.0, "tarde": -8.0, "tema": -
 ## som ambiente de cada trecho
 const AMB_FOR := {"manha": "passaros", "tarde": "passaros", "chuva": "sapos", "noite": "grilos", "tunel": "caverna", "perseguicao": "vento"}
 var rain_target := 0.0
-const NAMES := ["jump", "dj", "pen", "stomp", "hurt", "item", "clue", "combine", "unlock", "splash", "slide", "fire", "thunder", "door", "spring", "climb", "die", "special"]
+const NAMES := ["jump", "dj", "pen", "stomp", "hurt", "item", "clue", "combine", "unlock", "splash", "slide", "fire", "thunder", "door", "spring", "climb", "die", "special", "roar", "bark"]
 
 func _ready() -> void:
 	on = Save.getv("opt", "sound", true)

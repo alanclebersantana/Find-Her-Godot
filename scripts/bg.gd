@@ -8,7 +8,7 @@ const GL := 600.0
 
 func _process(_d: float) -> void:
 	if game and game.L:
-		position = Vector2(round(game.rcam), round(game.rcam_y))
+		position = Vector2(game.rcam, game.rcam_y)
 	queue_redraw()
 
 func _draw() -> void:

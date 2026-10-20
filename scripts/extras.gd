@@ -30,6 +30,10 @@ var broken := {}
 var opened := {}
 var found := {}
 var a_notes := 0
+var DOG := {}
+var TRAIL: Array = []       # pegadas do Tomé no chão (o cachorro segue esse caminho)
+var TOCAS: Array = []
+var CRAWL: Array = []       # passagens baixas (só passa abaixado)
 var breath := 480
 var was_swim := false
 const BREATH := 480
@@ -60,6 +64,14 @@ func load_level() -> void:
 		o.charge = 0.0
 		o.on = false
 		CRYSTALS.append(o)
+	CRAWL = []
+	for so in g.SOL:
+		if so.get("oneway") or so.get("crate") or so.t in ["crack", "bars"]:
+			continue
+		var bot: float = so.y + so.h
+		var surf: float = g._rest_y(so.x + so.w / 2, bot, 40)
+		if surf > 0 and surf - bot >= 16 and surf - bot < 34:
+			CRAWL.append({"x": so.x, "w": so.w, "top": bot, "y": surf})
 	GHOST = []
 	for p in L.get("ghost", []):
 		var o := {"t": "ghost", "x": p.x, "y": p.y, "w": p.w, "h": 16, "oneway": 1, "ghost": 1, "on": false, "a": 0.0}
@@ -94,6 +106,16 @@ func load_level() -> void:
 	for i in 5:
 		MOTHS.append({"a": randf() * TAU, "r": 22 + randf() * 30, "s": .04 + randf() * .05, "ph": randf() * TAU})
 	FIRE = []
+	TRAIL = []
+	DOG = {}
+	if L.has("dog"):
+		DOG = {"x": float(L.dog.x), "y": float(L.dog.y), "x0": float(L.dog.x), "st": "tied", "face": -1, "i": 0, "t": 0,
+			"hop": 0.0, "hy": 0.0, "anim": 0.0, "bark": 0, "carry": false, "mole": null, "toca": null, "moving": false}
+	TOCAS = []
+	for tc in L.get("tocas", []):
+		var o: Dictionary = tc.duplicate()
+		o.done = false
+		TOCAS.append(o)
 	var opts := ["limpo", "limpo", "neblina", "garoa", "vento"]
 	weather = opts[randi() % opts.size()]
 	weather_msg_t = 40
@@ -217,7 +239,7 @@ func post() -> void:
 			g.note(weather_text())
 	# ✦ USAR: picareta, espelho do chão
 	if g.keys.get("Ap", false):
-		if _use_crack() or _use_mirror():
+		if _use_dog() or _use_toca() or _use_crack() or _use_mirror():
 			g.keys.Ap = false
 			focus_block = true
 	if not g.kd("A"):
@@ -262,6 +284,7 @@ func post() -> void:
 		g.flash("O LÁPIS DOURADO! O lápis mais especial da Lia — ela guardava para desenhar o sol.", 300)
 	_boss()
 	_logs()
+	_dog()
 	_critters()
 	_footprints()
 
@@ -278,6 +301,23 @@ func weather_amb() -> void:
 			g.AMB.fog = .75
 		"vento":
 			g.AMB.wind = 1.0
+
+# ---------- passagens baixas ----------
+func crawl_auto(dir: int) -> bool:
+	var p: Dictionary = g.player
+	var feet: float = p.y + p.h
+	for c in CRAWL:
+		if abs(feet - c.y) > 3:
+			continue
+		var x0: float = p.x
+		var x1: float = p.x + p.w
+		if x1 > c.x - 2 and x0 < c.x + c.w + 2:
+			return true
+		if dir > 0 and x1 <= c.x and c.x - x1 < 10:
+			return true
+		if dir < 0 and x0 >= c.x + c.w and x0 - (c.x + c.w) < 10:
+			return true
+	return false
 
 # ---------- picareta ----------
 func _use_crack() -> bool:
@@ -428,6 +468,59 @@ func _open_crystal(c: Dictionary, fx: bool) -> void:
 		g.flash("O cristal brilhou e as grades se abriram!", 220)
 
 # ======================================================================
+#  CENAS DRAMÁTICAS (chamadas por Game._cine_step)
+# ======================================================================
+func cine_step(c: Dictionary) -> void:
+	var t: int = c.t
+	match c.id:
+		"boss":
+			var b: Dictionary = BOSS
+			if b.st == "intro":
+				b.vy += .7
+				b.y = min(500.0, b.y + b.vy)
+				c.fy = clamp(b.y + 40, 300.0, 430.0)
+				if b.y >= 500:
+					b.st = "idle"
+					b.t = 0
+					g.shake = 18
+					Audio.play("stomp")
+					Audio.vib(100)
+					g.burst(b.x, 500, 30, Color("#b7a77f"))
+					g.fx("fx_dust", b.x, 480, 30, .5, -.3)
+			else:
+				b.t = 0
+				b.dir = 1 if g.player.x > b.x else -1
+			if t == 72:
+				Audio.play("roar")
+				g.shake = 14
+				Audio.vib(160)
+		"vargas":
+			if t == 6:
+				g.lightning = 12
+				Audio.play("thunder", -2)
+				g.shake = 8
+			if t == 135:
+				Audio.play("hurt", -10)
+		"cao":
+			if t == 60 or t == 150:
+				Audio.play("bark")
+			if DOG:
+				DOG.hop = 1.0 if t in range(140, 160) else 0.0
+
+func cine_end(id: String) -> void:
+	match id:
+		"boss":
+			if BOSS.st == "intro":
+				BOSS.y = 500.0
+				BOSS.st = "idle"
+			BOSS.t = 0
+			g.flash("Suba num galho! Deixe o Javali-Rei bater na árvore ou no barranco e pule nas costas dele quando ficar tonto.", 240)
+		"vargas":
+			g.flash("Atrás dele! Pule os buracos e abaixe sob as vigas.", 180)
+		"cao":
+			g.flash("O Pipoca agora vai com você! Perto de uma toca, toque ✦ USAR e ele busca o que tiver lá dentro.", 260)
+
+# ======================================================================
 #  CHEFE: O JAVALI-REI
 # ======================================================================
 func boss_active() -> bool:
@@ -462,9 +555,11 @@ func _boss() -> void:
 				b.hp = b.maxhp
 				b.dir = -1
 				_gate_on(true)
-				g.flash("O JAVALI-REI pulou do barranco! Ele é forte demais para pisar... suba num galho!", 260)
 				Audio.play("thunder", -6)
-				g.shake = 10
+				g.shake = 6
+				g.start_cine("boss", b.spawn - 60, 420, 260,
+					[[165, 250, "TOMÉ", "Um javali desse tamanho... Ele é forte demais para pisar. Preciso subir num galho!", "tome"]],
+					[75, 160, "JAVALI-REI", "o terror da clareira"])
 			return
 		"intro":
 			b.vy += .7
@@ -717,7 +812,7 @@ func _footprints() -> void:
 # ======================================================================
 func save_data() -> Dictionary:
 	return {"broken": broken.keys(), "opened": opened.keys(), "found": found.keys(), "gold": GOLD.get("got", false),
-		"boss": BOSS.get("done", false)}
+		"boss": BOSS.get("done", false), "dog": dog_free(), "tocas": TOCAS.filter(func(t): return t.done).map(func(t): return t.get("id", 1))}
 
 func restore(d: Dictionary) -> void:
 	for id in d.get("broken", []):
@@ -737,3 +832,234 @@ func restore(d: Dictionary) -> void:
 		GOLD.got = true
 	if d.get("boss", false):
 		boss_finish_silent()
+	for id in d.get("tocas", []):
+		for tc in TOCAS:
+			if tc.get("id", 1) == id:
+				tc.done = true
+	if d.get("dog", false) and not DOG.is_empty():
+		DOG.st = "follow"
+		DOG.x = -9999.0   # aparece perto do Tomé no primeiro passo
+		TRAIL = []
+
+# ======================================================================
+#  PIPOCA, O CACHORRO
+# ======================================================================
+func dog_free() -> bool:
+	return not DOG.is_empty() and DOG.st != "tied"
+
+func _use_dog() -> bool:
+	if DOG.is_empty() or DOG.st != "tied":
+		return false
+	var p: Dictionary = g.player
+	if abs(p.x + p.w / 2 - DOG.x) < 70 and abs(p.y + p.h - DOG.y) < 50:
+		DOG.st = "follow"
+		DOG.t = 0
+		TRAIL = [Vector2(DOG.x, DOG.y)]
+		DOG.i = 0
+		g.burst(DOG.x - 30, DOG.y - 20, 10, Color("#c9a26a"))
+		Audio.play("item")
+		g.start_cine("cao", DOG.x - 40, DOG.y - 40, 215,
+			[[24, 110, "TOMÉ", "Calma, amigão... Você é o Pipoca! O vira-lata que a Lia alimentava todo dia!", "tome"],
+			[110, 205, "TOMÉ", "O Vargas te amarrou aqui para você não seguir a Lia, né? Vem comigo, vamos achá-la!", "tome"]],
+			[150, 205, "PIPOCA", "o melhor amigo da Lia"])
+		return true
+	return false
+
+func _use_toca() -> bool:
+	var p: Dictionary = g.player
+	for tc in TOCAS:
+		if tc.done or abs(p.x + p.w / 2 - tc.x) > 80 or abs(p.y + p.h - tc.y) > 50:
+			continue
+		if not dog_free():
+			g.flash("Uma toca estreita, cheirando a cachorro. O Tomé não cabe aí...", 200)
+		elif DOG.st in ["follow", "sit"]:
+			DOG.st = "to_toca"
+			DOG.toca = tc
+			DOG.t = 0
+			Audio.play("bark")
+			g.note("Busca, Pipoca!")
+		return true
+	return false
+
+func dog_dist() -> float:
+	var p: Dictionary = g.player
+	return Vector2(DOG.x, DOG.y).distance_to(Vector2(p.x + p.w / 2, p.y + p.h))
+
+func _dog() -> void:
+	if DOG.is_empty():
+		return
+	var p: Dictionary = g.player
+	var pcx: float = p.x + p.w / 2
+	var feet: float = p.y + p.h
+	DOG.t += 1
+	if DOG.bark > 0:
+		DOG.bark -= 1
+	DOG.moving = false
+	# caminho do Tomé no chão
+	if p.onGround and not p.ladder and not p.vine and not p.swim and p.dyingT == 0:
+		var cur := Vector2(pcx, feet)
+		if TRAIL.is_empty() or TRAIL[TRAIL.size() - 1].distance_to(cur) > 6:
+			TRAIL.append(cur)
+			if TRAIL.size() > 600:
+				TRAIL.pop_front()
+				DOG.i = max(0, DOG.i - 1)
+	match DOG.st:
+		"tied":
+			DOG.x = DOG.x0 + sin(DOG.t * .03) * 16
+			DOG.face = 1 if cos(DOG.t * .03) > 0 else -1
+			DOG.moving = true
+			if abs(pcx - DOG.x) < 320 and DOG.t % 110 == 0:
+				_bark()
+		"follow", "sit":
+			_follow()
+			_look_for_moles()
+		"to_toca":
+			var tc: Dictionary = DOG.toca
+			if _run_to(tc.x, tc.y, 5.5):
+				DOG.st = "in_toca"
+				DOG.t = 0
+				g.burst(tc.x, tc.y - 6, 12, Color("#7a5a3a"))
+		"in_toca":
+			if DOG.t % 8 == 0:
+				g.PARTS.append({"x": DOG.toca.x + (randf() - .5) * 20, "y": DOG.toca.y - 6, "vx": (randf() - .5) * 4, "vy": -2 - randf() * 2, "life": 20, "col": Color("#7a5a3a")})
+			if DOG.t == 50:
+				Audio.play("bark", -6)
+			if DOG.t > 100:
+				DOG.st = "return"
+				DOG.carry = true
+				DOG.toca.done = true
+				Audio.play("item")
+		"return":
+			if _run_to(pcx - p.face * 26, feet, 6.0) or dog_dist() < 40:
+				DOG.st = "follow"
+				DOG.carry = false
+				_bark()
+				for d in g.DRWS:
+					if d.get("hidden") and d.get("toca") == DOG.toca.get("id", 1):
+						d.hidden = false
+						d.x = pcx
+						d.y = p.y + 10
+				_resync()
+		"hunt":
+			var e: Dictionary = DOG.mole
+			if e.dead or e.get("st", 0) not in [0, 6]:
+				DOG.st = "follow"
+				_resync()
+			elif _run_to(e.x, e.base, 6.0):
+				DOG.st = "dig"
+				DOG.t = 0
+				e.st = 6
+				e.t = 0
+				_bark()
+		"dig":
+			var e2: Dictionary = DOG.mole
+			if DOG.t % 5 == 0:
+				g.PARTS.append({"x": DOG.x - DOG.face * 14, "y": DOG.y - 4, "vx": -DOG.face * (2 + randf() * 2), "vy": -2 - randf() * 2, "life": 18, "col": Color("#7a5a3a")})
+			if DOG.t > 50:
+				e2.st = 5
+				e2.t = 0
+				e2.helm_off = true
+				e2.cd_dog = 500
+				g.shake = 6
+				Audio.play("stomp", -6)
+				g.burst(e2.x, e2.base - 10, 14, Color("#7a5a3a"))
+				g.note("O Pipoca puxou a toupeira para fora! Pule nela agora!")
+				DOG.st = "follow"
+				_resync()
+
+func _bark() -> void:
+	DOG.bark = 30
+	Audio.play("bark", -4)
+
+## volta a seguir o caminho a partir do ponto mais perto
+func _resync() -> void:
+	var best := 0
+	var bd := INF
+	for i in TRAIL.size():
+		var d: float = TRAIL[i].distance_to(Vector2(DOG.x, DOG.y))
+		if d < bd:
+			bd = d
+			best = i
+	DOG.i = best
+
+func _run_to(x: float, y: float, spd: float) -> bool:
+	var dx: float = x - DOG.x
+	if abs(dx) > 2:
+		DOG.face = 1 if dx > 0 else -1
+		DOG.moving = true
+	DOG.x += clamp(dx, -spd, spd)
+	DOG.y = lerpf(DOG.y, y, .25)
+	DOG.anim += abs(clamp(dx, -spd, spd)) * .08
+	return abs(dx) < 4 and abs(DOG.y - y) < 4
+
+func _follow() -> void:
+	if TRAIL.is_empty():
+		return
+	# alvo: um pouco atrás do Tomé, no caminho que ele fez
+	var ti := TRAIL.size() - 1
+	var acc := 0.0
+	while ti > 0 and acc < 58:
+		acc += TRAIL[ti].distance_to(TRAIL[ti - 1])
+		ti -= 1
+	DOG.i = clamp(DOG.i, 0, TRAIL.size() - 1)
+	var far: float = Vector2(DOG.x, DOG.y).distance_to(TRAIL[ti])
+	var spd: float = clamp(far * .08, 2.2, 7.5)
+	# muito longe (o Tomé entrou num esconderijo, subiu uma escada...): aparece perto dele
+	var off_screen: bool = DOG.x < g.cam - 120 or DOG.x > g.cam + g.W + 120 or DOG.y < g.cam_y - 120 or DOG.y > g.cam_y + g.H + 120
+	if (far > 700 or (off_screen and far > 260)) and g.player.onGround:
+		DOG.x = TRAIL[ti].x
+		DOG.y = TRAIL[ti].y
+		DOG.i = ti
+		DOG.hy = 0.0
+		g.burst(DOG.x, DOG.y - 16, 10, Color("#d8c8a0"))
+		return
+	if DOG.i >= ti:
+		DOG.st = "sit" if DOG.t % 600 > 30 else "follow"
+		DOG.hy = 0.0
+		return
+	DOG.st = "follow"
+	var budget := spd
+	while budget > 0 and DOG.i < ti:
+		var nxt: Vector2 = TRAIL[DOG.i + 1]
+		var here := Vector2(DOG.x, DOG.y)
+		var d: float = here.distance_to(nxt)
+		var prev: Vector2 = TRAIL[DOG.i]
+		var seg: float = prev.distance_to(nxt)
+		if seg > 280:
+			DOG.x = nxt.x
+			DOG.y = nxt.y
+			DOG.i += 1
+			continue
+		if d <= budget:
+			DOG.x = nxt.x
+			DOG.y = nxt.y
+			DOG.i += 1
+			budget -= d
+		else:
+			var v := (nxt - here) / d * budget
+			DOG.x += v.x
+			DOG.y += v.y
+			budget = 0
+		DOG.face = 1 if nxt.x >= prev.x else -1
+		# trecho longo entre duas pegadas = pulo (buraco, degrau): faz um arco
+		if seg > 26:
+			var u: float = clamp(prev.distance_to(Vector2(DOG.x, DOG.y)) / seg, 0, 1)
+			DOG.hy = -min(80.0, seg * .45) * sin(u * PI)
+		else:
+			DOG.hy = 0.0
+	DOG.moving = true
+	DOG.anim += spd * .08
+
+func _look_for_moles() -> void:
+	var p: Dictionary = g.player
+	for e in g.EN:
+		if e.k != "mole" or e.dead or e.get("st", 0) != 0 or e.get("cd_dog", 0) > 0:
+			continue
+		if abs(e.x - DOG.x) < 280 and abs(e.base - DOG.y) < 40 and abs(e.x - (p.x + p.w / 2)) < 420:
+			DOG.st = "hunt"
+			DOG.mole = e
+			_bark()
+			return
+	for e in g.EN:
+		if e.k == "mole" and e.get("cd_dog", 0) > 0:
+			e.cd_dog -= 1

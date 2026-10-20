@@ -17,6 +17,9 @@ func _draw() -> void:
 	var W := size.x
 	var p: Dictionary = game.player
 	Spr.begin(self)
+	if not game.CINE.is_empty():
+		_cine(W, size.y)
+		return
 	_box(8, 8, 290, 40)
 	for i in Game.MAXHP:
 		Spr.A("hud_heart_full" if i < p.hp else "hud_heart_empty", 28 + i * 26, 28, .5)
@@ -118,3 +121,72 @@ func _wrapped(t: String, cx: float, y: float, maxw: float, fs: int, c: Color, f:
 	for ln in _lines(t, maxw, fs):
 		Spr.text(ln, cx, y2, fs, c, HORIZONTAL_ALIGNMENT_CENTER, f)
 		y2 += 21
+
+# ---------- cena dramática: faixas de cinema, título e falas ----------
+func _cine(W: float, H: float) -> void:
+	var c: Dictionary = game.CINE
+	var t: int = c.t
+	var a: float = clamp(min(t, c.dur - t) / 18.0, 0, 1)
+	var bar: float = 62 * a
+	Spr.rect(0, 0, W, bar, Color(0, 0, 0, 1))
+	Spr.rect(0, H - bar, W, bar, Color(0, 0, 0, 1))
+	if c.title.size() == 4 and t >= c.title[0] and t < c.title[1]:
+		var k: float = clamp(min(t - c.title[0], c.title[1] - t) / 14.0, 0, 1)
+		var ct: String = "cena_" + {"boss": "javali", "vargas": "vargas", "cao": "cao"}.get(c.id, "")
+		if Spr.tex.has(ct):
+			var tx: Texture2D = Spr.tex[ct]
+			var zs: float = max(W / tx.get_width(), H / tx.get_height()) * (1.0 + (t - c.title[0]) * .0012)
+			var tw: float = tx.get_width() * zs
+			var th: float = tx.get_height() * zs
+			Spr.ci.draw_texture_rect(tx, Rect2(W / 2 - tw / 2, H / 2 - th / 2, tw, th), false, Color(1, 1, 1, k))
+			Spr.rect(0, 0, W, bar, Color(0, 0, 0, 1))
+			Spr.rect(0, H - bar, W, bar, Color(0, 0, 0, 1))
+		var sc := 1.0 + (1.0 - k) * .25
+		var y := H * .34
+		Spr.save()
+		Spr.translate(W / 2, y)
+		Spr.scale(sc, sc)
+		Spr.text(c.title[2], 0, 0, 54, Color(1, .85, .55, k), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_title, 8, Color(0, 0, 0, .85 * k))
+		Spr.text(c.title[3], 0, 38, 20, Color(.95, .9, .8, k), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_i, 4, Color(0, 0, 0, .8 * k))
+		Spr.restore()
+	var l = game.cine_line()
+	if l != null:
+		var k2: float = clamp(min(t - l[0], l[1] - t) / 8.0, 0, 1)
+		var bw: float = min(W - 80, 760)
+		var bx: float = W / 2 - bw / 2
+		var by: float = H - 62 - 92
+		Spr.rr(bx, by, bw, 84, 12, Color(.05, .04, .03, .88 * k2))
+		Spr.ci.draw_rect(Rect2(bx, by, bw, 84), Color(.8, .66, .4, .7 * k2), false, 2)
+		# retrato
+		Spr.rr(bx + 10, by + 8, 68, 68, 8, Color(.2, .15, .1, k2))
+		match l[4]:
+			"vargas":
+				_portrait("vg_face", bx + 44, by + 42, 62, k2)
+			"lia":
+				_portrait("lia_scared", bx + 44, by + 42, 62, k2)
+			_:
+				Spr.save()
+				Spr.translate(bx + 44, by + 96)
+				Spr.ci.draw_texture_rect_region(Spr.tex.pai, Rect2(-50, -95, 100, 123), Rect2(15, 0, 100, 123), Color(1, 1, 1, k2))
+				Spr.restore()
+				Spr.rect(bx + 10, by + 76, 68, 20, Color(.05, .04, .03, .88 * k2))
+		var col: Color = {"VARGAS": Color("#ff9a7a"), "LIA": Color("#ffb0d0"), "TOMÉ": Color("#ffd27a")}.get(l[2], Color.WHITE)
+		Spr.text(l[2], bx + 92, by + 26, 15, Color(col.r, col.g, col.b, k2), HORIZONTAL_ALIGNMENT_LEFT, Spr.font_title)
+		var shown: int = int((t - l[0]) * 1.6)
+		var txt: String = l[3].substr(0, shown)
+		var yy := by + 50
+		for ln in _lines(txt, bw - 110, 17):
+			Spr.text(ln, bx + 92, yy, 17, Color(.96, .92, .82, k2), HORIZONTAL_ALIGNMENT_LEFT, Spr.font_i)
+			yy += 21
+	if t > 45:
+		Spr.text("PULAR ▸", W - 20, H - 22, 14, Color(1, .9, .7, .55 * a), HORIZONTAL_ALIGNMENT_RIGHT, Spr.font_b)
+
+func _portrait(n: String, cx: float, cy: float, h: float, al: float) -> void:
+	var r = Spr.AR.get(n)
+	if r == null:
+		return
+	var w: float = h * r[2] / r[3]
+	if w > 64:
+		w = 64
+		h = w * r[3] / r[2]
+	Spr.ci.draw_texture_rect_region(Spr.atlas_tex(r), Rect2(cx - w / 2, cy - h / 2, w, h), Rect2(r[0], r[1], r[2], r[3]), Color(1, 1, 1, al))

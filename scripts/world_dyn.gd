@@ -21,6 +21,7 @@ func _draw() -> void:
 	_lily_mud(g)
 	WorldExtras.chalk(g, T)
 	WorldExtras.footprints(g)
+	WorldExtras.crawl(g, T)
 	WorldExtras.solids(g, T)
 	WorldExtras.boss(g, T)
 	if g.VIL and g.VIL.go and not g.VIL.gone:
@@ -47,6 +48,8 @@ func _draw() -> void:
 		Spr.translate(eo.x, eo.y)
 		_enemy(e)
 		Spr.restore()
+	WorldExtras.tocas(g, T)
+	WorldExtras.dog(g, T)
 	_player(g)
 	WorldExtras.grass(g, T)
 	for f in g.FXS:
@@ -90,14 +93,6 @@ func _deco(g: Game) -> void:
 				Spr.AB("mi_door_open", gx, 500 - 221, 230, 221)
 			else:
 				Spr.AB("mi_door_closed", gx + 11, 500 - 207, 210, 207)
-	# carvão atirado pelo Ademar
-	for c in g.COAL:
-		Spr.save()
-		Spr.translate(c.x, c.y)
-		Spr.rotate(c.rot)
-		Spr.poly(PackedVector2Array([Vector2(-8, -3), Vector2(-3, -8), Vector2(6, -6), Vector2(8, 2), Vector2(2, 8), Vector2(-7, 5)]), Color(.13, .13, .15))
-		Spr.poly(PackedVector2Array([Vector2(-3, -6), Vector2(3, -5), Vector2(0, -1)]), Color(.45, .45, .5, .8))
-		Spr.restore()
 	# portão da comporta e parede escura do túnel
 	for s in g.SOL:
 		if s.t == "barrier":

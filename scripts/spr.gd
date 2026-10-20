@@ -18,6 +18,21 @@ var font_title: Font
 ## pés no centro da base. Se o arquivo existir, o jogo usa no lugar das poses antigas.
 var anim := {}
 const ANIM_NAMES := ["idle", "walk", "run", "jump", "fall", "land", "crawl", "push"]
+var novos := {}
+const NOVOS := ["pipoca", "toupeira", "toupeira_capacete", "morcego", "aranha"]
+
+## desenha o quadro f de uma arte nova com os pés em (0,0), altura h na tela
+func novo(n: String, f: int, h: float, flip: bool = false, al: float = 1.0) -> bool:
+	if not novos.has(n):
+		return false
+	var a: Dictionary = novos[n]
+	var s: float = a.s
+	var k := h / s
+	save()
+	scale(-k if flip else k, k)
+	ci.draw_texture_rect_region(a.tex, Rect2(-s / 2, -s, s, s), Rect2((f % a.n) * s, 0, s, s), Color(1, 1, 1, alpha * al))
+	restore()
+	return true
 
 func _ready() -> void:
 	for k in ["atlas1", "atlas2"]:
@@ -34,7 +49,19 @@ func _ready() -> void:
 			anim[k] = {"tex": at, "n": max(1, int(round(at.get_width() / float(fh)))), "s": fh}
 	# peças extras desenhadas à parte (atlas 2 = extra.png)
 	tex["extra"] = load("res://assets/sprites/extra.png")
+	tex["pad_S"] = load("res://assets/ui/pad_S.png")
 	AR["it_picareta"] = [17, 12, 102, 110, 51, 55, 2]
+	# artes novas opcionais (assets/sprites/novos/<nome>.png, quadros quadrados lado a lado)
+	for k in NOVOS:
+		var npth := "res://assets/sprites/novos/%s.png" % k
+		if ResourceLoader.exists(npth):
+			var nt: Texture2D = load(npth)
+			var nh := nt.get_height()
+			novos[k] = {"tex": nt, "n": max(1, int(round(nt.get_width() / float(nh)))), "s": nh}
+	for k in ["javali", "vargas", "cao"]:
+		var cp := "res://assets/ui/cena_%s.jpg" % k
+		if ResourceLoader.exists(cp):
+			tex["cena_" + k] = load(cp)
 	var j = JSON.parse_string(FileAccess.get_file_as_string("res://assets/data/atlas.json"))
 	for n in j.atlas1:
 		var r = j.atlas1[n]

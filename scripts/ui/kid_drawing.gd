@@ -82,6 +82,30 @@ func _draw() -> void:
 			_circle_scr(m, 14, Color("#111018"))
 			draw_circle(m + Vector2(-4, -3), 2.5, Color.WHITE)
 			draw_circle(m + Vector2(4, -3), 2.5, Color.WHITE)
+	elif kind == 3:
+		_fill_scr(Rect2(0, h * .7, w, h * .3), Color("#59a83c"))
+		_circle_scr(Vector2(w * .14, h * .2), 15, Color("#f2cc2e"))
+		_person(w * .38, h * .82, 1.1, Color("#e86aa0"), Color(0, 0, 0, 0))
+		# o Pipoca
+		var dx := w * .62
+		var dy := h * .72
+		var body := PackedVector2Array([Vector2(dx - 26, dy - 18), Vector2(dx + 22, dy - 20), Vector2(dx + 26, dy), Vector2(dx - 24, dy + 2)])
+		draw_colored_polygon(body, Color("#b08a5a"))
+		_scribble(body + PackedVector2Array([body[0]]), Color("#3a2a1a"), 2)
+		_circle_scr(Vector2(dx + 30, dy - 26), 13, Color("#b08a5a"))
+		for lg in [-18, -6, 10, 20]:
+			_scribble(PackedVector2Array([Vector2(dx + lg, dy), Vector2(dx + lg, dy + 14)]), Color("#3a2a1a"), 3)
+		_scribble(PackedVector2Array([Vector2(dx - 26, dy - 14), Vector2(dx - 40, dy - 30)]), Color("#3a2a1a"), 3)
+		_scribble(PackedVector2Array([Vector2(dx + 24, dy - 36), Vector2(dx + 20, dy - 46), Vector2(dx + 30, dy - 38)]), Color("#3a2a1a"), 2)
+		draw_circle(Vector2(dx + 34, dy - 28), 2, Color("#3a2a1a"))
+		_scribble(PackedVector2Array([Vector2(w * .42, h * .62), Vector2(dx - 20, dy - 12)]), Color("#3a2a1a"), 2)
+		var hx := w * .5
+		var hy := h * .25
+		var hp := PackedVector2Array()
+		for i in 25:
+			var t2 := TAU * i / 24.0
+			hp.push_back(Vector2(hx + 11 * pow(sin(t2), 3), hy - (9 * cos(t2) - 3.5 * cos(2 * t2) - 1.4 * cos(3 * t2) - .7 * cos(4 * t2))))
+		draw_colored_polygon(hp, Color("#e0463a"))
 	else:
 		var col := func(c: String) -> Color:
 			return GameData.PEN_COL[c] if specs.has(c) else Color("#f6efdc")
@@ -94,5 +118,5 @@ func _draw() -> void:
 		_scribble(roof, Color("#3a2a1a"), 2)
 		_person(w * .58, h * .78, 1.1, col.call("roxo"), Color(0, 0, 0, 0))
 		_person(w * .68, h * .78, .8, col.call("vermelho"), Color(0, 0, 0, 0))
-	var cap: String = ["\"Eu e o papai\"", "\"A lanterna do papai\"", "\"Papai e eu\""][kind]
+	var cap: String = ["\"Eu e o papai\"", "\"A lanterna do papai\"", "\"Papai e eu\"", "\"Eu e o Pipoca\""][kind]
 	draw_string(Spr.font_i, Vector2(8, h - 6), cap + " — Lia", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#3a2a1a"))

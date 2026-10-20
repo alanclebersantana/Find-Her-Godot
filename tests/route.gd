@@ -15,6 +15,8 @@ func frame(set: Dictionary = {}) -> void:
 	for k in set:
 		g.keys[k] = set[k]
 	g.step()
+	while not g.CINE.is_empty():
+		g.step()
 
 func press(k: String) -> void:
 	g.keys[k + "p"] = true
@@ -265,9 +267,15 @@ func _initialize() -> void:
 	S("corda presa", g.LOCKS[0].done)
 	S("vai à corda", walk_to(3888))
 	S("sobe a corda", climb_to("U", func(): return P.ladder == null and P.y < 100, 500))
+	S("cachorro amarrado", walk_to(4050))
+	use()
+	S("Pipoca solto", g.X.dog_free())
 	S("rocha rachada", walk_to(4140))
 	use()
 	S("quebrou a rocha", g.X.broken.has("rock1"))
+	S("toca", walk_to(4290))
+	use()
+	S("Pipoca buscou o desenho", until({}, func(): return g.DRWS[2].got, 700))
 	S("moita: pista 2 e amarelo", walk_to(4480))
 	S("pistas=2 amarelo", n_clues() == 2 and spec("amarelo"))
 	S("desce do platô", walk_to(4760))
@@ -421,7 +429,7 @@ func _initialize() -> void:
 	S("saída", sa is String and sa == "state")
 	var nd: int = g.DRWS.filter(func(d): return d.got).size()
 	S("segredos %d/3 dourado=%s chefe=%s" % [g.X.found.size(), str(g.X.GOLD.got), str(g.X.BOSS.done)], g.X.found.size() == 3 and g.X.GOLD.got and g.X.BOSS.done)
-	S("final: pistas=%d esp=%d des=%d lápis=%d/%d tempo=%ds" % [n_clues(), g.SPECGOT.size(), nd, g.STATS.pen, g.STATS.penTotal, g.time_left / 60], n_clues() == 6 and g.SPECGOT.size() == 6 and nd == 2)
+	S("final: pistas=%d esp=%d des=%d lápis=%d/%d tempo=%ds" % [n_clues(), g.SPECGOT.size(), nd, g.STATS.pen, g.STATS.penTotal, g.time_left / 60], n_clues() == 6 and g.SPECGOT.size() == 6 and nd == 3)
 	for l in log_lines:
 		print(l)
 	print("FALHAS: %d" % fails)

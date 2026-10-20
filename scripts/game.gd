@@ -84,6 +84,12 @@ var FXS: Array = []
 var cam := 0.0
 var cam_y := 0.0
 var cam_focus := 0.0
+var cam_vx := 0.0          # velocidades da câmera (mola amortecida: sem tremedeira)
+var cam_vy := 0.0
+var look_x := 0.0
+var look_vx := 0.0
+var look_hold := 0
+var CINE := {}             # cena dramática dentro do jogo (câmera, faixas de cinema, falas)
 var W := 960.0
 var H := 540.0
 var running := false
@@ -172,6 +178,7 @@ func load_level(i: int) -> void:
 		var o: Dictionary = d.duplicate()
 		o.i = di
 		o.got = DRAWN.has("%d:%d" % [level_idx, di])
+		o.hidden = d.has("toca") and not o.got
 		DRWS.append(o)
 		di += 1
 	DOOR = {"x": L.door.x, "y": L.door.y, "w": 60, "h": 90, "locked": false}
@@ -398,6 +405,10 @@ func hint_text() -> String:
 			continue
 		if h.has("crack") and X.broken.has(h.crack):
 			continue
+		if h.get("dogtied") and X.dog_free():
+			continue
+		if h.has("toca") and (X.TOCAS.is_empty() or X.TOCAS[0].done):
+			continue
 		if X.boss_active() and not h.get("boss"):
 			continue
 		var m: String = lock_msg(LOCKS[int(h.lock)]) if h.has("lock") else h.get("t", "")
@@ -515,6 +526,9 @@ func step() -> void:
 		return
 	if iris_t > 0:
 		iris_t -= 1
+	if not CINE.is_empty():
+		_cine_step()
+		return
 	if player.dyingT > 0:
 		T += 1
 		player.dyingT -= 1
@@ -804,7 +818,7 @@ func step() -> void:
 
 	_p1_post(pcx, pcy)
 	for d in DRWS:
-		if not d.got and hit(player, R(d.x - 22, d.y - 22, 44, 44)):
+		if not d.got and not d.get("hidden") and hit(player, R(d.x - 22, d.y - 22, 44, 44)):
 			d.got = true
 			DRAWN["%d:%d" % [level_idx, d.i]] = 1
 			Save.setv("gallery", "d%d" % int(d.i), true)
@@ -880,6 +894,18 @@ func step() -> void:
 		var b := ebox(e)
 		if hit(player, b):
 			var stomp: bool = (player.vy > 1 or player.slam) and (player.y + player.h) - b.y < 22
+			if stomp and e.k == "mole" and e.get("helm") and not e.get("helm_off") and e.get("st", 0) != 5:
+				player.vy = STOMP * .8
+				player.cutOk = false
+				Audio.play("unlock", -10)
+				burst(e.x, b.y, 6, Color("#e8b030"))
+				if X.dog_free():
+					note("O capacete protege! O Pipoca consegue puxá-la para fora quando ela estiver debaixo da terra.")
+				else:
+					note("O capacete protege! Sozinho não dá...")
+				continue
+			if e.k == "mole" and e.get("st", 0) == 5 and not stomp:
+				continue
 			if stomp:
 				kill_enemy(e, "stomp")
 				player.vy = STOMP * .6 if player.slam else (STOMP * 1.3 if kd("J") else STOMP)
@@ -911,21 +937,106 @@ func _tick_fx() -> void:
 		p.life -= 1
 	PARTS = PARTS.filter(func(p): return p.life > 0)
 
+## Mola criticamente amortecida (SmoothDamp): segue o alvo suave, sem passar do ponto nem tremer.
+static func damp(cur: float, target: float, vel: float, smooth: float) -> Array:
+	var dt := 1.0 / 60.0
+	var omega: float = 2.0 / maxf(0.0001, smooth)
+	var x: float = omega * dt
+	var e: float = 1.0 / (1.0 + x + .48 * x * x + .235 * x * x * x)
+	var change: float = cur - target
+	var temp: float = (vel + omega * change) * dt
+	vel = (vel - omega * temp) * e
+	return [target + (change + temp) * e, vel]
+
 func _camera() -> void:
-	var tx: float = player.x + player.w / 2 - W / 2 + player.face * (110 if player.run else 60)
-	cam += (tx - cam) * .08
-	cam = clamp(cam, 0, max(0, L.spanX - W))
-	if player.onGround or player.vine or player.ladder or player.y > cam_focus + 30:
-		cam_focus += (player.y - cam_focus) * .25
-	elif player.y < cam_focus - 170:
-		cam_focus = player.y + 170
-	var ty: float = cam_focus - H * .55 + look_y
-	cam_y += (ty - cam_y) * .09
-	cam_y = clamp(cam_y, L.top, max(L.top, L.bottom - H))
+	var px: float = player.x + player.w / 2
+	var tx: float
+	var ty: float
+	if not CINE.is_empty():
+		tx = CINE.fx - W / 2
+		ty = CINE.fy - H * .55
+	else:
+		# olhar para a frente só depois de andar um pouco na mesma direção (virar rápido não balança a tela)
+		var want: float = player.face * (120.0 if player.run else 70.0)
+		if abs(player.vx) > 1.2 and sign(player.vx) == player.face:
+			look_hold += 1
+		else:
+			look_hold = 0
+		if look_hold < 14:
+			want = look_x
+		var r := damp(look_x, want, look_vx, .7)
+		look_x = r[0]
+		look_vx = r[1]
+		tx = px - W / 2 + look_x
+		# vertical: só muda de altura quando pisa em algo, sobe muito ou cai
+		if player.onGround or player.vine or player.ladder or player.swim or player.y > cam_focus + 40:
+			cam_focus = player.y
+		elif player.y < cam_focus - 150:
+			cam_focus = player.y + 150
+		ty = cam_focus - H * .55 + look_y
+	tx = clamp(tx, 0, max(0, L.spanX - W))
+	ty = clamp(ty, L.top, max(L.top, L.bottom - H))
+	var rx := damp(cam, tx, cam_vx, .16 if CINE.is_empty() else .5)
+	cam = rx[0]
+	cam_vx = rx[1]
+	var ry := damp(cam_y, ty, cam_vy, .26 if CINE.is_empty() else .5)
+	cam_y = ry[0]
+	cam_vy = ry[1]
+
+# ======================================================================
+#  CENAS DRAMÁTICAS DENTRO DO JOGO
+# ======================================================================
+## id: "boss", "vargas", "cao". A câmera vai até o foco, aparecem as faixas de cinema e as falas.
+func start_cine(id: String, fx: float, fy: float, dur: int, lines: Array = [], title: Array = []) -> void:
+	CINE = {"id": id, "t": 0, "dur": dur, "fx": fx, "fy": fy, "fx0": fx, "lines": lines, "title": title}
+	keys.clear()
+	player.vx = 0.0
+	player.run = 0
+	player.puff = false
+	player.slam = false
+
+func cine_line():
+	if CINE.is_empty():
+		return null
+	for l in CINE.lines:
+		if CINE.t >= l[0] and CINE.t < l[1]:
+			return l
+	return null
+
+func _cine_step() -> void:
+	T += 1
+	CINE.t += 1
+	var t: int = CINE.t
+	# o Tomé fica parado (mas a gravidade continua)
+	player.vx *= .7
+	if not player.onGround and not player.ladder and not player.vine:
+		player.vy = min(player.vy + GRAV, 13)
+		player.onGround = false
+		move_y(player.vy)
+	X.cine_step(CINE)
+	if lightning > 0:
+		lightning -= 1
+	if shake > 0:
+		shake *= .85
+	# volta a câmera para o Tomé no fim
+	if t > CINE.dur - 50:
+		CINE.fx = lerpf(CINE.fx, player.x + player.w / 2, .08)
+		CINE.fy = lerpf(CINE.fy, player.y, .08)
+	var skip: bool = t > 45 and (pressed("J") or pressed("A"))
+	if t >= CINE.dur or skip:
+		var id: String = CINE.id
+		CINE = {}
+		X.cine_end(id)
+	_tick_fx()
+	_camera()
 
 func snap_camera() -> void:
 	prev_px = -99999
-	cam = clamp(player.x + player.w / 2 - W / 2, 0, max(0, L.spanX - W))
+	cam_vx = 0.0
+	cam_vy = 0.0
+	look_x = player.face * 70.0
+	look_vx = 0.0
+	cam = clamp(player.x + player.w / 2 - W / 2 + look_x, 0, max(0, L.spanX - W))
 	cam_focus = player.y
 	cam_y = clamp(player.y - H * .55, L.top, max(L.top, L.bottom - H))
 	prev_cam = cam
@@ -1052,6 +1163,13 @@ func _p1_pre(pcx: float) -> void:
 			player.ladder = null
 	# abaixar / deslizar
 	var wantC: bool = player.onGround and kd("S") and not player.ladder and nearE == null and not player.vine
+	# passagem baixa à frente: o Tomé se abaixa sozinho (e só levanta quando sair de baixo)
+	var mdir := -1 if (kd("L") and not kd("R")) else (1 if (kd("R") and not kd("L")) else 0)
+	if player.onGround and not player.ladder and not player.vine and not player.swim and X.crawl_auto(mdir):
+		if not player.crouch and X.a_notes < 5:
+			X.a_notes = 5
+			note("Passagem baixa: o Tomé se abaixa sozinho. (↓ também abaixa)")
+		wantC = true
 	if wantC and not player.crouch:
 		player.crouch = true
 		player.y += 14
@@ -1213,9 +1331,11 @@ func _p1_post(pcx: float, _pcy: float) -> void:
 	if VIL:
 		if not VIL.go and pcx > VIL.trig:
 			VIL.go = true
-			flash("É ele! Ademar Vargas, fugindo para a mina!")
-			Audio.play("thunder")
-			shake = 10
+			start_cine("vargas", VIL.x - 40, VIL.y - 40, 300,
+				[[44, 135, "VARGAS", "Desista, Tomé! Quem mandou abrir a boca sobre o dinheiro da mina?", "vargas"],
+				[135, 205, "LIA", "PAPAI! ME AJUDA!", "lia"],
+				[205, 290, "TOMÉ", "Aguenta firme, filha! Eu vou te buscar!", "tome"]],
+				[8, 44, "ADEMAR VARGAS", "o gerente ladrão"])
 		if VIL.go and not VIL.gone:
 			if VIL.get("chase"):
 				# perseguição: o carrinho fica sempre um pouco à frente (nunca dá para alcançar)
@@ -1227,6 +1347,8 @@ func _p1_post(pcx: float, _pcy: float) -> void:
 				if VIL.coal_t <= 0 and d > 140 and d < 720 and not no_coal and player.dyingT == 0:
 					VIL.coal_t = 80 + rng.randi() % 50
 					COAL.append({"x": VIL.x - 40, "y": VIL.y - 74, "vx": -(2.6 + rng.randf() * 1.6), "vy": -5.5 - rng.randf() * 1.5, "b": 0, "life": 260, "rot": 0.0})
+					Audio.play("slide", -6)
+					note("Cuidado: o Vargas está jogando carvão em brasa!")
 					Audio.play("stomp", -10)
 			else:
 				VIL.x += 3.3
@@ -1258,11 +1380,19 @@ func _update_coal() -> void:
 		c.y += c.vy
 		c.rot += c.vx * .08
 		c.life -= 1
+		if T % 3 == 0:
+			c.gy = _rest_y(c.x, c.y, 500)
+		if c.get("k", "") != "dirt" and T % 2 == 0:
+			PARTS.append({"x": c.x, "y": c.y, "vx": -c.vx * .2 + (rng.randf() - .5), "vy": -.5 - rng.randf(), "life": 14, "col": Color(1, .55 + rng.randf() * .3, .15)})
 		for s in SOL:
 			if s.get("oneway"):
 				continue
 			if c.x > s.x and c.x < s.x + s.w and c.y + 7 >= s.y and c.y + 7 <= s.y + 20 and c.vy > 0:
 				c.y = s.y - 7
+				if c.get("k", "") == "dirt":
+					c.life = 0
+					burst(c.x, c.y + 4, 10, Color("#7a5a3a"))
+					break
 				if c.b < 1:
 					c.vy = -c.vy * .45
 					c.b += 1
@@ -1270,10 +1400,10 @@ func _update_coal() -> void:
 				else:
 					c.vy = 0
 					c.vx *= .97
-		if player.dyingT == 0 and hit(player, R(c.x - 8, c.y - 8, 16, 16)):
-			hurt(1, c.x + 30)
+		if c.life > 0 and player.dyingT == 0 and hit(player, R(c.x - 11, c.y - 11, 22, 22)):
+			hurt(1, c.x - c.vx * 10)
 			c.life = 0
-			burst(c.x, c.y, 8, Color(.25, .25, .27))
+			burst(c.x, c.y, 10, Color(.25, .25, .27) if c.get("k", "") != "dirt" else Color("#7a5a3a"))
 	COAL = COAL.filter(func(c): return c.life > 0 and c.y < L.bottom)
 
 func use_lock(l: Dictionary) -> void:
@@ -1306,8 +1436,12 @@ func ebox(e: Dictionary) -> Dictionary:
 	if e.k == "spider":
 		return R(e.x - 16, e.y - 14, 32, 28)
 	if e.k == "mole":
-		if e.get("st", 0) in [2, 3] and not e.dead:
+		if e.dead:
+			return R(-9999, -9999, 0, 0)
+		if e.get("st", 0) in [2, 3]:
 			return R(e.x - 18, e.base - 30, 36, 30)
+		if e.get("st", 0) == 5:
+			return R(e.x - 22, e.base - 22, 44, 22)
 		return R(-9999, -9999, 0, 0)
 	if e.k == "bat" and e.get("st", 0) == 0:
 		return R(e.x - 12, e.y - 2, 24, 26)
@@ -1489,39 +1623,53 @@ func _spider(e: Dictionary) -> void:
 			e.cd = 70
 	e.dir = 1 if player.x > e.x else -1
 
-## toupeira: anda escondida debaixo da terra e salta perto do Tomé
+## toupeira: anda escondida debaixo da terra (não dá para pisar), salta perto do Tomé,
+## joga um torrão de terra e mergulha de novo. A de capacete só cai se o Pipoca puxá-la para fora.
 func _mole(e: Dictionary) -> void:
 	var st: int = e.get("st", 0)
 	e.t = e.get("t", 0) + 1
 	e.y = e.base
 	var dx: float = player.x + player.w / 2 - e.x
-	if st == 0:
-		if e.get("cd", 0) > 0:
-			e.cd -= 1
-		var dirm: int = (1 if dx > 0 else -1) if abs(dx) < 380 else int(e.dir)
-		e.dir = dirm
-		e.x = clamp(e.x + dirm * 1.3, e.r[0], e.r[1])
-		if e.x <= e.r[0] or e.x >= e.r[1]:
-			e.dir = -e.dir
-		if abs(dx) < 46 and e.get("cd", 0) == 0 and abs(player.y + player.h - e.base) < 60:
-			e.st = 1
-			e.t = 0
-	elif st == 1:
-		if e.t % 4 == 0:
-			PARTS.append({"x": e.x + (rng.randf() - .5) * 26, "y": e.base - 2, "vx": (rng.randf() - .5) * 3, "vy": -2 - rng.randf() * 2, "life": 18, "col": Color("#7a5a3a")})
-		if e.t > 24:
-			e.st = 2
-			e.t = 0
-			Audio.play("stomp", -12)
-	elif st == 2:
-		if e.t > 70:
-			e.st = 3
-			e.t = 0
-	else:
-		if e.t > 14:
-			e.st = 0
-			e.t = 0
-			e.cd = 80
+	match st:
+		0:
+			if e.get("cd", 0) > 0:
+				e.cd -= 1
+			var dirm: int = (1 if dx > 0 else -1) if abs(dx) < 380 else int(e.dir)
+			e.dir = dirm
+			e.x = clamp(e.x + dirm * 1.4, e.r[0], e.r[1])
+			if e.x <= e.r[0] or e.x >= e.r[1]:
+				e.dir = -e.dir
+			if abs(dx) < 120 and e.get("cd", 0) == 0 and abs(player.y + player.h - e.base) < 80:
+				e.st = 1
+				e.t = 0
+		1:
+			if e.t % 4 == 0:
+				PARTS.append({"x": e.x + (rng.randf() - .5) * 26, "y": e.base - 2, "vx": (rng.randf() - .5) * 3, "vy": -2 - rng.randf() * 2, "life": 18, "col": Color("#7a5a3a")})
+			if e.t > 26:
+				e.st = 2
+				e.t = 0
+				e.dir = 1 if dx > 0 else -1
+				Audio.play("stomp", -12)
+		2:
+			if e.t == 16 and abs(dx) < 360:
+				var vx: float = clamp(dx / 38.0, -5.5, 5.5)
+				COAL.append({"x": e.x + e.dir * 10, "y": e.base - 34, "vx": vx, "vy": -7.0, "b": 1, "life": 200, "rot": 0.0, "k": "dirt"})
+				Audio.play("slide", -8)
+			if e.t > 62:
+				e.st = 3
+				e.t = 0
+		3:
+			if e.t > 14:
+				e.st = 0
+				e.t = 0
+				e.cd = 70
+		5:
+			# puxada para fora pelo Pipoca: de barriga para cima, tonta
+			if e.t > 180:
+				e.st = 3
+				e.t = 0
+		6:
+			pass
 
 func kill_enemy(e: Dictionary, how: String = "") -> void:
 	if e.dead:
