@@ -1,0 +1,326 @@
+extends Node2D
+## Tudo o que se mexe no mundo: escadas, cadeados, vitórias-régias, vilão, caixas, inimigos,
+## o Tomé, poeira e faíscas. Redesenhado a cada quadro.
+
+var game: Game
+var T := 0
+
+func _process(_d: float) -> void:
+	queue_redraw()
+
+func _draw() -> void:
+	if game == null or not game.L:
+		return
+	var g := game
+	T = g.T
+	Spr.begin(self)
+	_deco(g)
+	_climb(g)
+	_locks(g)
+	_entrances(g)
+	_lily_mud(g)
+	if g.VIL and g.VIL.go and not g.VIL.gone:
+		var v: Dictionary = g.VIL
+		var f := (T / 8) % 2
+		Spr.A("lia_scared", v.x + 44, v.y - 58, .5)
+		Spr.A("vg_cart1" if f else "vg_cart2", v.x, v.y + 2, 1)
+	for v in g.VINES:
+		_vine(v)
+	for s in g.SPR:
+		_glow_mush(s.x, s.y, s.t)
+	for c in g.CHK:
+		_campfire(c)
+	for c in g.CR:
+		if not c.dead:
+			_crate(c)
+	for e in g.EN:
+		if e.dead > 50:
+			continue
+		_enemy(e)
+	_player(g)
+	for f in g.FXS:
+		Spr.A(f.n, f.x, f.y, f.sc, false, 1.0 - float(f.t) / f.life)
+	for p in g.PARTS:
+		var c: Color = p.col
+		Spr.rect(p.x, p.y, 3, 3, Color(c.r, c.g, c.b, c.a * clamp(p.life / 24.0, 0, 1)))
+
+# ---------- cenário com estado ----------
+func _deco(g: Game) -> void:
+	var cam := g.cam
+	var k := 0
+	for x in [4992, 5022, 5452, 5688, 6128, 6172, 6545, 6985]:
+		if x > cam - 80 and x < cam + g.W + 80:
+			Spr.A("sw_cattail", x, 512, .62 + (k % 3) * .1, k % 2 == 1)
+		k += 1
+	if 6940 > cam - 200 and 6940 < cam + g.W + 200:
+		Spr.A("sw_boat", 6940, 520, .8, true)
+	# mina: trilhos, carrinho e porta
+	if cam + g.W > 9300:
+		var xa: float = max(9380, floor((cam - 10) / 18) * 18)
+		var xb: float = min(9900, cam + g.W + 10)
+		var x := xa
+		while x < xb:
+			Spr.rect(x, 494, 11, 7, Color("#4a3220"))
+			x += 18
+		Spr.rect(max(9380, cam - 10), 491, xb - max(9380, cam - 10), 4, Color("#8a8f98"))
+		Spr.A("mi_cart_full", 9560, 502, .8)
+		if g.VIL and g.VIL.go:
+			Spr.AB("mi_door_open", 9625, 500 - 221, 230, 221)
+		else:
+			Spr.AB("mi_door_closed", 9636, 500 - 207, 210, 207)
+	# portão da comporta e parede escura do túnel
+	for s in g.SOL:
+		if s.t == "barrier":
+			Spr.hgrad(s.x - 30, s.y - 20, 50, s.h + 20, Color(0, 0, 0, 0), Color(0, 0, 0, .95))
+
+func _climb(g: Game) -> void:
+	for z in g.CLIMB:
+		if z.kind == "ladder":
+			Spr.strip_v("o_ladder", z.x + z.w / 2 - 18, z.y - 4, 36, z.h + 4)
+		elif z.kind == "net":
+			Spr.strip_v("o_net", z.x - 3, z.y, z.w + 6, z.h)
+		else:
+			var pts := PackedVector2Array()
+			var y: float = z.y
+			while y < z.y + z.h:
+				pts.push_back(Vector2(z.x + z.w / 2 + sin(y * .05 + T * .04) * 1.5, y))
+				y += 12
+			pts.push_back(Vector2(z.x + z.w / 2, z.y + z.h))
+			Spr.line(pts, Color("#c9a26a"), 4)
+			y = z.y + 8
+			while y < z.y + z.h:
+				Spr.seg(z.x + z.w / 2 - 3, y, z.x + z.w / 2 + 3, y + 4, Color("#8a6a42"), 2)
+				y += 10
+
+func _locks(g: Game) -> void:
+	for l in g.LOCKS:
+		if l.kind == "hook":
+			Spr.A("o_ringrock", l.ring[0] + 2, l.ring[1] + 34, .85)
+			if l.done:
+				Spr.A("it_gancho", l.ring[0], l.ring[1] + 4, .32)
+		elif l.kind == "dam":
+			Spr.A("sw_gate_open" if l.done else "sw_gate", l.x + l.w + 25, 503, 1)
+		if not l.done and g.player.nearL == l:
+			var b := sin(T * .15) * 3
+			Spr.text("✦ USAR" if g.has_item(l.need) else "?", l.x + l.w / 2, l.y - 14 + b, 20, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
+
+func _entrances(g: Game) -> void:
+	var p: Dictionary = g.player
+	for e in g.ENTR:
+		if e.get("exit"):
+			var cx: float = e.x + e.w / 2
+			var top: float = e.y + e.h - 200
+			var pts := PackedVector2Array([Vector2(cx - 18, top), Vector2(cx + 18, top), Vector2(cx + 46, e.y + e.h), Vector2(cx - 46, e.y + e.h)])
+			Spr.ci.draw_polygon(pts, PackedColorArray([Color(1, .88, .59, .55), Color(1, .88, .59, .55), Color(1, .88, .59, .08), Color(1, .88, .59, .08)]))
+			Spr.strip_v("o_ladder", cx - 17, top, 34, 200)
+			Spr.text("⬆ SAIR", cx, e.y - 24 + sin(T * .15) * 4, 22, Color(1, .91, .66, .6 + sin(T * .12) * .35), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
+			continue
+		var de: float = abs(p.x + p.w / 2 - (e.x + e.w / 2))
+		if e.get("label", "") != "" and p.nearE != e and de < 320 and abs(p.y + p.h - (e.y + e.h)) < 80:
+			Spr.text("⬇", e.x + e.w / 2, e.y - 62 + sin(T * .15) * 6, 34, Color(1, .93, .67, .55 + sin(T * .12) * .35), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 5)
+		if p.nearE == e:
+			Spr.text("↓", e.x + e.w / 2, e.y - 6 + sin(T * .15) * 3, 22, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
+
+func _lily_mud(g: Game) -> void:
+	for p in g.LILY:
+		if p.st == 2:
+			continue
+		Spr.ABb("sw_lily_sink" if (p.t > 25 or p.st == 1) else "sw_lily", p.x + p.w / 2, p.y + 22, p.w + 16)
+	for m in g.MUD:
+		Spr.strip_at("sw_mud", m.x, m.x, m.x + m.w, m.y - 8, 22)
+
+func _vine(v: Dictionary) -> void:
+	var r = Spr.AR.vine
+	Spr.save()
+	Spr.translate(v.x, v.y)
+	Spr.rotate(-v.th)
+	Spr.ci.draw_texture_rect_region(Spr.atlas_tex(r), Rect2(-r[2] * .45, -6, r[2] * .9, v.len + 14), Rect2(r[0], r[1], r[2], r[3]))
+	Spr.restore()
+	Spr.circle(v.x, v.y, 6, Color("#3a5a24"))
+
+func _glow_mush(x: float, y: float, t: int) -> void:
+	Spr.glow(x, y - 34, 70, Color(.47, .78, 1, .35))
+	Spr.A("mu_1" if t > 5 else ("mu_2" if t > 0 else "mu_0"), x, y + 2, 1)
+
+func _campfire(c: Dictionary) -> void:
+	if c.on:
+		Spr.glow(c.x, c.y - 20, 60, Color(1, .75, .35, .35))
+		if T % 5 == 0:
+			game.PARTS.append({"x": c.x + (randf() - .5) * 14, "y": c.y - 26, "vx": (randf() - .5) * .6, "vy": -1.4, "life": 22, "col": Color("#ffcf6a")})
+	Spr.A("o_fire_on" if c.on else "o_fire_off", c.x, c.y + 4, .8)
+
+func _crate(c: Dictionary) -> void:
+	var o := (randf() - .5) * 4 if c.shake else 0.0
+	var n: String = {"coin": "crate_coin", "armor": "crate_armor", "heart": "crate_heart"}.get(c.get("item", "coin"), "crate_coin")
+	var r = Spr.AR[n]
+	var w: float = c.w + 6
+	var hh: float = w * r[3] / r[2]
+	Spr.AB(n, c.x - 3 + o, c.y + c.h - hh, w, hh)
+	if c.get("item") == "heart" and game.player.hp >= Game.MAXHP:
+		Spr.rect(c.x, c.y, c.w, c.h, Color(0, 0, 0, .25))
+
+# ---------- inimigos ----------
+func _enemy(e: Dictionary) -> void:
+	Spr.save()
+	if e.dead:
+		Spr.alpha = clamp(1 - (e.dead - 24) / 14.0, 0, 1) if e.dk == "flat" else clamp(1 - (e.dead - 34) / 16.0, 0, 1)
+	Spr.translate(e.x, e.y)
+	Spr.scale(1 if e.dir > 0 else -1, 1)
+	if e.dead:
+		if e.dk == "flat":
+			var q: float = min(1, e.dead / 4.0)
+			Spr.scale(1 + .3 * q, 1 - .62 * q)
+		else:
+			Spr.translate(0, e.ddy)
+			var m := 0.0 if Game.FLY.has(e.k) else -15.0
+			Spr.translate(0, m)
+			Spr.rotate(min(PI, e.dead * .25))
+			Spr.translate(0, -m)
+	elif not Game.FLY.has(e.k):
+		Spr.translate(0, -abs(sin(T * .3 + e.x * .01)) * 1.5)
+	match e.k:
+		"frog":
+			if e.dead:
+				Spr.A("en_frog_dead", 0, 3, .9)
+			else:
+				Spr.A("en_frog_jump" if e.leap else "en_frog", 0, 3, .9 if e.leap else .82 + sin(T * .12) * .02)
+		"fly":
+			Spr.A("en_fly_dead" if e.dead else "en_fly%d" % ((T / 3) % 5), 0, 0, .8)
+		"owl":
+			if e.dead:
+				Spr.A("en_owl_dead", 0, 22, .9)
+			elif e.get("st", 0) == 0:
+				Spr.A("en_owl", 0, 24, .9)
+			elif e.st == 1:
+				Spr.A("en_owl_dive" if e.t < 34 else "en_owl_atk", 0, 0, .95)
+			else:
+				Spr.A("en_owl1" if (T / 7) % 2 else "en_owl2", 0, 0, .95)
+		"leech":
+			Spr.A("en_puddle", 0, 6, .9)
+			if e.dead:
+				Spr.A("en_leech_dead", 0, 2, .8)
+			else:
+				var t: int = int(e.get("lt", 0)) % 200
+				if t >= 90:
+					var n := "en_leech3" if (t < 100 or t >= 190) else ("en_leech2" if (t < 110 or t >= 180) else "en_leech1")
+					Spr.A(n, 0, 2 + (sin(T * .2) * 2 if n == "en_leech1" else 0.0), .85)
+		_:
+			# javali
+			var fr: int
+			if e.dead or e.stun:
+				fr = 6
+			elif e.get("charge"):
+				fr = 5
+			else:
+				fr = [0, 1, 2, 3][(T / 8) % 4]
+			Spr.frame(Spr.tex.javali, fr, 210, 140, 105, 136, 0, 3, .46)
+	Spr.restore()
+
+# ---------- o Tomé ----------
+func _player(g: Game) -> void:
+	var p: Dictionary = g.player
+	if p.iframe > 0 and (T / 4) % 2 == 0 and p.dyingT == 0:
+		return
+	var cx: float = p.x + p.w / 2
+	var by: float = p.y + p.h
+	if p.lastFace != p.face:
+		p.turnT = 6
+		p.lastFace = p.face
+	if p.turnT > 0:
+		p.turnT -= 1
+	var pai: Texture2D = Spr.tex.pai
+	var pai2: Texture2D = Spr.tex.pai2
+	if p.dyingT > 0:
+		Spr.save()
+		Spr.translate(cx, by - 30)
+		Spr.rotate((46 - p.dyingT) * .12)
+		Spr.translate(0, 30)
+		Spr.frame(pai2, 8, 130, 160, 65, 156, 0, 0, .48, p.face < 0)
+		Spr.restore()
+		return
+	# poses novas (atlas 2)
+	if not (p.iframe > 40):
+		var n := ""
+		if p.ladder:
+			var mv := int(p.climbA / 24) % 2
+			if p.ladder.kind == "ladder":
+				n = "pai_lad1" if mv else "pai_lad2"
+			else:
+				n = "pai_rope1" if mv else "pai_rope2"
+		elif p.crouch:
+			if p.slideT:
+				n = "pai_slide"
+			elif abs(p.vx) > .3:
+				n = ["pai_crawl1", "pai_crawl2", "pai_crawl3", "pai_crawl2"][(T / 8) % 4]
+			else:
+				n = "pai_crouch"
+		elif p.actT > 0 and p.act in ["throw1", "throw2", "gear"]:
+			n = "pai_" + p.act
+		elif p.onGround and abs(p.vx) < .3 and p.lookT > 10:
+			n = "pai_lookup"
+		elif p.vine:
+			n = "pai_vine1" if abs(p.vine.om) > .02 else "pai_vine2"
+		elif p.pushT > 0 and p.onGround:
+			n = ["pai_push1", "pai_push2", "pai_push3"][(T / 10) % 3]
+		elif p.run and p.onGround and abs(p.vx) > 3:
+			n = "pai_run1" if int(p.anim * 1.6) % 2 else "pai_run2"
+		if n != "":
+			if p.onGround:
+				Spr.ellipse(cx, by + 1, 18, 4, Color(0, 0, 0, .22))
+			var lx: float = p.ladder.x + p.ladder.w / 2 if (p.ladder and p.ladder.kind != "net") else cx
+			if p.vine:
+				Spr.A(n, cx, p.y + 6 + p.h * 1.62, .56, p.face < 0)
+			else:
+				Spr.A(n, lx, by + (8 if p.ladder else 0), .56, p.face < 0)
+			_armor(p, cx, by)
+			return
+	# folhas de sprites antigas (parado, andar, pulo, planar, mergulho)
+	var tex := pai
+	var fr := 0
+	if p.iframe > 40:
+		tex = pai2
+		fr = 8
+	elif p.puff:
+		tex = pai2
+		fr = [0, 1][(T / 14) % 2]
+	elif p.slam:
+		tex = pai2
+		fr = [4, 7][(T / 6) % 2]
+	elif not p.onGround:
+		fr = 4 if p.vy < -3 else (6 if p.vy < 2 else 7)
+	elif abs(p.vx) > .4:
+		fr = [1, 2, 3, 2][int(p.anim * (1.6 if p.run else 1.2)) % 4]
+	else:
+		fr = 0
+	var air: float = clamp(1 - abs(p.vy) / 16.0, .3, 1)
+	Spr.ellipse(cx, by + 1, 16 * air, 4 * air, Color(0, 0, 0, .25 * air))
+	if p.puff:
+		Spr.glow(cx, by - 30, 50, Color(1, .96, .82, .55))
+	if p.run and p.onGround:
+		for k in 3:
+			var yy: float = by - 44 + k * 12
+			Spr.seg(cx - p.face * (20 + k * 4), yy, cx - p.face * (40 + k * 6), yy, Color(.94, .9, .78, .5), 2)
+	var sc := .48
+	var sq: float = p.squash
+	var idle := sin(T * .08) * .025 if (fr == 0 and tex == pai and p.onGround) else 0.0
+	var turn: float = .65 + .35 * (1 - p.turnT / 6.0) if p.turnT > 0 else 1.0
+	Spr.save()
+	Spr.translate(cx, by)
+	if p.skidT > 0 and p.onGround:
+		Spr.rotate(-p.face * .18)
+	elif p.run and p.onGround:
+		Spr.rotate(p.face * .07)
+	Spr.scale(p.face * sc * (1 + sq * .25) * turn, sc * (1 - sq * .3 + idle))
+	Spr.ci.draw_texture_rect_region(tex, Rect2(-65, -156, 130, 160), Rect2(fr * 130, 0, 130, 160), Color(1, 1, 1, Spr.alpha))
+	Spr.restore()
+	_armor(p, cx, by)
+	if not p.onGround and not p.vine and not p.ladder and p.airJumps > 0:
+		Spr.ring(cx, by + 7, 4, Color(.92, .88, .76, .55), 1.5)
+
+func _armor(p: Dictionary, cx: float, by: float) -> void:
+	if p.armor > 0:
+		var pts := PackedVector2Array()
+		for i in 25:
+			var a := TAU * i / 24.0
+			pts.push_back(Vector2(cx + cos(a) * 26, by - 30 + sin(a) * 36))
+		Spr.line(pts, Color(.78, .84, .92, .5 + sin(T * .15) * .2), 2)

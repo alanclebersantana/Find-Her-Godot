@@ -1,0 +1,44 @@
+; Find Her — projeto Godot 4.6
+config_version=5
+
+[application]
+
+config/name="Find Her"
+config/description="Um pai, uma lanterna e uma trilha de lápis de cor."
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.6", "GL Compatibility")
+boot_splash/bg_color=Color(0.043, 0.035, 0.024, 1)
+boot_splash/show_image=false
+config/icon="res://icon.png"
+
+[autoload]
+
+Save="*res://scripts/save.gd"
+Spr="*res://scripts/spr.gd"
+Audio="*res://scripts/audio.gd"
+
+[display]
+
+window/size/viewport_width=960
+window/size/viewport_height=540
+window/size/window_width_override=1280
+window/size/window_height_override=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=4
+
+[input_devices]
+
+pointing/emulate_touch_from_mouse=true
+
+[physics]
+
+common/physics_ticks_per_second=60
+common/max_physics_steps_per_frame=6
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/vram_compression/import_etc2_astc=true
+2d/snap/snap_2d_transforms_to_pixel=false
