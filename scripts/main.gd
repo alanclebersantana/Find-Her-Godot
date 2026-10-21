@@ -150,11 +150,11 @@ func _update_lights() -> void:
 	var dark: float = clamp(a, 0, 1)
 	modulate_node.color = Color(1, 1, 1).lerp(Color(.035, .05, .1), dark * .97)
 	var p: Dictionary = game.player
-	var pc := Vector2(p.x + p.w / 2, p.y + p.h / 2)
+	var pc := Vector2(p.x + p.w / 2, p.y + p.h / 2 + p.get("wdy", 0.0))
 	var out: bool = game.L.has("lanternOutX") and not game.lantern_lit and pc.x > game.L.lanternOutX
 	player_light.position = pc + Vector2(p.face * 6, -4)
 	player_light.texture_scale = (110.0 if out else 230.0) * 2 / 256.0
-	player_light.energy = dark * (1.15 + sin(game.T * .21) * .04)
+	player_light.energy = dark * (1.15 + sin(game.T * .21) * .04) * (.25 + .75 * p.get("wal", 1.0))
 	for l in lights:
 		var n: PointLight2D = l.n
 		if l.has("chk"):

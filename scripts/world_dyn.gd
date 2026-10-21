@@ -24,6 +24,7 @@ func _draw() -> void:
 	WorldExtras.crawl(g, T)
 	WorldExtras.solids(g, T)
 	WorldExtras.mech(g, T)
+	WorldProps.draw(g, T)
 	WorldExtras.boss(g, T)
 	if g.VIL and g.VIL.go and not g.VIL.gone:
 		var v: Dictionary = g.VIL
@@ -74,8 +75,6 @@ func _deco(g: Game) -> void:
 		if x > cam - 80 and x < cam + g.W + 80:
 			Spr.A("sw_cattail", x, 512, .62 + (k % 3) * .1, k % 2 == 1)
 		k += 1
-	if 6940 > cam - 200 and 6940 < cam + g.W + 200:
-		Spr.A("sw_boat", 6940, 520, .8, true)
 	# mina: trilhos (com pontes sobre os buracos), carrinho parado e porta
 	var rx0: float = g.L.villain.x0 - 160 if g.L.has("villain") else 9380.0
 	if cam + g.W > rx0:
@@ -163,13 +162,38 @@ func _lily_mud(g: Game) -> void:
 		Spr.strip_at("sw_mud", m.x, m.x, m.x + m.w, m.y - 8, 22)
 
 func _vine(v: Dictionary) -> void:
-	var r = Spr.AR.vine
-	Spr.save()
-	Spr.translate(v.x, v.y)
-	Spr.rotate(-v.th)
-	Spr.ci.draw_texture_rect_region(Spr.atlas_tex(r), Rect2(-r[2] * .45, -6, r[2] * .9, v.len + 14), Rect2(r[0], r[1], r[2], r[3]))
-	Spr.restore()
-	Spr.circle(v.x, v.y, 6, Color("#3a5a24"))
+	# cipó flexível: curva com o embalo (a ponta fica para trás) e enverga quando o Tomé agarra
+	var p: Dictionary = game.player
+	var held: bool = p.vine == v
+	var r: float = p.vr if held else v.len
+	var pts := PackedVector2Array()
+	var dir := Vector2(sin(v.th), cos(v.th))
+	var nrm := Vector2(dir.y, -dir.x)
+	var bow: float = -v.om * r * 1.4 + v.get("bend", 0.0) * 7.0 * sin(T * .45)
+	var N := 14
+	for i in N + 1:
+		var u := i / float(N)
+		var q: Vector2 = Vector2(v.x, v.y) + dir * r * u + nrm * bow * sin(u * PI) * (1.0 if held else u)
+		pts.push_back(q)
+	# pedaço que sobra abaixo das mãos fica balançando solto
+	if held and v.len - r > 6:
+		var end: Vector2 = pts[N]
+		var a2: float = v.th * .55 - v.om * 5.0
+		var d2 := Vector2(sin(a2), cos(a2))
+		for i in range(1, 7):
+			var u2 := i / 6.0
+			pts.push_back(end + d2 * (v.len - r) * u2 + Vector2(sin(T * .07 + u2 * 3) * 2 * u2, 0))
+	Spr.line(pts, Color("#2f4a1c"), 6)
+	Spr.line(pts, Color("#4f7a2c"), 3.5)
+	for i in range(2, pts.size() - 1, 2):
+		var a: Vector2 = pts[i]
+		var b: Vector2 = pts[i - 1]
+		var t := (a - b).normalized()
+		var side := 1.0 if (i / 2) % 2 == 0 else -1.0
+		var lp: Vector2 = a + Vector2(t.y, -t.x) * side * 6
+		Spr.ellipse(lp.x, lp.y, 7, 3.2, Color("#5c8d38"), atan2(t.y, t.x) + side * .7)
+	Spr.circle(v.x, v.y, 7, Color("#3a5a24"))
+	Spr.circle(v.x, v.y, 3, Color("#5c8d38"))
 
 func _glow_mush(x: float, y: float, t: int) -> void:
 	Spr.glow(x, y - 34, 70, Color(.47, .78, 1, .35))
@@ -265,11 +289,36 @@ func _player(g: Game) -> void:
 		g.player = real
 		return
 	var off := g.ip_off()
+	var p: Dictionary = g.player
 	Spr.save()
-	Spr.translate(off.x, off.y)
-	_player_draw(g)
-	WorldExtras.tool_fx(g, T)
+	Spr.translate(off.x, off.y + p.get("wdy", 0.0))
+	var a0: float = Spr.alpha
+	Spr.alpha = a0 * p.get("wal", 1.0)
+	if p.get("wpose", "") != "":
+		_warp_pose(p)
+	else:
+		_player_draw(g)
+		WorldExtras.tool_fx(g, T)
+	Spr.alpha = a0
 	Spr.restore()
+
+## poses da animação de entrar/sair dos esconderijos
+func _warp_pose(p: Dictionary) -> void:
+	var cx: float = p.x + p.w / 2
+	var by: float = p.y + p.h
+	match p.wpose:
+		"crouch":
+			Spr.A("pai_crouch", cx, by, .56, p.face < 0)
+		"crawl":
+			Spr.A(["pai_crawl1", "pai_crawl2", "pai_crawl3", "pai_crawl2"][(T / 7) % 4], cx, by, .56, p.face < 0)
+		"climb":
+			var t3: Texture2D = Spr.tex.pai_climb
+			var mv := int(p.climbA / 22) % 2
+			Spr.save()
+			Spr.translate(cx, by + 6)
+			Spr.scale(-.56 if mv else .56, .56)
+			Spr.ci.draw_texture(t3, Vector2(-t3.get_width() / 2.0, -t3.get_height()), Color(1, 1, 1, Spr.alpha))
+			Spr.restore()
 
 func _player_draw(g: Game) -> void:
 	var p: Dictionary = g.player
@@ -303,7 +352,7 @@ func _player_draw(g: Game) -> void:
 			var ax := 63.0 if t == Spr.tex.pai_vine_a else 60.0
 			Spr.save()
 			Spr.translate(hx, hy)
-			Spr.rotate(-v.th)
+			Spr.rotate(-p.get("vang", v.th))
 			Spr.scale(-.56 if p.face < 0 else .56, .56)
 			Spr.ci.draw_texture(t, Vector2(-ax, -2))
 			Spr.restore()

@@ -76,17 +76,10 @@ func _draw() -> void:
 		var b5: float = min(s.x + s.w, x1)
 		if b5 <= a:
 			continue
-		var depth: float = max(40, (s.y0 + 300) - s.y)
-		Spr.vgrad(a, s.y + 50, b5 - a, depth, Color(.24, .32, .2, .82), Color(.08, .12, .09, .95))
-		Spr.strip_at("sw_water", s.x, a, b5, s.y - 6, 70, .92)
-		var pts := PackedVector2Array()
-		var x := a
-		while x <= b5:
-			pts.push_back(Vector2(x, s.y + sin(x * .04 + T * .06) * 2))
-			x += 10
-		Spr.line(pts, Color(.7, .82, .63, .55), 2)
+		var depth: float = max(30, s.y0 + s.h - s.y)
+		_water(g, a, b5, s.y, depth, Color(.3, .42, .26, .8), Color(.07, .11, .08, .96), T, true, s.x)
 		# esta camada não escurece sozinha: acompanha a escuridão do trecho
-		Spr.rect(a, s.y - 8, b5 - a, depth + 60, Color(.02, .03, .08, g.AMB.dark * .75))
+		Spr.rect(a, s.y - 8, b5 - a, depth + 8, Color(.02, .03, .08, g.AMB.dark * .75))
 		if g.AMB.rain > .3:
 			for k in 6:
 				var rx: float = a + fmod(T * 13 + k * 97, b5 - a)
@@ -144,13 +137,7 @@ func _extras(g: Game, T: int) -> void:
 	for w in X.WATER:
 		if w.x > g.cam + g.W or w.x + w.w < g.cam:
 			continue
-		Spr.vgrad(w.x, w.y, w.w, w.h, Color(.2, .45, .55, .42), Color(.05, .16, .24, .7))
-		var pts := PackedVector2Array()
-		var x: float = w.x
-		while x <= w.x + w.w:
-			pts.push_back(Vector2(x, w.y + sin(x * .06 + T * .07) * 1.6))
-			x += 8
-		Spr.line(pts, Color(.75, .92, 1, .65), 2)
+		_water(g, w.x, w.x + w.w, w.y, w.h, Color(.24, .52, .6, .46), Color(.04, .14, .22, .78), T, false)
 		Spr.rect(w.x, w.y, w.w, w.h, Color(.02, .03, .08, dark * .55))
 	for b in X.BUB:
 		Spr.ring(b.x, b.y, 2 + b.t * .02, Color(.85, .95, 1, .7), 1.2)
@@ -224,3 +211,58 @@ func _projectiles(g: Game, T: int) -> void:
 		Spr.ci.draw_polyline(PackedVector2Array([Vector2(-5, -2), Vector2(0, 1), Vector2(4, -3)]), Color(1, .6, .15, fl), 1.6, true)
 		Spr.ci.draw_polyline(PackedVector2Array([Vector2(-2, 5), Vector2(1, 2), Vector2(5, 4)]), Color(1, .45, .1, fl), 1.4, true)
 		Spr.restore()
+
+## água parada com cara de água: degradê pela profundidade, faixas de luz (cáusticas) perto da superfície,
+## superfície brilhante com ondinhas, reflexo da lanterna e bolhas / lentilha-d'água
+func _water(g: Game, a: float, b: float, y: float, depth: float, c0: Color, c1: Color, T: int, swamp: bool, ox: float = 0.0) -> void:
+	var w: float = b - a
+	var mid := c0.lerp(c1, .45)
+	var d1: float = min(depth, 70.0)
+	Spr.vgrad(a, y, w, d1, c0, mid)
+	if depth > d1:
+		Spr.vgrad(a, y + d1, w, depth - d1, mid, c1)
+	if swamp and Spr.has("sw_water"):
+		Spr.strip_at("sw_water", ox, a, b, y - 6, min(70.0, depth + 6), .92)
+	# faixas de luz que ondulam logo abaixo da superfície
+	for k in 3:
+		var pts := PackedVector2Array()
+		var x := a
+		var yy: float = y + 12 + k * 13
+		while x <= b + 0.1:
+			pts.push_back(Vector2(x, yy + sin(x * (.035 + k * .01) + T * (.035 + k * .012) + k * 2.0) * 3.5))
+			x += 12
+		Spr.line(pts, Color(1, 1, .9, .07 - k * .015), 6 - k)
+	# superfície: linha clara com ondas + brilho fino por cima
+	var top := PackedVector2Array()
+	var hi := PackedVector2Array()
+	var x2 := a
+	while x2 <= b + 0.1:
+		var oy: float = sin(x2 * .045 + T * .07) * 1.8 + sin(x2 * .11 - T * .05) * .8
+		top.push_back(Vector2(x2, y + oy))
+		hi.push_back(Vector2(x2, y + oy - 1.5))
+		x2 += 7
+	Spr.line(top, Color(.72, .86, .8, .7) if swamp else Color(.78, .95, 1, .75), 3)
+	Spr.line(hi, Color(1, 1, 1, .35), 1)
+	# pontinhos de espuma na superfície
+	for k in int(w / 40.0):
+		var fx: float = a + fmod(k * 53.7 + T * .2 * (1 + k % 3), w)
+		Spr.circle(fx, y + 2 + sin(T * .05 + k) * 1.2, 1.4, Color(1, 1, 1, .35))
+	# reflexo da lanterna quando o Tomé está perto
+	var p: Dictionary = g.player
+	var px: float = p.x + p.w / 2
+	if g.lantern_lit and px > a - 60 and px < b + 60 and abs(p.y + p.h - y) < 140:
+		var rx: float = clamp(px + p.face * 10, a, b)
+		var al: float = .35 * (1.0 - abs(p.y + p.h - y) / 140.0)
+		for k in 4:
+			Spr.ellipse(rx + sin(T * .1 + k) * 3, y + 6 + k * 7, 14 - k * 2.5, 2, Color(1, .85, .5, al * (1.0 - k * .2)))
+	if swamp:
+		# lentilha-d'água e folhinhas boiando
+		for k in int(w / 55.0):
+			var lx: float = a + fmod(k * 71.3 + sin(T * .01 + k) * 6, w)
+			Spr.ellipse(lx, y + 1 + sin(T * .06 + k) * 1.2, 4 + k % 3, 1.6, Color(.45, .62, .25, .85))
+	else:
+		# bolhas subindo
+		for k in int(w / 70.0) + 1:
+			var bx: float = a + fmod(k * 97.1, w)
+			var ph: float = fmod(T * .6 + k * 37.0, depth)
+			Spr.ring(bx + sin(ph * .1 + k) * 3, y + depth - ph, 1.5 + ph * .01, Color(.85, .95, 1, .45 * (ph / depth)), 1.0)

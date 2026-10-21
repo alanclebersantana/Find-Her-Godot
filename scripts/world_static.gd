@@ -103,7 +103,6 @@ func trunk(s: Dictionary) -> void:
 
 func cabin(s: Dictionary) -> void:
 	Spr.AB("o_cabin", s.x - 15, s.y + s.h - 221, 330, 221)
-	Spr.AB("o_table", s.x + s.w + 40, s.y + s.h - 68, 118, 68)
 
 func treehouse(s: Dictionary) -> void:
 	var r = Spr.AR.o_treehouse
@@ -181,9 +180,48 @@ func planks(s: Dictionary, dark: bool) -> void:
 		y += 90
 
 func stone(s: Dictionary) -> void:
-	Spr.rr(s.x + 4, s.y + 10, s.w - 8, s.h - 10, 8, Color("#3a3a30"))
-	Spr.AB("o_rocks", s.x - 8, s.y - 10, s.w + 16, min(s.h + 10, (s.w + 16) * .82))
-	Spr.rect(s.x, s.y + 20, s.w, s.h - 20, Color(.08, .12, .1, .35))
+	var rw: float = s.w + 16
+	var rh: float = rw * .82
+	if s.h <= rh + 12:
+		Spr.rr(s.x + 4, s.y + 10, s.w - 8, s.h - 10, 8, Color("#3a3a30"))
+		Spr.AB("o_rocks", s.x - 8, s.y - 10, rw, min(s.h + 10, rh))
+		Spr.rect(s.x, s.y + 20, s.w, s.h - 20, Color(.08, .12, .1, .35))
+		return
+	# coluna alta: pedras empilhadas de tamanhos variados, com musgo e cipós (dá vontade de se agarrar)
+	var h := hash(int(s.x) * 31 + int(s.y))
+	Spr.rr(s.x + 6, s.y + 14, s.w - 12, s.h - 14, 10, Color("#2e2e26"))
+	var ys: Array = []
+	var y: float = s.y - 10
+	var k := 0
+	while y < s.y + s.h - rh * .45:
+		ys.append([y, k])
+		y += rh * (.5 + ((h >> k) & 3) * .04)
+		k += 1
+	ys.reverse()
+	for e in ys:
+		var kk: int = e[1]
+		var sc: float = .9 + ((h >> (kk + 3)) & 3) * .07
+		var w2: float = rw * sc
+		var jx: float = (((h >> (kk * 2)) & 7) - 3.5) * 1.6
+		var bot: float = min(e[0] + rh * sc, s.y + s.h + 6)
+		Spr.AB("o_rocks", s.x + s.w / 2 - w2 / 2 + jx, e[0], w2, bot - e[0])
+		# musgo no topo de cada pedra
+		for m in 4:
+			Spr.ellipse(s.x + s.w / 2 + jx + (m - 1.5) * w2 * .2, e[0] + 7 + (m % 2) * 3, 9, 4, Color(.36, .5, .2, .85))
+	# sombra para assentar a coluna no chão
+	Spr.rect(s.x, s.y + s.h - 26, s.w, 26, Color(0, 0, 0, .22))
+	# cipós pendurados
+	for v in 2:
+		var vx: float = s.x + (8.0 if v == 0 else s.w - 10)
+		var vl: float = s.h * (.45 + v * .2)
+		var pts := PackedVector2Array()
+		for j in 12:
+			var u := j / 11.0
+			pts.push_back(Vector2(vx + sin(u * 5.0 + v) * 4, s.y + 4 + u * vl))
+		Spr.line(pts, Color("#3f6a2a"), 3)
+		for j in range(1, 11, 2):
+			var p: Vector2 = pts[j]
+			Spr.ellipse(p.x + (5 if j % 4 == 1 else -5), p.y, 6, 3, Color("#5c8d38"), .5 if j % 4 == 1 else -.5)
 
 func hill(s: Dictionary) -> void:
 	var pts := PackedVector2Array()

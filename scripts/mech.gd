@@ -199,6 +199,7 @@ func _swing_hits() -> void:
 				e.stun = 30
 			else:
 				g.kill_enemy(e, "hit")
+	g.PR.swing_hits(hb)
 	var X = g.X
 	if X.boss_active() and X.BOSS.st == "stun" and not swing_hit.has("boss") and Game.hit(hb, X.boss_box()):
 		swing_hit["boss"] = 1

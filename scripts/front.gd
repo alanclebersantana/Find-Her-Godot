@@ -40,29 +40,26 @@ func _draw() -> void:
 	col.a = .93
 	var wind: float = g.AMB.get("wind", 0.0)
 	var t := float(g.T)
-	# silhuetas: uma a cada ~600–1100 px "da frente"
-	var step := 260.0
-	var i0 := int(floor(cam / step)) - 2
-	var i1 := int(floor((cam + vs.x) / step)) + 2
-	for i in range(i0, i1):
-		var r := hh(i * 1.0, 1)
-		if r < .6:
-			continue
-		var x: float = i * step + hh(i * 1.0, 2) * 120 - cam
-		var kind := int(hh(i * 1.0, 3) * 4)
-		var sway: float = sin(t * (.02 + wind * .04) + i) * (2 + wind * 8)
-		if under:
-			_rock_top(x, kind, col)
-			_rock_bottom(x + 90, vs.y, kind, col)
-		elif kind == 0:
-			_grass(x, vs.y, col, sway, i)
-		elif kind == 1:
-			_fern(x, vs.y, col, sway, i)
-		elif kind == 2:
-			_branch(x, col, sway, i)
-		else:
-			_rock_bottom(x, vs.y, kind, col)
-			_grass(x + 50, vs.y, col, sway, i + 7)
+	# silhuetas só na borda de baixo: capim e samambaias, translúcidos e "desfocados" (várias cópias suaves)
+	if not under:
+		var step := 300.0
+		var i0 := int(floor(cam / step)) - 2
+		var i1 := int(floor((cam + vs.x) / step)) + 2
+		for i in range(i0, i1):
+			var r := hh(i * 1.0, 1)
+			if r < .62:
+				continue
+			var x: float = i * step + hh(i * 1.0, 2) * 120 - cam
+			var kind := int(hh(i * 1.0, 3) * 2)
+			var sway: float = sin(t * (.02 + wind * .04) + i) * (2 + wind * 8)
+			for b in 3:
+				var cb := col
+				cb.a = [.16, .2, .34][b]
+				var off: float = [3.0, -3.0, 0.0][b]
+				if kind == 0:
+					_grass(x + off, vs.y + abs(off), cb, sway, i)
+				else:
+					_fern(x + off, vs.y + abs(off), cb, sway, i)
 	# folhas voando (sempre algumas; muitas com vento; nenhuma debaixo da terra)
 	var nleaves := 0 if under else (26 if wind > 0 else (10 if song in ["tarde", "manha"] else 5))
 	for k in nleaves:
@@ -132,28 +129,3 @@ func _fern(x: float, by: float, c: Color, sway: float, seed_i: int) -> void:
 			var n2 := Vector2(-sin(a), cos(a)) * (1.0 - u2) * 16 * sin(u2 * PI + .3)
 			pts.push_back(p2 - n2)
 		draw_colored_polygon(pts, c)
-
-func _branch(x: float, c: Color, sway: float, seed_i: int) -> void:
-	var y0 := -6.0
-	var L: float = 200 + hh(seed_i * 1.0, 6) * 160
-	draw_line(Vector2(x - 40, y0), Vector2(x + L, y0 + 40 + sway), c, 10)
-	for k in 7:
-		var u := (k + 1) / 8.0
-		var p := Vector2(x - 40, y0).lerp(Vector2(x + L, y0 + 40 + sway), u)
-		var s := 18 + hh(seed_i * 7.0 + k, 7) * 14
-		for j in 3:
-			var a := PI / 2 + (j - 1) * .7 + sway * .02
-			var tip := p + Vector2(cos(a), sin(a)) * s * 1.8
-			draw_colored_polygon(PackedVector2Array([p + Vector2(-5, 0), tip, p + Vector2(5, 0)]), c)
-			draw_circle(tip.lerp(p, .35), s * .45, c)
-
-func _rock_bottom(x: float, by: float, kind: int, c: Color) -> void:
-	var w := 110.0 + kind * 30
-	var pts := PackedVector2Array([Vector2(x - w / 2, by + 4), Vector2(x - w * .38, by - 28), Vector2(x - w * .1, by - 44 - kind * 4), Vector2(x + w * .22, by - 36), Vector2(x + w / 2, by + 4)])
-	draw_colored_polygon(pts, c)
-
-func _rock_top(x: float, kind: int, c: Color) -> void:
-	var w := 70.0 + kind * 20
-	var L := 80.0 + kind * 30
-	draw_colored_polygon(PackedVector2Array([Vector2(x - w / 2, -4), Vector2(x, L), Vector2(x + w / 2, -4)]), c)
-	draw_colored_polygon(PackedVector2Array([Vector2(x + w * .4, -4), Vector2(x + w * .65, L * .55), Vector2(x + w * .9, -4)]), c)

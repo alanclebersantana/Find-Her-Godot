@@ -61,6 +61,7 @@ var STATS := {"pen": 0, "penTotal": 0}
 var AMB := {"dark": 0.0, "rain": 0.0, "night": 0.0, "tint": "", "song": "manha", "fog": 0.0, "wind": 0.0}
 var X: Extras
 var M: Mech
+var PR: Props
 var player: Dictionary = {}
 var keys := {}
 var T := 0
@@ -169,7 +170,7 @@ func load_level(i: int) -> void:
 		CHK.append({"x": c[0], "y": c[1], "on": false})
 	VINES = []
 	for v in L.get("vines", []):
-		VINES.append({"x": v.x, "y": v.y, "len": v.len, "th": 0.0, "om": 0.0})
+		VINES.append({"x": v.x, "y": v.y, "len": v.len, "th": 0.0, "om": 0.0, "bend": 0.0})
 	CLK = []
 	for c in L.get("clocks", []):
 		CLK.append({"x": c[0], "y": c[1], "got": false})
@@ -194,6 +195,8 @@ func load_level(i: int) -> void:
 	X.load_level()
 	M = Mech.new(self)
 	M.load_level()
+	PR = Props.new(self)
+	PR.load_level()
 	_reset_player(L.spawn.x - 12, L.spawn.y - 34)
 	time_left = int(L.get("time", 180)) * 60
 	coins = 0
@@ -282,7 +285,8 @@ func make_body(x: float, y: float) -> Dictionary:
 		"vine": null, "vr": 0.0, "vineCD": 0, "dyingT": 0, "exitT": 0, "_g": null, "actT": 0, "act": "", "pushT": 0, "leap": 0,
 		"crouch": false, "slideT": 0, "ladder": null, "ladderCD": 0, "dropT": 0, "lookT": 0, "climbA": 0.0, "mud": false,
 		"nearE": null, "nearL": null, "blink": 0, "turnT": 0, "lastFace": 1, "dieMsg": "", "swim": false, "water": null,
-		"wall": 0, "wallT": 0, "wsl": 0, "lastWall": 0, "wlock": 0, "wslide": false, "guard": false, "dog": false}
+		"wall": 0, "wallT": 0, "wsl": 0, "lastWall": 0, "wlock": 0, "wslide": false, "guard": false, "dog": false,
+		"warp": {}, "wdy": 0.0, "wal": 1.0, "wpose": ""}
 
 # ======================================================================
 #  UTILIDADES
@@ -563,6 +567,12 @@ func step() -> void:
 		if player.dyingT == 0:
 			respawn()
 		return
+	if not player.get("warp", {}).is_empty():
+		T += 1
+		_warp_step()
+		_tick_fx()
+		_camera()
+		return
 	if player.exitT > 0:
 		T += 1
 		player.exitT -= 1
@@ -664,33 +674,7 @@ func step() -> void:
 			player.mud = true
 	_p1_pre(pcx)
 	if player.vine:
-		var v: Dictionary = player.vine
-		var r: float = player.vr
-		v.om += -(.62 / r) * sin(v.th)
-		if kd("R"):
-			v.om += .0026
-		if kd("L"):
-			v.om -= .0026
-		v.om *= .996
-		v.th = clamp(v.th + v.om, -1.45, 1.45)
-		player.x = v.x + sin(v.th) * r - player.w / 2
-		player.y = v.y + cos(v.th) * r - 6
-		player.vx = 0
-		player.vy = 0
-		player.onGround = false
-		player.face = 1 if v.om >= 0 else -1
-		if pressed("J"):
-			player.vx = clamp(r * v.om * cos(v.th), -9, 9)
-			player.vy = max(-14, -r * v.om * sin(v.th) - 3.2)
-			player.vine = null
-			player.vineCD = 22
-			player.airJumps = 1
-			player.cutOk = false
-			player.jbuf = 0
-			burst(player.x + player.w / 2, player.y, 8, Color("#cdbfa6"))
-		elif pressed("S"):
-			player.vine = null
-			player.vineCD = 22
+		_vine_step()
 	elif player.ladder:
 		_p1_ladder()
 	elif player.swim:
@@ -893,12 +877,16 @@ func step() -> void:
 			if t > 36 and t < v.len + 8 and perp < 16:
 				player.vine = v
 				player.vr = min(t, v.len)
-				v.om = clamp((player.vx * cy - player.vy * sx) / player.vr, -.09, .09)
+				# conserva o embalo: a velocidade na direção do balanço vira giro do cipó
+				v.om = clamp((player.vx * cy - player.vy * sx) / player.vr, -.11, .11)
+				v.bend = 1.0
+				player.vang = v.th * .4
 				player.slam = false
 				player.puff = false
 				player.airJumps = 1
 				player.run = 0
-				note("←/→ balança · PULAR solta")
+				Audio.play("climb", -8)
+				note("←/→ balança · ↑/↓ sobe e desce · PULAR solta")
 				break
 
 	_p1_post(pcx, pcy)
@@ -1130,6 +1118,209 @@ func snap_camera() -> void:
 	rcam_y = cam_y
 
 # ======================================================================
+#  CIPÓ: pêndulo de verdade (impulso como num balanço de parque)
+# ======================================================================
+func _vine_step() -> void:
+	var v: Dictionary = player.vine
+	var r: float = player.vr
+	# gravidade puxando o pêndulo
+	v.om += -(GRAV / r) * sin(v.th)
+	# impulso: empurrar no sentido em que já está indo rende mais, sobretudo perto do ponto mais baixo
+	var d := 0
+	if kd("R") and not kd("L"):
+		d = 1
+	elif kd("L") and not kd("R"):
+		d = -1
+	if d != 0:
+		player.face = d
+		var same: bool = v.om * d > 0 or abs(v.om) < .004
+		v.om += d * (.0034 if same else .0012) * max(.25, cos(v.th))
+	v.om *= .997
+	# topo macio: perto do alto o cipó perde força devagar (uma pausinha no alto antes de voltar)
+	var lim := 1.08
+	if abs(v.th) > lim:
+		v.om -= sign(v.th) * (abs(v.th) - lim) * .03
+	v.th += v.om
+	if abs(v.th) > 1.42:
+		v.th = sign(v.th) * 1.42
+		v.om = -v.om * .3
+	# subir e descer pelo cipó (mais curto = balança mais rápido: conserva o giro)
+	var nr := r
+	if kd("U"):
+		nr = max(40.0, r - 1.6)
+	elif kd("S"):
+		nr = min(v.len, r + 1.8)
+	if nr != r:
+		v.om *= clamp((r / nr) * (r / nr), .8, 1.25)
+		player.vr = nr
+		player.climbA += 3
+		r = nr
+	if v.has("bend"):
+		v.bend *= .93
+	# o corpo inclina só uma parte do ângulo do cipó, com atraso (fica "pendurado" pelas mãos)
+	player.vang = lerpf(player.get("vang", 0.0), v.th * .42 + v.om * 3.0, .18)
+	player.x = v.x + sin(v.th) * r - player.w / 2
+	player.y = v.y + cos(v.th) * r - 6
+	player.vx = 0
+	player.vy = 0
+	player.onGround = false
+	if pressed("J"):
+		# solta com impulso na direção do movimento (quanto mais rápido, mais longe)
+		var vt: float = r * v.om
+		player.vx = clamp(vt * cos(v.th) * 1.12, -10, 10)
+		player.vy = max(-15.0, -vt * sin(v.th) - 3.4)
+		if d != 0 and abs(player.vx) < 2.0:
+			player.vx = d * 2.0
+		player.vine = null
+		player.vineCD = 22
+		player.airJumps = 1
+		player.cutOk = false
+		player.jbuf = 0
+		player.squash = -.4
+		Audio.play("jump", -6)
+		burst(player.x + player.w / 2, player.y, 8, Color("#cdbfa6"))
+	elif pressed("S") and r >= v.len - 1:
+		player.vine = null
+		player.vineCD = 22
+
+# ======================================================================
+#  ENTRAR E SAIR DE ESCONDERIJOS (tronco oco, portas, tocas): animação em vez de teleporte seco
+# ======================================================================
+## mode: "down" (abaixa e entra pelo buraco), "up" (sobe pela saída), "door" (atravessa a porta)
+func start_warp(e: Dictionary) -> void:
+	var mode: String = e.get("mode", "up" if e.get("exit") else "down")
+	stand_up()
+	var cx: float = e.x + e.w / 2
+	if int(e.get("dir", 0)) != 0:
+		cx = e.x + (e.w * .3 if int(e.dir) > 0 else e.w * .7)
+	player.warp = {"e": e, "ph": "in", "t": 0, "mode": mode, "cx": cx}
+	player.vx = 0.0
+	player.vy = 0.0
+	player.run = 0
+	player.puff = false
+	player.slam = false
+	keys.clear()
+	Audio.play("climb", -6)
+
+func _warp_step() -> void:
+	var w: Dictionary = player.warp
+	w.t += 1
+	var t: int = w.t
+	player.vx = 0.0
+	player.vy = 0.0
+	if w.ph == "in":
+		match w.mode:
+			"up":
+				# sobe pela luz da saída e some
+				player.wpose = "climb"
+				player.climbA += 4
+				player.wdy = -t * 2.4
+				player.wal = clamp(1.0 - t / 22.0, 0, 1)
+				if t >= 24:
+					_warp_jump()
+			"door":
+				player.wpose = ""
+				var dx: float = w.cx - (player.x + player.w / 2)
+				player.x += clamp(dx, -2.2, 2.2)
+				player.anim += .1
+				player.face = 1 if dx >= 0 else -1
+				player.wal = clamp(1.0 - (t - 8) / 16.0, 0, 1)
+				if t >= 26:
+					_warp_jump()
+			_:
+				# anda até a boca, se abaixa e entra engatinhando, sumindo na sombra
+				var dx2: float = w.cx - (player.x + player.w / 2)
+				if t <= 12 and abs(dx2) > 1.5:
+					player.wpose = ""
+					player.x += clamp(dx2, -2.6, 2.6)
+					player.anim += .12
+					player.face = 1 if dx2 > 0 else -1
+				elif t <= 20:
+					player.wpose = "crouch"
+				else:
+					player.wpose = "crawl"
+					var u: float = (t - 20) / 22.0
+					var dd: int = int(w.e.get("dir", 0))
+					if dd != 0:
+						# entra engatinhando pela boca do tronco
+						player.face = dd
+						player.x += dd * 1.5
+						player.wdy = u * 4
+					else:
+						player.wdy = u * 30
+					player.wal = clamp(1.0 - u, 0, 1)
+					if t % 5 == 0:
+						PARTS.append({"x": w.cx + (rng.randf() - .5) * 30, "y": w.e.y + 2, "vx": (rng.randf() - .5) * 2, "vy": -1.5 - rng.randf(), "life": 18, "col": Color(.6, .5, .32, .8)})
+				if t >= 42:
+					_warp_jump()
+	else:
+		var from_below: bool = w.mode == "up"
+		match w.mode:
+			"door":
+				player.wpose = ""
+				player.wdy = 0.0
+				player.wal = clamp(t / 16.0, 0, 1)
+				if t >= 18:
+					_warp_end()
+			_:
+				var u2: float = clamp(t / 22.0, 0, 1)
+				player.wal = u2
+				var od: int = int(w.e.get("odir", 0))
+				if from_below and od != 0:
+					# sai engatinhando pela boca do tronco, levanta e sacode a poeira
+					player.face = od
+					if t <= 22:
+						player.x += od * 1.4
+					player.wdy = 0.0
+					player.wpose = "crawl" if t < 22 else ("crouch" if t < 30 else "")
+				elif from_below:
+					player.wdy = (1.0 - u2) * 30
+					player.wpose = "crawl" if t < 22 else ("crouch" if t < 30 else "")
+				else:
+					# cai do buraco para dentro do esconderijo
+					player.wdy = -(1.0 - u2) * (1.0 - u2) * 40
+					player.wpose = "crouch" if t < 28 else ""
+				if t == 30:
+					player.squash = .5
+					fx("fx_dust", player.x + player.w / 2, player.y + player.h - 6, 18, .12, -.2)
+					burst(player.x + player.w / 2, player.y + 6, 8, Color(.75, .65, .45, .9))
+					Audio.play("slide", -12)
+				if t >= 36:
+					_warp_end()
+
+func _warp_jump() -> void:
+	var w: Dictionary = player.warp
+	var e: Dictionary = w.e
+	player.x = e.to[0] - player.w / 2 - int(e.get("odir", 0)) * 31
+	player.y = e.to[1] - player.h
+	_rest_player()
+	w.ph = "out"
+	w.t = 0
+	iris_t = 30
+	Audio.play("door")
+	snap_camera()
+	if e.get("label", "") != "":
+		flash(e.label)
+
+## pousa o Tomé no chão mais próximo do ponto de chegada
+func _rest_player() -> void:
+	var feet: float = player.y + player.h
+	var best := INF
+	for s in blockers():
+		if player.x + player.w > s.x and player.x < s.x + s.w and s.y >= feet - 30 and s.y < best:
+			best = s.y
+	if best < INF and best - feet < 80:
+		player.y = best - player.h
+		player.onGround = true
+
+func _warp_end() -> void:
+	player.warp = {}
+	player.wdy = 0.0
+	player.wal = 1.0
+	player.wpose = ""
+	player.iframe = max(player.iframe, 10)
+
+# ======================================================================
 #  COLISÃO
 # ======================================================================
 func move_x(dx: float) -> void:
@@ -1215,16 +1406,7 @@ func _p1_pre(pcx: float) -> void:
 	if nearE and (keys.get("Sp", false) or (nearE.get("exit") and keys.get("Up", false))) and not player.ladder:
 		keys.Sp = false
 		keys.Up = false
-		stand_up()
-		player.x = nearE.to[0] - player.w / 2
-		player.y = nearE.to[1] - player.h
-		player.vx = 0
-		player.vy = 0
-		iris_t = 30
-		Audio.play("door")
-		snap_camera()
-		if nearE.get("label", "") != "":
-			flash(nearE.label)
+		start_warp(nearE)
 	player.nearE = nearE
 	# agarrar escada / rede / corda
 	var z = null
@@ -1417,6 +1599,7 @@ func _p1_post(pcx: float, _pcy: float) -> void:
 			Audio.vib(15)
 	X.post()
 	M.post()
+	PR.post()
 	# vilão foge
 	if VIL:
 		if not VIL.go and pcx > VIL.trig:

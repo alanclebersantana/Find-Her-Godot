@@ -826,7 +826,7 @@
    "x": 6120,
    "y": 520,
    "w": 60,
-   "h": 300
+   "h": 120
   },
   {
    "x": 6530,
@@ -910,7 +910,8 @@
     2950,
     960
    ],
-   "label": "Um esconderijo dentro do tronco oco!"
+   "label": "Um esconderijo dentro do tronco oco!",
+   "dir": 1
   },
   {
    "x": 2915,
@@ -922,7 +923,8 @@
     500
    ],
    "label": "",
-   "exit": 1
+   "exit": 1,
+   "odir": -1
   }
  ],
  "bushes": [
@@ -2005,7 +2007,7 @@
   {
    "a": 2470,
    "b": 2700,
-   "t": "Agarre o cipó no ar. ←/→ balança, PULAR solta.",
+   "t": "Agarre o cipó no ar. ←/→ embala (empurre no sentido do balanço), ↑/↓ sobe e desce, PULAR solta.",
    "yl": 260
   },
   {
@@ -2344,5 +2346,17 @@
    "w": 60,
    "gate": "g2"
   }
- ]
+ ],
+ "boat": {
+  "x": 6632,
+  "water": "canal",
+  "post": [
+   6538,
+   500
+  ]
+ },
+ "table": {
+  "x": 362,
+  "y": 500
+ }
 }
