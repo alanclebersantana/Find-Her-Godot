@@ -2014,6 +2014,34 @@
    "y": 380,
    "w": 26,
    "h": 120
+  },
+  {
+   "t": "stone",
+   "x": 50380,
+   "y": 410,
+   "w": 64,
+   "h": 90,
+   "ice": 1
+  },
+  {
+   "t": "branch",
+   "x": 50270,
+   "y": 310,
+   "w": 150
+  },
+  {
+   "t": "stone",
+   "x": 50900,
+   "y": 410,
+   "w": 64,
+   "h": 90,
+   "ice": 1
+  },
+  {
+   "t": "branch",
+   "x": 50880,
+   "y": 310,
+   "w": 150
   }
  ],
  "swamp": [
@@ -2194,7 +2222,7 @@
    "w": 60,
    "h": 40,
    "to": [
-    4600,
+    4700,
     960
    ],
    "label": "Um esconderijo dentro do tronco oco!",
@@ -2629,12 +2657,12 @@
    ]
   },
   {
-   "k": "mole",
+   "k": "boar",
    "x": 2950,
    "y": 500,
    "r": [
-    2820,
-    3090
+    2830,
+    3080
    ]
   },
   {
@@ -2705,11 +2733,11 @@
    ]
   },
   {
-   "k": "mole",
+   "k": "frog",
    "x": 2450,
    "y": 500,
    "r": [
-    2380,
+    2390,
     2510
    ]
   },
@@ -5985,6 +6013,12 @@
    "a": 74260,
    "b": 74450,
    "t": "O buraco no chão! Entre nele e segure ↓!"
+  },
+  {
+   "a": 50000,
+   "b": 51300,
+   "t": "Desvie das patadas! Na terceira que ele errar, ele fica tonto. Suba no gelo e nos galhos para pular por cima dele.",
+   "yl": 520
   }
  ],
  "pits": [
@@ -6377,7 +6411,7 @@
   },
   {
    "k": "flower",
-   "x": 4560,
+   "x": 4440,
    "y": 500,
    "to": [
     4775,

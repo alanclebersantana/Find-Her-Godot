@@ -53,6 +53,20 @@ func _initialize() -> void:
 		hold({}, 200)
 		S("parado afunda", g.lives == 8)
 		g.lives = 9
+	if all or args.has("tronco"):
+		put(4608, 500)
+		press("S")
+		frame({"S": true})
+		S("entrou no tronco", until({"S": true}, func(): return g.player.y > 800 and g.player.warp.is_empty(), 200))
+		# o ↓ que ainda estava apertado não pode tirar o Tomé de lá
+		press("S")
+		hold({"S": true}, 30)
+		hold({}, 60)
+		S("continua no esconderijo", g.player.y > 800)
+		walk_to(4605)
+		press("U")
+		frame({"U": true})
+		S("sai com ↑", until({}, func(): return g.player.y < 500 and g.player.warp.is_empty(), 200))
 	if all or args.has("raft"):
 		put(25010, 500)
 		walk_to(25040)

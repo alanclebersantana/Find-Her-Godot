@@ -1717,7 +1717,8 @@ func _p1_pre(pcx: float) -> void:
 		if player.onGround and not player.dog and pcx > e.x and pcx < e.x + e.w and abs(player.y + player.h - (e.y + e.h)) < 16:
 			nearE = e
 	var door_up: bool = nearE != null and (nearE.get("exit") or nearE.get("mode", "") == "door") and keys.get("Up", false)
-	if nearE and ((keys.get("Sp", false) and nearE.get("mode", "") != "door") or door_up) and not player.ladder:
+	# entrar: ↓ na boca do esconderijo; sair: só com ↑ (o ↓ que ainda está apertado ao chegar lá embaixo não pode tirar o Tomé de volta)
+	if nearE and ((keys.get("Sp", false) and nearE.get("mode", "") != "door" and not nearE.get("exit")) or door_up) and not player.ladder:
 		keys.Sp = false
 		keys.Up = false
 		start_warp(nearE)

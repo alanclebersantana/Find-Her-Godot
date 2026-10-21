@@ -23,7 +23,7 @@ func load_level() -> void:
 	if L.has("bear"):
 		var b: Dictionary = L.bear
 		BEAR = {"x0": b.x0, "x1": b.x1, "gy": b.y, "trig": b.trig, "maxhp": b.hp, "hp": b.hp, "st": "wait",
-			"x": b.x1 - 160.0, "dir": -1, "t": 0, "red": 0, "anim": 0.0, "active": false, "done": false, "hx": 0.0}
+			"x": b.x1 - 160.0, "dir": -1, "t": 0, "red": 0, "anim": 0.0, "active": false, "done": false, "hx": 0.0, "miss": 0}
 	if L.has("hawk"):
 		var h: Dictionary = L.hawk
 		HAWK = {"x0": h.x0, "x1": h.x1, "gy": h.y, "trig": h.trig, "maxhp": h.hp, "hp": h.hp, "st": "wait",
@@ -227,13 +227,14 @@ func swing_hits(hb: Dictionary) -> void:
 # ======================================================================
 #  URSO-PARDO-REI (fim da neve)
 #  anda até o Tomé, se ergue com um rugido e dá uma patada forte no chão à frente.
-#  Se a patada erra, fica tonto: pular na cabeça dele ou bater com a picareta. 4 acertos.
+#  Na terceira patada errada fica tonto: pular na cabeça dele ou bater com a picareta. 4 acertos.
+#  Na clareira há blocos de gelo e galhos para subir e pular por cima dele.
 # ======================================================================
 func bear_box() -> Dictionary:
 	var b: Dictionary = BEAR
 	match b.st:
 		"rear", "slam":
-			return g.R(b.x - 60, b.gy - 200, 120, 200)
+			return g.R(b.x - 60, b.gy - 180, 120, 180)
 		"dizzy":
 			return g.R(b.x - 70, b.gy - 120, 140, 120)
 		"down", "flee":
@@ -265,6 +266,7 @@ func _bear() -> void:
 				b.st = "walk"
 				b.t = 0
 				b.hp = b.maxhp
+				b.miss = 0
 				b.x = b.x1 - 420.0
 				b.dir = -1
 				_gate("bearL", true, Rect2(b.x0 - 24, gy - 260, 24, 260))
@@ -307,13 +309,22 @@ func _bear() -> void:
 			if b.t > 22:
 				b.t = 0
 				if b.missed:
+					b.miss = b.get("miss", 0) + 1
+				if b.missed and b.miss >= 3:
+					# a terceira patada errada cansa o urso: fica tonto
+					b.miss = 0
 					b.st = "dizzy"
 					Audio.play("dj", -6)
 					if not g.L.get("_bear_tip", false):
 						g.L["_bear_tip"] = true
-						g.flash_tut("Errou! Ele está tonto: pule na cabeça ou GOLPE!", "A patada errou e o urso ficou tonto! Pule na cabeça dele ou acerte com a picareta (GOLPE)!", 200)
+						g.flash_tut("Ele está tonto: pule na cabeça ou GOLPE!", "Três patadas erradas e o urso ficou tonto! Pule na cabeça dele ou acerte com a picareta (GOLPE)!", 200)
 				else:
 					b.st = "back"
+					if b.missed:
+						g.note("Errou a patada! (%d/3)" % b.miss)
+						if b.miss == 1 and not g.L.get("_bear_tip0", false):
+							g.L["_bear_tip0"] = true
+							g.flash_tut("Desvie das patadas!", "Desvie das patadas: na terceira que ele errar, ele fica tonto. Suba no gelo e nos galhos para pular por cima dele!", 220)
 		"dizzy":
 			b.t += 1
 			# pular na cabeça dele conta como acerto
@@ -610,6 +621,7 @@ func reset_on_respawn() -> void:
 		BEAR.active = false
 		BEAR.st = "wait"
 		BEAR.hp = BEAR.maxhp
+		BEAR.miss = 0
 		BEAR.x = BEAR.x1 - 160.0
 		_gate("bearL", false, Rect2())
 		_gate("bearR", false, Rect2())

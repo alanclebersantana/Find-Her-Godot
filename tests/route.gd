@@ -1019,6 +1019,10 @@ func _initialize() -> void:
 	S("sem tropeço", g.RD.tries == 0)
 	S("clareira do urso", walk_to(50160))
 	S("Urso-Rei", bear_fight())
+	for bx in [50380.0, 50900.0]:
+		if px() < bx:
+			walk_to(bx - 30)
+			jump_to(bx + 110)
 	S("fogueira grande 4", walk_to(52650) and rests.has(4))
 	S("subida da montanha", climb_gusts(55190))
 	S("ponte de cordas", bridge_run(trap_at("bridge", 55220)))
