@@ -103,7 +103,6 @@ func _build_world() -> void:
 	var dyn := preload("res://scripts/world_dyn.gd").new()
 	dyn.game = game
 	game.add_child(dyn)
-	dyn.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	var gl := preload("res://scripts/world_glow.gd").new()
 	gl.game = game
 	glow_layer.add_child(gl)
