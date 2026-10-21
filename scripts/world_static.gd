@@ -21,7 +21,23 @@ func _draw() -> void:
 	for c in L.get("caves", []):
 		if c.x + c.w < x0 or c.x > x1:
 			continue
-		Spr.rect(c.x, c.y, c.w, c.h, CAVE)
+		if c.get("ice"):
+			# caverna de gelo: azul escuro com pingentes no teto
+			Spr.vgrad(c.x, c.y, c.w, c.h, Color("#3a5a7a"), Color("#16263a"))
+			var ix: float = c.x + 14
+			while ix < c.x + c.w - 14:
+				var ln: float = 10 + fmod(ix * 1.37, 22.0)
+				Spr.poly(PackedVector2Array([Vector2(ix - 6, c.y), Vector2(ix, c.y + ln), Vector2(ix + 6, c.y)]), Color(.8, .92, 1, .85))
+				ix += 30
+		elif c.get("wet"):
+			# fundo de lago: azul-esverdeado escuro, com pedras no fundo
+			Spr.vgrad(c.x, c.y, c.w, c.h, Color("#2a5a66"), Color("#0c1e28"))
+			var rx: float = c.x + 30
+			while rx < c.x + c.w - 30:
+				Spr.ellipse(rx, c.y + c.h - 6, 26 + fmod(rx * .7, 18.0), 9, Color("#16303a"))
+				rx += 90
+		else:
+			Spr.rect(c.x, c.y, c.w, c.h, CAVE)
 	for d in L.get("decor", []):
 		if d.x + 160 < x0 or d.x - 160 > x1:
 			continue
@@ -171,8 +187,10 @@ func root_log(s: Dictionary) -> void:
 			while q < .7:
 				Spr.ring(cx, cy, r * q, Color(.35, .24, .12, .6), 1.5)
 				q += .18
-	# presa por cordas que sobem até o alto (é por isso que fica suspensa e só passa abaixado)
-	_hang_ropes(x + w * .22, x + w * .78, y, h)
+	# presa por cordas que sobem até o alto e dão a volta no feixe de toras (por isso fica suspensa)
+	var ptop: float = y + h - r * 6 - 8
+	_hang_ropes(x + w * .22, x + w * .78, ptop, 0.0)
+	_wrap(x - 3, ptop - 2, w + 6, y + h - ptop + 2, r, false)
 	# sombra no chão embaixo da pilha suspensa
 	Spr.ellipse(x + w / 2, y + h + 24, w * .55, 6, Color(0, 0, 0, .3))
 
@@ -193,11 +211,29 @@ func _hang_ropes(xa: float, xb: float, y: float, h: float, chain: bool = false) 
 				yy2 += 8
 		# gancho
 		Spr.ring(rx, y - 2, 7, Color("#5f5a55"), 3, PI * .1, PI * 1.6)
-	# amarras em volta da peça
-	for f in [.18, .82]:
-		var by: float = y + h * f
-		Spr.rect(xa - 30, by - 3, xb - xa + 60, 6, Color("#a8875a" if not chain else "#6b6560"))
-		Spr.seg(xa - 30, by - 3, xb + 30, by + 3, Color(0, 0, 0, .25), 1)
+
+
+## laço de corda (ou corrente) dando a volta inteira na peça, com nós onde as cordas de cima chegam
+func _wrap(x: float, y: float, w: float, h: float, rad: float, chain: bool) -> void:
+	var pts := PackedVector2Array()
+	var rr: float = min(rad, min(w, h) / 2.0)
+	var corners := [[x + w - rr, y + rr, -PI / 2], [x + w - rr, y + h - rr, 0.0], [x + rr, y + h - rr, PI / 2], [x + rr, y + rr, PI]]
+	for c in corners:
+		for k in 7:
+			var a: float = c[2] + k / 6.0 * PI / 2
+			pts.push_back(Vector2(c[0] + cos(a) * rr, c[1] + sin(a) * rr))
+	pts.push_back(pts[0])
+	if chain:
+		Spr.line(pts, Color("#3a3632"), 7)
+		Spr.line(pts, Color("#6b6560"), 4)
+	else:
+		Spr.line(pts, Color("#5a4428"), 8)
+		Spr.line(pts, Color("#a8875a"), 5)
+		for i in range(0, pts.size() - 1, 2):
+			Spr.circle(pts[i].x, pts[i].y, 1.2, Color("#7a5f3c"))
+	for kx in [x + w * .22 + 3, x + w * .78 - 3]:
+		Spr.circle(kx, y, 6, Color("#8a6a40") if not chain else Color("#4a4642"))
+		Spr.ring(kx, y, 6, Color("#4a3420"), 1.5)
 
 ## paredão de rocha gelada (trecho da neve)
 func snow_cliff(s: Dictionary) -> void:
@@ -231,18 +267,29 @@ func cliff(s: Dictionary) -> void:
 		snow_cliff(s)
 		return
 	var t: Texture2D = Spr.tex.chao
-	Spr.hgrad(s.x, s.y, s.w, s.h, Color("#6a5a4a"), Color("#4a3e32"))
-	var tp := 50.0
-	var th: float = t.get_height()
-	var yy: float = s.y - 28 + th - 14
-	while yy < s.y + s.h:
-		var hh: float = min(th - tp, s.y + s.h - yy)
-		var x: float = s.x
+	# rocha maciça: blocos de pedra encaixados, sem faixas de grama por dentro (grama só no topo)
+	Spr.vgrad(s.x, s.y, s.w, s.h, Color("#6e5c48"), Color("#3e3226"))
+	var yy: float = s.y + 30
+	var row := 0
+	while yy < s.y + s.h - 8:
+		var bh: float = 28.0 + fmod(row * 17.0, 26.0)
+		var x: float = s.x - fmod(row * 41.0, 50.0)
+		var i := 0
 		while x < s.x + s.w:
-			var w: float = min(t.get_width(), s.x + s.w - x)
-			Spr.img(t, x, yy, w, hh, Rect2(0, tp, w, hh))
-			x += t.get_width() - 1
-		yy += th - tp - 14
+			var bw: float = 44.0 + fmod((row * 7 + i * 11) * 5.3, 70.0)
+			var xa: float = max(x, s.x)
+			var xb: float = min(x + bw - 4, s.x + s.w)
+			var hb: float = min(bh - 4, s.y + s.h - yy)
+			if xb - xa > 8 and hb > 6:
+				var shade: float = fmod((row * 5 + i * 3) * 1.0, 4.0) * .025
+				var jy: float = fmod((row * 3 + i * 7) * 1.7, 6.0) - 3.0
+				Spr.rr(xa, yy + jy, xb - xa, hb - abs(jy), 12, Color(.47 + shade, .39 + shade, .31 + shade))
+				Spr.rect(xa + 4, yy + 3, xb - xa - 8, 3, Color(1, 1, 1, .07))
+				Spr.rect(xa + 3, yy + hb - 5, xb - xa - 6, 4, Color(0, 0, 0, .18))
+			x += bw
+			i += 1
+		yy += bh
+		row += 1
 	tile_h(t, s.x, s.x + s.w, s.y - 28)
 	Spr.hgrad(s.x, s.y, 60, s.h, Color(0, 0, 0, .35), Color(0, 0, 0, 0))
 
@@ -356,9 +403,12 @@ func shed(s: Dictionary) -> void:
 
 func beam(s: Dictionary) -> void:
 	# viga baixa de escoramento da mina: só passa abaixado
-	_hang_ropes(s.x + 10, s.x + s.w - 10, s.y, s.h, true)
+	_hang_ropes(s.x + 10, s.x + s.w - 10, s.y - 6, 0.0, true)
 	planks(s, true)
 	Spr.rect(s.x - 24, s.y - 6, s.w + 48, 14, Color("#5a3d22"))
+	# cada corrente dá a volta na trave de cima
+	for rx in [s.x + 10, s.x + s.w - 10]:
+		_wrap(rx - 9, s.y - 10, 18, 22, 6, true)
 	var y: float = s.y + s.h - 10
 	var x: float = s.x
 	while x < s.x + s.w:

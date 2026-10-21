@@ -80,15 +80,30 @@ def shift(L, X, D, mode='widen'):
             if k in t and moved: t[k] += D
         if 'post' in t and moved: t['post'][0] += D
         if isinstance(t.get('to'), list) and moved: t['to'][0] += D
+    # trechos novos (natureza, reis, cavalo)
+    for k in ['bogs', 'vents', 'currents', 'gear', 'holes', 'decor', 'ride']:
+        for e in L.get(k, []):
+            e['x'] = f(e['x'])
+    for b in L.get('bars', []):
+        if b['x0'] >= X: b['x0'] += D; b['x1'] += D
+    for k in ['hawk', 'fish']:
+        if k in L and L[k]['x0'] >= X:
+            for kk in ['x0', 'x1', 'trig']: L[k][kk] += D
+    if 'horse' in L:
+        h = L['horse']
+        for kk in ['x', 'ride0', 'ride1']: h[kk] = f(h[kk])
     for k in ['cattails']:
         if k in L: L[k] = [f(x) for x in L[k]]
     if 'tunnel' in L: L['tunnel'] = [f(x) for x in L['tunnel']]
     return L
 
+# só mexe em números que são posições x nos testes (não em contagens de quadros nem em alturas)
+POS = re.compile(r'((?:walk_to|jump_to|crawl|put|dodge_roll)\(\s*|px\(\)\s*[<>]=?\s*|\.x\s*[<>]=?\s*|\.x\s*\+\s*[\w\[\]\.]+\s*[<>]=?\s*|\.x\s*=\s*|Vector2\(|tx: float = |float = |else |\bx < |w / 2 - |x \+ 15 < )(\d{3,5})(?!\d)')
+
 def shift_tests(X, D, files):
     for fn in files:
         s = open(fn).read()
-        s2 = re.sub(r'(?<![\w.])(\d{4,5})(?!\w)', lambda m: str(sx(int(m.group(1)), X, D)), s)
+        s2 = POS.sub(lambda m: m.group(1) + str(sx(int(m.group(2)), X, D)), s)
         open(fn, 'w').write(s2)
 
 if __name__ == '__main__':

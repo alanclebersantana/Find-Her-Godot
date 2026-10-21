@@ -82,14 +82,18 @@ func _draw() -> void:
 	else:
 		hint_alpha = max(0, hint_alpha - .06)
 	if hint_alpha > 0 and hint_txt != "":
-		var mw: float = min(W - 470, 600)
+		# fica à esquerda dos botões do canto direito (mochila, som, fogueira, pausa, cachorro)
+		var rx0 := 16.0
+		var rx1: float = W - 350.0
+		var cx: float = (rx0 + rx1) / 2.0
+		var mw: float = min(rx1 - rx0 - 30, 560)
 		var hl := _lines(hint_txt, mw, 15)
 		var hw := 0.0
 		for ln in hl:
 			hw = max(hw, Spr.font_i.get_string_size(ln, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x)
 		var hy := 100.0 if (X and X.boss_active()) else 92.0
-		Spr.rr(W / 2 - hw / 2 - 14, hy, hw + 28, hl.size() * 21 + 12, 9, Color(.04, .03, .02, .55 * hint_alpha))
-		_wrapped(hint_txt, W / 2, hy + 18, mw, 15, Color(.93, .87, .74, hint_alpha), Spr.font_i)
+		Spr.rr(cx - hw / 2 - 14, hy, hw + 28, hl.size() * 21 + 12, 9, Color(.04, .03, .02, .55 * hint_alpha))
+		_wrapped(hint_txt, cx, hy + 18, mw, 15, Color(.93, .87, .74, hint_alpha), Spr.font_i)
 	# aviso (flash)
 	if game.flash_t > 0 and game.flash_msg != "":
 		var a: float = clamp(game.flash_t / 40.0, 0, 1)

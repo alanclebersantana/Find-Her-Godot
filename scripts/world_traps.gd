@@ -144,6 +144,15 @@ static func game_dust(_x: float, _y: float) -> void:
 
 # ---------- pedra rolando ----------
 static func _roll(o: Dictionary) -> void:
+	if o.get("snow"):
+		# bola de neve rolando (fica parada à vista até disparar)
+		if o.st == "done":
+			return
+		var Rs: float = o.get("r", 36.0)
+		var bx: float = o.bx if o.has("bx") else float(o.x)
+		var c := {"x": bx - Rs, "y": o.y - Rs * 2 + o.get("fy", 0.0), "w": Rs * 2, "h": Rs * 2}
+		WorldNature.snowball(c, 0)
+		return
 	if o.st in ["idle", "done"]:
 		return
 	var R: float = o.get("r", 40.0)

@@ -99,6 +99,13 @@ class _Memory extends Control:
 			var k: float = i / 6.0
 			Spr.ci.draw_rect(Rect2(i * 4, i * 4, w - i * 8, h - i * 8), Color(.1, .06, .03, .18 * (1.0 - k)), false, 4)
 
+	## o pai é bem mais alto: a Isis (6 anos) tem uns 60% da altura dele
+	func _dad(h: float) -> float:
+		return h * .54 / 150.0
+
+	func _kid(h: float) -> float:
+		return h * .54 * .6
+
 	func _lia(fr: int, x: float, by: float, hgt: float, flip: bool = false) -> void:
 		var t2: Texture2D = Spr.tex.filha
 		var fw: float = t2.get_width() / 4.0
@@ -131,8 +138,8 @@ class _Memory extends Control:
 		var lx: float = w * .5 + sin(t * .03) * w * .3
 		var dir: float = cos(t * .03)
 		var tx: float = lx - sign(dir) * 90
-		_lia(2 if int(t / 12) % 2 == 0 else 1, lx, h * .82 - abs(sin(t * .2)) * 10, h * .36, dir < 0)
-		Spr.frame(Spr.tex.pai, 1 + int(t / 8) % 4, 130, 160, 65, 156, tx, h * .83, .36, dir < 0)
+		_lia(2 if int(t / 12) % 2 == 0 else 1, lx, h * .84 - abs(sin(t * .2)) * 8, _kid(h), dir < 0)
+		Spr.frame(Spr.tex.pai, [1, 2, 3, 2][int(t / 8) % 4], 130, 160, 65, 156, tx, h * .84, _dad(h), dir < 0)
 		Spr.text("hihi!", lx, h * .3, 15, Color(.4, .25, .2), HORIZONTAL_ALIGNMENT_CENTER)
 
 	func _puddles(w: float, h: float, t: float) -> void:
@@ -146,13 +153,13 @@ class _Memory extends Control:
 			Spr.seg(rx, ry, rx - 3, ry + 12, Color(.35, .45, .6, .6), 1.5)
 		var j: float = abs(sin(t * .07))
 		var lx: float = w * .5
-		_lia(2, lx, h * .86 - j * 40, h * .36)
+		_lia(2, lx, h * .86 - j * 34, _kid(h))
 		if j < .15:
 			for k in 6:
 				Spr.circle(lx + (k - 2.5) * 12, h * .84 - k % 3 * 6, 4, Color(.6, .75, .9))
 		# o pai com a lanterna acesa
-		Spr.frame(Spr.tex.pai, 0, 130, 160, 65, 156, w * .22, h * .87, .36, false)
-		Spr.glow(w * .27, h * .62, 60, Color(1, .85, .5, .5))
+		Spr.frame(Spr.tex.pai, 0, 130, 160, 65, 156, w * .22, h * .86, _dad(h), false)
+		Spr.glow(w * .22 + 160 * _dad(h) * .36, h * .86 - 160 * _dad(h) * .45, 60, Color(1, .85, .5, .5))
 
 	func _snowman(w: float, h: float, t: float) -> void:
 		Spr.vgrad(0, 0, w, h * .8, Color("#c6d6e6"), Color("#eef2f6"))
@@ -166,7 +173,7 @@ class _Memory extends Control:
 			var bx: float = lerpf(w * .36, sx, u)
 			var by: float = lerpf(h * .5, h * .86 - 130 * h / 300.0, u) - sin(u * PI) * 30
 			WorldNature.beanie(bx, by, h / 300.0)
-		_lia(3, w * .34, h * .86, h * .36)
+		_lia(3, w * .34, h * .84, _kid(h))
 		for i in 24:
 			var fx: float = fmod(i * 71.0 + sin(t * .02 + i) * 20, w)
 			var fy: float = fmod(i * 43.0 + t * 1.2, h)

@@ -583,7 +583,7 @@ static func mech(g: Game, T: int) -> void:
 		if s.fallen and s.fy > 400:
 			continue
 		var a: float = 1.0 if not s.fallen else clamp(1.0 - s.fy / 400.0, 0, 1)
-		var wood := Color(.42, .29, .17, a)
+		var wood := Color(.42, .29, .17, a) if not s.get("icy") else Color(.72, .86, 1, a * .9)
 		if s.get("trestle") and not s.fallen:
 			for lx in [s.x + 8, s.x + s.w - 16]:
 				Spr.rect(lx, s.y + 10, 8, 700 - s.y, Color("#4a3220"))

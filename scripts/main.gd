@@ -25,6 +25,7 @@ var bag_sel := ""
 var theme_ui: Theme
 var light_tex: Texture2D
 var last_joy_ms := -9999
+var last_touch_ms := -9999   # último toque na tela (o gesto de "voltar" da borda vem junto com toques)
 const KEYMAP := {
 	KEY_LEFT: "L", KEY_A: "L", KEY_RIGHT: "R", KEY_D: "R", KEY_UP: "U", KEY_W: "U", KEY_DOWN: "S", KEY_S: "S",
 	KEY_SPACE: "J", KEY_Z: "J", KEY_K: "J", KEY_C: "P", KEY_F: "A", KEY_E: "A", KEY_X: "A", KEY_V: "A", KEY_R: "B",
@@ -35,7 +36,7 @@ const INK := Color("#f0e4c8")
 
 func _ready() -> void:
 	RenderingServer.set_default_clear_color(Color("#0b0906"))
-	Engine.physics_ticks_per_second = int(Save.getv("opt", "tps", 60))
+	Engine.physics_ticks_per_second = int(Save.getv("opt", "tps", 44))
 	_make_theme()
 	_make_light_tex()
 	game = Game.new()
@@ -234,6 +235,8 @@ func _clear_keys() -> void:
 	game.keys.clear()
 
 func _input(e: InputEvent) -> void:
+	if e is InputEventScreenTouch or e is InputEventScreenDrag:
+		last_touch_ms = Time.get_ticks_msec()
 	if state == S.PLAY and not game.CINE.is_empty() and ((e is InputEventScreenTouch and e.pressed) or (e is InputEventMouseButton and e.pressed)):
 		game.keys["Jp"] = true
 		return
@@ -278,6 +281,9 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		# alguns controles Bluetooth mandam "voltar" junto com o botão B: ignora nesse caso
 		if Time.get_ticks_msec() - last_joy_ms < 500:
+			return
+		# gesto de "voltar" pela borda da tela enquanto o polegar está no direcional: não pausa
+		if state == S.PLAY and (Time.get_ticks_msec() - last_touch_ms < 900 or (stick and stick.finger != -1)):
 			return
 		if state == S.PLAY:
 			_toggle_pause()
@@ -377,9 +383,14 @@ func _make_top_buttons() -> void:
 	bag.custom_minimum_size = Vector2(56, 56)
 	bag.pressed.connect(open_bag)
 	top_buttons.add_child(bag)
-	snd_btn = _small_btn("🔊" if Audio.on else "🔇", func():
+	# ícone desenhado (o emoji de alto-falante não aparece em alguns celulares)
+	var spk := _Speaker.new()
+	snd_btn = _small_btn("", func():
 		Audio.set_on(not Audio.on)
-		snd_btn.text = "🔊" if Audio.on else "🔇")
+		spk.queue_redraw())
+	spk.set_anchors_preset(Control.PRESET_FULL_RECT)
+	spk.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	snd_btn.add_child(spk)
 	top_buttons.add_child(snd_btn)
 	var rb := TextureButton.new()
 	rb.texture_normal = load("res://assets/ui/pad_B.png")
@@ -608,7 +619,7 @@ func show_options(from_pause: bool) -> void:
 	opt_row.call("Tamanho dos botões", "btn_size", [["Pequeno", "P"], ["Médio", "M"], ["Grande", "G"]], "M")
 	opt_row.call("Transparência", "btn_alpha", [["Clara", "clara"], ["Média", "media"], ["Forte", "forte"]], "media")
 	opt_row.call("Mão", "left", [["Destro", false], ["Canhoto", true]], false)
-	opt_row.call("Velocidade", "tps", [["Calma", 44], ["Média", 52], ["Rápida", 60]], 60)
+	opt_row.call("Velocidade", "tps", [["Calma", 44], ["Média", 52], ["Rápida", 60]], 44)
 	opt_row.call("Tutorial (dicas)", "tutorial", [["Ligado", true], ["Desligado", false]], true)
 	opt_row.call("Som", "sound", [["Ligado", true], ["Desligado", false]], true)
 	opt_row.call("Vibração", "vibrate", [["Sim", true], ["Não", false]], true)
@@ -910,6 +921,20 @@ func _show_clue(id: int, from_bag: bool) -> void:
 	vb.add_child(_button("CONTINUAR", ok))
 	panel.set_meta("ok", ok)
 
+class _Speaker extends Control:
+	## alto-falante com ondas (som ligado) ou com um X (som desligado)
+	func _draw() -> void:
+		var c := Vector2(size.x / 2 - 4, size.y / 2)
+		var col := Color("#e8d39a")
+		draw_rect(Rect2(c.x - 13, c.y - 6, 8, 12), col)
+		draw_colored_polygon(PackedVector2Array([Vector2(c.x - 6, c.y - 6), Vector2(c.x + 4, c.y - 14), Vector2(c.x + 4, c.y + 14), Vector2(c.x - 6, c.y + 6)]), col)
+		if Audio.on:
+			draw_arc(Vector2(c.x + 4, c.y), 8, -.9, .9, 10, col, 2.5, true)
+			draw_arc(Vector2(c.x + 4, c.y), 14, -.9, .9, 12, col, 2.5, true)
+		else:
+			draw_line(Vector2(c.x + 9, c.y - 7), Vector2(c.x + 19, c.y + 7), Color("#ff8a6a"), 3, true)
+			draw_line(Vector2(c.x + 19, c.y - 7), Vector2(c.x + 9, c.y + 7), Color("#ff8a6a"), 3, true)
+
 class _Badge extends Control:
 	## O crachá do gerente, com o rosto e o nome
 	func _init() -> void:
@@ -1131,7 +1156,8 @@ func _on_over() -> void:
 	var run := Save.load_run()
 	if not run.is_empty():
 		vb.add_child(_button("VOLTAR À FOGUEIRA", func():
-			start_level(true)))
+			start_level(true)
+			game.lives = max(game.lives, 3)))
 	vb.add_child(_button("RECOMEÇAR A FASE", func(): start_level(false)))
 	vb.add_child(_button("MENU INICIAL", func():
 		panel.queue_free()

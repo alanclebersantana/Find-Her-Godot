@@ -35,7 +35,7 @@ func _initialize() -> void:
 			e.dead = 99
 
 	# 1) cogumelos em cadeia: cai no primeiro e termina no galho alto
-	put(1185, 420)
+	put(2835, 420)
 	var path := []
 	var landed := false
 	for i in 400:
@@ -48,7 +48,7 @@ func _initialize() -> void:
 	say("cogumelos levam ao galho alto", landed, " ".join(path))
 
 	# 2) flor-catapulta
-	put(2125, 440)
+	put(3775, 440)
 	landed = false
 	path = []
 	for i in 400:
@@ -61,7 +61,7 @@ func _initialize() -> void:
 	say("flor lança ao galho de cima", landed, " ".join(path))
 
 	# 3) espinhos machucam quando sobem
-	put(2596, 500)
+	put(4246, 500)
 	var hp0: int = g.player.hp
 	for i in 200:
 		frame()
@@ -69,7 +69,7 @@ func _initialize() -> void:
 	g.player.hp = 3
 
 	# 4) picareta cravada no tronco vira degrau
-	put(2990, 500)
+	put(4640, 500)
 	g.player.face = 1
 	for i in 5:
 		frame()
@@ -89,7 +89,7 @@ func _initialize() -> void:
 	say("picareta voltou", g.TR.PICK.is_empty())
 
 	# 5) machado machuca
-	put(27100, 500)
+	put(41900, 500)
 	hp0 = g.player.hp
 	for i in 160:
 		frame()
@@ -99,28 +99,28 @@ func _initialize() -> void:
 	g.player.hp = 3
 
 	# 6) galho que quebra
-	put(7050, 330)
+	put(12300, 330)
 	for i in 80:
 		frame()
 	say("galho quebrou", g.TR.T[7].st == "fall")
 
 	# 7) rede: Pipoca rói a corda
 	g.X.DOG.st = "follow"
-	g.X.DOG.x = 28130.0
+	g.X.DOG.x = 45530.0
 	g.X.DOG.y = 500.0
-	g.X.TRAIL = [Vector2(28130, 500)]
-	put(28140, 500)
+	g.X.TRAIL = [Vector2(45530, 500)]
+	put(45540, 500)
 	for i in 30:
 		frame({"R": true})
-	say("rede segura o Tomé", g.player.x + 24 < 28202, str(int(g.player.x)))
+	say("rede segura o Tomé", g.player.x + 24 < 45602, str(int(g.player.x)))
 	say("Pipoca disponível", g.X.dog_free())
 	g.keys["Dp"] = true
 	frame()
 	say("virou Pipoca", g.M.ctrl)
 	for i in 120:
-		if abs(g.player.x + g.player.w / 2 - 28165) < 8:
+		if abs(g.player.x + g.player.w / 2 - 45565) < 8:
 			break
-		frame({"R" if g.player.x + 15 < 28165 else "L": true})
+		frame({"R" if g.player.x + 15 < 45565 else "L": true})
 	g.keys["Ap"] = true
 	frame()
 	for i in 10:
@@ -130,20 +130,20 @@ func _initialize() -> void:
 	frame()
 
 	# 8) jaula
-	put(28260, 500)
+	put(45660, 500)
 	for i in 60:
 		frame({"R": true})
 	say("jaula prendeu", g.TR.trapped != null)
 	for i in 30:
 		frame({"R": true})
-	say("preso não anda", g.player.x < 28300 + 64)
+	say("preso não anda", g.player.x < 45700 + 64)
 	g.keys["Dp"] = true
 	frame()
 	say("Pipoca no controle", g.M.ctrl)
 	for i in 200:
-		if abs(g.player.x + g.player.w / 2 - 28262) < 10:
+		if abs(g.player.x + g.player.w / 2 - 45662) < 10:
 			break
-		frame({"R" if g.player.x + 15 < 28262 else "L": true})
+		frame({"R" if g.player.x + 15 < 45662 else "L": true})
 	g.keys["Ap"] = true
 	frame()
 	for i in 5:
@@ -155,7 +155,7 @@ func _initialize() -> void:
 	say("voltou ao Tomé", not g.M.ctrl, why)
 
 	# 9) planta carnívora morde e cai com a picareta
-	put(29070, 500)
+	put(48170, 500)
 	hp0 = g.player.hp
 	for i in 80:
 		frame({"R": true} if i < 30 else {})
@@ -172,7 +172,7 @@ func _initialize() -> void:
 	say("picareta derrubou a planta", pl.dead > 0)
 
 	# 10) pedra rolando
-	put(29600, 500)
+	put(48700, 500)
 	for i in 40:
 		frame({"R": true})
 	var P = g.player

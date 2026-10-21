@@ -137,8 +137,9 @@ func _extras(g: Game, T: int) -> void:
 	for w in X.WATER:
 		if w.x > g.cam + g.W or w.x + w.w < g.cam:
 			continue
-		_water(g, w.x, w.x + w.w, w.y, w.h, Color(.24, .52, .6, .46), Color(.04, .14, .22, .78), T, false)
-		Spr.rect(w.x, w.y, w.w, w.h, Color(.02, .03, .08, dark * .55))
+		# tinge de leve: o Tomé e os peixes continuam bem visíveis debaixo d'água
+		_water(g, w.x, w.x + w.w, w.y, w.h, Color(.24, .52, .6, .26), Color(.04, .14, .22, .4), T, false)
+		Spr.rect(w.x, w.y, w.w, w.h, Color(.02, .03, .08, dark * .25))
 	WorldKings.draw_fish(g, T)
 	WorldNature.draw_bogs(g, T)
 	for b in X.BUB:

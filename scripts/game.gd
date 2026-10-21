@@ -27,6 +27,7 @@ const SLAM_GRAV := 1.8
 const SLAM_MAX := 21.0
 const STOMP := -9.6
 const MAXHP := 3
+const VINE_G := .3          # gravidade do balanço no cipó
 const RUN_TOP := 6.6
 const RUN_ACC := 1.05
 const FLY := {"fly": 1, "owl": 1, "bat": 1, "crow": 1, "piranha": 1}
@@ -749,7 +750,7 @@ func step() -> void:
 	for v in VINES:
 		if player.vine == v:
 			continue
-		v.om += -(.62 / v.len) * sin(v.th)
+		v.om += -(VINE_G / v.len) * sin(v.th)
 		v.om *= .985
 		v.th += v.om
 
@@ -963,11 +964,11 @@ func step() -> void:
 			var dy: float = hy - v.y
 			var t: float = dx * sx + dy * cy
 			var perp: float = abs(dx * cy - dy * sx)
-			if t > 36 and t < v.len + 8 and perp < 16:
+			if t > 24 and t < v.len + 22 and perp < 30:
 				player.vine = v
-				player.vr = min(t, v.len)
-				# conserva o embalo: a velocidade na direção do balanço vira giro do cipó
-				v.om = clamp((player.vx * cy - player.vy * sx) / player.vr, -.11, .11)
+				player.vr = clamp(t, 40.0, v.len)
+				# conserva um pouco do embalo, sem disparar o balanço
+				v.om = clamp((player.vx * cy - player.vy * sx) / player.vr * .6, -.02, .02)
 				v.bend = 1.0
 				player.vang = v.th * .4
 				player.slam = false
@@ -1246,8 +1247,8 @@ func snap_camera() -> void:
 func _vine_step() -> void:
 	var v: Dictionary = player.vine
 	var r: float = player.vr
-	# gravidade puxando o pêndulo
-	v.om += -(GRAV / r) * sin(v.th)
+	# gravidade puxando o pêndulo (mais fraca que a do pulo: balanço lento e tranquilo)
+	v.om += -(VINE_G / r) * sin(v.th)
 	# impulso: empurrar no sentido em que já está indo rende mais, sobretudo perto do ponto mais baixo
 	var d := 0
 	if kd("R") and not kd("L"):
@@ -1257,10 +1258,11 @@ func _vine_step() -> void:
 	if d != 0:
 		player.face = d
 		var same: bool = v.om * d > 0 or abs(v.om) < .004
-		v.om += d * (.0021 if same else .0009) * max(.25, cos(v.th))
-	v.om *= .996
+		v.om += d * (.0012 if same else .0006) * max(.25, cos(v.th))
+	v.om *= .994
+	v.om = clamp(v.om, -.032, .032)
 	# topo macio: perto do alto o cipó perde força devagar (uma pausinha no alto antes de voltar)
-	var lim := .9
+	var lim := .75
 	if abs(v.th) > lim:
 		v.om -= sign(v.th) * (abs(v.th) - lim) * .06
 	v.th += v.om
@@ -1273,6 +1275,9 @@ func _vine_step() -> void:
 		nr = max(40.0, r - 1.6)
 	elif kd("S"):
 		nr = min(v.len, r + 1.8)
+	elif r < v.len * .7:
+		# agarrou lá no alto: escorrega um pouco até uma altura boa para balançar
+		nr = min(v.len * .7, r + 2.5)
 	if nr != r:
 		v.om *= clamp(r / nr, .95, 1.06)
 		player.vr = nr
@@ -1294,13 +1299,17 @@ func _vine_step() -> void:
 		player.vy = max(-15.0, -vt * sin(v.th) - 3.4)
 		if d != 0 and abs(player.vx) < 2.0:
 			player.vx = d * 2.0
-		# ajudinha: soltando na direção do alvo do cipó (ex.: o galho do desenho), o pulo corrige o arco para cair nele
+		# ajudinha: soltando para o lado do alvo do cipó (próximo cipó, corda, margem), o pulo vai certinho até ele
 		if v.has("aim"):
 			var tgt := Vector2(float(v.aim[0]), float(v.aim[1]) - player.h)
 			var dx: float = tgt.x - player.x - player.w / 2
-			if sign(dx) == sign(player.vx) and abs(dx) < 460 and abs(vt) > 1.2:
-				var sol := TR.ballistic(Vector2(player.x + player.w / 2, player.y), tgt, 1.0)
-				if sol.y > -16.0:
+			var want_dir: int = d if d != 0 else (int(sign(player.vx)) if abs(player.vx) > .5 else player.face)
+			if sign(dx) == want_dir and abs(dx) < 520:
+				var from := Vector2(player.x + player.w / 2, player.y)
+				var sol := TR.ballistic(from, tgt, .75)
+				if sol.y < -16.0:
+					sol = TR.ballistic(from, tgt, .6)
+				if sol.y > -17.0:
 					player.vx = sol.x
 					player.vy = sol.y
 					player.launchT = int(sol.z)

@@ -172,8 +172,9 @@ func pre() -> void:
 	elif g.TR.want_throw() and swing_t == 0 and g.pressed("G"):
 		g.TR.throw_pick()
 		hold_g = -30
-	if g.pressed("G") and swing_t == 0 and not p.ladder and not p.vine and not p.swim and not p.crouch:
-		swing_t = 22
+	# debaixo d'água também dá picaretada (um pouco mais lenta); com o arpão, o GOLPE na água dispara o arpão
+	if g.pressed("G") and swing_t == 0 and not p.ladder and not p.vine and not p.get("bar") and not p.crouch:
+		swing_t = 26 if p.swim else 22
 		swing_hit = {}
 		p.act = "swing"
 		p.actT = 22
