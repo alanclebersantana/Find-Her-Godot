@@ -31,6 +31,14 @@ func _initialize() -> void:
 		return
 	main.panel.get_meta("ok").call()
 	var g = main.game
+	if args.size() > 0 and args[0] == "rest":
+		for k in range(1, args.size()):
+			main._on_rest(int(args[k]))
+			for i in 420:
+				await process_frame
+			root.get_texture().get_image().save_png("/tmp/fh_shots/rest%s.png" % args[k])
+		quit()
+		return
 	g.lives = 99
 	g.clue_opened.disconnect(main._on_clue)
 	for e in g.EN:
@@ -98,6 +106,35 @@ func _initialize() -> void:
 					g.X.DOG.y = y
 					g.player.onGround = true
 					g.M.toggle_dog()
+				elif k == "hawkm" or k == "hawks":
+					var h: Dictionary = g.K.HAWK
+					h.active = true
+					h.st = "mark" if k == "hawkm" else "stuck"
+					h.t = 30
+					h.tx = x + 120
+					h.x = x + 120
+					h.y = h.gy - 300 if k == "hawkm" else h.gy
+				elif k == "fisht" or k == "fishs":
+					var f: Dictionary = g.K.FISH
+					f.active = true
+					f.st = "tired" if k == "fisht" else "suck"
+					f.t = 60
+					f.x = x + 260
+					f.y = y
+					f.dir = -1
+					g.NT.helmet = true
+					g.NT.harpoon = true
+				elif k == "mud":
+					g.K.FISH.mud = .8
+				elif k == "ride":
+					g.RD._start()
+					g.RD.hx = x
+					g.RD.spd = 5.2
+				elif k == "duck":
+					g.keys["S"] = true
+				elif k == "bar":
+					g.player.bar = g.NT.BARS[0]
+					g.player.y = g.NT.BARS[0].y + 6
 				elif k == "fl":
 					g.player.face = -1
 				elif k == "pick":

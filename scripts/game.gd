@@ -7,6 +7,7 @@ signal clue_opened(id: int)
 signal results_ready
 signal game_over
 signal level_won
+signal rest_reached(n: int)
 
 # ---------- física (mesmos números da versão HTML) ----------
 const GRAV := .62
@@ -28,7 +29,7 @@ const STOMP := -9.6
 const MAXHP := 3
 const RUN_TOP := 6.6
 const RUN_ACC := 1.05
-const FLY := {"fly": 1, "owl": 1, "bat": 1}
+const FLY := {"fly": 1, "owl": 1, "bat": 1, "crow": 1, "piranha": 1}
 
 var L: Dictionary
 var level_idx := 0
@@ -58,12 +59,16 @@ var CLUEGOT := {}
 var SPECGOT := {}
 var DRAWN := {}
 var STATS := {"pen": 0, "penTotal": 0}
-var AMB := {"dark": 0.0, "rain": 0.0, "night": 0.0, "tint": "", "song": "manha", "fog": 0.0, "wind": 0.0}
+var AMB := {"dark": 0.0, "rain": 0.0, "night": 0.0, "tint": "", "song": "manha", "fog": 0.0, "wind": 0.0, "snow": 0.0}
 var X: Extras
 var M: Mech
 var PR: Props
 var TR: Traps
 var ZN: Zones
+var NT: Nature
+var K: Kings
+var RD: Ride
+var RESTED := {}        # fogueiras grandes já descansadas
 var player: Dictionary = {}
 var keys := {}
 var T := 0
@@ -171,7 +176,10 @@ func load_level(i: int) -> void:
 		COINS.append({"x": c[0], "y": c[1], "got": false, "ci": k})
 	CHK = []
 	for c in L.get("checks", []):
-		CHK.append({"x": c[0], "y": c[1], "on": false})
+		var ch := {"x": c[0], "y": c[1], "on": false}
+		if c.size() > 3 and c[2] == "rest":
+			ch.rest = int(c[3])
+		CHK.append(ch)
 	VINES = []
 	for v in L.get("vines", []):
 		var vo := {"x": v.x, "y": v.y, "len": v.len, "th": 0.0, "om": 0.0, "bend": 0.0}
@@ -208,6 +216,13 @@ func load_level(i: int) -> void:
 	TR.load_level()
 	ZN = Zones.new(self)
 	ZN.load_level()
+	NT = Nature.new(self)
+	NT.load_level()
+	K = Kings.new(self)
+	K.load_level()
+	RD = Ride.new(self)
+	RD.load_level()
+	RESTED = {}
 	_reset_player(L.spawn.x - 12, L.spawn.y - 34)
 	time_left = int(L.get("time", 180)) * 60
 	coins = 0
@@ -297,7 +312,7 @@ func make_body(x: float, y: float) -> Dictionary:
 		"crouch": false, "slideT": 0, "ladder": null, "ladderCD": 0, "dropT": 0, "lookT": 0, "climbA": 0.0, "mud": false,
 		"nearE": null, "nearL": null, "blink": 0, "turnT": 0, "lastFace": 1, "dieMsg": "", "swim": false, "water": null,
 		"wall": 0, "wallT": 0, "wsl": 0, "lastWall": 0, "wlock": 0, "wslide": false, "guard": false, "dog": false,
-		"warp": {}, "wdy": 0.0, "wal": 1.0, "wpose": ""}
+		"warp": {}, "wdy": 0.0, "wal": 1.0, "wpose": "", "bar": null}
 
 # ======================================================================
 #  UTILIDADES
@@ -459,6 +474,10 @@ func hint_text() -> String:
 				continue
 		if h.has("toca") and (X.TOCAS.is_empty() or X.TOCAS[0].done):
 			continue
+		if h.get("hawk") and (K.HAWK.is_empty() or not K.HAWK.active or K.HAWK.done):
+			continue
+		if h.get("horse") and (RD.H.is_empty() or RD.H.st != "trapped"):
+			continue
 		if X.boss_active() and not h.get("boss"):
 			continue
 		var m: String = lock_msg(LOCKS[int(h.lock)]) if h.has("lock") else h.get("t", "")
@@ -520,6 +539,7 @@ func ambient() -> void:
 	AMB.dark = mix.call("dark")
 	AMB.rain = mix.call("rain")
 	AMB.night = mix.call("night")
+	AMB.snow = mix.call("snow")
 	var src: Dictionary = a if (t < .5 or b == null) else b
 	AMB.tint = src.get("tint", "")
 	AMB.song = src.get("song", "manha")
@@ -530,6 +550,20 @@ func ambient() -> void:
 		AMB.dark = max(AMB.dark, .86)
 	if X:
 		X.weather_amb()
+
+## nome do período do dia em que o Tomé está (a fase é uma só, dividida pelas fogueiras grandes)
+const PERIODS := ["Manhã no bosque", "Tarde", "Pântano", "Neve", "Noite na mina"]
+func period_index() -> int:
+	var px: float = player.x + player.w / 2
+	var n := 0
+	for c in CHK:
+		if c.has("rest") and px > c.x + 30:
+			n = max(n, int(c.rest))
+	return n
+
+func period_label() -> String:
+	var i: int = period_index()
+	return "%d/5 · %s" % [i + 1, PERIODS[min(i, 4)]]
 
 func section_weights() -> Dictionary:
 	## peso de cada cenário de fundo conforme a posição (para o fundo trocar suavemente)
@@ -542,10 +576,10 @@ func section_weights() -> Dictionary:
 	var i := 0
 	while i + 1 < S.size() and S[i + 1].x <= px:
 		i += 1
-	var ka: String = map.get(S[i].get("song", "manha"), "bosque")
+	var ka: String = S[i].get("bg", map.get(S[i].get("song", "manha"), "bosque"))
 	out[ka] = 1.0
 	if i + 1 < S.size():
-		var kb: String = map.get(S[i + 1].get("song", "manha"), "bosque")
+		var kb: String = S[i + 1].get("bg", map.get(S[i + 1].get("song", "manha"), "bosque"))
 		var t: float = clamp((px - (S[i + 1].x - 400)) / 400.0, 0, 1)
 		if kb != ka and t > 0:
 			out[kb] = t
@@ -626,6 +660,16 @@ func step() -> void:
 			else:
 				level_won.emit()
 		return
+	if RD.riding:
+		if flash_t > 0:
+			flash_t -= 1
+		if shake > 0:
+			shake *= .85
+		RD.step()
+		max_x = max(max_x, player.x + 300)
+		_tick_fx()
+		_camera()
+		return
 	T += 1
 	if ZN == null or ZN.zone == null:
 		max_x = max(max_x, player.x + 300)
@@ -643,6 +687,7 @@ func step() -> void:
 	X.pre_step()
 	if player.dyingT > 0:
 		return
+	NT.pre()
 	M.pre()
 	TR.pre()
 	ZN.pre()
@@ -719,6 +764,8 @@ func step() -> void:
 		_vine_step()
 	elif player.ladder:
 		_p1_ladder()
+	elif player.get("bar"):
+		NT.bar_step()
 	elif player.swim:
 		X.swim()
 	else:
@@ -848,7 +895,7 @@ func step() -> void:
 		keys.L = held_l
 		keys.R = held_r
 	# vertical
-	if not player.vine and not player.ladder and not player.swim:
+	if not player.vine and not player.ladder and not player.swim and not player.get("bar"):
 		var g := GRAV
 		var maxv := 13.0
 		if player.slam:
@@ -871,7 +918,7 @@ func step() -> void:
 
 	var prev_vy: float = player.vy
 	var was_ground: bool = player.onGround
-	if not player.vine:
+	if not player.vine and not player.get("bar"):
 		player.onGround = false
 		move_x(player.vx)
 		move_y(player.vy)
@@ -1000,6 +1047,14 @@ func step() -> void:
 			burst(c.x, c.y - 30, 12, Color("#ffd76a"))
 		else:
 			note("Progresso salvo.")
+		if c.has("rest") and not RESTED.has(c.rest):
+			RESTED[c.rest] = 1
+			time_left = int(L.get("period", L.get("time", 300))) * 60
+			player.vx = 0.0
+			save_checkpoint(k)
+			running = false
+			rest_reached.emit(c.rest)
+			return
 		save_checkpoint(k)
 	# inimigos
 	for e in EN:
@@ -1134,11 +1189,16 @@ func _cine_step() -> void:
 	var t: int = CINE.t
 	# o Tomé fica parado (mas a gravidade continua)
 	player.vx *= .7
-	if not player.onGround and not player.ladder and not player.vine:
+	if player.swim:
+		player.vy *= .9
+		move_y(player.vy)
+	elif not player.onGround and not player.ladder and not player.vine and not player.get("bar"):
 		player.vy = min(player.vy + GRAV, 13)
 		player.onGround = false
 		move_y(player.vy)
 	X.cine_step(CINE)
+	K.cine_step(CINE)
+	RD.cine_step(CINE)
 	if lightning > 0:
 		lightning -= 1
 	if shake > 0:
@@ -1152,6 +1212,8 @@ func _cine_step() -> void:
 		var id: String = CINE.id
 		CINE = {}
 		X.cine_end(id)
+		K.cine_end(id)
+		RD.cine_end(id)
 	_tick_fx()
 	_camera()
 
@@ -1673,6 +1735,9 @@ func _p1_post(pcx: float, _pcy: float) -> void:
 	M.post()
 	PR.post()
 	TR.post()
+	K.post()
+	NT.post()
+	RD.post()
 	ZN.post()
 	# vilão foge
 	if VIL:
@@ -1729,14 +1794,14 @@ func _update_coal() -> void:
 		c.life -= 1
 		if T % 3 == 0:
 			c.gy = _rest_y(c.x, c.y, 500)
-		if c.get("k", "") != "dirt" and T % 2 == 0:
+		if not c.get("k", "") in ["dirt", "acorn"] and T % 2 == 0:
 			PARTS.append({"x": c.x, "y": c.y, "vx": -c.vx * .2 + (rng.randf() - .5), "vy": -.5 - rng.randf(), "life": 14, "col": Color(1, .55 + rng.randf() * .3, .15)})
 		for s in SOL:
 			if s.get("oneway"):
 				continue
 			if c.x > s.x and c.x < s.x + s.w and c.y + 7 >= s.y and c.y + 7 <= s.y + 20 and c.vy > 0:
 				c.y = s.y - 7
-				if c.get("k", "") == "dirt":
+				if c.get("k", "") in ["dirt", "acorn"]:
 					c.life = 0
 					burst(c.x, c.y + 4, 10, Color("#7a5a3a"))
 					break
@@ -1759,7 +1824,7 @@ func _update_coal() -> void:
 		if c.life > 0 and player.dyingT == 0 and hit(player, R(c.x - 11, c.y - 11, 22, 22)):
 			hurt(1, c.x - c.vx * 10)
 			c.life = 0
-			burst(c.x, c.y, 10, Color(.25, .25, .27) if c.get("k", "") != "dirt" else Color("#7a5a3a"))
+			burst(c.x, c.y, 10, Color(.25, .25, .27) if not c.get("k", "") in ["dirt", "acorn"] else Color("#7a5a3a"))
 	COAL = COAL.filter(func(c): return c.life > 0 and c.y < L.bottom)
 
 func use_lock(l: Dictionary) -> void:
@@ -1819,6 +1884,15 @@ func update_enemy(e: Dictionary) -> void:
 		return
 	if e.k == "plant":
 		TR.plant_update(e)
+		return
+	if e.k == "squirrel":
+		NT.squirrel(e)
+		return
+	if e.k == "crow":
+		_crow(e)
+		return
+	if e.k == "piranha":
+		_piranha(e)
 		return
 	if e.k == "leech":
 		e.lt = e.get("lt", e.get("ph", 0)) + 1
@@ -1923,6 +1997,56 @@ func update_enemy(e: Dictionary) -> void:
 		e.x = e.r[1]
 		e.dir = -1
 	e.y = e.base
+
+## corvo: voa de um lado a outro e dá rasantes quando o Tomé passa embaixo
+func _crow(e: Dictionary) -> void:
+	var st: int = e.get("st", 0)
+	var pc := Vector2(player.x + player.w / 2, player.y + player.h / 2)
+	e.t = e.get("t", 0) + 1
+	if st == 0:
+		e.x += e.dir * 2.2
+		if e.x < e.r[0]:
+			e.x = e.r[0]
+			e.dir = 1
+		if e.x > e.r[1]:
+			e.x = e.r[1]
+			e.dir = -1
+		e.y = e.cy + sin(T * .06 + e.x * .01) * 16
+		if abs(pc.x - e.x) < 230 and pc.y > e.y + 40 and e.t > 90 and player.dyingT == 0:
+			e.st = 1
+			e.t = 0
+			e.sx = e.x
+			e.sy = e.y
+			e.tx = pc.x + player.vx * 14
+			e.ty = pc.y
+			e.dir = 1 if e.tx > e.x else -1
+			Audio.play("dj", -12)
+	else:
+		var u: float = e.t / 56.0
+		e.x = clamp(e.sx + (e.tx - e.sx) * u * 1.6, e.r[0], e.r[1])
+		e.y = e.sy + (e.ty - e.sy) * sin(min(1.0, u) * PI)
+		if e.t >= 56:
+			e.st = 0
+			e.t = 0
+			e.cy = e.get("base", e.cy)
+
+## piranha: patrulha a água e dá botes quando o Tomé chega perto
+func _piranha(e: Dictionary) -> void:
+	var pc := Vector2(player.x + player.w / 2, player.y + player.h / 2)
+	var d: Vector2 = pc - Vector2(e.x, e.y)
+	if d.length() < 170 and player.swim and player.dyingT == 0:
+		e.dir = 1 if d.x > 0 else -1
+		e.x = clamp(e.x + sign(d.x) * 2.6, e.r[0], e.r[1])
+		e.y += clamp(d.y, -1.6, 1.6)
+	else:
+		e.x += e.dir * 1.3
+		if e.x < e.r[0]:
+			e.x = e.r[0]
+			e.dir = 1
+		if e.x > e.r[1]:
+			e.x = e.r[1]
+			e.dir = -1
+		e.y = lerpf(e.y, e.cy + sin(T * .05 + e.x * .02) * 26, .05)
 
 ## morcego: dorme pendurado; acorda quando o Tomé chega perto e foge da luz
 func _bat(e: Dictionary) -> void:
@@ -2165,6 +2289,7 @@ func respawn() -> void:
 		VIL.x = min(player.x + 420, VIL.gateX - 10)
 	X.boss_reset()
 	TR.reset_on_respawn()
+	K.reset_on_respawn()
 	X.breath = Extras.BREATH
 	snap_camera()
 	flash(msg + " Vidas: %d" % lives)
@@ -2186,7 +2311,8 @@ func save_checkpoint(k: int) -> void:
 			coins_got.append(c.ci)
 	Save.save_run({"level": level_idx, "chk": k, "lives": lives, "inv": INV.duplicate(), "items": got_items, "locks": locks,
 		"clues": CLUEGOT.keys(), "specs": SPECGOT.keys(), "drawn": DRAWN.keys(), "coins": coins_got, "coin_life": coin_life,
-		"pen": STATS.pen, "lit": lantern_lit, "fires": CHK.filter(func(c): return c.on).map(func(c): return CHK.find(c)), "time": time_left, "x": X.save_data(), "m": M.save_data(), "tr": TR.save_data()})
+		"pen": STATS.pen, "lit": lantern_lit, "fires": CHK.filter(func(c): return c.on).map(func(c): return CHK.find(c)), "time": time_left, "x": X.save_data(), "m": M.save_data(), "tr": TR.save_data(),
+		"nt": NT.save_data(), "k": K.save_data(), "rd": RD.save_data(), "rested": RESTED.keys()})
 
 func restore_run(d: Dictionary) -> void:
 	## Continua do ponto salvo: refaz a fase no estado da fogueira
@@ -2227,6 +2353,11 @@ func restore_run(d: Dictionary) -> void:
 	X.restore(d.get("x", {}))
 	M.restore(d.get("m", {}))
 	TR.restore(d.get("tr", {}))
+	NT.restore(d.get("nt", {}))
+	K.restore(d.get("k", {}))
+	RD.restore(d.get("rd", {}))
+	for r in d.get("rested", []):
+		RESTED[int(r)] = 1
 	var k: int = int(d.get("chk", -1))
 	if d.has("fires"):
 		for i in d.fires:

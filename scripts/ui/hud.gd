@@ -43,7 +43,7 @@ func _draw() -> void:
 	Spr.A("hud_clock", W / 2 - 32, 26, .42)
 	# nome e desenhos
 	_box(W - 250, 8, 242, 40)
-	Spr.text("1/7 · " + game.L.name, W - 18, 33, 14, Color("#cdbfa6"), HORIZONTAL_ALIGNMENT_RIGHT, Spr.font_i)
+	Spr.text(game.period_label(), W - 18, 33, 14, Color("#cdbfa6"), HORIZONTAL_ALIGNMENT_RIGHT, Spr.font_i)
 	var nd := 0
 	for d in game.DRWS:
 		if d.got:

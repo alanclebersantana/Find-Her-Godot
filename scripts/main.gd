@@ -2,7 +2,7 @@ extends Node
 ## Cena principal: monta o mundo, as camadas, o HUD, os controles de toque e as telas
 ## (início, abertura da fase, mochila, pista, placar, fim de jogo, pausa).
 
-enum S { TITLE, INTRO, PLAY, BAG, CLUE, RESULTS, OVER, PAUSE, CUT }
+enum S { TITLE, INTRO, PLAY, BAG, CLUE, RESULTS, OVER, PAUSE, CUT, REST }
 var state := S.TITLE
 var game: Game
 var hud: Control
@@ -45,6 +45,7 @@ func _ready() -> void:
 	game.results_ready.connect(_on_level_end)
 	game.game_over.connect(_on_over)
 	game.level_won.connect(_on_results)
+	game.rest_reached.connect(_on_rest)
 	glow_layer = CanvasLayer.new()
 	glow_layer.layer = 1
 	glow_layer.follow_viewport_enabled = true
@@ -201,7 +202,8 @@ func _process(_d: float) -> void:
 		Audio.set_rain(game.AMB.rain * (.35 if under else 1.0) if state == S.PLAY else 0.0)
 		var song: String = game.AMB.song
 		var px: float = game.player.x
-		if px > 8700 and px < 9420 and game.player.y < 760:
+		var tun: Array = game.L.get("tunnel", [0, 0])
+		if px > tun[0] and px < tun[1] and game.player.y < 760:
 			song = "tunel"
 		if game.X and game.X.boss_active():
 			song = "perseguicao"
@@ -640,6 +642,75 @@ func start_level(cont: bool) -> void:
 		show_intro(true)
 	else:
 		_ask_tutorial(func(): play_cut("abertura", func(): show_intro(false)))
+
+## grande fogueira: fim de um período. Pausa, lembrança da Lia e escolha de seguir ou parar.
+const REST_INFO := {
+	1: ["FIM DA MANHÃ", "Toda tarde ela desenhava na varanda, esperando eu voltar do trabalho.", "Aguenta firme, filha. Estou chegando."],
+	2: ["FIM DA TARDE", "Pega-pega no quintal... e ela sempre ganhava de mim.", "Aguenta firme, filha. Estou chegando."],
+	3: ["FIM DO PÂNTANO", "Pular nas poças com a lanterna acesa. Ela nunca teve medo da chuva.", "Estou chegando, Lia. Não tenha medo do escuro."],
+	4: ["FIM DA NEVE", "O boneco de neve ficou com o meu gorro. Ela riu a tarde inteira.", "Falta pouco, filha. Aguenta firme."],
+}
+
+func _on_rest(n: int) -> void:
+	state = S.REST
+	_clear_keys()
+	_show_hud(false)
+	if panel:
+		panel.queue_free()
+	var root := Control.new()
+	root.theme = theme_ui
+	root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var sc := RestScene.new()
+	var found := 0
+	for d in game.DRWS:
+		if d.got:
+			found += 1
+	sc.setup(n, found)
+	root.add_child(sc)
+	var info: Array = REST_INFO.get(n, REST_INFO[1])
+	var vb := VBoxContainer.new()
+	vb.alignment = BoxContainer.ALIGNMENT_END
+	vb.set_anchors_preset(Control.PRESET_FULL_RECT)
+	vb.offset_bottom = -18
+	vb.add_theme_constant_override("separation", 8)
+	vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(vb)
+	var title := _label(info[0] + " · progresso salvo", 15, Color("#cdbfa6"))
+	var mem := _label(info[1], 17, Color("#e8dcc0"), Spr.font_i, 620)
+	var line := _label("“" + info[2] + "”", 22, GOLD, Spr.font_title, 640)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 14)
+	var go := func():
+		if panel:
+			panel.queue_free()
+			panel = null
+		state = S.PLAY
+		_show_hud(true)
+		_clear_keys()
+		game.running = true
+		game.flash("Novo trecho: o relógio recomeçou.", 150)
+	row.add_child(_button("CONTINUAR A JORNADA", go))
+	row.add_child(_button("JOGAR MAIS TARDE", func():
+		if panel:
+			panel.queue_free()
+			panel = null
+		show_title()))
+	for c in [title, mem, line, row]:
+		c.modulate.a = 0.0
+		vb.add_child(c)
+	ui_layer.add_child(root)
+	panel = root
+	panel.set_meta("ok", go)
+	Audio.set_song("tema")
+	var tw := root.create_tween()
+	tw.tween_interval(1.4)
+	tw.tween_property(title, "modulate:a", 1.0, .5)
+	tw.tween_property(mem, "modulate:a", 1.0, .8)
+	tw.tween_interval(1.2)
+	tw.tween_property(line, "modulate:a", 1.0, .8)
+	tw.tween_interval(.6)
+	tw.tween_property(row, "modulate:a", 1.0, .5)
 
 ## no começo de um jogo novo: quer as dicas do tutorial?
 func _ask_tutorial(next: Callable) -> void:

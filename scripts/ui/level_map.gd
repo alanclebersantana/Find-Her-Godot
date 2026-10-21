@@ -3,8 +3,8 @@ extends Control
 ## O que falta só aparece (como "?") nos trechos por onde você já passou.
 
 var game: Game
-const BANDS := {"manha": Color(.36, .55, .3), "tarde": Color(.66, .45, .22), "chuva": Color(.22, .38, .36), "noite": Color(.16, .19, .36), "perseguicao": Color(.34, .14, .14)}
-const NAMES := {"manha": "Manhã", "tarde": "Tarde", "chuva": "Pântano", "noite": "Noite", "perseguicao": "Fuga"}
+const BANDS := {"manha": Color(.36, .55, .3), "tarde": Color(.66, .45, .22), "chuva": Color(.22, .38, .36), "neve": Color(.62, .7, .82), "noite": Color(.16, .19, .36), "perseguicao": Color(.34, .14, .14)}
+const NAMES := {"manha": "Manhã", "tarde": "Tarde", "chuva": "Pântano", "neve": "Neve", "noite": "Noite", "perseguicao": "Fuga"}
 
 func _init() -> void:
 	custom_minimum_size = Vector2(880, 250)
@@ -25,7 +25,7 @@ func _draw() -> void:
 	for i in secs.size():
 		var x0: float = secs[i].x
 		var x1: float = secs[i + 1].x if i + 1 < secs.size() else L.spanX
-		var song: String = secs[i].song
+		var song: String = secs[i].get("bg", secs[i].song)
 		draw_rect(Rect2(x0 * sx, 26, (x1 - x0) * sx, h), BANDS.get(song, Color(.2, .2, .2)))
 		if not shown.has(song):
 			shown[song] = 1
@@ -51,9 +51,16 @@ func _draw() -> void:
 	if not game.X.BOSS.is_empty() and not game.X.BOSS.done:
 		var bq: Vector2 = P.call((game.X.BOSS.x0 + game.X.BOSS.x1) / 2.0, 470)
 		draw_string(Spr.font_b, bq + Vector2(-6, 0), "☠", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("#ff9a7a"))
+	for kg in [game.K.HAWK, game.K.FISH]:
+		if not kg.is_empty() and not kg.done:
+			var kq: Vector2 = P.call((kg.x0 + kg.x1) / 2.0, kg.get("gy", kg.get("y1", 500)) - 30)
+			draw_string(Spr.font_b, kq + Vector2(-6, 0), "☠", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("#ff9a7a"))
 	for c in game.CHK:
 		var q: Vector2 = P.call(c.x, c.y)
-		draw_circle(q + Vector2(0, -5), 4, Color("#ff9a3a") if c.on else Color(.5, .45, .4))
+		var big: bool = c.has("rest")
+		draw_circle(q + Vector2(0, -5), 6.5 if big else 4.0, Color("#ff9a3a") if c.on else Color(.5, .45, .4))
+		if big:
+			draw_arc(q + Vector2(0, -5), 6.5, 0, TAU, 16, Color("#ffe0a0"), 1.5, true)
 	for c in game.CLUES:
 		var q2: Vector2 = P.call(c.x, c.y)
 		if c.got:

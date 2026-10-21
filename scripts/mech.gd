@@ -208,6 +208,7 @@ func _swing_hits() -> void:
 				g.kill_enemy(e, "hit")
 	g.PR.swing_hits(hb)
 	g.TR.swing_hits(hb)
+	g.K.swing_hits(hb)
 	var X = g.X
 	for c in g.CR:
 		if not c.dead and c.t == "break" and not swing_hit.has(c) and Game.hit(hb, c):

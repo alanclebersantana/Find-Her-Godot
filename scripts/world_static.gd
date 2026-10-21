@@ -22,6 +22,10 @@ func _draw() -> void:
 		if c.x + c.w < x0 or c.x > x1:
 			continue
 		Spr.rect(c.x, c.y, c.w, c.h, CAVE)
+	for d in L.get("decor", []):
+		if d.x + 160 < x0 or d.x - 160 > x1:
+			continue
+		WorldNature.decor(d)
 	for s in L.solids:
 		var pad := 140.0
 		if s.x + s.get("w", 0) + pad < x0 or s.x - pad > x1:
@@ -51,7 +55,19 @@ func _draw() -> void:
 			"hill": hill(s)
 			"shed": shed(s)
 			"beam": beam(s)
-			"cart": Spr.AB("mi_cart", s.x - 8, s.y + s.h - 84, s.w + 16, 84)
+			"cart":
+				if s.get("sprite"):
+					Spr.ABb(s.sprite, s.x + s.w / 2, s.y + s.h + 4, s.w + 20)
+					Spr.ellipse(s.x + s.w / 2, s.y + 6, s.w * .45, 6, Color(.96, .97, 1))
+				else:
+					Spr.AB("mi_cart", s.x - 8, s.y + s.h - 84, s.w + 16, 84)
+			"ice":
+				Spr.rr(s.x, s.y, s.w, s.h + 4, 5, Color(.72, .88, 1, .9))
+				Spr.rect(s.x + 6, s.y + 2, s.w - 12, 2, Color(1, 1, 1, .8))
+				var ix: float = s.x + 20
+				while ix < s.x + s.w - 20:
+					Spr.seg(ix, s.y + 4, ix + 14, s.y + s.h, Color(1, 1, 1, .5), 1.2)
+					ix += 46
 
 # ---------- peças ----------
 func tile_h(t: Texture2D, x0_: float, x1_: float, y: float, src: Rect2 = Rect2()) -> void:
@@ -78,6 +94,18 @@ func ground(s: Dictionary) -> void:
 		Spr.img(t, x, s.y - 28, w, t.get_height(), Rect2(0, 0, w, t.get_height()))
 		x += tw
 	Spr.rect(x_a, s.y - 30 + t.get_height(), x_b - x_a, s.h, Color("#34200f"))
+	if s.get("snow"):
+		_snow_top(x_a, x_b, s.y)
+
+## camada de neve por cima do chão (com bordas fofas)
+func _snow_top(xa: float, xb: float, y: float) -> void:
+	Spr.rect(xa, y - 6, xb - xa, 14, Color(.95, .97, 1))
+	Spr.rect(xa, y + 6, xb - xa, 4, Color(.78, .85, .96))
+	var x: float = floor(xa / 26.0) * 26.0
+	while x < xb:
+		var hgt: float = 4 + fmod(x * 7.31, 5.0)
+		Spr.ellipse(x + 13, y - 5, 16, hgt, Color(.97, .98, 1))
+		x += 26
 
 func plat(s: Dictionary) -> void:
 	if s.get("crumble"):
@@ -171,7 +199,37 @@ func _hang_ropes(xa: float, xb: float, y: float, h: float, chain: bool = false) 
 		Spr.rect(xa - 30, by - 3, xb - xa + 60, 6, Color("#a8875a" if not chain else "#6b6560"))
 		Spr.seg(xa - 30, by - 3, xb + 30, by + 3, Color(0, 0, 0, .25), 1)
 
+## paredão de rocha gelada (trecho da neve)
+func snow_cliff(s: Dictionary) -> void:
+	Spr.vgrad(s.x, s.y, s.w, s.h, Color("#b9c6da"), Color("#6f7e98"))
+	var y: float = s.y + 34
+	var k := 0
+	while y < s.y + s.h - 10:
+		var off: float = fmod(k * 53.0, 60.0)
+		var x: float = s.x + off
+		while x < s.x + s.w - 30:
+			Spr.rr(x, y, 52 + fmod(x * .37, 30.0), 26, 9, Color(.52, .6, .74, .55))
+			Spr.seg(x + 6, y + 24, x + 46, y + 24, Color(.3, .36, .48, .5), 2)
+			x += 74
+		y += 38
+		k += 1
+	Spr.hgrad(s.x, s.y, 40, s.h, Color(0, 0, 0, .25), Color(0, 0, 0, 0))
+	Spr.ci.draw_rect(Rect2(s.x, s.y, s.w, s.h), Color(.25, .3, .42, .8), false, 2)
+	_snow_top(s.x, s.x + s.w, s.y)
+	if s.get("overhang"):
+		Spr.rect(s.x, s.y + s.h - 16, s.w, 16, Color(.85, .93, 1))
+		var ix: float = s.x + 8
+		var n := 0
+		while ix < s.x + s.w - 8:
+			var L2: float = 14 + (n * 37 % 5) * 6
+			Spr.poly(PackedVector2Array([Vector2(ix - 6, s.y + s.h), Vector2(ix, s.y + s.h + L2), Vector2(ix + 6, s.y + s.h)]), Color(.85, .95, 1, .95))
+			ix += 22
+			n += 1
+
 func cliff(s: Dictionary) -> void:
+	if s.get("snow"):
+		snow_cliff(s)
+		return
 	var t: Texture2D = Spr.tex.chao
 	Spr.hgrad(s.x, s.y, s.w, s.h, Color("#6a5a4a"), Color("#4a3e32"))
 	var tp := 50.0
@@ -187,6 +245,7 @@ func cliff(s: Dictionary) -> void:
 		yy += th - tp - 14
 	tile_h(t, s.x, s.x + s.w, s.y - 28)
 	Spr.hgrad(s.x, s.y, 60, s.h, Color(0, 0, 0, .35), Color(0, 0, 0, 0))
+
 	var pts = [[.08, .3], [.35, .55], [.7, .25], [.55, .85], [.15, .8], [.9, .65]]
 	for k in pts.size():
 		Spr.A("o_rocks", s.x + s.w * pts[k][0], s.y + s.h * pts[k][1], .9 + (k % 3) * .15, k % 2 == 1, .8)

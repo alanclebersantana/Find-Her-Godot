@@ -26,7 +26,10 @@ func _draw() -> void:
 	WorldExtras.mech(g, T)
 	WorldProps.draw(g, T)
 	WorldTraps.draw(g, T)
+	WorldNature.draw(g, T)
+	_ride_world(g)
 	WorldExtras.boss(g, T)
+	WorldKings.draw(g, T)
 	if g.VIL and g.VIL.go and not g.VIL.gone:
 		var v: Dictionary = g.VIL
 		var f: int = (T / max(3, int(10 - v.get("spd", 3.3)))) % 2
@@ -72,7 +75,7 @@ func _draw() -> void:
 func _deco(g: Game) -> void:
 	var cam := g.cam
 	var k := 0
-	for x in [4992, 5022, 5452, 5688, 6128, 6172, 6545, 6985]:
+	for x in g.L.get("cattails", []):
 		if x > cam - 80 and x < cam + g.W + 80:
 			Spr.A("sw_cattail", x, 512, .62 + (k % 3) * .1, k % 2 == 1)
 		k += 1
@@ -261,6 +264,12 @@ func _enemy(e: Dictionary) -> void:
 			WorldExtras.mole(e, T)
 		"plant":
 			WorldTraps.plant(e, T)
+		"squirrel":
+			WorldNature.squirrel(e, T)
+		"crow":
+			WorldNature.crow(e, T)
+		"piranha":
+			WorldNature.piranha(e, T)
 		"leech":
 			Spr.A("en_puddle", 0, 6, .9)
 			if e.dead:
@@ -282,8 +291,98 @@ func _enemy(e: Dictionary) -> void:
 			Spr.frame(Spr.tex.javali, fr, 210, 140, 105, 136, 0, 3, .46)
 	Spr.restore()
 
+# ---------- cavalo e trilha da cavalgada ----------
+func _ride_world(g: Game) -> void:
+	var RD: Ride = g.RD
+	if RD == null or RD.H.is_empty():
+		return
+	var x0: float = g.cam - 160
+	var x1: float = g.cam + g.W + 160
+	for o in RD.OBS:
+		if o.x > x1 or o.x + 140 < x0:
+			continue
+		match o.k:
+			"log":
+				Spr.rr(o.x, 470, 62, 30, 13, Color("#6b4a2a"))
+				Spr.ellipse(o.x + 52, 485, 10, 14, Color("#c9a26a"))
+				Spr.ring(o.x + 52, 485, 10, Color("#3a2414"), 2)
+				Spr.ellipse(o.x + 26, 470, 28, 5, Color(.96, .97, 1))
+			"rock":
+				Spr.AB("o_rocks", o.x - 8, 448, 70, 56)
+				Spr.ellipse(o.x + 27, 452, 24, 6, Color(.96, .97, 1))
+			"gap":
+				Spr.rect(o.x, 472, o.w, 30, Color(.02, .02, .05))
+				Spr.vgrad(o.x, 500, o.w, 160, Color(.05, .05, .1), Color(.01, .01, .02))
+				Spr.rect(o.x - 6, 466, 12, 10, Color(.96, .97, 1))
+				Spr.rect(o.x + o.w - 6, 466, 12, 10, Color(.96, .97, 1))
+			"branch":
+				# galho baixo de um pinheiro torto
+				Spr.rect(o.x + 70, 120, 22, 380, Color("#4a3220"))
+				Spr.poly(PackedVector2Array([Vector2(o.x + 80, 360), Vector2(o.x - 6, 376), Vector2(o.x - 10, 392), Vector2(o.x + 80, 386)]), Color("#5a3d22"))
+				for k in 4:
+					Spr.ellipse(o.x + 6 + k * 20, 372, 14, 6, Color("#2f5a3a"))
+				Spr.ellipse(o.x + 30, 366, 40, 5, Color(.96, .97, 1))
+			"rope":
+				Spr.rect(o.x - 8, 360, 10, 140, Color("#5a3d22"))
+				Spr.rect(o.x + 84, 360, 10, 140, Color("#5a3d22"))
+				Spr.seg(o.x - 4, 380, o.x + 88, 384, Color("#c9a26a"), 4)
+				for k in 4:
+					Spr.poly(PackedVector2Array([Vector2(o.x + 8 + k * 20, 384), Vector2(o.x + 14 + k * 20, 398), Vector2(o.x + 20 + k * 20, 384)]), [Color("#e0463a"), Color("#f0c040"), Color("#3a8ad0"), Color("#5ab04a")][k])
+	var H: Dictionary = RD.H
+	if RD.riding:
+		return
+	match H.st:
+		"trapped", "free":
+			var rear: float = 0.0
+			if H.st == "free" and H.t > 90 and H.t < 130:
+				rear = sin((H.t - 90) / 40.0 * PI) * .35
+			Spr.save()
+			Spr.translate(H.x, H.y)
+			Spr.rotate(-rear)
+			Spr.scale(-1, 1)
+			WorldNature.horse(0, 0, T * .01, 0.0, H.st, T)
+			Spr.restore()
+		"gone":
+			Spr.save()
+			Spr.translate(H.hx, 500)
+			Spr.scale(-1, 1)
+			WorldNature.horse(0, 0, T * .045, 1.0, "gone", T)
+			Spr.restore()
+
+func _rider(g: Game) -> void:
+	var RD: Ride = g.RD
+	var p: Dictionary = g.player
+	if p.iframe > 0 and (T / 4) % 2 == 0:
+		Spr.alpha = .55
+	var g0: float = RD.gallop
+	var run: float = clamp(RD.spd / 5.0, .2, 1.0)
+	var bob: float = abs(sin(g0 * PI)) * 5 * run
+	var sx: float = RD.hx - 8
+	var sy: float = RD.hy - 78 - bob
+	Spr.save()
+	Spr.translate(sx, sy)
+	if RD.duck:
+		Spr.translate(10, 18)
+		Spr.rotate(.55)
+	elif RD.stumble > 0:
+		Spr.rotate(sin(T * .8) * .15)
+	Spr.frame(Spr.tex.pai, 0, 130, 160, 65, 156, 0, 0, .46, false)
+	Spr.restore()
+	if g.X.DOG.get("st", "") == "ride":
+		Spr.save()
+		Spr.translate(RD.hx + 24, RD.hy - 70 - bob)
+		if not Spr.novo("pipoca", 6, 30):
+			Spr.scale(.3, .3)
+			Spr.A("dog0", 0, 0, 1)
+		Spr.restore()
+	WorldNature.horse(RD.hx, RD.hy, g0, run, "ride", T)
+	Spr.alpha = 1.0
+
 # ---------- o Tomé ----------
 func _player(g: Game) -> void:
+	if g.RD and g.RD.riding:
+		_rider(g)
+		return
 	if g.M and g.M.ctrl:
 		# o jogador está com o Pipoca: o Tomé fica parado onde estava
 		var real: Dictionary = g.player
@@ -342,6 +441,17 @@ func _player_draw(g: Game) -> void:
 		Spr.rotate((46 - p.dyingT) * .12)
 		Spr.translate(0, 30)
 		Spr.frame(pai2, 8, 130, 160, 65, 156, 0, 0, .48, p.face < 0)
+		Spr.restore()
+		return
+	# pendurado na corda esticada: mão sobre mão
+	if p.get("bar"):
+		var bt: Texture2D = Spr.tex.pai_vine_a if int(p.anim) % 2 == 0 else Spr.tex.pai_vine_b
+		var bax := 63.0 if bt == Spr.tex.pai_vine_a else 60.0
+		Spr.save()
+		Spr.translate(cx, p.bar.y + 8)
+		Spr.rotate(sin(p.anim * PI) * .08)
+		Spr.scale(-.56 if p.face < 0 else .56, .56)
+		Spr.ci.draw_texture(bt, Vector2(-bax, -2))
 		Spr.restore()
 		return
 	# subindo: escada/rede (de costas), corda (de lado) e cipó (pendurado pela mão)

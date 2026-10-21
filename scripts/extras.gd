@@ -151,7 +151,16 @@ func pre_step() -> void:
 			g.L["_swim_note"] = true
 			g.tip("Na água: PULAR dá braçadas para cima, ↓ mergulha. De olho no fôlego!", 220)
 	was_swim = p.swim
-	if p.swim and p.y + 8 > w.y:
+	if p.swim and p.y + 8 > w.y and g.NT.air_ok():
+		breath = BREATH
+		if g.T % 14 == 0:
+			BUB.append({"x": p.x + p.w / 2 + p.face * 8, "y": p.y + 4, "t": 0, "top": w.y})
+	elif p.swim and p.y + 8 > w.y and g.NT.in_vent():
+		breath = min(BREATH, breath + 9)
+		if not g.L.get("_vent_note", false):
+			g.L["_vent_note"] = true
+			g.tip("As bolhas do fundo devolvem o fôlego!", 160)
+	elif p.swim and p.y + 8 > w.y:
 		breath -= 1
 		if g.T % 9 == 0:
 			BUB.append({"x": p.x + p.w / 2 + p.face * 8, "y": p.y + 8, "t": 0, "top": w.y})
@@ -241,7 +250,7 @@ func post() -> void:
 			g.keys.Ap = false
 			g.M.dog_action()
 	elif g.keys.get("Ap", false):
-		if _use_dog() or _use_toca() or _use_crack() or _use_mirror():
+		if g.RD.use() or _use_dog() or _use_toca() or _use_crack() or _use_mirror():
 			g.keys.Ap = false
 			focus_block = true
 	if not g.kd("A"):
@@ -293,7 +302,7 @@ func weather_amb() -> void:
 	var under: bool = g.L.has("under") and g.player.y > g.L.under
 	g.AMB.fog = 0.0
 	g.AMB.wind = 0.0
-	if under:
+	if under or g.AMB.get("snow", 0.0) > .3:
 		return
 	match weather:
 		"garoa":

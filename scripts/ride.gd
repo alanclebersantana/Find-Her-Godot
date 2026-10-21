@@ -1,0 +1,232 @@
+extends RefCounted
+class_name Ride
+## O cavalo preso no arame farpado: o Tomé solta (✦), uma cena curta, e o cavalo dispara sozinho
+## pela trilha da neve (uns 25 s). PULAR salta troncos, pedras e buracos; ↓ abaixa sob galhos e
+## cordas. Cada batida custa um coração e o cavalo tropeça; sem corações, a cavalgada recomeça.
+
+var g
+var H := {}            # o cavalo
+var OBS: Array = []     # obstáculos da trilha
+var riding := false
+var hx := 0.0
+var hy := 500.0
+var vy := 0.0
+var spd := 0.0
+var duck := false
+var stumble := 0
+var gallop := 0.0
+var done := false
+var tries := 0
+
+const BOX_W := 80.0
+
+func _init(game) -> void:
+	g = game
+
+func load_level() -> void:
+	H = {}
+	OBS = []
+	riding = false
+	done = false
+	if g.L.has("horse"):
+		H = g.L.horse.duplicate()
+		H.st = "trapped"
+		H.t = 0
+		H.hx = float(H.x)
+	for o in g.L.get("ride", []):
+		var d: Dictionary = o.duplicate()
+		d.hit = false
+		OBS.append(d)
+
+func near_horse() -> bool:
+	if H.is_empty() or H.st != "trapped":
+		return false
+	var p: Dictionary = g.player
+	return abs(p.x + p.w / 2 - H.x) < 110 and abs(p.y + p.h - H.y) < 60 and not p.get("dog")
+
+## ✦ USAR perto do cavalo: solta do arame
+func use() -> bool:
+	if not near_horse():
+		return false
+	H.st = "free"
+	H.t = 0
+	Audio.play("unlock")
+	Audio.vib(40)
+	g.burst(H.x - 40, H.y - 40, 16, Color("#cdbfa6"))
+	g.start_cine("cavalo", H.x + 40, H.y - 80, 300,
+		[[20, 120, "TOMÉ", "Calma, garoto... pronto, o arame saiu. Você está livre!", "tome"],
+		 [130, 240, "TOMÉ", "Me leva até a mina? A Lia está me esperando. Vamos!", "tome"]],
+		[])
+	return true
+
+func cine_step(c: Dictionary) -> void:
+	if c.id != "cavalo":
+		return
+	H.t = c.t
+	if c.t == 100:
+		Audio.play("roar", -16)
+	if c.t == 250:
+		Audio.play("jump", -4)
+
+func cine_end(id: String) -> void:
+	if id != "cavalo":
+		return
+	_start()
+
+func _start() -> void:
+	var p: Dictionary = g.player
+	H.st = "ride"
+	riding = true
+	hx = float(H.ride0)
+	hy = 500.0
+	vy = 0.0
+	spd = 1.0
+	duck = false
+	stumble = 0
+	for o in OBS:
+		o.hit = false
+	for s in g.SOL.duplicate():
+		if s.get("id") == "horsebank":
+			g.SOL.erase(s)
+	p.hp = Game.MAXHP
+	p.vine = null
+	p.ladder = null
+	p.bar = null
+	if not g.X.DOG.is_empty() and g.X.dog_free():
+		g.X.DOG.st = "ride"
+	_place_player()
+	g.snap_camera()
+	g.flash_tut("Segure firme!", "Segure firme! PULAR salta troncos, pedras e buracos. ↓ abaixa sob galhos e cordas.", 240)
+
+func _place_player() -> void:
+	var p: Dictionary = g.player
+	p.x = hx - p.w / 2 + 6
+	p.y = hy - 74 - p.h + (14 if duck else 0)
+	p.vx = spd
+	p.vy = vy
+	p.onGround = hy >= 500.0
+	p.face = 1
+
+## caixa do cavalo com o Tomé montado
+func box() -> Dictionary:
+	var top: float = hy - (82 if duck else 122)
+	return g.R(hx - BOX_W / 2, top, BOX_W, hy - top)
+
+func step() -> void:
+	var p: Dictionary = g.player
+	g.T += 1
+	gallop += spd * .055
+	if stumble > 0:
+		stumble -= 1
+		spd = move_toward(spd, 2.0, .4)
+	else:
+		spd = move_toward(spd, float(H.spd), .08)
+	var on_ground: bool = hy >= 500.0
+	if g.pressed("J") and on_ground and stumble < 20:
+		vy = -12.4
+		Audio.play("jump", -4)
+		g.burst(hx - 30, 500, 8, Color(.95, .97, 1))
+	duck = g.kd("S") and on_ground
+	vy += .55
+	hy = min(500.0, hy + vy)
+	if hy >= 500.0:
+		if vy > 6:
+			g.fx("fx_dust", hx - 20, 494, 14, .12, -.2)
+		vy = 0.0
+	hx += spd
+	if on_ground and g.T % 5 == 0:
+		g.PARTS.append({"x": hx - 34, "y": 498, "vx": -spd * .3, "vy": -1.0, "life": 16, "col": Color(.95, .97, 1, .8)})
+	# obstáculos
+	var b := box()
+	for o in OBS:
+		if o.hit or o.x + 140 < hx - 80 or o.x > hx + 80:
+			continue
+		var bad := false
+		match o.k:
+			"log":
+				bad = Game.hit(b, g.R(o.x, 470, 62, 30))
+			"rock":
+				bad = Game.hit(b, g.R(o.x, 452, 54, 48))
+			"gap":
+				bad = hy >= 498 and hx > o.x + 10 and hx < o.x + o.w - 10
+			"branch", "rope":
+				bad = Game.hit(b, g.R(o.x, 372, 84, 24))
+		if bad:
+			o.hit = true
+			_hurt(o)
+	# lápis
+	for c in g.COINS:
+		if not c.got and abs(c.x - hx) < 70 and Game.hit(b, g.R(c.x - 15, c.y - 15, 30, 30)):
+			c.got = true
+			g.STATS.pen += 1
+			g.gain_coin(c.x, c.y)
+	_place_player()
+	if p.iframe > 0:
+		p.iframe -= 1
+	if hx >= float(H.ride1):
+		_finish()
+
+func _hurt(o: Dictionary) -> void:
+	var p: Dictionary = g.player
+	if o.k == "gap":
+		# tropeça na beirada e salta por cima
+		vy = -9.0
+		hy = 499.0
+	stumble = 40
+	spd = 1.5
+	g.shake = 10
+	g.hit_stop = 4
+	Audio.play("hurt")
+	Audio.play("stomp", -8)
+	Audio.vib(60)
+	g.burst(hx + 30, hy - 60, 12, Color("#e07a6a"))
+	if p.iframe > 0:
+		return
+	p.iframe = 50
+	p.hp -= 1
+	if p.hp <= 0:
+		tries += 1
+		g.iris_t = 30
+		g.flash("O cavalo empacou! Vamos de novo — PULAR para saltar, ↓ para abaixar.", 220)
+		_start()
+
+func _finish() -> void:
+	var p: Dictionary = g.player
+	riding = false
+	done = true
+	H.st = "gone"
+	H.t = 0
+	H.hx = hx
+	p.x = hx + 30
+	p.y = 500 - p.h
+	p.vx = 2.0
+	p.vy = -6.0
+	p.onGround = false
+	p.hp = max(p.hp, 1)
+	if g.X.DOG.get("st", "") == "ride":
+		g.X.DOG.st = "door"
+		g.X.DOG.x = hx - 30
+		g.X.DOG.y = 500.0
+	Audio.play("roar", -14)
+	g.flash("Valeu, amigo! O cavalo voltou para a vila. A trilha da mina começa aqui.", 240)
+
+## o cavalo indo embora depois da cavalgada
+func post() -> void:
+	if H.is_empty():
+		return
+	H.t += 1
+	if H.st == "gone":
+		H.hx -= 6.0
+		if H.t > 200:
+			H.st = "away"
+
+func save_data() -> Dictionary:
+	return {"done": done}
+
+func restore(d: Dictionary) -> void:
+	if d.get("done", false) and not H.is_empty():
+		done = true
+		H.st = "away"
+		for s in g.SOL.duplicate():
+			if s.get("id") == "horsebank":
+				g.SOL.erase(s)

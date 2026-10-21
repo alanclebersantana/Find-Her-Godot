@@ -139,6 +139,8 @@ func _extras(g: Game, T: int) -> void:
 			continue
 		_water(g, w.x, w.x + w.w, w.y, w.h, Color(.24, .52, .6, .46), Color(.04, .14, .22, .78), T, false)
 		Spr.rect(w.x, w.y, w.w, w.h, Color(.02, .03, .08, dark * .55))
+	WorldKings.draw_fish(g, T)
+	WorldNature.draw_bogs(g, T)
 	for b in X.BUB:
 		Spr.ring(b.x, b.y, 2 + b.t * .02, Color(.85, .95, 1, .7), 1.2)
 	for r in X.RIP:
@@ -192,7 +194,17 @@ func _projectiles(g: Game, T: int) -> void:
 		var gy: float = c.get("gy", -1.0)
 		if gy > 0 and gy > c.y:
 			var k: float = clamp(1.0 - (gy - c.y) / 300.0, .25, 1.0)
-			Spr.ellipse(c.x, gy - 1, 14 * k, 4 * k, Color(.8, .15, .05, .45 * k) if not dirt else Color(0, 0, 0, .35 * k))
+			Spr.ellipse(c.x, gy - 1, 14 * k, 4 * k, Color(.8, .15, .05, .45 * k) if not dirt and c.get("k", "") != "acorn" else Color(0, 0, 0, .35 * k))
+		if c.get("k", "") == "acorn":
+			Spr.save()
+			Spr.translate(c.x, c.y)
+			Spr.rotate(c.rot)
+			Spr.ellipse(0, 2, 6, 7, Color("#9a6a32"))
+			Spr.ellipse(0, -4, 7, 3.5, Color("#5a3a1a"))
+			Spr.seg(0, -7, 1, -10, Color("#5a3a1a"), 1.5)
+			Spr.ellipse(-2, 1, 1.5, 3, Color(1, 1, 1, .35))
+			Spr.restore()
+			continue
 		if dirt:
 			Spr.save()
 			Spr.translate(c.x, c.y)

@@ -36,6 +36,9 @@ func _draw() -> void:
 		"noite", "perseguicao", "tunel": base = Color(.02, .03, .06)
 	if under:
 		base = Color(.05, .035, .025)
+	var snow: float = g.AMB.get("snow", 0.0)
+	if snow > 0:
+		base = base.lerp(Color(.55, .62, .78), snow)
 	var col := base.lerp(Color(0, 0, 0), dark * .5)
 	col.a = .93
 	var wind: float = g.AMB.get("wind", 0.0)
@@ -61,7 +64,7 @@ func _draw() -> void:
 				else:
 					_fern(x + off, vs.y + abs(off), cb, sway, i)
 	# folhas voando (sempre algumas; muitas com vento; nenhuma debaixo da terra)
-	var nleaves := 0 if under else (26 if wind > 0 else (10 if song in ["tarde", "manha"] else 5))
+	var nleaves := 0 if under else (26 if wind > 0 or snow > .3 else (10 if song in ["tarde", "manha"] else 5))
 	for k in nleaves:
 		var l: Dictionary = leaves[k]
 		l.vx = lerpf(l.vx, -1.2 - wind * 5.5 + sin(t * .01 + k) * .8, .02)
@@ -78,6 +81,13 @@ func _draw() -> void:
 		if l.y > vs.y + 20:
 			l.y = -20
 			l.x = randf() * vs.x
+		if snow > .3:
+			# flocos de neve caindo devagar
+			l.y += .5 + l.s * .6
+			var fs: float = 2.0 + l.s * 2.4
+			draw_circle(Vector2(l.x, l.y), fs, Color(1, 1, 1, .85 * snow))
+			draw_circle(Vector2(fmod(l.x + 517.0, vs.x), fmod(l.y + 233.0, vs.y)), fs * .7, Color(1, 1, 1, .6 * snow))
+			continue
 		var lc: Color = [Color(.42, .6, .2), Color(.75, .5, .15), Color(.6, .3, .12)][l.c]
 		if song in ["noite", "perseguicao", "tunel"]:
 			lc = lc.darkened(.65)

@@ -172,6 +172,8 @@ static func solids(g: Game, T: int) -> void:
 				for i in 4:
 					Spr.rect(s.x + 2 + i * 15, s.y, 12, 8, Color("#6b4a2a"))
 				Spr.rect(s.x, s.y + 2, s.w, 3, Color("#4a3220"))
+			"snowfill", "snowbank", "kinggate":
+				WorldNature.solid(s, T)
 	# plataformas de luz
 	for gp in g.X.GHOST:
 		var a: float = gp.a
@@ -564,6 +566,9 @@ static func mech(g: Game, T: int) -> void:
 					Spr.circle(px - 4 + k * 4, fy + 9, 1.6, Color(.3, .2, .1))
 	for c in M.PUSH:
 		if c.dead:
+			continue
+		if c.get("snow"):
+			WorldNature.snowball(c, T)
 			continue
 		Spr.rr(c.x, c.y, c.w, c.h, 5, Color("#8a6238"))
 		Spr.rect(c.x + 5, c.y + 5, c.w - 10, c.h - 10, Color("#a57a48"))

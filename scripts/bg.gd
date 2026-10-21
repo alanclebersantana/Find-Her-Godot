@@ -56,7 +56,7 @@ func _layer(k: String, ox: float, oy: float, w: float, bh: float, al: float) -> 
 		_layers(k, w, al)
 		return
 	var t: Texture2D = Spr.tex["bg_" + k]
-	if k == "bosque":
+	if k == "bosque" or k == "neve":
 		var sc := bh / t.get_height()
 		var tw := t.get_width() * sc
 		var x := fposmod(ox, tw - 1) - (tw - 1)
