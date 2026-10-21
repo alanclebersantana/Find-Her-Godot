@@ -204,6 +204,24 @@ func _glow_mush(x: float, y: float, t: int) -> void:
 	Spr.A("mu_1" if t > 5 else ("mu_2" if t > 0 else "mu_0"), x, y + 2, 1)
 
 func _campfire(c: Dictionary) -> void:
+	if c.has("rest"):
+		# fogueira grande: troncos de assento dos dois lados e fogo alto, sempre acesa (chama o Tomé)
+		Spr.glow(c.x, c.y - 30, 110 + sin(T * .2) * 6, Color(1, .7, .3, .4))
+		for sx in [-1, 1]:
+			var lx: float = c.x + sx * 74
+			Spr.ellipse(lx, c.y + 1, 40, 5, Color(0, 0, 0, .3))
+			Spr.rr(lx - 36, c.y - 24, 72, 24, 11, Color("#3a2414"))
+			Spr.rr(lx - 34, c.y - 22, 68, 20, 10, Color("#8a5a32"))
+			Spr.seg(lx - 24, c.y - 16, lx + 10, c.y - 16, Color("#5a3820"), 2)
+			Spr.seg(lx - 14, c.y - 9, lx + 20, c.y - 9, Color("#5a3820"), 2)
+			Spr.ellipse(lx + sx * 32, c.y - 12, 7, 10, Color("#d8b07a"))
+			Spr.ring(lx + sx * 32, c.y - 12, 4, Color("#8a5a32"), 1.5)
+		if T % 3 == 0:
+			game.PARTS.append({"x": c.x + (randf() - .5) * 24, "y": c.y - 40, "vx": (randf() - .5) * .8, "vy": -1.8, "life": 28, "col": Color("#ffcf6a")})
+		Spr.A("o_fire_on", c.x, c.y + 4, 1.25)
+		if not game.RESTED.has(c.rest) and (T / 20) % 2 == 0:
+			Spr.text("▼", c.x, c.y - 100 + sin(T * .1) * 4, 20, Color("#ffe0a0"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
+		return
 	if c.on:
 		Spr.glow(c.x, c.y - 20, 60, Color(1, .75, .35, .35))
 		if T % 5 == 0:
