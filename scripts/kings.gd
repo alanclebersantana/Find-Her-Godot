@@ -84,13 +84,13 @@ func _hawk() -> void:
 			var cx: float = (h.x0 + h.x1) / 2.0 + sin(h.t * .022) * (h.x1 - h.x0) * .38
 			h.dir = 1 if cos(h.t * .022) > 0 else -1
 			h.x = lerpf(h.x, cx, .06)
-			h.y = lerpf(h.y, gy - 210 + sin(h.t * .07) * 14, .05)
+			h.y = lerpf(h.y, gy - 165 + sin(h.t * .07) * 12, .05)
 			if h.t > (70 if enraged else 110) and p.dyingT == 0:
 				_mark(h, pcx)
 		"mark":
 			h.t += 1
 			h.x = lerpf(h.x, h.tx, .08)
-			h.y = lerpf(h.y, gy - 200, .08)
+			h.y = lerpf(h.y, gy - 160, .08)
 			h.dir = 1 if h.tx > h.x else h.dir
 			# o facho da lanterna confunde: ele mergulha no lugar errado
 			if not h.conf and g.X.in_cone(h.x, h.y - 20, 520.0):
@@ -141,7 +141,7 @@ func _hawk() -> void:
 				Audio.play("dj", -8)
 		"rise":
 			h.t += 1
-			h.y = lerpf(h.y, gy - 210, .07)
+			h.y = lerpf(h.y, gy - 165, .07)
 			if h.t > 40:
 				h.st = "circle"
 				h.t = 0
