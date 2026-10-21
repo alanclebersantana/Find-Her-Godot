@@ -2,7 +2,7 @@ extends Node
 ## Cena principal: monta o mundo, as camadas, o HUD, os controles de toque e as telas
 ## (início, abertura da fase, mochila, pista, placar, fim de jogo, pausa).
 
-enum S { TITLE, INTRO, PLAY, BAG, CLUE, RESULTS, OVER, PAUSE, CUT, REST }
+enum S { TITLE, INTRO, PLAY, BAG, CLUE, RESULTS, OVER, PAUSE, CUT, REST, COMIC }
 var state := S.TITLE
 var game: Game
 var hud: Control
@@ -226,8 +226,28 @@ func _process(_d: float) -> void:
 				stick._release()
 
 func _physics_process(_d: float) -> void:
+	if state == S.PLAY and game.comic_req != "":
+		_show_comic(game.comic_req)
+		game.comic_req = ""
+		return
 	if state == S.PLAY:
 		game.step()
+
+## quadrinho (chefe ou primeira vez em algo novo): o jogo espera até ele acabar
+func _show_comic(id: String) -> void:
+	state = S.COMIC
+	_clear_keys()
+	if stick:
+		stick._release()
+	_show_hud(false)
+	var c := preload("res://scripts/ui/comic.gd").new(id)
+	c.theme = theme_ui
+	ui_layer.add_child(c)
+	c.finished.connect(func():
+		_clear_keys()
+		if state == S.COMIC:
+			state = S.PLAY
+			_show_hud(true))
 
 # ======================================================================
 #  ENTRADA (teclado, controle e toque)

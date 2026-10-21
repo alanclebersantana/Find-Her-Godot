@@ -20,20 +20,21 @@ func _draw() -> void:
 	if not game.CINE.is_empty():
 		_cine(W, size.y)
 		return
-	_box(8, 8, 290, 40)
+	var o := 40.0   # 5 corações: o resto do painel anda para a direita
+	_box(8, 8, 290 + o, 40)
 	for i in Game.MAXHP:
-		Spr.A("hud_heart_full" if i < p.hp else "hud_heart_empty", 28 + i * 26, 28, .5)
+		Spr.A("hud_heart_full" if i < p.hp else "hud_heart_empty", 26 + i * 23, 28, .45)
 	if p.armor > 0:
-		Spr.A("hud_shield", 108, 28, .48)
-	Spr.text("× %d" % max(0, game.lives), 122, 34, 16, Color("#e6d4ac"))
-	Spr.A("pen_vermelho", 179, 30, .62 * 1.1)
-	Spr.text("%d/100" % game.coin_life, 194, 34, 14, Color("#f0cd72"))
+		Spr.A("hud_shield", 108 + o, 28, .48)
+	Spr.text("× %d" % max(0, game.lives), 122 + o, 34, 16, Color("#e6d4ac"))
+	Spr.A("pen_vermelho", 179 + o, 30, .62 * 1.1)
+	Spr.text("%d/100" % game.coin_life, 194 + o, 34, 14, Color("#f0cd72"))
 	var k := 0
 	for c in GameData.PEN_LIST:
-		Spr.rr(240 + k * 8, 14, 6, 26, 2, GameData.PEN_COL[c] if game.SPECGOT.has(c) else Color(.35, .31, .25, .6))
+		Spr.rr(240 + o + k * 8, 14, 6, 26, 2, GameData.PEN_COL[c] if game.SPECGOT.has(c) else Color(.35, .31, .25, .6))
 		k += 1
 	if game.X and not game.X.GOLD.is_empty() and game.X.GOLD.got:
-		Spr.rr(240 + k * 8, 14, 6, 26, 2, Color("#ffd76a"))
+		Spr.rr(240 + o + k * 8, 14, 6, 26, 2, Color("#ffd76a"))
 	# tempo
 	var s: int = max(0, int(ceil(game.time_left / 60.0)))
 	var low := s <= 20

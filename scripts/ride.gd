@@ -183,7 +183,7 @@ func _hurt(o: Dictionary) -> void:
 		hy = 499.0
 	stumble = 40
 	spd = 1.5
-	g.shake = 10
+	g.shake = 4
 	g.hit_stop = 4
 	Audio.play("hurt")
 	Audio.play("stomp", -8)

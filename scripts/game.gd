@@ -16,7 +16,7 @@ const DJUMP := -10.8
 const TOP := 4.3
 const ACCg := .9
 const ACCa := .52
-const FRIC := .80
+const FRIC := .70
 const COY := 7
 const BUF := 8
 const PUFF_GRAV := .10
@@ -26,7 +26,7 @@ const PUFF_ACC := .55
 const SLAM_GRAV := 1.8
 const SLAM_MAX := 21.0
 const STOMP := -9.6
-const MAXHP := 3
+const MAXHP := 5
 const VINE_G := .3          # gravidade do balanço no cipó
 const RUN_TOP := 6.6
 const RUN_ACC := 1.05
@@ -104,7 +104,11 @@ var W := 960.0
 var H := 540.0
 var running := false
 var cur_chk := -1           # fogueira onde o Tomé volta ao morrer
-var auto_cine: bool = DisplayServer.get_name() == "headless"   # testes automáticos: falas passam sozinhas
+var auto_cine: bool = DisplayServer.get_name() == "headless"
+## quadrinhos: chefes e primeiras vezes (cipó, mergulho, neve...). A tela principal mostra e o jogo espera.
+var comic_req := ""
+var COMIC_TRIG: Array = []
+const COMIC_CINE := {"boss": "javali", "gaviao": "gaviao", "bagre": "bagre", "urso": "urso", "vargas": "vargas", "cao": "pipoca", "cavalo": "cavalo"}   # testes automáticos: falas passam sozinhas
 var max_x := 0.0          # até onde o Tomé já chegou (para o mapa)
 var tps := 60
 var shown_crate := false
@@ -319,6 +323,7 @@ func _p1_load() -> void:
 		VIL.go = false
 		VIL.gone = false
 	INV = ["picareta"]
+	_comic_triggers()
 	lantern_lit = not L.has("lanternOutX")
 	look_y = 0
 	STATS = {"pen": 0, "penTotal": L.get("coins", []).size()}
@@ -664,6 +669,7 @@ func step() -> void:
 		if player.dyingT == 0:
 			respawn()
 		return
+	_comic_check()
 	if not player.get("warp", {}).is_empty():
 		T += 1
 		_warp_step()
@@ -917,7 +923,9 @@ func step() -> void:
 				player.vx = max(top2, player.vx * .985) if player.vx > top2 else min(player.vx + acc, top2)
 				player.face = 1
 			elif player.get("launchT", 0) <= 0:
-				player.vx *= FRIC if player.onGround else (.9 if player.slam else .985)
+				# soltou o direcional: para firme no chão e quase não deriva no ar (pulo preciso)
+				# (no pulo de parede o controle fica travado um instante: aí o impulso continua)
+				player.vx *= FRIC if player.onGround else (.9 if player.slam else (.985 if player.wlock > 0 else .88))
 		keys.L = held_l
 		keys.R = held_r
 	# vertical
@@ -948,6 +956,10 @@ func step() -> void:
 		player.onGround = false
 		move_x(player.vx)
 		move_y(player.vy)
+	# pousou sem segurar direção: freia na hora (não escorrega para fora da plataforma)
+	if player.onGround and not was_ground and not kd("L") and not kd("R") and not (player._g != null and player._g.get("wet")):
+		player.vx *= .35
+		player.run = 0
 	if player.onGround and not was_ground and prev_vy > 6:
 		player.squash = min(1, prev_vy / 14)
 		player.landT = 8
@@ -1165,6 +1177,20 @@ func _camera() -> void:
 	if not CINE.is_empty():
 		tx = CINE.fx - W / 2
 		ty = CINE.fy - H * .55
+	elif RD and RD.riding:
+		# cavalgada: câmera firme na altura da trilha, cavalo à esquerda para ver os obstáculos chegando
+		tx = RD.hx - W * .3
+		ty = 500.0 - H * .66
+		var cb0 := cam_bounds()
+		tx = clamp(tx, cb0.position.x, max(cb0.position.x, cb0.end.x - W))
+		ty = clamp(ty, cb0.position.y, max(cb0.position.y, cb0.end.y - H))
+		cam = lerpf(cam, tx, .25)
+		cam_vx = 0.0
+		cam_y = lerpf(cam_y, ty, .1)
+		cam_vy = 0.0
+		cam_focus = 500.0
+		look_x = 0.0
+		return
 	else:
 		# olhar para a frente só depois de andar um pouco na mesma direção (virar rápido não balança a tela)
 		var want: float = player.face * (120.0 if player.run else 70.0)
@@ -1197,8 +1223,55 @@ func _camera() -> void:
 # ======================================================================
 #  CENAS DRAMÁTICAS DENTRO DO JOGO
 # ======================================================================
+func want_comic(id: String) -> void:
+	if id == "" or auto_cine or comic_req != "":
+		return
+	if Save.getv("comic", id, false):
+		return
+	comic_req = id
+
+## pontos da fase onde aparece um quadrinho na primeira passagem
+func _comic_triggers() -> void:
+	COMIC_TRIG = []
+	var add := func(id: String, x: float): COMIC_TRIG.append({"id": id, "x": x, "done": false})
+	var vx := INF
+	for v in L.get("vines", []):
+		vx = min(vx, float(v.x))
+	if vx < INF:
+		add.call("cipo", vx - 320)
+	var sw: Array = L.get("swamp", [])
+	if not sw.is_empty():
+		add.call("toxico", float(sw[0].x) - 220)
+	var wx := INF
+	for w in L.get("water", []):
+		if float(w.get("h", 0)) >= 300:
+			wx = min(wx, float(w.x))
+	if wx < INF:
+		add.call("mergulho", wx - 160)
+	for sct in L.get("sections", []):
+		if sct.get("bg", "") == "neve":
+			add.call("neve", float(sct.x) + 60)
+			break
+	var cx := INF
+	for so in L.solids:
+		if so.t == "crack":
+			cx = min(cx, float(so.x))
+	if cx < INF:
+		add.call("picareta", cx - 260)
+	var dz: Array = L.get("darkZones", [])
+	if not dz.is_empty():
+		add.call("mina", float(dz[0].x) + 40)
+
+func _comic_check() -> void:
+	var px: float = player.x + player.w / 2
+	for t in COMIC_TRIG:
+		if not t.done and px > t.x and px < t.x + 600:
+			t.done = true
+			want_comic(t.id)
+
 ## id: "boss", "vargas", "cao". A câmera vai até o foco, aparecem as faixas de cinema e as falas.
 func start_cine(id: String, fx: float, fy: float, dur: int, lines: Array = [], title: Array = []) -> void:
+	want_comic(COMIC_CINE.get(id, ""))
 	CINE = {"id": id, "t": 0, "dur": dur, "fx": fx, "fy": fy, "fx0": fx, "lines": lines, "title": title}
 	keys.clear()
 	player.vx = 0.0

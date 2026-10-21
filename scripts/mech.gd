@@ -418,7 +418,7 @@ func try_push(c: Dictionary, dx: float) -> bool:
 	var p: Dictionary = g.player
 	if c.t != "push" or p._g == null or p.crouch or p.get("dog") or p.get("guard"):
 		return false
-	var amt: float = clamp(dx * .6, -2.6, 2.6)
+	var amt: float = clamp(dx * .92, -3.9, 3.9)
 	# a caixa nunca volta para trás do lugar onde começou: assim não fica presa num paredão
 	# sem espaço para o Tomé passar para trás dela
 	if amt < 0 and c.x + amt < c.ox:
