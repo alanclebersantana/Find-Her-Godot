@@ -220,9 +220,9 @@ func fish_box() -> Dictionary:
 func scale_pts() -> Array:
 	var out := []
 	var f: Dictionary = FISH
-	for i in 4:
-		var lx: float = -60 + i * 34
-		out.append(Vector2(f.x + lx * -f.dir, f.y - 16 + abs(i - 1.5) * 5))
+	# as 4 escamas azuis do desenho (em relação ao centro do bagre, olhando para a direita)
+	for p in [Vector2(-1, 7), Vector2(23, 8), Vector2(34, -6), Vector2(44, 3)]:
+		out.append(Vector2(f.x + p.x * f.dir, f.y + p.y))
 	return out
 
 func fish_weak() -> bool:

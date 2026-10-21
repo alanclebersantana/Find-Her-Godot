@@ -320,25 +320,18 @@ func _ride_world(g: Game) -> void:
 			continue
 		match o.k:
 			"log":
-				Spr.rr(o.x, 470, 62, 30, 13, Color("#6b4a2a"))
-				Spr.ellipse(o.x + 52, 485, 10, 14, Color("#c9a26a"))
-				Spr.ring(o.x + 52, 485, 10, Color("#3a2414"), 2)
-				Spr.ellipse(o.x + 26, 470, 28, 5, Color(.96, .97, 1))
+				WorldNature.prop("tora_neve", o.x + 31, 503, 40)
 			"rock":
-				Spr.AB("o_rocks", o.x - 8, 448, 70, 56)
-				Spr.ellipse(o.x + 27, 452, 24, 6, Color(.96, .97, 1))
+				WorldNature.prop("pedra_neve", o.x + 27, 504, 60)
 			"gap":
 				Spr.rect(o.x, 472, o.w, 30, Color(.02, .02, .05))
 				Spr.vgrad(o.x, 500, o.w, 160, Color(.05, .05, .1), Color(.01, .01, .02))
 				Spr.rect(o.x - 6, 466, 12, 10, Color(.96, .97, 1))
 				Spr.rect(o.x + o.w - 6, 466, 12, 10, Color(.96, .97, 1))
 			"branch":
-				# galho baixo de um pinheiro torto
-				Spr.rect(o.x + 70, 120, 22, 380, Color("#4a3220"))
-				Spr.poly(PackedVector2Array([Vector2(o.x + 80, 360), Vector2(o.x - 6, 376), Vector2(o.x - 10, 392), Vector2(o.x + 80, 386)]), Color("#5a3d22"))
-				for k in 4:
-					Spr.ellipse(o.x + 6 + k * 20, 372, 14, 6, Color("#2f5a3a"))
-				Spr.ellipse(o.x + 30, 366, 40, 5, Color(.96, .97, 1))
+				# galho baixo de uma árvore (o tronco fica do lado de lá; o galho aponta para o cavalo)
+				var bw: float = 190.0 * 220.0 / 175.0
+				WorldNature.prop("galho_neve", o.x - 60 + bw / 2, 500 + 190.0 * .06, 190, true)
 			"rope":
 				Spr.rect(o.x - 8, 360, 10, 140, Color("#5a3d22"))
 				Spr.rect(o.x + 84, 360, 10, 140, Color("#5a3d22"))
@@ -373,26 +366,28 @@ func _rider(g: Game) -> void:
 		Spr.alpha = .55
 	var g0: float = RD.gallop
 	var run: float = clamp(RD.spd / 5.0, .2, 1.0)
-	var bob: float = abs(sin(g0 * PI)) * 5 * run
-	var sx: float = RD.hx - 8
-	var sy: float = RD.hy - 78 - bob
+	var hst: String = "jump" if RD.hy < 497.0 else "ride"
+	var seat: float = WorldNature.horse_seat(WorldNature.horse_frame(g0, run, hst))
+	# o Tomé sentado na sela: as pernas ficam atrás do corpo do cavalo (desenhado depois)
+	var sx: float = RD.hx - 6
+	var sy: float = RD.hy + seat + 26
 	Spr.save()
 	Spr.translate(sx, sy)
 	if RD.duck:
-		Spr.translate(10, 18)
-		Spr.rotate(.55)
+		Spr.translate(16, 12)
+		Spr.rotate(.6)
 	elif RD.stumble > 0:
 		Spr.rotate(sin(T * .8) * .15)
 	Spr.frame(Spr.tex.pai, 0, 130, 160, 65, 156, 0, 0, .46, false)
 	Spr.restore()
 	if g.X.DOG.get("st", "") == "ride":
 		Spr.save()
-		Spr.translate(RD.hx + 24, RD.hy - 70 - bob)
+		Spr.translate(RD.hx + 30, RD.hy + seat + 8)
 		if not Spr.novo("pipoca", 6, 30):
 			Spr.scale(.3, .3)
 			Spr.A("dog0", 0, 0, 1)
 		Spr.restore()
-	WorldNature.horse(RD.hx, RD.hy, g0, run, "ride", T)
+	WorldNature.horse(RD.hx, RD.hy, g0, run, hst, T)
 	Spr.alpha = 1.0
 
 # ---------- o Tomé ----------

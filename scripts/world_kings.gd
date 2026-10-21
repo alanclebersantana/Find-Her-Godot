@@ -77,38 +77,32 @@ static func _fish(g: Game, K: Kings, T: int) -> void:
 			var my: float = f.y1 - 60 - (i % 3) * 70 + cos(T * .03 + i * 2) * 20
 			Spr.circle(mx, my, 120 + (i % 2) * 40, Color(.32, .26, .14, .28 * f.mud))
 	var fr: int = (T / 7) % 4
-	var sc := 2.1
+	match f.st:
+		"suck":
+			if f.mouth > .3:
+				fr = 4
+		"tired":
+			fr = 5
+		"down":
+			fr = 6
 	var a: float = f.al * (clamp(1.0 - f.t / 160.0, 0, 1) if f.st == "down" else 1.0)
-	var tint := Color(1, .55, .5) if f.red > 0 and (T / 3) % 2 == 0 else Color(.78, .9, .95)
+	var tint := Color(1, .55, .5) if f.red > 0 and (T / 3) % 2 == 0 else Color(1, 1, 1)
 	Spr.save()
 	Spr.translate(f.x, f.y)
-	if f.st == "down":
-		Spr.rotate(PI * min(1.0, f.t / 40.0))
-	Spr.scale(f.dir * sc, sc)
-	Spr.ci.draw_texture_rect_region(Spr.tex.bagre, Rect2(-61, -38, 122, 76), Rect2(fr * 122, 0, 122, 76), Color(tint.r, tint.g, tint.b, Spr.alpha * a))
-	# bigodes do bagre
-	var wv := sin(T * .1) * 3
-	var wc := Color(.2, .18, .08, a)
-	Spr.line(PackedVector2Array([Vector2(44, 8), Vector2(62, 16 + wv), Vector2(78, 12 + wv * 1.5)]), wc, 2.2)
-	Spr.line(PackedVector2Array([Vector2(44, 12), Vector2(58, 26 - wv), Vector2(70, 34 - wv)]), wc, 2.2)
-	Spr.line(PackedVector2Array([Vector2(40, 14), Vector2(50, 30 + wv), Vector2(56, 40 + wv)]), wc, 1.8)
-	# boca aberta (sugando)
-	if f.mouth > 0:
-		Spr.ellipse(50, 8, 9 * f.mouth, 11 * f.mouth, Color(.08, .05, .04, a))
+	Spr.scale(f.dir, 1)
+	Spr.ci.draw_texture_rect_region(Spr.tex.bagre, Rect2(-140, -80, 280, 160), Rect2(fr * 280, 0, 280, 160), Color(tint.r, tint.g, tint.b, Spr.alpha * a))
 	Spr.restore()
-	_crown(f.x + f.dir * 10, f.y - 72, 1.4 * a + .01)
-	# escamas que brilham (pontos fracos)
-	var pts: Array = K.scale_pts()
-	for i in 4:
-		if not f.scales[i]:
-			continue
-		var p: Vector2 = pts[i]
-		var weak: bool = f.st == "tired"
-		var k: float = (1.0 if weak else .25) * a
-		if weak:
-			Spr.glow(p.x, p.y, 26 + sin(T * .3 + i) * 4, Color(.55, 1, 1, .55))
-		Spr.ellipse(p.x, p.y, 9, 7, Color(.6, .95, 1, k))
-		Spr.ellipse(p.x - 2, p.y - 2, 3, 2, Color(1, 1, 1, k))
+	# escamas azuis = pontos fracos: brilham quando ele cansa; as que já caíram viram marca escura
+	if f.st != "down":
+		var pts: Array = K.scale_pts()
+		for i in 4:
+			var p: Vector2 = pts[i]
+			if not f.scales[i]:
+				Spr.ellipse(p.x, p.y, 7, 6, Color(.24, .22, .12, a))
+				Spr.seg(p.x - 4, p.y - 3, p.x + 4, p.y + 3, Color(.08, .06, .03, a), 1.5)
+			elif f.st == "tired":
+				Spr.glow(p.x, p.y, 24 + sin(T * .3 + i) * 4, Color(.55, 1, 1, .6 * a))
+				Spr.ellipse(p.x, p.y, 6, 5, Color(.75, 1, 1, a))
 	# sucção: linhas de água entrando na boca
 	if f.st == "suck" and f.t > 30:
 		var mx2: float = f.x + f.dir * 118

@@ -240,29 +240,48 @@ func _snowballs() -> void:
 				g.burst(h.x + h.w / 2, h.y, 26, Color(.9, .95, 1))
 				g.flash("A bola de neve afundou e a água congelou: virou ponte!", 200)
 
-## esquilo: joga bolotas de longe (chamado por Game.update_enemy)
+## esquilo: corre de um lado para o outro no seu trecho e, com o Tomé perto, dá um bote
+## (como o sapo e o javali: pisar em cima ou a picareta derrubam; encostar de lado machuca)
 func squirrel(e: Dictionary) -> void:
 	var p: Dictionary = g.player
 	var dx: float = p.x + p.w / 2 - e.x
-	e.dir = 1 if dx > 0 else -1
-	e.y = e.base
 	e.st = e.get("st", 0)
 	e.t = e.get("t", int(e.x) % 60) + 1
-	if e.st == 0:
-		if abs(dx) < 560 and abs(p.y - e.y) < 420 and e.t > 110 and p.dyingT == 0:
-			e.st = 1
-			e.t = 0
-	else:
-		if e.t == 16:
-			var a := Vector2(e.x + e.dir * 10, e.y - 22)
-			var b := Vector2(p.x + p.w / 2 + p.vx * 18, p.y + p.h / 2)
-			var n: float = clamp(abs(b.x - a.x) / 5.0, 28.0, 56.0)
-			var vy: float = (b.y - a.y - .35 * n * (n + 1) / 2.0) / n
-			g.COAL.append({"x": a.x, "y": a.y, "vx": (b.x - a.x) / n, "vy": vy, "b": 1, "life": 200, "rot": 0.0, "k": "acorn"})
-			Audio.play("jump", -14)
-		if e.t > 30:
-			e.st = 0
-			e.t = 0
+	var r0: float = float(e.r[0]) - 40.0
+	var r1: float = float(e.r[1]) + 40.0
+	match e.st:
+		0:
+			# corre no seu trecho
+			e.leap = 0
+			e.y = e.base
+			if not e.has("dir") or e.dir == 0:
+				e.dir = 1
+			e.x += e.dir * 1.3
+			if e.x < r0 or e.x > r1:
+				e.x = clamp(e.x, r0, r1)
+				e.dir = -e.dir
+			e.run = e.get("run", 0.0) + .2
+			if abs(dx) < 230 and abs(p.y + p.h - e.base) < 70 and e.t > 70 and p.dyingT == 0:
+				e.st = 1
+				e.t = 0
+				e.dir = 1 if dx > 0 else -1
+				Audio.play("jump", -12)
+		1:
+			# prepara (agacha) e dá o bote na direção do Tomé
+			e.y = e.base
+			if e.t > 16:
+				e.st = 2
+				e.t = 0
+		2:
+			var u: float = e.t / 34.0
+			e.leap = 1
+			e.x = clamp(e.x + e.dir * 4.2, r0 - 60, r1 + 60)
+			e.y = e.base - sin(min(u, 1.0) * PI) * 46
+			if u >= 1.0:
+				e.y = e.base
+				e.leap = 0
+				e.st = 0
+				e.t = 0
 
 # ======================================================================
 #  SALVAR

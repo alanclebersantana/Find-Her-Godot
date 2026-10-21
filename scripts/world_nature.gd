@@ -45,49 +45,34 @@ static func decor(d: Dictionary) -> void:
 		"snowman":
 			snowman(d.x, d.y, s, false)
 
+## objeto pintado (assets/sprites/p_<nome>.png), com a base no ponto (x, y) e a altura dada
+static func prop(n: String, x: float, y: float, h: float, flip: bool = false, a: float = 1.0) -> void:
+	var k := "p_" + n
+	if not Spr.tex.has(k):
+		Spr.tex[k] = load("res://assets/sprites/%s.png" % k)
+	var t: Texture2D = Spr.tex[k]
+	var w: float = h * t.get_width() / t.get_height()
+	if flip:
+		Spr.save()
+		Spr.translate(x, y)
+		Spr.scale(-1, 1)
+		Spr.ci.draw_texture_rect(t, Rect2(-w / 2, -h, w, h), false, Color(1, 1, 1, Spr.alpha * a))
+		Spr.restore()
+	else:
+		Spr.ci.draw_texture_rect(t, Rect2(x - w / 2, y - h, w, h), false, Color(1, 1, 1, Spr.alpha * a))
+
 static func pine(x: float, y: float, s: float) -> void:
-	var trunk := Color("#4a3220")
-	Spr.rect(x - 9 * s, y - 60 * s, 18 * s, 62 * s, trunk)
-	var green := Color("#2f5a3a")
-	var dark := Color("#22432b")
-	for i in 4:
-		var w: float = (120 - i * 24) * s
-		var by: float = y - (40 + i * 62) * s
-		var h: float = 96 * s
-		Spr.poly(PackedVector2Array([Vector2(x - w / 2, by), Vector2(x, by - h), Vector2(x + w / 2, by)]), dark if i % 2 else green)
-		Spr.ci.draw_polyline(PackedVector2Array([Vector2(x - w / 2, by), Vector2(x, by - h), Vector2(x + w / 2, by)]), INK, 2, true)
-		# neve nos galhos
-		Spr.poly(PackedVector2Array([Vector2(x - w * .34, by - h * .3), Vector2(x, by - h * .95), Vector2(x + w * .3, by - h * .32), Vector2(x + w * .1, by - h * .4), Vector2(x - w * .05, by - h * .28)]), Color(.96, .97, 1))
-		Spr.ellipse(x - w * .36, by - 3, w * .14, 4 * s, Color(.96, .97, 1))
-		Spr.ellipse(x + w * .34, by - 3, w * .12, 4 * s, Color(.96, .97, 1))
+	prop("pinheiro", x, y + 4, 330 * s)
 
 static func snowman(x: float, y: float, s: float, hat: bool) -> void:
-	var white := Color(.97, .98, 1)
-	var sh := Color(.78, .84, .95)
 	Spr.ellipse(x, y + 2, 40 * s, 8 * s, Color(0, 0, 0, .2))
-	for b in [[0, 34, 34], [-58, 25, 25], [-100, 18, 18]]:
-		Spr.circle(x, y - b[1] * s + b[0] * s, b[2] * s, white)
-		Spr.ring(x, y - b[1] * s + b[0] * s, b[2] * s, Color(.55, .62, .75), 2)
-		Spr.ellipse(x + b[2] * s * .3, y - b[1] * s + b[0] * s + b[2] * s * .3, b[2] * s * .55, b[2] * s * .45, Color(sh.r, sh.g, sh.b, .5))
-	var hy: float = y - 118 * s
-	Spr.circle(x - 6 * s, hy, 2.4 * s, INK)
-	Spr.circle(x + 6 * s, hy, 2.4 * s, INK)
-	Spr.poly(PackedVector2Array([Vector2(x, hy + 4 * s), Vector2(x + 18 * s, hy + 7 * s), Vector2(x, hy + 9 * s)]), Color("#e8762a"))
-	for i in 3:
-		Spr.circle(x, y - (70 - i * 14) * s, 2.6 * s, INK)
-	Spr.seg(x - 22 * s, y - 74 * s, x - 48 * s, y - 92 * s, Color("#5a3d22"), 3 * s)
-	Spr.seg(x + 22 * s, y - 74 * s, x + 46 * s, y - 96 * s, Color("#5a3d22"), 3 * s)
+	prop("boneco", x, y + 4, 150 * s)
 	if hat:
-		beanie(x, hy - 12 * s, s)
+		beanie(x - 2 * s, y - 128 * s, s)
 
-## o gorro verde do Tomé (com pompom)
+## o gorro verde do Tomé (com pompom); (x, y) = meio da aba
 static func beanie(x: float, y: float, s: float) -> void:
-	var g1 := Color("#3f7a2e")
-	var pts := PackedVector2Array([Vector2(x - 20 * s, y + 8 * s), Vector2(x - 16 * s, y - 10 * s), Vector2(x + 2 * s, y - 20 * s), Vector2(x + 18 * s, y - 10 * s), Vector2(x + 20 * s, y + 8 * s)])
-	Spr.poly(pts, g1)
-	Spr.ci.draw_polyline(pts, INK, 2, true)
-	Spr.rr(x - 22 * s, y + 2 * s, 44 * s, 10 * s, 4 * s, Color("#2f5f22"))
-	Spr.circle(x + 4 * s, y - 22 * s, 6 * s, Color(.97, .97, .95))
+	prop("gorro", x, y + 12 * s, 40 * s)
 
 # ---------------------------------------------------------------- dinâmico (world_dyn)
 static func draw(g: Game, T: int) -> void:
@@ -199,30 +184,19 @@ static func draw_bogs(g: Game, T: int) -> void:
 			i += 1
 
 static func helmet(x: float, y: float, s: float) -> void:
-	var brass := Color("#c9902e")
-	Spr.ellipse(x, y - 4 * s, 22 * s, 6 * s, Color("#7a5420"))
-	Spr.circle(x, y - 24 * s, 20 * s, brass)
-	Spr.ring(x, y - 24 * s, 20 * s, Color("#5a3a10"), 2)
-	Spr.circle(x + 2 * s, y - 24 * s, 10 * s, Color(.55, .8, .95))
-	Spr.ring(x + 2 * s, y - 24 * s, 10 * s, Color("#8a6a2a"), 3)
-	Spr.ellipse(x + 5 * s, y - 28 * s, 3 * s, 2 * s, Color(1, 1, 1, .9))
-	for a in [-1, 1]:
-		Spr.circle(x + a * 17 * s, y - 24 * s, 4 * s, Color("#8a6a2a"))
+	prop("capacete", x, y + 2 * s, 48 * s)
 
 static func snowball(c: Dictionary, T: int) -> void:
 	var r: float = c.w / 2
 	var cx: float = c.x + r
 	var cy: float = c.y + r
 	Spr.ellipse(cx, c.y + c.h + 1, r * .9, 4, Color(0, 0, 0, .2))
-	Spr.circle(cx, cy, r, Color(.96, .97, 1))
-	Spr.ring(cx, cy, r, Color(.58, .66, .8), 2)
-	Spr.ellipse(cx + r * .25, cy + r * .3, r * .6, r * .5, Color(.8, .86, .96, .6))
-	Spr.circle(cx - r * .35, cy - r * .35, r * .18, Color(1, 1, 1, .9))
-	# marcas girando enquanto rola
-	var a: float = c.x / max(8.0, r)
-	for k in 3:
-		var aa: float = a + k * TAU / 3.0
-		Spr.circle(cx + cos(aa) * r * .55, cy + sin(aa) * r * .55, 2.2, Color(.6, .68, .8, .8))
+	# gira enquanto rola
+	Spr.save()
+	Spr.translate(cx, cy)
+	Spr.rotate(c.x / max(8.0, r))
+	prop("bola_neve", 0, r * 1.02, r * 2.04)
+	Spr.restore()
 
 ## pedaços sólidos que aparecem durante o jogo
 static func solid(s: Dictionary, T: int) -> void:
@@ -250,29 +224,18 @@ static func solid(s: Dictionary, T: int) -> void:
 
 # ---------------------------------------------------------------- bichos
 static func squirrel(e: Dictionary, T: int) -> void:
-	var brown := Color("#a0582a")
-	var dark := Color("#6a3416")
-	var throw: bool = e.get("st", 0) == 1
-	var hop: float = abs(sin(T * .15 + e.x)) * 2.0
-	# rabo grande
-	var tail := PackedVector2Array([Vector2(-6, -8), Vector2(-22, -18), Vector2(-26, -36), Vector2(-16, -46), Vector2(-6, -38), Vector2(-12, -24), Vector2(-2, -14)])
-	Spr.poly(tail, brown)
-	Spr.ci.draw_polyline(tail + PackedVector2Array([tail[0]]), INK, 2, true)
-	Spr.ellipse(-16, -36, 6, 8, Color("#c27a42"))
-	# corpo e cabeça
-	Spr.ellipse(0, -12 - hop, 11, 13, brown)
-	Spr.ring(0, -12 - hop, 12, INK, 1.5, -.2, 4.2)
-	Spr.ellipse(3, -8 - hop, 6, 8, Color("#e8c79a"))
-	Spr.circle(4, -28 - hop, 9, brown)
-	Spr.ring(4, -28 - hop, 9, INK, 1.5)
-	Spr.poly(PackedVector2Array([Vector2(-1, -35 - hop), Vector2(1, -44 - hop), Vector2(5, -36 - hop)]), dark)
-	Spr.circle(8, -30 - hop, 2, INK)
-	Spr.circle(13, -26 - hop, 1.6, INK)
-	# bolota na mão
-	var ax: float = 12 if not throw else 4
-	var ay: float = -14 - hop if not throw else -40
-	Spr.ellipse(ax, ay, 4, 5, Color("#8a5a2a"))
-	Spr.ellipse(ax, ay - 4, 5, 2.5, Color("#5a3a1a"))
+	# arte: 0-3 correndo, 4 bote, 5 nocauteado (olhando para a direita; o chamador já espelha)
+	if not Spr.tex.has("esquilo"):
+		Spr.tex["esquilo"] = load("res://assets/sprites/esquilo.png")
+	var fr: int = int(e.get("run", 0.0)) % 4
+	if e.dead:
+		fr = 5
+	elif e.get("st", 0) == 2:
+		fr = 4
+	elif e.get("st", 0) == 1:
+		fr = 3
+	var s := .5
+	Spr.ci.draw_texture_rect_region(Spr.tex.esquilo, Rect2(-65 * s, -108 * s, 130 * s, 110 * s), Rect2(fr * 130, 0, 130, 110), Color(1, 1, 1, Spr.alpha))
 
 static func crow(e: Dictionary, T: int) -> void:
 	if e.dead:
@@ -288,57 +251,46 @@ static func piranha(e: Dictionary, T: int) -> void:
 
 # ---------------------------------------------------------------- cavalo
 ## cavalo desenhado: corpo, pescoço, cabeça e quatro pernas num galope (g = fase do galope)
+## cavalo desenhado (arte em assets/sprites/cavalo.png; âncoras em assets/data/art_meta.json)
+static var HM: Dictionary = {}
+const HORSE_SC := .8
+
+static func _hm() -> Dictionary:
+	if HM.is_empty():
+		var f := FileAccess.open("res://assets/data/art_meta.json", FileAccess.READ)
+		HM = JSON.parse_string(f.get_as_text()).cavalo
+		if not Spr.tex.has("cavalo"):
+			Spr.tex["cavalo"] = load("res://assets/sprites/cavalo.png")
+	return HM
+
+## quadro do cavalo: 0-3 galope, 4 pulo, 5 parado
+static func horse_frame(g: float, run: float, st: String) -> int:
+	if st == "jump":
+		return 4
+	if run <= .05:
+		return 5
+	return int(floor(g * 4.0)) % 4
+
+## altura da sela acima do chão (negativa), para pôr o Tomé montado
+static func horse_seat(fr: int) -> float:
+	var m := _hm()
+	return (float(m.seat[fr][1]) - float(m.ay)) * HORSE_SC
+
 static func horse(x: float, y: float, g: float, run: float, st: String, T: int) -> void:
-	var coat := Color("#8a5a34")
-	var dark := Color("#5a3820")
-	var mane := Color("#2e1e14")
-	Spr.ellipse(x, y + 2, 56, 7, Color(0, 0, 0, .25))
-	var bob: float = abs(sin(g * PI)) * 5 * run
-	var by: float = y - 60 - bob
-	# pernas (as de trás atrás do corpo)
-	var legs := [[-30, 0.0], [-20, .5], [26, .25], [36, .75]]
-	for i in 4:
-		var lx: float = x + legs[i][0]
-		var ph: float = (g + legs[i][1]) * TAU
-		var sw: float = sin(ph) * 16 * run
-		var lift: float = max(0.0, cos(ph)) * 12 * run
-		var knee := Vector2(lx + sw * .5, by + 26 - lift * .5)
-		var hoof := Vector2(lx + sw, y - lift)
-		var c: Color = dark if i % 2 == 0 else coat
-		Spr.seg(lx, by + 8, knee.x, knee.y, c, 9)
-		Spr.seg(knee.x, knee.y, hoof.x, hoof.y - 4, c, 7)
-		Spr.rect(hoof.x - 5, hoof.y - 6, 10, 6, Color("#2a1a10"))
-	# rabo
-	var tw: float = sin(T * .3) * 6 * (run + .3)
-	Spr.line(PackedVector2Array([Vector2(x - 46, by - 6), Vector2(x - 62, by + 10 + tw), Vector2(x - 66, by + 34 + tw)]), mane, 8)
-	# corpo
-	Spr.ellipse(x, by, 50, 24, coat)
-	var body := PackedVector2Array()
-	for k in 25:
-		var a := TAU * k / 24.0
-		body.push_back(Vector2(x + cos(a) * 50, by + sin(a) * 24))
-	Spr.ci.draw_polyline(body, INK, 2.5, true)
-	Spr.ellipse(x + 6, by + 8, 34, 12, Color(1, 1, 1, .08))
-	# pescoço e cabeça
-	var hx: float = x + 44
-	var hy: float = by - 34 + (sin(g * TAU) * 3 * run)
-	var neck := PackedVector2Array([Vector2(x + 26, by - 14), Vector2(hx - 2, hy - 8), Vector2(hx + 14, hy + 2), Vector2(x + 44, by + 4)])
-	Spr.poly(neck, coat)
-	Spr.ci.draw_polyline(neck, INK, 2.5, true)
-	var head := PackedVector2Array([Vector2(hx - 4, hy - 12), Vector2(hx + 10, hy - 16), Vector2(hx + 34, hy + 4), Vector2(hx + 32, hy + 14), Vector2(hx + 20, hy + 16), Vector2(hx + 2, hy + 6)])
-	Spr.poly(head, coat)
-	Spr.ci.draw_polyline(head + PackedVector2Array([head[0]]), INK, 2.5, true)
-	Spr.poly(PackedVector2Array([Vector2(hx + 2, hy - 12), Vector2(hx + 4, hy - 26), Vector2(hx + 10, hy - 14)]), dark)
-	Spr.circle(hx + 14, hy - 4, 2.6, INK)
-	Spr.circle(hx + 30, hy + 9, 1.8, INK)
-	# crina
-	for k in 6:
-		var u := k / 5.0
-		var mx: float = lerpf(hx + 2, x + 24, u)
-		var my: float = lerpf(hy - 12, by - 18, u)
-		Spr.ellipse(mx - 4, my + 2 + sin(T * .3 + k) * 2 * run, 7, 4, mane, -.6)
-	# rédeas e sela
-	Spr.rr(x - 18, by - 26, 34, 12, 5, Color("#6b2a1a"))
-	Spr.seg(x + 10, by - 22, hx + 26, hy + 8, Color("#3a2414"), 1.5)
+	var m := _hm()
+	var fr := horse_frame(g, run, st)
+	var s := HORSE_SC
+	var cw: float = m.w
+	var ch: float = m.h
+	Spr.ellipse(x, y + 2, 64, 8, Color(0, 0, 0, .25 if st != "jump" else .12))
+	Spr.ci.draw_texture_rect_region(Spr.tex.cavalo, Rect2(x - float(m.ax) * s, y - float(m.ay) * s, cw * s, ch * s),
+		Rect2(fr * cw, 0, cw, ch), Color(1, 1, 1, Spr.alpha))
 	if st == "trapped":
-		Spr.text("!", hx + 10, hy - 50 + sin(T * .2) * 3, 26, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
+		# arame farpado enrolado nas patas
+		for k in 3:
+			var wy: float = y - 14 - k * 9
+			Spr.seg(x - 50, wy, x + 40, wy + 4, Color(.55, .55, .58), 1.6)
+			for j in 6:
+				var bx: float = x - 44 + j * 15
+				Spr.seg(bx - 3, wy - 3, bx + 3, wy + 4, Color(.4, .4, .44), 1.4)
+		Spr.text("!", x + 50, y - 150 + sin(T * .2) * 3, 26, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
