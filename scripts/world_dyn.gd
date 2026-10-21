@@ -25,6 +25,7 @@ func _draw() -> void:
 	WorldExtras.solids(g, T)
 	WorldExtras.mech(g, T)
 	WorldProps.draw(g, T)
+	WorldTraps.draw(g, T)
 	WorldExtras.boss(g, T)
 	if g.VIL and g.VIL.go and not g.VIL.gone:
 		var v: Dictionary = g.VIL
@@ -258,6 +259,8 @@ func _enemy(e: Dictionary) -> void:
 			WorldExtras.spider(e, T)
 		"mole":
 			WorldExtras.mole(e, T)
+		"plant":
+			WorldTraps.plant(e, T)
 		"leech":
 			Spr.A("en_puddle", 0, 6, .9)
 			if e.dead:

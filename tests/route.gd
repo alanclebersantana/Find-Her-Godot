@@ -184,7 +184,7 @@ func on_perch() -> bool:
 	return P.onGround and P.y + P.h <= 372
 
 func boss_fight():
-	for it in 60:
+	for it in 120:
 		P = g.player
 		var b: Dictionary = g.X.BOSS
 		if b.done or b.st == "flee":
@@ -368,6 +368,8 @@ func _initialize() -> void:
 	S("pistas=4", n_clues() == 4)
 	S("pedra 3", jump_to(6900))
 	S("margem", jump_to(7060))
+	var axe: Dictionary = g.TR.by_kind("axe")[0]
+	S("espera o machado", until({}, func(): g.TR.axe_blade(axe); return axe.ang < -.9, 300))
 	S("noite", walk_to(7150))
 	S("caixa", jump_to(7215))
 	S("porta do galpão", walk_to(7470))
@@ -420,6 +422,29 @@ func _initialize() -> void:
 	S("escada da laje", walk_to(7910))
 	S("sobe", climb_to("U", func(): return P.ladder == null and P.onGround and P.y < 480, 500))
 	walk_to(8105)
+	S("rede de caçador", walk_to(8170))
+	press("D")
+	frame()
+	S("Pipoca (rede)", g.M.ctrl)
+	S("Pipoca no poste", walk_to(8165))
+	press("A")
+	hold({}, 8)
+	S("rede caiu", g.TR.by_kind("net")[0].st == "down")
+	press("D")
+	frame()
+	S("Tomé de novo", not g.M.ctrl)
+	S("jaula prendeu", until({"R": true}, func(): return g.TR.trapped != null, 300))
+	hold({}, 30)
+	press("D")
+	frame()
+	S("Pipoca (jaula)", g.M.ctrl)
+	S("Pipoca no poste da jaula", walk_to(8262))
+	press("A")
+	hold({}, 8)
+	S("jaula abriu", g.TR.trapped == null)
+	press("D")
+	frame()
+	S("Tomé livre", not g.M.ctrl)
 	S("cogumelo", until({"R": true}, func(): return P.vy < -15, 300))
 	var dj := false
 	for i in 200:

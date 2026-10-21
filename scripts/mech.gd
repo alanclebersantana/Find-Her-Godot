@@ -165,6 +165,11 @@ func pre() -> void:
 		return
 	if swing_t > 0:
 		swing_t -= 1
+	if g.TR.pick_out() and g.pressed("G"):
+		g.TR.recall_pick()
+	elif g.TR.want_throw() and swing_t == 0 and g.pressed("G"):
+		g.TR.throw_pick()
+		hold_g = -30
 	if g.pressed("G") and swing_t == 0 and not p.ladder and not p.vine and not p.swim and not p.crouch:
 		swing_t = 22
 		swing_hit = {}
@@ -200,6 +205,7 @@ func _swing_hits() -> void:
 			else:
 				g.kill_enemy(e, "hit")
 	g.PR.swing_hits(hb)
+	g.TR.swing_hits(hb)
 	var X = g.X
 	if X.boss_active() and X.BOSS.st == "stun" and not swing_hit.has("boss") and Game.hit(hb, X.boss_box()):
 		swing_hit["boss"] = 1
@@ -255,6 +261,8 @@ func on_block(from_x: float) -> void:
 func dog_action() -> void:
 	var p: Dictionary = g.player
 	var X = g.X
+	if g.TR.dog_bite(p):
+		return
 	for tc in X.TOCAS:
 		if not tc.done and abs(p.x + p.w / 2 - tc.x) < 50 and abs(p.y + p.h - tc.y) < 40:
 			dig_t = 70

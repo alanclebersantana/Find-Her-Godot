@@ -62,6 +62,7 @@ var AMB := {"dark": 0.0, "rain": 0.0, "night": 0.0, "tint": "", "song": "manha",
 var X: Extras
 var M: Mech
 var PR: Props
+var TR: Traps
 var player: Dictionary = {}
 var keys := {}
 var T := 0
@@ -197,6 +198,8 @@ func load_level(i: int) -> void:
 	M.load_level()
 	PR = Props.new(self)
 	PR.load_level()
+	TR = Traps.new(self)
+	TR.load_level()
 	_reset_player(L.spawn.x - 12, L.spawn.y - 34)
 	time_left = int(L.get("time", 180)) * 60
 	coins = 0
@@ -427,6 +430,10 @@ func hint_text() -> String:
 			continue
 		if h.get("dogtied") and X.dog_free():
 			continue
+		if h.has("trap") and int(h.trap) < TR.T.size():
+			var tst: String = TR.T[int(h.trap)].st
+			if tst in ["down", "used", "done"] or (h.has("trapst") and tst != h.trapst):
+				continue
 		if h.has("toca") and (X.TOCAS.is_empty() or X.TOCAS[0].done):
 			continue
 		if X.boss_active() and not h.get("boss"):
@@ -604,6 +611,7 @@ func step() -> void:
 	if player.dyingT > 0:
 		return
 	M.pre()
+	TR.pre()
 	# encostado numa parede no ar (para deslizar e pular de parede em parede)
 	player.wslide = false
 	if player.wsl > 0:
@@ -748,7 +756,7 @@ func step() -> void:
 		# horizontal (logo depois de pular na parede, o controle fica um instante travado)
 		var held_l: bool = keys.get("L", false)
 		var held_r: bool = keys.get("R", false)
-		if player.wlock > 0:
+		if player.wlock > 0 or player.get("launchT", 0) > 0:
 			keys.L = false
 			keys.R = false
 		if player.crouch:
@@ -801,7 +809,7 @@ func step() -> void:
 			elif kd("R") and not player.slam:
 				player.vx = max(top2, player.vx * .985) if player.vx > top2 else min(player.vx + acc, top2)
 				player.face = 1
-			else:
+			elif player.get("launchT", 0) <= 0:
 				player.vx *= FRIC if player.onGround else (.9 if player.slam else .985)
 		keys.L = held_l
 		keys.R = held_r
@@ -815,9 +823,9 @@ func step() -> void:
 		elif player.puff:
 			g = PUFF_GRAV
 			maxv = PUFF_FALL
-		if kd("J") and not player.puff and not player.slam and abs(player.vy) < 1.6:
+		if kd("J") and not player.puff and not player.slam and abs(player.vy) < 1.6 and player.get("launchT", 0) <= 0:
 			g *= .55
-		player.vy = clamp(player.vy + g, -20, maxv)
+		player.vy = clamp(player.vy + g, -34 if player.get("launchT", 0) > 0 else -20, maxv)
 		if player.wall != 0 and not player.onGround and player.vy > 1.5 and kd("R" if player.wall > 0 else "L") and player.wlock == 0:
 			player.vy = min(player.vy, 2.3)
 			player.wslide = true
@@ -1383,6 +1391,7 @@ func move_y(dy: float) -> void:
 			player.vy = 0
 
 func _land(s: Dictionary) -> void:
+	player.launchT = 0
 	player.onGround = true
 	player.coyote = COY
 	player.airJumps = 0 if player.get("dog") else 1
@@ -1600,6 +1609,7 @@ func _p1_post(pcx: float, _pcy: float) -> void:
 	X.post()
 	M.post()
 	PR.post()
+	TR.post()
 	# vilão foge
 	if VIL:
 		if not VIL.go and pcx > VIL.trig:
@@ -1715,6 +1725,10 @@ func use_lock(l: Dictionary) -> void:
 #  INIMIGOS, DANO E MORTE
 # ======================================================================
 func ebox(e: Dictionary) -> Dictionary:
+	if e.k == "plant":
+		if e.dead or e.stun > 0:
+			return R(-9999, -9999, 0, 0)
+		return TR.plant_box(e)
 	if e.k == "spider":
 		return R(e.x - 16, e.y - 14, 32, 28)
 	if e.k == "mole":
@@ -1738,6 +1752,9 @@ func ebox(e: Dictionary) -> Dictionary:
 func update_enemy(e: Dictionary) -> void:
 	if e.stun > 0:
 		e.stun -= 1
+		return
+	if e.k == "plant":
+		TR.plant_update(e)
 		return
 	if e.k == "leech":
 		e.lt = e.get("lt", e.get("ph", 0)) + 1
@@ -2008,6 +2025,8 @@ func break_crate(c: Dictionary) -> void:
 func hurt(d: int, from_x: float) -> void:
 	if player.iframe > 0 or player.dyingT > 0:
 		return
+	if TR and TR.trapped != null and not player.get("dog"):
+		return
 	if player.get("dog"):
 		M.dog_hurt()
 		return
@@ -2081,6 +2100,7 @@ func respawn() -> void:
 	if VIL and VIL.go and not VIL.gone and VIL.get("chase"):
 		VIL.x = min(player.x + 420, VIL.gateX - 10)
 	X.boss_reset()
+	TR.reset_on_respawn()
 	X.breath = Extras.BREATH
 	snap_camera()
 	flash(msg + " Vidas: %d" % lives)
@@ -2102,7 +2122,7 @@ func save_checkpoint(k: int) -> void:
 			coins_got.append(c.ci)
 	Save.save_run({"level": level_idx, "chk": k, "lives": lives, "inv": INV.duplicate(), "items": got_items, "locks": locks,
 		"clues": CLUEGOT.keys(), "specs": SPECGOT.keys(), "drawn": DRAWN.keys(), "coins": coins_got, "coin_life": coin_life,
-		"pen": STATS.pen, "lit": lantern_lit, "time": time_left, "x": X.save_data(), "m": M.save_data()})
+		"pen": STATS.pen, "lit": lantern_lit, "time": time_left, "x": X.save_data(), "m": M.save_data(), "tr": TR.save_data()})
 
 func restore_run(d: Dictionary) -> void:
 	## Continua do ponto salvo: refaz a fase no estado da fogueira
@@ -2142,6 +2162,7 @@ func restore_run(d: Dictionary) -> void:
 	lantern_lit = d.get("lit", lantern_lit)
 	X.restore(d.get("x", {}))
 	M.restore(d.get("m", {}))
+	TR.restore(d.get("tr", {}))
 	var k: int = int(d.get("chk", -1))
 	for i in CHK.size():
 		if i <= k:
