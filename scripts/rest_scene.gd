@@ -124,12 +124,15 @@ class _Memory extends Control:
 		Spr.circle(w * .85, h * .2, 26, Color(1, .95, .7))
 		_ground(w, h, Color("#9bb36a"))
 		Spr.AB("o_cabin", w * .08, h * .08, w * .62, h * .78)
-		Spr.A("lia_draw", w * .5, h * .74, .9)
+		# a Isis (6 anos) sentada no chão da varanda: pequena perto da porta da casa
+		var lx: float = w * .53
+		var ly: float = h * .735
+		Spr.A("lia_draw", lx, ly, .42)
 		# rabiscos aparecendo no papel
 		var k: int = int(t / 20) % 6
 		for i in k:
-			Spr.seg(w * .5 + 8 + i * 4, h * .70, w * .5 + 12 + i * 4, h * .68, Color(.8, .2, .2), 2)
-		Spr.text("♥", w * .58, h * .56 - fmod(t * .3, 30), 18, Color(.9, .3, .3, 1.0 - fmod(t * .3, 30) / 30.0), HORIZONTAL_ALIGNMENT_CENTER)
+			Spr.seg(lx + 3 + i * 2, ly - 6, lx + 5 + i * 2, ly - 7, Color(.8, .2, .2), 1.2)
+		Spr.text("♥", lx + 10, ly - 40 - fmod(t * .3, 24), 12, Color(.9, .3, .3, 1.0 - fmod(t * .3, 24) / 24.0), HORIZONTAL_ALIGNMENT_CENTER)
 
 	func _tag(w: float, h: float, t: float) -> void:
 		_ground(w, h, Color("#9bb36a"))

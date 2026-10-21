@@ -1355,9 +1355,9 @@ func _vine_step() -> void:
 		if v.has("aim"):
 			var tgt := Vector2(float(v.aim[0]), float(v.aim[1]) - player.h)
 			var dx: float = tgt.x - player.x - player.w / 2
-			# sempre vai para a frente (o próximo cipó, a corda ou a margem), a não ser segurando para trás
-			var back: bool = d != 0 and sign(dx) != d
-			if not back and abs(dx) < 620:
+			# sempre vai para a frente (o próximo cipó, a corda ou a margem), mesmo com o direcional
+			# apertado para trás no balanço — para voltar, desce até a ponta do cipó e solta com ↓
+			if abs(dx) < 620:
 				var from := Vector2(player.x + player.w / 2, player.y)
 				var sol := TR.ballistic(from, tgt, .75)
 				if sol.y < -16.0:

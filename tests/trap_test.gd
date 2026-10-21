@@ -55,10 +55,10 @@ func _initialize() -> void:
 		frame()
 		if i % 12 == 0:
 			path.append("(%d,%d)" % [int(g.player.x + 12), int(g.player.y + 34)])
-		if g.player.onGround and g.player.y + 34 <= -129 and i > 40:
+		if g.player.onGround and g.player.y + 34 <= 231 and g.player.x + 12 > 3890 and i > 40:
 			landed = true
 			break
-	say("flor lança ao galho de cima", landed, " ".join(path))
+	say("flor lança ao galho dos lápis", landed, " ".join(path))
 
 	# 3) espinhos machucam quando sobem
 	put(4246, 500)
