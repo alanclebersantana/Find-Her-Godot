@@ -598,6 +598,7 @@ func show_title() -> void:
 	panel.add_child(img)
 	panel.move_child(img, 0)
 	vb.add_child(_label("ENCONTRE-A", 68, Color("#f2d28a"), Spr.font_title))
+	vb.add_child(_label("EPISÓDIO 1 · O BOSQUE", 22, Color("#e8c98a"), Spr.font_title))
 	vb.add_child(_label("Levaram a Isis. Siga a trilha dos lápis de cor.", 18, Color("#e8dcc0"), Spr.font_i))
 	var sp := Control.new()
 	sp.custom_minimum_size = Vector2(0, 8)
@@ -783,7 +784,7 @@ func show_intro(cont: bool) -> void:
 	state = S.INTRO
 	_show_hud(false)
 	var vb := _overlay(.88)
-	vb.add_child(_label("LUGAR 1 DE 7", 14, Color("#cdbfa6")))
+	vb.add_child(_label("EPISÓDIO 1", 16, Color("#cdbfa6"), Spr.font_title))
 	var img := TextureRect.new()
 	img.texture = load("res://assets/ui/cena1.jpg")
 	img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE

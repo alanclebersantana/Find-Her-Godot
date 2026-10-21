@@ -43,7 +43,7 @@ func _ready() -> void:
 			shots = [
 				{"d": _s_post_rails, "txt": "Lá no fundo da mina, longe de qualquer luz...", "dur": 4.5},
 				{"d": _s_post_pencil, "txt": "...uma mãozinha deixou cair mais um lápis nos trilhos. A Isis ainda está marcando o caminho.", "dur": 6.0},
-				{"d": _s_post_card, "txt": "Fase 2: As Profundezas da Mina — em breve.", "dur": 4.5},
+				{"d": _s_post_card, "txt": "Episódio 2: As Profundezas da Mina — em breve.", "dur": 4.5},
 			]
 		"mina":
 			shots = [
@@ -385,9 +385,16 @@ func _s_post_pencil(W: float, H: float, k: float) -> void:
 		Spr.glow(px, py, 40 + sin(t * 4) * 6, Color(1, .5, .4, .4))
 	_vignette(W, H, .75)
 
+func _s_ep1_card(W: float, H: float, k: float) -> void:
+	Spr.vgrad(0, 0, W, H, Color(.08, .06, .04), Color(0, 0, 0))
+	var a: float = clamp(k * 3, 0, 1)
+	Spr.text("ENCONTRE-A", W / 2, H * .3, 26, Color(.8, .72, .6, a), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_title)
+	Spr.text("EPISÓDIO 1", W / 2, H * .3 + 60, 44, Color(.95, .82, .55, a), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_title, 6)
+	Spr.text("O Bosque", W / 2, H * .3 + 104, 24, Color(.85, .8, .7, a * .9), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_i)
+
 func _s_post_card(W: float, H: float, k: float) -> void:
 	Spr.vgrad(0, 0, W, H, Color(.06, .05, .04), Color(0, 0, 0))
 	var a: float = clamp(k * 3, 0, 1)
-	Spr.text("FASE 2", W / 2, H * .36, 22, Color(.8, .72, .6, a), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_title)
+	Spr.text("EPISÓDIO 2", W / 2, H * .36, 22, Color(.8, .72, .6, a), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_title)
 	Spr.text("AS PROFUNDEZAS DA MINA", W / 2, H * .36 + 54, 40, Color(.95, .82, .55, a), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_title, 6)
 	Spr.text("em breve", W / 2, H * .36 + 96, 18, Color(.8, .75, .65, a * .8), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_i)
