@@ -16,7 +16,8 @@ static func decor(d: Dictionary) -> void:
 			var n: String = "v_house1" if d.k == "house1" else "v_house2"
 			var w: float = 210 * s
 			Spr.ellipse(d.x, d.y + 2, w * .55, 10, Color(0, 0, 0, .25))
-			Spr.ABb(n, d.x, d.y + 6, w)
+			# casas são só cenário: um pouco apagadas para não parecerem plataforma
+			Spr.ABb(n, d.x, d.y + 6, w, .72)
 			# neve no telhado de palha
 			var r = Spr.AR[n]
 			var hh: float = w * r[3] / r[2]
@@ -30,7 +31,7 @@ static func decor(d: Dictionary) -> void:
 				var u2 := 1.0 - i / 12.0
 				var yy2: float = top + hh * .14 + abs(u2 - .5) * hh * .62
 				pts.push_back(Vector2(d.x - w * .48 + u2 * w * .96, yy2 + 10 + sin(u2 * 23) * 3))
-			Spr.poly(pts, Color(.96, .97, 1))
+			Spr.poly(pts, Color(.96, .97, 1, .75))
 			for i in 7:
 				var ix: float = d.x - w * .44 + i * w * .145
 				Spr.poly(PackedVector2Array([Vector2(ix - 3, top + hh * .52), Vector2(ix, top + hh * .52 + 10 + (i % 3) * 5), Vector2(ix + 3, top + hh * .52)]), Color(.85, .93, 1, .9))
@@ -121,10 +122,24 @@ static func draw(g: Game, T: int) -> void:
 		if h.x > x1 or h.x + h.w < x0:
 			continue
 		if not h.filled:
-			Spr.vgrad(h.x, h.y + 6, h.w, 134, Color(.45, .65, .85), Color(.1, .2, .35))
-			Spr.rect(h.x, h.y + 6, h.w, 3, Color(.85, .95, 1, .8))
-			for k in 4:
-				Spr.ellipse(h.x + 30 + k * 60, h.y + 9, 16, 3, Color(.95, .98, 1, .6))
+			# água gelada mortal: escura, quase preta, com placas de gelo rachadas e fumacinha de frio
+			Spr.vgrad(h.x, h.y + 6, h.w, 134, Color(.07, .1, .14), Color(.01, .02, .04))
+			Spr.rect(h.x, h.y + 6, h.w, 2, Color(.5, .6, .7, .5))
+			var k := 0
+			var px: float = h.x + 10
+			while px < h.x + h.w - 30:
+				var pw: float = 26 + fmod(px * .73, 22.0)
+				var bob: float = sin(T * .04 + px) * 1.2
+				var pts := PackedVector2Array([Vector2(px, h.y + 8 + bob), Vector2(px + pw * .4, h.y + 5 + bob), Vector2(px + pw, h.y + 8 + bob),
+					Vector2(px + pw * .8, h.y + 13 + bob), Vector2(px + pw * .2, h.y + 13 + bob)])
+				Spr.poly(pts, Color(.82, .92, 1, .92))
+				Spr.seg(px + pw * .3, h.y + 7 + bob, px + pw * .55, h.y + 12 + bob, Color(.45, .58, .72), 1.2)
+				px += pw + 14 + fmod(px * 1.3, 12.0)
+				k += 1
+			for v in 3:
+				var vx: float = h.x + h.w * (.2 + v * .3) + sin(T * .02 + v) * 10
+				var vy: float = h.y - fmod(T * .5 + v * 30.0, 50.0)
+				Spr.ellipse(vx, vy, 16, 6, Color(.9, .95, 1, .18 * (1.0 - fmod(T * .5 + v * 30.0, 50.0) / 50.0)))
 	# capacete e arpão
 	for o in NT.GEAR:
 		if o.got:

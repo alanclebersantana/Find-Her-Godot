@@ -186,8 +186,9 @@ func _cine(W: float, H: float) -> void:
 		for ln in _lines(txt, bw - 110, 17):
 			Spr.text(ln, bx + 92, yy, 17, Color(.96, .92, .82, k2), HORIZONTAL_ALIGNMENT_LEFT, Spr.font_i)
 			yy += 21
-	if t > 45:
-		Spr.text("PULAR ▸", W - 20, H - 22, 14, Color(1, .9, .7, .55 * a), HORIZONTAL_ALIGNMENT_RIGHT, Spr.font_b)
+		if c.get("waiting", false) and (game.T / 18) % 2 == 0:
+			Spr.text("▸ toque para continuar", bx + bw - 14, by + 76, 13, Color(1, .88, .6, k2), HORIZONTAL_ALIGNMENT_RIGHT, Spr.font_b)
+	Spr.text("PULAR CENA ▸", W - 20, H - 22, 15, Color(1, .9, .7, .7 * a), HORIZONTAL_ALIGNMENT_RIGHT, Spr.font_b)
 
 func _portrait(n: String, cx: float, cy: float, h: float, al: float) -> void:
 	var r = Spr.AR.get(n)

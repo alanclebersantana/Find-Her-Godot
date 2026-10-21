@@ -208,6 +208,10 @@ func _process(_d: float) -> void:
 			song = "tunel"
 		if game.X and game.X.boss_active():
 			song = "perseguicao"
+		if game.K and not game.K.HAWK.is_empty() and game.K.HAWK.active and not game.K.HAWK.done:
+			song = "gaviao"
+		if game.K and not game.K.FISH.is_empty() and game.K.FISH.active and not game.K.FISH.done:
+			song = "bagre"
 		if state == S.PLAY:
 			Audio.set_song(song)
 		var in_cine: bool = not game.CINE.is_empty()
@@ -238,11 +242,17 @@ func _input(e: InputEvent) -> void:
 	if e is InputEventScreenTouch or e is InputEventScreenDrag:
 		last_touch_ms = Time.get_ticks_msec()
 	if state == S.PLAY and not game.CINE.is_empty() and ((e is InputEventScreenTouch and e.pressed) or (e is InputEventMouseButton and e.pressed)):
-		game.keys["Jp"] = true
+		# toque avança a fala; no canto de baixo à direita ("PULAR ▸") pula a cena inteira
+		var vs := get_viewport().get_visible_rect().size
+		var pos: Vector2 = e.position
+		if pos.x > vs.x - 170 and pos.y > vs.y - 70:
+			game.keys["Kp"] = true
+		else:
+			game.keys["Jp"] = true
 		return
 	if e is InputEventKey and not e.echo:
 		if e.pressed and (e.keycode == KEY_ESCAPE or e.keycode == KEY_P):
-			_toggle_pause()
+			_toggle_pause("tecla Esc/P")
 			return
 		if e.pressed and e.keycode in [KEY_M, KEY_I, KEY_TAB]:
 			if state == S.PLAY:
@@ -265,7 +275,7 @@ func _input(e: InputEvent) -> void:
 			elif state == S.BAG:
 				close_panel()
 		elif e.button_index == JOY_BUTTON_START and e.pressed:
-			_toggle_pause()
+			_toggle_pause("botão Start do controle")
 		elif m.has(e.button_index):
 			_set_key(m[e.button_index], e.pressed)
 	elif e is InputEventJoypadMotion:
@@ -286,7 +296,7 @@ func _notification(what: int) -> void:
 		if state == S.PLAY and (Time.get_ticks_msec() - last_touch_ms < 900 or (stick and stick.finger != -1)):
 			return
 		if state == S.PLAY:
-			_toggle_pause()
+			_toggle_pause("gesto/botão Voltar do celular")
 		elif state in [S.BAG, S.CLUE, S.PAUSE]:
 			close_panel()
 	elif what == NOTIFICATION_APPLICATION_FOCUS_OUT:
@@ -296,8 +306,16 @@ func _notification(what: int) -> void:
 			stick._release()
 	elif what == NOTIFICATION_APPLICATION_PAUSED:
 		_clear_keys()
+		if stick:
+			stick._release()
 		if state == S.PLAY:
-			_toggle_pause()
+			_toggle_pause("o jogo saiu da tela (gesto de início/apps do celular)")
+			auto_paused_ms = Time.get_ticks_msec()
+	elif what == NOTIFICATION_APPLICATION_RESUMED:
+		# saiu e voltou rapidinho (gesto sem querer na borda): continua sem abrir a pausa
+		if state == S.PAUSE and auto_paused_ms >= 0 and Time.get_ticks_msec() - auto_paused_ms < 3000:
+			close_panel()
+		auto_paused_ms = -1
 
 # ---------- botões de toque ----------
 func _make_touch() -> void:
@@ -763,8 +781,12 @@ func show_intro(cont: bool) -> void:
 	vb.add_child(_button("ENTRAR", go))
 	panel.set_meta("ok", go)
 
-func _toggle_pause() -> void:
+var pause_reason := ""
+var auto_paused_ms := -1
+
+func _toggle_pause(reason: String = "botão II") -> void:
 	if state == S.PLAY:
+		pause_reason = reason
 		state = S.PAUSE
 		_clear_keys()
 		_show_hud(false)
@@ -775,6 +797,8 @@ func _toggle_pause() -> void:
 func _pause_menu() -> void:
 	var vb := _overlay(.7)
 	vb.add_child(_label("PAUSA", 34, GOLD, Spr.font_title))
+	if pause_reason != "":
+		vb.add_child(_label("(pausado por: %s)" % pause_reason, 12, Color("#a89a80"), Spr.font_i))
 	vb.add_child(_button("CONTINUAR", close_panel))
 	vb.add_child(_button("MAPA DA FASE", func(): show_map(true)))
 	vb.add_child(_button("OPÇÕES", func(): show_options(true)))

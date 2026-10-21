@@ -104,6 +104,7 @@ var W := 960.0
 var H := 540.0
 var running := false
 var cur_chk := -1           # fogueira onde o Tomé volta ao morrer
+var auto_cine: bool = DisplayServer.get_name() == "headless"   # testes automáticos: falas passam sozinhas
 var max_x := 0.0          # até onde o Tomé já chegou (para o mapa)
 var tps := 60
 var shown_crate := false
@@ -200,6 +201,28 @@ func load_level(i: int) -> void:
 		DRWS.append(o)
 		di += 1
 	DOOR = {"x": L.door.x, "y": L.door.y, "w": 60, "h": 90, "locked": false}
+	# troncos de assento das fogueiras grandes: só onde há chão firme embaixo; são degraus baixos
+	for c in CHK:
+		if not c.has("rest"):
+			continue
+		c.seats = []
+		for sx in [-74, 74]:
+			var lx: float = c.x + sx
+			var ok := false
+			for s in SOL:
+				if s.t in ["ground", "dirt", "cliff", "stone"] and abs(s.y - c.y) < 2 and s.x <= lx - 36 and s.x + s.w >= lx + 36:
+					ok = true
+			# e sem nada perto que atrapalhe a passagem (parede, passagem baixa, escada)
+			var area := R(lx - 90, c.y - 90, 180, 88)
+			for s in SOL:
+				if not s.get("oneway") and hit(area, s) and not (abs(s.y - c.y) < 2 and s.t in ["ground", "dirt"]):
+					ok = false
+			for cl in CLIMB:
+				if hit(area, cl):
+					ok = false
+			if ok:
+				c.seats.append(lx)
+				SOL.append({"t": "seat", "x": lx - 34, "y": c.y - 12, "w": 68, "h": 12})
 	_p1_load()
 	# objetos perto do chão ficam pousados nele (não flutuando)
 	for arr in [COINS, ITEMS, CLUES, SPECS]:
@@ -313,7 +336,7 @@ func make_body(x: float, y: float) -> Dictionary:
 		"crouch": false, "slideT": 0, "ladder": null, "ladderCD": 0, "dropT": 0, "lookT": 0, "climbA": 0.0, "mud": false,
 		"nearE": null, "nearL": null, "blink": 0, "turnT": 0, "lastFace": 1, "dieMsg": "", "swim": false, "water": null,
 		"wall": 0, "wallT": 0, "wsl": 0, "lastWall": 0, "wlock": 0, "wslide": false, "guard": false, "dog": false,
-		"warp": {}, "wdy": 0.0, "wal": 1.0, "wpose": "", "bar": null}
+		"warp": {}, "wdy": 0.0, "wal": 1.0, "wpose": "", "bar": null, "lastVine": null}
 
 # ======================================================================
 #  UTILIDADES
@@ -884,7 +907,8 @@ func step() -> void:
 			if player.dog:
 				top2 = top2 * 1.18
 			if wet and want == 0:
-				player.vx *= .995 / FRIC
+				# escorrega um pouco e para: gelo desliza mais que o tronco molhado
+				player.vx *= (.955 if player._g.t == "ice" else .88) / FRIC
 			if kd("L") and not player.slam:
 				player.vx = min(-top2, player.vx * .985) if player.vx < -top2 else max(player.vx - acc, -top2)
 				player.face = -1
@@ -954,10 +978,14 @@ func step() -> void:
 		player.blink = 8
 	player.anim += abs(player.vx) * .06
 	# agarrar cipó
+	if player.onGround or player.get("bar") or player.swim:
+		player.lastVine = null
 	if not player.vine and not player.onGround and player.vineCD <= 0 and not player.ladder and not player.dog:
 		var hx: float = player.x + player.w / 2
 		var hy: float = player.y + 6
 		for v in VINES:
+			if v == player.get("lastVine"):
+				continue   # o cipó que acabou de soltar não pega de novo
 			var sx := sin(v.th)
 			var cy := cos(v.th)
 			var dx: float = hx - v.x
@@ -1186,7 +1214,32 @@ func cine_line():
 
 func _cine_step() -> void:
 	T += 1
-	CINE.t += 1
+	# cada fala fica parada na tela até o jogador tocar (nos testes sem tela, segue sozinha)
+	var cl: Array = []
+	var lv: Variant = cine_line()
+	if lv is Array:
+		cl = lv
+	var tap: bool = pressed("J") or pressed("A")
+	if pressed("K"):
+		CINE.t = CINE.dur
+	elif not cl.is_empty():
+		var full_t: int = int(cl[0] + cl[3].length() / 1.6) + 1
+		if tap and CINE.t < full_t:
+			CINE.t = full_t
+		elif CINE.t >= cl[1] - 3 and not CINE.get("ok", {}).has(cl[0]) and not auto_cine:
+			CINE.waiting = true
+			if tap:
+				CINE.waiting = false
+				if not CINE.has("ok"):
+					CINE.ok = {}
+				CINE.ok[cl[0]] = 1
+				CINE.t += 1
+		else:
+			CINE.waiting = false
+			CINE.t += 1
+	else:
+		CINE.waiting = false
+		CINE.t += 1
 	var t: int = CINE.t
 	# o Tomé fica parado (mas a gravidade continua)
 	player.vx *= .7
@@ -1208,8 +1261,7 @@ func _cine_step() -> void:
 	if t > CINE.dur - 50:
 		CINE.fx = lerpf(CINE.fx, player.x + player.w / 2, .08)
 		CINE.fy = lerpf(CINE.fy, player.y, .08)
-	var skip: bool = t > 45 and (pressed("J") or pressed("A"))
-	if t >= CINE.dur or skip:
+	if t >= CINE.dur:
 		var id: String = CINE.id
 		CINE = {}
 		X.cine_end(id)
@@ -1303,8 +1355,9 @@ func _vine_step() -> void:
 		if v.has("aim"):
 			var tgt := Vector2(float(v.aim[0]), float(v.aim[1]) - player.h)
 			var dx: float = tgt.x - player.x - player.w / 2
-			var want_dir: int = d if d != 0 else (int(sign(player.vx)) if abs(player.vx) > .5 else player.face)
-			if sign(dx) == want_dir and abs(dx) < 520:
+			# sempre vai para a frente (o próximo cipó, a corda ou a margem), a não ser segurando para trás
+			var back: bool = d != 0 and sign(dx) != d
+			if not back and abs(dx) < 620:
 				var from := Vector2(player.x + player.w / 2, player.y)
 				var sol := TR.ballistic(from, tgt, .75)
 				if sol.y < -16.0:
@@ -1313,6 +1366,7 @@ func _vine_step() -> void:
 					player.vx = sol.x
 					player.vy = sol.y
 					player.launchT = int(sol.z)
+		player.lastVine = v
 		player.vine = null
 		player.vineCD = 22
 		player.airJumps = 1
@@ -2021,7 +2075,7 @@ func _crow(e: Dictionary) -> void:
 			e.x = e.r[1]
 			e.dir = -1
 		e.y = e.cy + sin(T * .06 + e.x * .01) * 16
-		if abs(pc.x - e.x) < 230 and pc.y > e.y + 40 and e.t > 90 and player.dyingT == 0:
+		if abs(pc.x - e.x) < 230 and pc.y > e.y + 40 and e.t > (160 if e.get("minion") else 90) and player.dyingT == 0:
 			e.st = 1
 			e.t = 0
 			e.sx = e.x

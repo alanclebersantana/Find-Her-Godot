@@ -207,15 +207,14 @@ func _campfire(c: Dictionary) -> void:
 	if c.has("rest"):
 		# fogueira grande: troncos de assento dos dois lados e fogo alto, sempre acesa (chama o Tomé)
 		Spr.glow(c.x, c.y - 30, 110 + sin(T * .2) * 6, Color(1, .7, .3, .4))
-		for sx in [-1, 1]:
-			var lx: float = c.x + sx * 74
+		for lx in c.get("seats", []):
+			var sx: float = sign(lx - c.x)
 			Spr.ellipse(lx, c.y + 1, 40, 5, Color(0, 0, 0, .3))
-			Spr.rr(lx - 36, c.y - 24, 72, 24, 11, Color("#3a2414"))
-			Spr.rr(lx - 34, c.y - 22, 68, 20, 10, Color("#8a5a32"))
-			Spr.seg(lx - 24, c.y - 16, lx + 10, c.y - 16, Color("#5a3820"), 2)
-			Spr.seg(lx - 14, c.y - 9, lx + 20, c.y - 9, Color("#5a3820"), 2)
-			Spr.ellipse(lx + sx * 32, c.y - 12, 7, 10, Color("#d8b07a"))
-			Spr.ring(lx + sx * 32, c.y - 12, 4, Color("#8a5a32"), 1.5)
+			Spr.rr(lx - 36, c.y - 15, 72, 16, 8, Color("#3a2414"))
+			Spr.rr(lx - 34, c.y - 14, 68, 13, 7, Color("#8a5a32"))
+			Spr.seg(lx - 24, c.y - 9, lx + 14, c.y - 9, Color("#5a3820"), 2)
+			Spr.ellipse(lx + sx * 32, c.y - 7, 5, 7, Color("#d8b07a"))
+			Spr.ring(lx + sx * 32, c.y - 7, 3, Color("#8a5a32"), 1.5)
 		if T % 3 == 0:
 			game.PARTS.append({"x": c.x + (randf() - .5) * 24, "y": c.y - 40, "vx": (randf() - .5) * .8, "vy": -1.8, "life": 28, "col": Color("#ffcf6a")})
 		Spr.A("o_fire_on", c.x, c.y + 4, 1.25)

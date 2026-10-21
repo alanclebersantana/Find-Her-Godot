@@ -235,67 +235,87 @@ func _wrap(x: float, y: float, w: float, h: float, rad: float, chain: bool) -> v
 		Spr.circle(kx, y, 6, Color("#8a6a40") if not chain else Color("#4a4642"))
 		Spr.ring(kx, y, 6, Color("#4a3420"), 1.5)
 
-## paredão de rocha gelada (trecho da neve)
-func snow_cliff(s: Dictionary) -> void:
-	Spr.vgrad(s.x, s.y, s.w, s.h, Color("#b9c6da"), Color("#6f7e98"))
-	var y: float = s.y + 34
-	var k := 0
-	while y < s.y + s.h - 10:
-		var off: float = fmod(k * 53.0, 60.0)
-		var x: float = s.x + off
-		while x < s.x + s.w - 30:
-			Spr.rr(x, y, 52 + fmod(x * .37, 30.0), 26, 9, Color(.52, .6, .74, .55))
-			Spr.seg(x + 6, y + 24, x + 46, y + 24, Color(.3, .36, .48, .5), 2)
-			x += 74
-		y += 38
-		k += 1
+## número "aleatório" fixo para cada posição (o cenário não muda entre quadros)
+static func _hh(x: float, k: int = 0) -> float:
+	var v := sin(x * 12.9898 + k * 78.233) * 43758.5453
+	return v - floor(v)
+
+## paredão / morro de rocha natural: faces de pedra irregulares, rachaduras, musgo (ou neve) e
+## grama só na beirada de cima. Sem tijolos e sem pedras soltas por cima.
+func cliff(s: Dictionary) -> void:
+	var snow: bool = s.get("snow", false)
+	var top_c := Color("#c4cfe0") if snow else Color("#716658")
+	var bot_c := Color("#6a7890") if snow else Color("#36302a")
+	var face := Color("#d6dfec") if snow else Color("#7e7363")
+	var face2 := Color("#a9b6c9") if snow else Color("#5f564b")
+	var ink := Color("#4a5670") if snow else Color("#2a241e")
+	Spr.vgrad(s.x, s.y, s.w, s.h, top_c, bot_c)
+	# faces de pedra
+	var cw := 150.0
+	var ch := 120.0
+	var row := 0
+	var y: float = s.y + 18
+	while y < s.y + s.h - 20:
+		var x: float = s.x + 10 - fmod(row * 37.0, cw * .5)
+		var col := 0
+		while x < s.x + s.w - 20:
+			var k: float = _hh(x + s.x, row * 7 + col)
+			if k > .38:
+				var w: float = cw * (.55 + _hh(x, 3) * .35)
+				var hgt: float = ch * (.5 + _hh(y, 5 + col) * .4)
+				var xa: float = clamp(x, s.x + 4, s.x + s.w - 10)
+				var xb: float = clamp(x + w, s.x + 10, s.x + s.w - 4)
+				var ya: float = y
+				var yb: float = min(y + hgt, s.y + s.h - 6)
+				if xb - xa > 18 and yb - ya > 14:
+					var j: float = (_hh(x, 9) - .5) * 10
+					var pts := PackedVector2Array([Vector2(xa + 6, ya + j * .4), Vector2((xa + xb) * .5 + j, ya - 3), Vector2(xb - 4, ya + 6),
+						Vector2(xb, yb - 8), Vector2((xa + xb) * .5 - j, yb), Vector2(xa, yb - 6)])
+					var fc: Color = face if k > .7 else face2
+					fc.a = .55
+					Spr.poly(pts, fc)
+					Spr.ci.draw_polyline(pts + PackedVector2Array([pts[0]]), Color(ink.r, ink.g, ink.b, .3), 1.4, true)
+					Spr.seg(xa + 8, ya + 6, (xa + xb) * .5, ya + 3, Color(1, 1, 1, .12), 2)
+					if not snow and _hh(x, 11) > .7:
+						Spr.ellipse((xa + xb) * .5, ya + 2, (xb - xa) * .3, 4, Color(.36, .5, .2, .8))
+					if snow and _hh(x, 13) > .55:
+						Spr.ellipse((xa + xb) * .5, ya, (xb - xa) * .35, 4, Color(.96, .97, 1))
+			x += cw * (.75 + _hh(x, 1) * .3)
+			col += 1
+		y += ch * .82
+		row += 1
+	# rachaduras
+	var n: int = int(s.w * s.h / 60000.0) + 1
+	for i in n:
+		var cx: float = s.x + 20 + _hh(s.x + i, 21) * (s.w - 40)
+		var cy: float = s.y + 30 + _hh(s.y + i, 22) * max(10.0, s.h - 60)
+		Spr.line(PackedVector2Array([Vector2(cx, cy), Vector2(cx + 8, cy + 14), Vector2(cx + 2, cy + 28), Vector2(cx + 10, cy + 42)]), Color(ink.r, ink.g, ink.b, .6), 1.6)
+	# veios verticais da rocha
+	var vx: float = s.x + 30
+	while vx < s.x + s.w - 20:
+		Spr.seg(vx, s.y + 20, vx + 6, s.y + s.h - 10, Color(0, 0, 0, .07), 10)
+		vx += 70 + _hh(vx, 31) * 60
 	Spr.hgrad(s.x, s.y, 40, s.h, Color(0, 0, 0, .25), Color(0, 0, 0, 0))
-	Spr.ci.draw_rect(Rect2(s.x, s.y, s.w, s.h), Color(.25, .3, .42, .8), false, 2)
-	_snow_top(s.x, s.x + s.w, s.y)
+	Spr.hgrad(s.x + s.w - 40, s.y, 40, s.h, Color(0, 0, 0, 0), Color(0, 0, 0, .25))
+	# beirada de cima
+	if snow:
+		_snow_top(s.x, s.x + s.w, s.y)
+	else:
+		Spr.rect(s.x, s.y - 3, s.w, 8, Color("#4f7f2c"))
+		Spr.rect(s.x, s.y + 5, s.w, 3, Color(0, 0, 0, .2))
+		var gx: float = s.x + 4
+		while gx < s.x + s.w - 4:
+			Spr.poly(PackedVector2Array([Vector2(gx - 3, s.y + 1), Vector2(gx + 1, s.y - 8 - fmod(gx * .7, 5.0)), Vector2(gx + 4, s.y + 1)]), Color("#5d8f34"))
+			gx += 11
 	if s.get("overhang"):
 		Spr.rect(s.x, s.y + s.h - 16, s.w, 16, Color(.85, .93, 1))
 		var ix: float = s.x + 8
-		var n := 0
+		var m := 0
 		while ix < s.x + s.w - 8:
-			var L2: float = 14 + (n * 37 % 5) * 6
+			var L2: float = 14 + (m * 37 % 5) * 6
 			Spr.poly(PackedVector2Array([Vector2(ix - 6, s.y + s.h), Vector2(ix, s.y + s.h + L2), Vector2(ix + 6, s.y + s.h)]), Color(.85, .95, 1, .95))
 			ix += 22
-			n += 1
-
-func cliff(s: Dictionary) -> void:
-	if s.get("snow"):
-		snow_cliff(s)
-		return
-	var t: Texture2D = Spr.tex.chao
-	# rocha maciça: blocos de pedra encaixados, sem faixas de grama por dentro (grama só no topo)
-	Spr.vgrad(s.x, s.y, s.w, s.h, Color("#6e5c48"), Color("#3e3226"))
-	var yy: float = s.y + 30
-	var row := 0
-	while yy < s.y + s.h - 8:
-		var bh: float = 28.0 + fmod(row * 17.0, 26.0)
-		var x: float = s.x - fmod(row * 41.0, 50.0)
-		var i := 0
-		while x < s.x + s.w:
-			var bw: float = 44.0 + fmod((row * 7 + i * 11) * 5.3, 70.0)
-			var xa: float = max(x, s.x)
-			var xb: float = min(x + bw - 4, s.x + s.w)
-			var hb: float = min(bh - 4, s.y + s.h - yy)
-			if xb - xa > 8 and hb > 6:
-				var shade: float = fmod((row * 5 + i * 3) * 1.0, 4.0) * .025
-				var jy: float = fmod((row * 3 + i * 7) * 1.7, 6.0) - 3.0
-				Spr.rr(xa, yy + jy, xb - xa, hb - abs(jy), 12, Color(.47 + shade, .39 + shade, .31 + shade))
-				Spr.rect(xa + 4, yy + 3, xb - xa - 8, 3, Color(1, 1, 1, .07))
-				Spr.rect(xa + 3, yy + hb - 5, xb - xa - 6, 4, Color(0, 0, 0, .18))
-			x += bw
-			i += 1
-		yy += bh
-		row += 1
-	tile_h(t, s.x, s.x + s.w, s.y - 28)
-	Spr.hgrad(s.x, s.y, 60, s.h, Color(0, 0, 0, .35), Color(0, 0, 0, 0))
-
-	var pts = [[.08, .3], [.35, .55], [.7, .25], [.55, .85], [.15, .8], [.9, .65]]
-	for k in pts.size():
-		Spr.A("o_rocks", s.x + s.w * pts[k][0], s.y + s.h * pts[k][1], .9 + (k % 3) * .15, k % 2 == 1, .8)
+			m += 1
 
 func dead_tree(s: Dictionary) -> void:
 	var p := PackedVector2Array([Vector2(s.x, s.y + s.h), Vector2(s.x + 6, s.y + 40), Vector2(s.x - 30, s.y - 10), Vector2(s.x + 10, s.y + 20),

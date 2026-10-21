@@ -33,7 +33,7 @@ func load_level() -> void:
 		if canal:
 			BOAT = {"x": float(bd.x), "w": BOAT_W, "y": canal.y - (BOAT_HULL - BOAT_DRAFT), "vy": 0.0, "water": canal,
 				"sink": 0.0, "ang": 0.0, "grounded": false, "post": bd.get("post", [canal.x - 30, 500]),
-				"sol": {"t": "boat", "x": float(bd.x) + 8, "y": 0.0, "w": BOAT_W - 16, "h": 12, "oneway": 1, "boat": 1}}
+				"sol": {"t": "boat", "x": float(bd.x) + 8, "y": 0.0, "w": BOAT_W - 16, "h": 14, "boat": 1}}
 			_boat_place()
 			g.SOL.append(BOAT.sol)
 	var td = g.L.get("table")
@@ -67,7 +67,7 @@ func _boat_place() -> void:
 	var sup: float = _support_under(b.x + 10, b.x + b.w - 10, b.y + BOAT_HULL - 8)
 	b.grounded = sup < INF and target + BOAT_HULL >= sup - 1
 	if b.grounded:
-		target = sup - BOAT_HULL + 3
+		target = sup - BOAT_HULL - 1
 		bob = 0.0
 	b.y = lerpf(b.y, target, .12)
 	b.vis_y = b.y + bob

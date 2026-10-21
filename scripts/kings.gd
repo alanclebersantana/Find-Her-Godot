@@ -131,7 +131,7 @@ func _hawk() -> void:
 					h.t = 0
 					if not g.L.get("_hawk_tip", false):
 						g.L["_hawk_tip"] = true
-						g.flash_tut("As garras ficaram presas! GOLPE!", "As garras ficaram presas na madeira! Corra e acerte com a picareta (GOLPE)!", 180)
+						g.flash_tut("As garras ficaram presas! GOLPE!", "As garras ficaram presas no chão! Corra e acerte com a picareta (GOLPE)!", 180)
 		"stuck":
 			h.t += 1
 			h.y = gy + sin(h.t * .9) * 1.5
@@ -202,11 +202,11 @@ func swing_hits(hb: Dictionary) -> void:
 	h.t = 0
 	if h.hp == 2 and not h.crows:
 		h.crows = true
-		for k in 2:
+		for k in 1:
 			var cx: float = h.x0 + 150 + k * (h.x1 - h.x0 - 300)
 			g.EN.append({"k": "crow", "x": cx, "y": h.gy - 260.0, "cy": h.gy - 230.0 - k * 30, "r": [h.x0 + 40, h.x1 - 40],
 				"dir": -1, "dead": 0, "base": h.gy - 230.0, "stun": 0, "leap": 0, "x0": cx, "sx": cx, "minion": 1})
-		g.flash("Acertou! Ele chamou os corvos — e agora mergulha duas vezes!", 200)
+		g.flash("Acertou! Ele chamou um corvo — e agora mergulha duas vezes!", 200)
 	else:
 		g.flash("Acertou! Falta%s %d." % ["m" if h.hp > 1 else "", h.hp], 120)
 

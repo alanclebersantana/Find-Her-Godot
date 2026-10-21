@@ -83,10 +83,14 @@ func _stream(base: String) -> AudioStream:
 	return null
 
 ## Troca a música com um cruzamento suave (e o som ambiente do trecho junto)
+## músicas de batalha dos reis: a mesma faixa de batalha em outro andamento e tom
+const SONG_ALIAS := {"gaviao": ["perseguicao", 1.1], "bagre": ["perseguicao", .84]}
+
 func set_song(n: String) -> void:
 	if n == song or n == "":
 		return
-	var s := _stream("mus_" + n)
+	var al: Array = SONG_ALIAS.get(n, [n, 1.0])
+	var s := _stream("mus_" + al[0])
 	if s == null:
 		return
 	song = n
@@ -94,13 +98,14 @@ func set_song(n: String) -> void:
 	music = music2
 	music2 = old
 	music.stream = s
+	music.pitch_scale = al[1]
 	music.volume_db = -40
 	music.play()
 	var tw := create_tween()
-	tw.tween_property(music, "volume_db", SONG_DB.get(n, -7.0), 1.4)
+	tw.tween_property(music, "volume_db", SONG_DB.get(al[0], -7.0), 1.4)
 	tw.parallel().tween_property(music2, "volume_db", -40.0, 1.4)
 	tw.tween_callback(music2.stop)
-	set_amb(AMB_FOR.get(n, ""))
+	set_amb(AMB_FOR.get(al[0], ""))
 
 func set_amb(n: String) -> void:
 	if n == amb_name:

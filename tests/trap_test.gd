@@ -89,7 +89,7 @@ func _initialize() -> void:
 	say("picareta voltou", g.TR.PICK.is_empty())
 
 	# 5) machado machuca
-	put(41900, 500)
+	put(43100, 500)
 	hp0 = g.player.hp
 	for i in 160:
 		frame()
@@ -106,21 +106,21 @@ func _initialize() -> void:
 
 	# 7) rede: Pipoca rói a corda
 	g.X.DOG.st = "follow"
-	g.X.DOG.x = 45530.0
+	g.X.DOG.x = 46730.0
 	g.X.DOG.y = 500.0
-	g.X.TRAIL = [Vector2(45530, 500)]
-	put(45540, 500)
+	g.X.TRAIL = [Vector2(46730, 500)]
+	put(46740, 500)
 	for i in 30:
 		frame({"R": true})
-	say("rede segura o Tomé", g.player.x + 24 < 45602, str(int(g.player.x)))
+	say("rede segura o Tomé", g.player.x + 24 < 46802, str(int(g.player.x)))
 	say("Pipoca disponível", g.X.dog_free())
 	g.keys["Dp"] = true
 	frame()
 	say("virou Pipoca", g.M.ctrl)
 	for i in 120:
-		if abs(g.player.x + g.player.w / 2 - 45565) < 8:
+		if abs(g.player.x + g.player.w / 2 - 46765) < 8:
 			break
-		frame({"R" if g.player.x + 15 < 45565 else "L": true})
+		frame({"R" if g.player.x + 15 < 46765 else "L": true})
 	g.keys["Ap"] = true
 	frame()
 	for i in 10:
@@ -130,20 +130,20 @@ func _initialize() -> void:
 	frame()
 
 	# 8) jaula
-	put(45660, 500)
+	put(46860, 500)
 	for i in 60:
 		frame({"R": true})
 	say("jaula prendeu", g.TR.trapped != null)
 	for i in 30:
 		frame({"R": true})
-	say("preso não anda", g.player.x < 45700 + 64)
+	say("preso não anda", g.player.x < 46900 + 64)
 	g.keys["Dp"] = true
 	frame()
 	say("Pipoca no controle", g.M.ctrl)
 	for i in 200:
-		if abs(g.player.x + g.player.w / 2 - 45662) < 10:
+		if abs(g.player.x + g.player.w / 2 - 46862) < 10:
 			break
-		frame({"R" if g.player.x + 15 < 45662 else "L": true})
+		frame({"R" if g.player.x + 15 < 46862 else "L": true})
 	g.keys["Ap"] = true
 	frame()
 	for i in 5:
@@ -155,7 +155,7 @@ func _initialize() -> void:
 	say("voltou ao Tomé", not g.M.ctrl, why)
 
 	# 9) planta carnívora morde e cai com a picareta
-	put(48170, 500)
+	put(49370, 500)
 	hp0 = g.player.hp
 	for i in 80:
 		frame({"R": true} if i < 30 else {})
@@ -172,7 +172,7 @@ func _initialize() -> void:
 	say("picareta derrubou a planta", pl.dead > 0)
 
 	# 10) pedra rolando
-	put(48700, 500)
+	put(49900, 500)
 	for i in 40:
 		frame({"R": true})
 	var P = g.player

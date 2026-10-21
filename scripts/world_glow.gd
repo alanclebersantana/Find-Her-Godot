@@ -77,9 +77,28 @@ func _draw() -> void:
 		if b5 <= a:
 			continue
 		var depth: float = max(30, s.y0 + s.h - s.y)
-		_water(g, a, b5, s.y, depth, Color(.3, .42, .26, .8), Color(.07, .11, .08, .96), T, true, s.x)
-		# esta camada não escurece sozinha: acompanha a escuridão do trecho
-		Spr.rect(a, s.y - 8, b5 - a, depth + 8, Color(.02, .03, .08, g.AMB.dark * .75))
+		# água tóxica (verde ácido): aqui o Tomé afunda — bem diferente da água azul onde dá para nadar
+		_water(g, a, b5, s.y, depth, Color(.42, .86, .16, .9), Color(.08, .26, .04, .97), T, false)
+		Spr.rect(a, s.y - 8, b5 - a, depth + 8, Color(.02, .03, .08, g.AMB.dark * .45))
+		Spr.rect(a, s.y - 2, b5 - a, 4, Color(.75, 1, .35, .7))
+		# bolhas tóxicas subindo e estourando, e um vapor fraco por cima
+		var bx: float = floor(a / 46.0) * 46.0
+		while bx < b5:
+			var ph: float = fmod(T * .011 + bx * .0131, 1.0)
+			var px: float = bx + sin(bx * .7) * 14
+			if px > a and px < b5:
+				var r: float = 3.0 + fmod(bx * .37, 4.0)
+				if ph < .8:
+					var by: float = s.y + 40 - ph / .8 * 40
+					Spr.circle(px, by, r, Color(.6, 1, .3, .55))
+					Spr.ring(px, by, r, Color(.85, 1, .55, .8), 1.2)
+				else:
+					var u: float = (ph - .8) / .2
+					Spr.ring(px, s.y - 2, r + u * 9, Color(.8, 1, .45, .8 * (1.0 - u)), 1.5)
+					Spr.glow(px, s.y - 4, 16, Color(.55, 1, .25, .35 * (1.0 - u)))
+				var vy: float = s.y - 8 - fmod(T * .4 + bx, 40.0)
+				Spr.ellipse(px + 10, vy, 14, 5, Color(.6, .95, .4, .1))
+			bx += 46.0
 		if g.AMB.rain > .3:
 			for k in 6:
 				var rx: float = a + fmod(T * 13 + k * 97, b5 - a)
