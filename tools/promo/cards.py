@@ -58,12 +58,12 @@ single('c_mina','mina','assets/bg/noite.jpg','Escuro demais... ainda bem que eu 
 im=bg_img(R+'assets/bg/noite.jpg',.55,4).convert('RGBA'); d=ImageDraw.Draw(im)
 text_c(d,(W/2,215),'ENCONTRE-A',font('Cinzel-Bold',110),(242,210,138),6,(30,15,5))
 text_c(d,(W/2,315),'EPISÓDIO 1 · O BOSQUE',font('Cinzel-Bold',44),(232,201,138),3,(30,15,5))
-text_c(d,(W/2,400),'Saltos · cipós · pântano · neve · cavalgada · mina',font('Lora-Italic',30),(240,228,200))
+text_c(d,(W/2,400),'Corredeira · biplano · cogumelos gigantes · fuga na mina',font('Lora-Italic',30),(240,228,200))
 text_c(d,(W/2,520),'Em breve: EPISÓDIO 2 · As Profundezas da Mina',font('Lora-Bold',30),(255,214,120),2,(20,10,5))
 text_c(d,(W/2,600),'Para Android',font('Lora-Italic',26),(220,210,190))
 im.convert('RGB').save('/tmp/vid/cards/final.png')
 # legendas dos trechos de jogo (faixa transparente)
-caps={'manha':'Manhã: flores-catapulta e casas na árvore','copas':'Saltos pelas copas das árvores','regias':'Pântano: pule nas vitórias-régias','cipos2':'Balance nos cipós sobre a água tóxica','corda':'Atravesse pendurado na corda','mergulho':'Mergulhe pelos túneis alagados','bolaneve':'Neve: empurre bolas de neve gigantes','gelofino':'Desvie das bolas que rolam morro abaixo','gelo':'Cavernas de gelo e pingentes caindo','cavalo':'Cavalgada pela trilha nevada','urso':'Chefes no caminho...','tunel':'Noite: a mina escura, só com a lanterna'}
+caps={'manha':'Manhã: flores-catapulta e casas na árvore','copas':'Saltos pelas copas das árvores','regias':'Pântano: pule nas vitórias-régias','cipos2':'Balance nos cipós sobre a água tóxica','jangada':'Desça a corredeira de jangada','bolaneve':'Neve: empurre bolas de neve gigantes','cavalo':'Cavalgada pela trilha nevada','urso':'Desvie das patadas do Urso-Rei','vento':'Suba a montanha contra o vento','ponte':'Corra! A ponte está se soltando','voo':'Voe de biplano sobre o vale','cogumelos':'Noite: o bosque dos cogumelos gigantes','pedra':'Fuja da pedra gigante na mina','pedra2':'Abaixe no buraco... e deixe passar!'}
 for k,t in caps.items():
     im=Image.new('RGBA',(W,H),(0,0,0,0)); d=ImageDraw.Draw(im)
     f=font('Lora-Italic',30); w=d.textlength(t,font=f)+56
