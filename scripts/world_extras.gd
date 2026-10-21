@@ -504,6 +504,8 @@ static func tool_fx(g: Game, T: int) -> void:
 			Spr.ci.draw_polyline(pts, Color(1, .95, .8, .55 * (1.0 - k * .6)), 7, true)
 			Spr.ci.draw_polyline(pts, Color(1, 1, 1, .9 * (1.0 - k * .5)), 2.5, true)
 			var tip: Vector2 = pts[pts.size() - 1]
+			if Rig.ready("tome"):
+				return
 			Spr.save()
 			Spr.translate(tip.x, tip.y)
 			Spr.rotate(a1 * f + (0.0 if f > 0 else PI))

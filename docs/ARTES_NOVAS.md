@@ -58,9 +58,9 @@ Elas aparecem por alguns segundos no meio das cenas dramáticas.
 
 - **`cena_javali.jpg`**: "A gigantic angry wild boar king with huge curved tusks and a small crown of leaves
   leaping down from a rocky cliff at sunset into a forest clearing, dust and leaves flying, low dramatic camera
-  angle, a tiny old gnome miner with a lantern in the foreground looking up in fear, warm orange and purple sky."
+  angle, a small elderly human miner (green knitted beanie, white beard) with a lantern in the foreground looking up in fear, warm orange and purple sky."
 - **`cena_vargas.jpg`**: "Night, stormy sky with lightning, a sly mustached mine manager in a brown miner's helmet
   (Ademar Vargas, see reference) pushing a mine cart along rails toward a lit mine entrance, a little girl with
   pink dress and pigtails inside the cart reaching back and shouting, rain, dramatic blue and orange lighting."
-- **`cena_cao.jpg`**: "A kind old gnome miner kneeling and cutting a rope tied to a small scruffy stray dog on a
+- **`cena_cao.jpg`**: "A kind elderly human miner (green knitted beanie, white beard) kneeling and cutting a rope tied to a small scruffy stray dog on a
   rocky hilltop at golden hour, the dog licking his face happily, warm emotional moment, soft light."

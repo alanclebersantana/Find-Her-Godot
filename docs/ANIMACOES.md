@@ -6,7 +6,7 @@ mesmo personagem. Gere uma folha por vez. Depois, se precisar, recorte/alinhe e 
 
 ## Prompt base (cole antes de cada pedido)
 > Sprite sheet for a 2D side-scrolling platformer, hand-drawn cartoon style matching the reference image
-> exactly: an old gnome miner named Tomé with a green pointed hat, long white beard, brown jacket, green
+> exactly: an elderly human miner named Tomé (not a gnome: round human ears, human proportions) with a green knitted beanie, long white beard, brown jacket, green
 > scarf, holding a lit brass lantern in his front hand. Facing RIGHT, full body, side view.
 > One single horizontal row of N square frames of equal size, transparent background (PNG with alpha),
 > the character centered in each frame with his feet touching the bottom edge of the frame, same scale

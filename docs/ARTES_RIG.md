@@ -19,8 +19,8 @@ imagem junto em todos os pedidos seguintes, dizendo "same character as the attac
 
 ## 1. Ficha do Tomé (referência) — não vai para o jogo, serve de modelo
 
-> Character design turnaround sheet of "Tomé", an old gnome miner, about 3 heads tall: big green pointed
-> felt hat with a white pompom, rosy round nose, bushy white eyebrows and a long fluffy white beard,
+> Character design turnaround sheet of "Tomé", an elderly HUMAN man (not a gnome, elf or dwarf: round human ears, normal human proportions), a coal miner: rounded green knitted
+> wool beanie with a white pompom, rosy round nose, bushy white eyebrows and a long fluffy white beard,
 > brown leather work coat with brass buttons and patched elbows, green-and-cream striped scarf, dark
 > trousers, big brown boots, holding a brass oil lantern with a warm flame in his right hand. Kind but
 > determined expression. Show: side view facing right, front view, back view, all standing, same scale,
@@ -38,7 +38,7 @@ imagem junto em todos os pedidos seguintes, dizendo "same character as the attac
 
 | arquivo | pedido (depois do estilo base) |
 |---|---|
-| `cabeca.png` | "Only the HEAD of Tomé: pointed green hat with pompom, face, eyebrows, nose, and the full white beard. No neck, no body. The bottom of the beard is the bottom of the image." |
+| `cabeca.png` | "Only the HEAD of Tomé: green knitted beanie with pompom, human ear, face, eyebrows, nose, and the full white beard. No neck, no body. The bottom of the beard is the bottom of the image." |
 | `tronco.png` | "Only the TORSO of Tomé: brown leather coat with buttons and the striped scarf around the neck, from the neck down to the hips, WITHOUT arms, WITHOUT head and WITHOUT legs. The shoulders end in round coat seams." |
 | `braco_frente.png` | "Only the FRONT ARM of Tomé, hanging straight down: coat sleeve from the shoulder to the hand, the hand closed in a loose fist (as if holding a lantern handle). The shoulder is at the top of the image, the hand at the bottom." |
 | `braco_tras.png` | "Only the BACK ARM of Tomé, hanging straight down, slightly darker (it is behind the body): coat sleeve from shoulder to hand, hand closed in a fist. Shoulder at the top, hand at the bottom." |

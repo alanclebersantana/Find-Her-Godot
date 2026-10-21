@@ -42,16 +42,25 @@ static func load_char(ch: String) -> void:
 			var j = JSON.parse_string(FileAccess.get_file_as_string(base + "rig.json"))
 			if j is Dictionary:
 				over = j
+		d.ps = {}
 		for n in PARTS:
 			var pv: Array = DEF_PIV[n]
+			var sc := 1.0
 			if over.has(n):
 				pv = [float(over[n].get("px", pv[0])), float(over[n].get("py", pv[1]))]
+				sc = float(over[n].get("s", 1.0))
 			d.piv[n] = pv
+			d.ps[n] = sc
+		# encaixes (frações do tronco): pernas entram no casaco, ombros, pescoço
+		d.lay = {"leg_in": .0, "hip_x": .14, "sh_x": .2, "sh_y": .78, "neck_x": .02, "neck_y": .97, "arm_len": .9}
+		for kk in d.lay.keys():
+			if over.has(kk):
+				d.lay[kk] = float(over[kk])
 		var tw: Texture2D = d.tex.tronco
 		var lw: Texture2D = d.tex.perna_frente
 		var hw: Texture2D = d.tex.cabeca
 		# altura total "em pé" (perna + tronco + cabeça até o topo do chapéu)
-		d.total = lw.get_height() * .96 + tw.get_height() + hw.get_height() * d.piv.cabeca[1]
+		d.total = lw.get_height() * .96 - d.lay.leg_in * tw.get_height() + tw.get_height() * d.lay.neck_y + hw.get_height() * d.piv.cabeca[1]
 		d.scale_k = float(over.get("altura", 80.0)) / d.total
 	d.ok = ok
 	data[ch] = d
@@ -73,31 +82,36 @@ static func draw_pose(ch: String, cx: float, by: float, face: float, pose: Dicti
 	Spr.translate(cx, by)
 	Spr.scale(face * k * sq.x, k * sq.y)
 	# quadril
-	var hip := Vector2(pose.get("hx", 0.0), -leg_h + pose.get("hy", 0.0))
+	var lay: Dictionary = d.lay
+	var hip := Vector2(pose.get("hx", 0.0), -leg_h + lay.leg_in * th + pose.get("hy", 0.0))
 	var lean: float = pose.get("lean", 0.0)
-	var hipb := hip + Vector2(-tw * .14, -th * .04)
-	var hipf := hip + Vector2(tw * .14, -th * .04)
+	var hipb := hip + Vector2(-tw * lay.hip_x, -th * lay.leg_in)
+	var hipf := hip + Vector2(tw * lay.hip_x, -th * lay.leg_in)
 	# ombros e pescoço no referencial do tronco (gira junto com a inclinação)
 	var rot := func(v: Vector2) -> Vector2:
 		return hip + v.rotated(lean)
-	var sh_b: Vector2 = rot.call(Vector2(-tw * .2, -th * .78))
-	var sh_f: Vector2 = rot.call(Vector2(tw * .2, -th * .78))
-	var neck: Vector2 = rot.call(Vector2(tw * .02, -th * .97))
-	# de trás para a frente
-	_part(d, "braco_tras", sh_b, pose.get("ab", 0.0), al)
-	if pose.get("pick", false) and T.has("picareta"):
-		var ah: float = T.braco_tras.get_height() * .9
-		var hand: Vector2 = sh_b + Vector2(0, ah).rotated(pose.get("ab", 0.0))
-		_part(d, "picareta", hand, pose.get("ab", 0.0) + pose.get("pk", 0.0), al)
+	var sh_b: Vector2 = rot.call(Vector2(-tw * lay.sh_x, -th * lay.sh_y))
+	var sh_f: Vector2 = rot.call(Vector2(tw * lay.sh_x, -th * lay.sh_y))
+	var neck: Vector2 = rot.call(Vector2(tw * lay.neck_x, -th * lay.neck_y))
+	# de trás para a frente (no golpe, o braço com a picareta vem para a frente do corpo)
+	var pick: bool = pose.get("pick", false) and T.has("picareta")
+	if not pick:
+		_part(d, "braco_tras", sh_b, pose.get("ab", 0.0), al)
 	_part(d, "perna_tras", hipb, pose.get("lb", 0.0), al)
 	_part(d, "perna_frente", hipf, pose.get("lf", 0.0), al)
 	_part(d, "tronco", hip, lean, al, pose.get("breath", 1.0))
 	_part(d, "cabeca", neck, lean + pose.get("hd", 0.0), al)
+	if pick:
+		var ab: float = pose.get("ab", 0.0)
+		var ah: float = T.braco_tras.get_height() * lay.arm_len
+		var hand: Vector2 = sh_b + Vector2(0, ah).rotated(ab)
+		_part(d, "picareta", hand, ab + PI + pose.get("pk", 0.0), al)
+		_part(d, "braco_tras", sh_b, ab, al)
 	if T.has("lanterna"):
 		var af: float = pose.get("af", 0.0)
-		var ah2: float = T.braco_frente.get_height() * .86
+		var ah2: float = T.braco_frente.get_height() * lay.arm_len
 		var hand2: Vector2 = sh_f + Vector2(0, ah2).rotated(af)
-		_part(d, "lanterna", hand2, sin(pose.get("t", 0.0) * .1) * .12 - af * .3, al)
+		_part(d, "lanterna", hand2, sin(pose.get("t", 0.0) * .1) * .08 + pose.get("lsw", 0.0), al)
 	_part(d, "braco_frente", sh_f, pose.get("af", 0.0), al)
 	Spr.restore()
 
@@ -108,10 +122,11 @@ static func _part(d: Dictionary, n: String, at: Vector2, ang: float, al: float, 
 	var pv: Array = d.piv[n]
 	var w: float = t.get_width()
 	var h: float = t.get_height()
+	var ps: float = d.ps.get(n, 1.0)
 	Spr.save()
 	Spr.translate(at.x, at.y)
 	Spr.rotate(ang)
-	Spr.scale(1, sy)
+	Spr.scale(ps, sy * ps)
 	Spr.ci.draw_texture_rect(t, Rect2(-w * pv[0], -h * pv[1], w, h), false, Color(1, 1, 1, Spr.alpha * al))
 	Spr.restore()
 
@@ -122,9 +137,9 @@ static func pose_for(p: Dictionary, T: int) -> Dictionary:
 	var ph: float = p.anim * 2.2
 	if p.get("act", "") == "swing" and p.actT > 0:
 		var u: float = clamp((22 - p.actT) / 14.0, 0, 1)
-		ps.ab = lerpf(-2.7, 1.1, u * u * (3 - 2 * u))
+		ps.ab = lerpf(2.3, 5.45, u * u * (3 - 2 * u))
 		ps.pick = true
-		ps.pk = -.2
+		ps.pk = .35
 		ps.lean = lerpf(-.12, .22, u)
 		ps.af = .3
 		ps.lf = -.25
@@ -152,10 +167,10 @@ static func pose_for(p: Dictionary, T: int) -> Dictionary:
 		ps.lean = .5
 		return ps
 	if p.crouch:
-		ps.hy = 14.0
-		ps.lean = .35
-		ps.lf = -1.1 + (sin(ph) * .3 if abs(p.vx) > .3 else 0.0)
-		ps.lb = .9 - (sin(ph) * .3 if abs(p.vx) > .3 else 0.0)
+		ps.hy = 12.0
+		ps.lean = .3
+		ps.lf = -.75 + (sin(ph) * .3 if abs(p.vx) > .3 else 0.0)
+		ps.lb = .55 - (sin(ph) * .3 if abs(p.vx) > .3 else 0.0)
 		ps.af = -.5
 		ps.ab = .2
 		return ps

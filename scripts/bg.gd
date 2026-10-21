@@ -30,6 +30,8 @@ func _draw() -> void:
 		_layer(k, ox, oy, w, bh, al)
 
 const LAYER_PX := [.04, .16, .3, .48]
+## brilho de cada camada: a mais perto fica mais escura para o Tomé e os objetos se destacarem
+const LAYER_SH := [1.0, .96, .86, .58]
 
 ## cenário em camadas (quando as artes novas existem): cada camada anda numa velocidade
 func _layers(k: String, w: float, al: float) -> void:
@@ -43,8 +45,10 @@ func _layers(k: String, w: float, al: float) -> void:
 		var tw: float = t.get_width() * sc
 		var y: float = H - lh + clamp(-(game.rcam_y - 140.0) * f * .35, -60.0, 140.0)
 		var x: float = fposmod(-game.rcam * f, tw - 1) - (tw - 1)
+		var m: float = LAYER_SH[min(i, 3)]
+		var mc := Color(m, m, m * 1.04, Spr.alpha * al)
 		while x < w:
-			Spr.img(t, x, y, tw, lh, Rect2(), al)
+			Spr.ci.draw_texture_rect(t, Rect2(x, y, tw, lh), false, mc)
 			x += tw - 1
 
 func _layer(k: String, ox: float, oy: float, w: float, bh: float, al: float) -> void:
