@@ -12,7 +12,7 @@ func _initialize() -> void:
 	for i in 3:
 		await process_frame
 	var sv = root.get_node("Save")
-	for id in ["cipo", "mergulho", "neve", "pipoca", "picareta", "cavalo", "mina", "toxico", "javali", "gaviao", "bagre", "urso", "vargas"]:
+	for id in ["cipo", "mergulho", "neve", "pipoca", "picareta", "cavalo", "mina", "toxico", "javali", "gaviao", "bagre", "urso", "vargas", "bola", "aviao", "jangada"]:
 		sv.setv("comic", id, true)
 	main.start_level(false)
 	await process_frame
@@ -34,6 +34,7 @@ func _initialize() -> void:
 
 func put(x: float, y: float) -> void:
 	g.CINE = {}
+	g.VH.mode = ""
 	g.player.x = x - 12
 	g.player.y = y - 34
 	g.player.vx = 0
@@ -232,7 +233,7 @@ func fr(set: Dictionary = {}) -> void:
 	nf += 1
 	if nf % 60 == 0:
 		print("f%d x=%d y=%d st=%s" % [nf, int(px()), int(g.player.y), str(main.state)])
-	if nf > 1500:
+	if nf > 2400:
 		quit()
 
 func press(k: String) -> void:
@@ -460,3 +461,262 @@ func cogumelo() -> void:
 	await walk_to(70740)
 	await until({}, func(): return g.player.onGround and g.player.y > 400, 200)
 	await hold({}, 20)
+
+# ---------- trechos da versão 3 (fases novas) ----------
+func trap_at(k: String, x: float) -> Dictionary:
+	var best: Dictionary = {}
+	for o in g.TR.T:
+		if o.k == k and (best.is_empty() or abs(o.x - x) < abs(best.x - x)):
+			best = o
+	return best
+
+func jangada() -> void:
+	kill_enemies()
+	put(25070, 500)
+	await hold({}, 4)
+	press("A")
+	await fr()
+	var VH = g.VH
+	VH.hx = 27180.0
+	VH.spd = 5.0
+	g.snap_camera()
+	for it in 520:
+		if VH.mode != "raft":
+			break
+		var d := {}
+		var wl: float = VH.water_y(VH.hx)
+		for f in VH.RA.falls:
+			var df: float = f - VH.hx
+			if df > 4 and df < 40 and VH.hy >= wl - 1:
+				press("J")
+				d["J"] = true
+		for o in VH.OBS:
+			var dx: float = o.x - VH.hx
+			if dx < -140 or dx > 220:
+				continue
+			if o.k in ["rock", "log"] and dx < 70 and dx > 26 and VH.hy >= wl - 1:
+				press("J")
+				d["J"] = true
+			if o.k == "branch" and dx < 130:
+				d["S"] = true
+			if dx > -40 or o.k == "branch":
+				break
+		await fr(d)
+
+func vento() -> void:
+	kill_enemies()
+	put(53440, 360)
+	await hold({}, 10)
+	for it in 420:
+		if px() > 54660:
+			break
+		var gusting := false
+		for o in g.TR.T:
+			if o.k == "gust" and g.TR.gust_state(o) > 0 and px() > o.x - 220 and px() < o.x + o.w + 40:
+				gusting = true
+		var step_up := false
+		for s2 in g.SOL:
+			if s2.t == "ground" and s2.x > px() and s2.x - px() < 40 and s2.y < P.y + P.h - 4 and P.onGround:
+				step_up = true
+		var edge := false
+		for c in g.L.chasms:
+			if c[0] - px() > 0 and c[0] - px() < 30 and P.onGround:
+				edge = true
+		if edge:
+			if gusting:
+				await fr({"S": true})
+				continue
+			press("J")
+			for i in 40:
+				await fr({"J": i < 18, "R": true})
+				if P.onGround and i > 4:
+					break
+			continue
+		if step_up:
+			press("J")
+			for i in 30:
+				await fr({"J": i < 12, "R": true})
+				if P.onGround and i > 4:
+					break
+			continue
+		# na rajada fica abaixado um pouco para mostrar
+		if gusting and g.TR.T.any(func(o): return o.k == "gust" and g.TR.gust_state(o) == 2 and px() > o.x and px() < o.x + o.w):
+			await fr({"S": true})
+		else:
+			await fr({"R": true})
+
+func ponte() -> void:
+	kill_enemies()
+	put(55080, 190)
+	await hold({}, 10)
+	var o: Dictionary = trap_at("bridge", 55220)
+	var gaps: Array = []
+	for gi in o.get("gaps", []):
+		gaps.append(o.x + gi * 40.0)
+	await fr({})
+	await fr({"R": true})
+	await fr({})
+	var jt := 0
+	for it in 400:
+		if px() > o.x + o.w + 120 and P.onGround:
+			break
+		for gx in gaps:
+			if gx - px() > 0 and gx - px() < 34 and P.onGround and jt <= 0:
+				press("J")
+				jt = 14
+		jt -= 1
+		await fr({"R": true, "J": jt > 0})
+	await hold({}, 20)
+
+func _obs_box(o: Dictionary) -> Array:
+	match o.k:
+		"flock":
+			return [o.x - 30, o.x + 90, o.y - 26, o.y + 64]
+		"cloud":
+			return [o.x + 10, o.x + o.w - 10, o.y + 8, o.y + o.h - 8]
+		"hawk":
+			var ty: float = o.get("ty", o.y)
+			if o.st in ["warn", "dive", "sweep"]:
+				return [o.x - 400, o.x + 40, ty - 18, ty + 18]
+	return []
+
+func _free_spans(boxes: Array, top: float, low: float) -> Array:
+	var spans := [[top, low]]
+	for bx in boxes:
+		var cut0: float = bx[2] + 6 - 14
+		var cut1: float = bx[3] + 46 + 14
+		var out := []
+		for sp in spans:
+			if sp[1] < cut0 or sp[0] > cut1:
+				out.append(sp)
+			else:
+				if sp[0] < cut0:
+					out.append([sp[0], cut0])
+				if sp[1] > cut1:
+					out.append([cut1, sp[1]])
+		spans = out
+	return spans
+
+func voo() -> void:
+	kill_enemies()
+	put(56940, 190)
+	await hold({}, 6)
+	press("A")
+	await fr()
+	var VH = g.VH
+	for it in 1500:
+		if VH.mode != "plane":
+			break
+		if VH.phase != "fly":
+			await fr()
+			continue
+		var groups := []
+		var list := []
+		for o in VH.OBS:
+			var bx := _obs_box(o)
+			if bx.is_empty() or bx[1] < VH.hx - 60 or bx[0] > VH.hx + 900:
+				continue
+			list.append(bx)
+		list.sort_custom(func(a, b): return a[0] < b[0])
+		for bx in list:
+			if groups.is_empty() or bx[0] > groups.back()[0][0] + 120:
+				groups.append([bx])
+			else:
+				groups.back().append(bx)
+		var target: float = VH.hy
+		if not groups.is_empty():
+			var spans := _free_spans(groups[0], VH.PL.top + 10, VH.PL.low - 10)
+			var nxt := []
+			if groups.size() > 1:
+				nxt = _free_spans(groups[1], VH.PL.top + 10, VH.PL.low - 10)
+			var best := 1e9
+			for sp in spans:
+				for k in 9:
+					var y: float = lerpf(sp[0], sp[1], k / 8.0)
+					var c: float = abs(y - VH.hy)
+					if not nxt.is_empty():
+						var dn := 1e9
+						for sp2 in nxt:
+							dn = min(dn, 0.0 if (y >= sp2[0] and y <= sp2[1]) else min(abs(y - sp2[0]), abs(y - sp2[1])))
+						c += dn * 2.0
+					if c < best:
+						best = c
+						target = y
+		var dd := {}
+		if VH.hy > target + 5:
+			dd["U"] = true
+		elif VH.hy < target - 5:
+			dd["S"] = true
+		await fr(dd)
+
+func bounce_to(bx: float) -> void:
+	press("J")
+	var launched := false
+	for i in 300:
+		if P.get("launchT", 0) > 0:
+			launched = true
+		var d := {}
+		if not launched:
+			if px() < bx - 4:
+				d = {"R": true}
+			elif px() > bx + 4:
+				d = {"L": true}
+			d["J"] = i < 16
+		await fr(d)
+		if launched and P.onGround:
+			return
+
+func cogumelos() -> void:
+	kill_enemies()
+	put(64640, 500)
+	g.lantern_lit = true
+	await hold({}, 10)
+	await walk_to(64805)
+	await bounce_to(64855)
+	await hold({}, 8)
+	await jump_to(65300)
+	await bounce_to(65345)
+	await hold({}, 8)
+	await jump_to(65825)
+	await jump_to(66010)
+	await walk_to(66200)
+
+func pedra() -> void:
+	kill_enemies()
+	put(72780, 500)
+	g.lantern_lit = true
+	await hold({}, 6)
+	var o: Dictionary = trap_at("boulder", 72700)
+	await until({"R": true}, func(): return o.st != "idle", 200)
+	var obs: Array = []
+	for sb in g.SOL:
+		if sb.get("bob") and sb.bob != "barricade":
+			obs.append(float(sb.x))
+	for pit in g.L.pits:
+		if pit[0] > o.x and pit[0] < o.end:
+			obs.append(float(pit[0]))
+	var niche: float = (o.niche[0] + o.niche[1]) / 2.0
+	await fr({})
+	await fr({"R": true})
+	await fr({})
+	var jt := 0
+	for it in 900:
+		if px() > niche - 70:
+			break
+		for ox in obs:
+			var ahead: float = ox - (px() + P.w / 2)
+			if ahead > 20 and ahead < 64 and P.onGround and jt <= 0:
+				press("J")
+				jt = 14
+		jt -= 1
+		await fr({"R": true, "J": jt > 0})
+	for it in 400:
+		if o.st in ["break", "done"]:
+			break
+		if px() > o.niche[0] + 14 and px() < o.niche[1] - 14 and P.onGround:
+			await fr({"S": true})
+		else:
+			await fr({"R" if niche > px() else "L": true})
+	await hold({}, 30)
+	await jump_to(74540)
+	await walk_to(74800)
