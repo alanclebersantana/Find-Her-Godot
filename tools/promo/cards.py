@@ -33,10 +33,12 @@ text_c(d,(W/2,400),'EPISÓDIO 1 · O BOSQUE',font('Cinzel-Bold',40),(232,201,138
 im.convert('RGB').save('/tmp/vid/cards/titulo.png')
 # história 1
 im=bg_img(R+'assets/ui/cena1.jpg',.15).convert('RGBA'); caption(im,'Toda tarde, a Isis desenhava na varanda...',640); im.convert('RGB').save('/tmp/vid/cards/hist1.png')
-# história 2
-im=bg_img(R+'assets/bg/noite.jpg',.55,6).convert('RGBA')
-panel(im,R+'assets/comic/vargas_a.jpg',W/2-220,330,430,3); panel(im,R+'assets/comic/vargas_b.jpg',W/2+220,340,430,-3)
-caption(im,'...até que o Vargas a levou. O pai vai atrás dela.',660); im.convert('RGB').save('/tmp/vid/cards/hist2.png')
+# mistério (sem revelar quem levou)
+im=bg_img(R+'assets/ui/cena1.jpg',.72,7).convert('RGBA'); d=ImageDraw.Draw(im)
+text_c(d,(W/2,250),'Até que, numa tarde, ela sumiu.',font('Lora-Italic',44),(240,228,200),2,(10,5,2))
+text_c(d,(W/2,320),'Só ficou uma trilha de lápis de cor...',font('Lora-Italic',36),(225,212,185),2,(10,5,2))
+text_c(d,(W/2,450),'QUEM LEVOU A ISIS?',font('Cinzel-Bold',76),(255,214,77),6,(30,12,5))
+im.convert('RGB').save('/tmp/vid/cards/hist2.png')
 # quadrinhos dos chefes / reações
 def boss(name, a, b, title, bg, sub):
     im=bg_img(R+bg,.6,8).convert('RGBA')
@@ -56,12 +58,12 @@ single('c_mina','mina','assets/bg/noite.jpg','Escuro demais... ainda bem que eu 
 im=bg_img(R+'assets/bg/noite.jpg',.55,4).convert('RGBA'); d=ImageDraw.Draw(im)
 text_c(d,(W/2,215),'ENCONTRE-A',font('Cinzel-Bold',110),(242,210,138),6,(30,15,5))
 text_c(d,(W/2,315),'EPISÓDIO 1 · O BOSQUE',font('Cinzel-Bold',44),(232,201,138),3,(30,15,5))
-text_c(d,(W/2,400),'5 períodos · 5 chefes · cavalgada · quadrinhos',font('Lora-Italic',30),(240,228,200))
+text_c(d,(W/2,400),'Saltos · cipós · pântano · neve · cavalgada · mina',font('Lora-Italic',30),(240,228,200))
 text_c(d,(W/2,520),'Em breve: EPISÓDIO 2 · As Profundezas da Mina',font('Lora-Bold',30),(255,214,120),2,(20,10,5))
 text_c(d,(W/2,600),'Para Android',font('Lora-Italic',26),(220,210,190))
 im.convert('RGB').save('/tmp/vid/cards/final.png')
 # legendas dos trechos de jogo (faixa transparente)
-caps={'manha':'Manhã no bosque: flores-catapulta e casas na árvore','javali':'Fuja da investida do Javali-Rei','gaviao':'Tarde: o Gavião-Rei mergulha do céu','cipos':'Pântano: cipós sobre a água tóxica','bagre':'Mergulhe e enfrente o Bagre-Rei','gelo':'Neve: cavernas de gelo e pingentes caindo','cavalo':'Cavalgada pela trilha nevada','urso':'Se a patada errar, é a sua vez!','noite':'Noite na mina: atrás do Vargas'}
+caps={'manha':'Manhã: flores-catapulta e casas na árvore','copas':'Saltos pelas copas das árvores','regias':'Pântano: pule nas vitórias-régias','cipos2':'Balance nos cipós sobre a água tóxica','corda':'Atravesse pendurado na corda','mergulho':'Mergulhe pelos túneis alagados','bolaneve':'Neve: empurre bolas de neve gigantes','gelofino':'Desvie das bolas que rolam morro abaixo','gelo':'Cavernas de gelo e pingentes caindo','cavalo':'Cavalgada pela trilha nevada','urso':'Chefes no caminho...','tunel':'Noite: a mina escura, só com a lanterna'}
 for k,t in caps.items():
     im=Image.new('RGBA',(W,H),(0,0,0,0)); d=ImageDraw.Draw(im)
     f=font('Lora-Italic',30); w=d.textlength(t,font=f)+56

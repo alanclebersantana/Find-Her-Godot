@@ -6,28 +6,27 @@ V="-c:v libx264 -preset medium -crf 20 -pix_fmt yuv420p -r 30 -an"
 still(){ # nome dur saída
   ffmpeg -v error -y -loop 1 -framerate 30 -t $2 -i $C/$1.png -vf "scale=1280*1.06:-1,zoompan=z='min(1+on*0.0012,1.06)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=1280x720:fps=30,fade=t=in:st=0:d=0.25,fade=t=out:st=$(echo "$2-0.25"|bc):d=0.25" $V $3
 }
-clip(){ # avi inicio dur saída
-  ffmpeg -v error -y -ss $2 -t $3 -i $1.avi -i $C/cap_$1.png -filter_complex "[0:v]crop=1024:576:128:80,scale=1280:720,fps=30[v];[v][1:v]overlay=0:0,fade=t=in:st=0:d=0.2,fade=t=out:st=$(echo "$3-0.2"|bc):d=0.2" $V $4
+clip(){ # avi inicio dur saída [legenda]
+  ffmpeg -v error -y -ss $2 -t $3 -i $1.avi -i $C/cap_${5:-$1}.png -filter_complex "[0:v]crop=1024:576:128:80,scale=1280:720,fps=30[v];[v][1:v]overlay=0:0,fade=t=in:st=0:d=0.2,fade=t=out:st=$(echo "$3-0.2"|bc):d=0.2" $V $4
 }
-still titulo 2.8 seg/01.mp4
+rm -f seg/*.mp4
+still titulo 2.4 seg/01.mp4
 still hist1 2.2 seg/02.mp4
-still hist2 2.6 seg/03.mp4
-clip manha 1.0 3.0 seg/04.mp4
-still c_javali 1.4 seg/05.mp4
-clip javali 1.2 2.8 seg/06.mp4
-still c_gaviao 1.4 seg/07.mp4
-clip gaviao 1.0 2.8 seg/08.mp4
-clip cipos 1.0 2.6 seg/09.mp4
-still c_bagre 1.4 seg/10.mp4
-clip bagre 0.4 2.6 seg/11.mp4
-still c_frio 1.4 seg/12.mp4
+still hist2 2.8 seg/03.mp4
+clip manha 1.0 2.6 seg/04.mp4
+clip copas 3.5 3.0 seg/05.mp4
+clip regias 0.5 2.6 seg/06.mp4
+clip regias 6.2 2.8 seg/07.mp4 cipos2
+clip corda 3.5 2.4 seg/08.mp4
+clip mergulho 2.5 2.0 seg/09.mp4
+still c_frio 1.4 seg/10.mp4
+clip bolaneve 1.5 2.8 seg/11.mp4
+clip gelofino 2.0 2.4 seg/12.mp4
 clip gelo 1.0 2.4 seg/13.mp4
 clip cavalo 1.2 3.0 seg/14.mp4
-still c_urso 1.4 seg/15.mp4
-clip urso 2.0 3.0 seg/16.mp4
-still c_mina 1.3 seg/17.mp4
-clip noite 0.5 3.0 seg/18.mp4
-still final 3.9 seg/19.mp4
+clip urso 2.0 2.0 seg/15.mp4
+clip tunel 1.5 3.6 seg/16.mp4
+still final 4.6 seg/17.mp4
 ls seg/*.mp4 | sed "s/^/file '/;s/$/'/" > list.txt
 ffmpeg -v error -y -f concat -safe 0 -i list.txt -c copy video_mudo.mp4
 D=$(ffprobe -v error -show_entries format=duration -of csv=p=0 video_mudo.mp4)

@@ -4,6 +4,7 @@ extends SceneTree
 var main
 var g
 var P: Dictionary
+var nf := 0
 
 func _initialize() -> void:
 	main = load("res://scenes/main.tscn").instantiate()
@@ -216,3 +217,246 @@ func noite() -> void:
 	g.VIL.go = true
 	g.VIL.x = 52880.0
 	await run(110, func(i): return {"R": true, "Jp": i == 45, "J": i > 45 and i < 58})
+
+# ---------- ajudantes assíncronos (um passo de física por chamada, como o bot da rota) ----------
+func fr(set: Dictionary = {}) -> void:
+	hide_ui()
+	g.flash_t = 0
+	g.player.hp = 5
+	for k in ["L", "R", "J", "S", "U", "A", "G"]:
+		g.keys[k] = false
+	for k in set:
+		g.keys[k] = set[k]
+	await physics_frame
+	P = g.player
+	nf += 1
+	if nf % 60 == 0:
+		print("f%d x=%d y=%d st=%s" % [nf, int(px()), int(g.player.y), str(main.state)])
+	if nf > 1500:
+		quit()
+
+func press(k: String) -> void:
+	g.keys[k + "p"] = true
+
+func px() -> float:
+	return g.player.x + g.player.w / 2
+
+func hold(set: Dictionary, n: int) -> void:
+	for i in n:
+		await fr(set)
+
+func until(set: Dictionary, cond: Callable, mx: int = 900) -> void:
+	for i in mx:
+		if cond.call():
+			return
+		await fr(set)
+
+func wait_ground(set: Dictionary = {}, mx: int = 300) -> void:
+	await until(set, func(): return g.player.onGround, mx)
+
+func walk_to(x: float, mx: int = 900) -> void:
+	for i in mx:
+		if abs(px() - x) < 6 and g.player.onGround:
+			return
+		await fr({"R" if x > px() else "L": true})
+
+func jump_to(x: float, dbl: bool = false, mx: int = 200) -> void:
+	press("J")
+	var used := false
+	for i in mx:
+		var d := {}
+		if px() < x - 5:
+			d = {"R": true}
+		elif px() > x + 5:
+			d = {"L": true}
+		if dbl and not used and i > 14 and g.player.vy > -1:
+			press("J")
+			used = true
+		d["J"] = i < 16 or (dbl and i < 34)
+		await fr(d)
+		if g.player.onGround and i > 3:
+			return
+
+func crawl(x: float, mx: int = 600) -> void:
+	var dir := "R" if x > px() else "L"
+	for i in mx:
+		if (px() >= x) if dir == "R" else (px() <= x):
+			return
+		await fr({"S": true, dir: true})
+
+func climb(dir: String, cond: Callable, mx: int = 600) -> void:
+	await until({dir: true}, cond, mx)
+
+func crevice() -> void:
+	var dir := "R"
+	press("J")
+	await hold({"J": true, dir: true}, 10)
+	for i in 24:
+		await until({dir: true}, func(): return g.player.wsl > 0 or g.player.onGround, 90)
+		if g.player.onGround:
+			return
+		press("J")
+		await fr({"J": true})
+		dir = "L" if dir == "R" else "R"
+		await hold({"J": true}, 6)
+
+func swing_off() -> void:
+	for i in 600:
+		var v = g.player.vine
+		if v == null:
+			break
+		await fr({"R": true} if v.om > 0 else {"L": true})
+		if v.th > .35 and v.om > 0:
+			break
+	press("J")
+	await fr()
+
+func vine_hop(next_vine) -> void:
+	await swing_off()
+	if next_vine == null:
+		await wait_ground()
+	else:
+		await until({}, func(): return g.player.vine == next_vine or g.player.onGround, 120)
+
+func grab_vine(v) -> void:
+	press("J")
+	for i in 120:
+		if g.player.vine == v:
+			return
+		if i == 16:
+			press("J")
+		await fr({"J": i < 40, "R": true})
+
+# ---------- trechos da versão 2 (mais jogabilidade) ----------
+func fenda() -> void:
+	kill_enemies()
+	put(6640, 500)
+	await hold({}, 20)
+	await crawl(6830)
+	await crevice()
+	await walk_to(7000)
+	await hold({}, 20)
+
+func copas() -> void:
+	kill_enemies()
+	put(7960, -10)
+	await hold({}, 15)
+	await jump_to(8050)
+	await walk_to(8105)
+	await jump_to(8260, true)
+	await walk_to(8305)
+	await jump_to(8435)
+	await jump_to(8600, true)
+	await walk_to(8665)
+	await jump_to(8760)
+	await walk_to(8780)
+	await until({}, func(): return g.player.onGround and g.player.y + g.player.h <= -250, 400)
+	await walk_to(9075)
+	await jump_to(9230)
+	await walk_to(9290)
+	await jump_to(9405)
+	await jump_to(9570, true)
+	await hold({}, 20)
+
+func regias() -> void:
+	kill_enemies()
+	put(17180, 500)
+	await hold({}, 10)
+	await walk_to(17280)
+	for x in [17406, 17556, 17706, 17870]:
+		await jump_to(x)
+	await walk_to(17980)
+	for x in [18126, 18276, 18426, 18550]:
+		await jump_to(x)
+	await walk_to(18630)
+	await grab_vine(g.VINES[1])
+	await vine_hop(g.VINES[2])
+	await vine_hop(g.VINES[3])
+	await vine_hop(null)
+	await walk_to(19750)
+
+func corda() -> void:
+	kill_enemies()
+	put(19900, 500)
+	await hold({}, 10)
+	await walk_to(19990)
+	await grab_vine(g.VINES[4])
+	await swing_off()
+	await until({}, func(): return g.player.get("bar") != null, 120)
+	await until({"R": true}, func(): return px() > 21040, 600)
+	press("J")
+	await fr()
+	await wait_ground()
+	await walk_to(21200)
+
+func mergulho() -> void:
+	kill_enemies()
+	put(15440, 500)
+	await hold({}, 10)
+	await until({"R": true, "S": true}, func(): return px() > 15750 and g.player.y > 600, 300)
+	await until({"R": true}, func(): return px() > 16700, 600)
+
+func bolaneve() -> void:
+	kill_enemies()
+	put(25560, 500)
+	await hold({}, 10)
+	await jump_to(25680, true)
+	await until({"R": true}, func(): return g.NT.SNOWB[0].x + g.NT.SNOWB[0].w >= 26047, 900)
+	await jump_to(25970)
+	await jump_to(26110, true)
+	await walk_to(26400)
+
+func gelofino() -> void:
+	kill_enemies()
+	put(26870, 500)
+	await hold({}, 6)
+	for i in 2:
+		var x: float = [27130.0, 27650.0][i]
+		await walk_to(x)
+		var o: Dictionary = g.TR.by_kind("roll")[1 + i]
+		await until({}, func(): return o.st == "go" and o.bx - px() < 85, 400)
+		press("J")
+		await hold({"J": true}, 16)
+		await wait_ground()
+		await hold({}, 6)
+	await walk_to(28095)
+	for x in [28151, 28231, 28311, 28365]:
+		await jump_to(x)
+	await walk_to(28470)
+
+func tunel() -> void:
+	kill_enemies()
+	put(50130, 500)
+	g.lantern_lit = true
+	await hold({}, 10)
+	await crawl(50300)
+	await walk_to(50405)
+	await jump_to(50510)
+	await jump_to(50660)
+	await walk_to(50700)
+	await jump_to(50900)
+	await walk_to(51035)
+	await jump_to(51110)
+	await jump_to(51200)
+	await jump_to(51300)
+	await walk_to(51340)
+	await crawl(51490)
+	await walk_to(51700)
+
+func cogumelo() -> void:
+	kill_enemies()
+	put(49520, 500)
+	g.lantern_lit = true
+	await hold({}, 10)
+	await until({"R": true}, func(): return g.player.vy < -15, 300)
+	var dj := false
+	for i in 200:
+		if not dj and g.player.vy > -1:
+			press("J")
+			dj = true
+		await fr({"R": px() < 49670, "J": dj and i < 60})
+		if dj and g.player.onGround:
+			break
+	await walk_to(49840)
+	await until({}, func(): return g.player.onGround and g.player.y > 400, 200)
+	await hold({}, 20)
