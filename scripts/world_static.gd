@@ -22,6 +22,11 @@ func _draw() -> void:
 		var pb: float = min(float(pit[1]), x1)
 		Spr.vgrad(pa, 480, pb - pa, 200, Color(.03, .02, .04, .0), Color(.02, .015, .03, 1))
 		Spr.rect(pa, 680, pb - pa, L.bottom - 480, Color(.02, .015, .03))
+		# paredes de terra do buraco (dá para ver a profundidade)
+		if pit[0] >= x0 and pit[0] < x1:
+			Spr.hgrad(pit[0], 500, 26, 260, Color("#4a3220"), Color(.03, .02, .02, 0))
+		if pit[1] > x0 and pit[1] <= x1:
+			Spr.hgrad(pit[1] - 26, 500, 26, 260, Color(.03, .02, .02, 0), Color("#4a3220"))
 	for c in L.get("caves", []):
 		if c.x + c.w < x0 or c.x > x1:
 			continue

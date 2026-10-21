@@ -15,6 +15,23 @@ func _draw() -> void:
 	var x0 := g.cam - 60
 	var x1 := g.cam + g.W + 60
 	Spr.begin(self)
+	# beiradas dos buracos aparecem mesmo no escuro: borda clara e pedrinhas soltas
+	for pit in g.L.get("pits", []):
+		if pit[1] < x0 or pit[0] > x1:
+			continue
+		var pa: float = pit[0]
+		var pb: float = pit[1]
+		var k: float = .55 + .15 * sin(T * .05)
+		# o vão fica bem mais escuro que o chão em volta
+		Spr.vgrad(pa, 500, pb - pa, 120, Color(0, 0, 0, .55), Color(0, 0, 0, .85))
+		Spr.rect(pa, 620, pb - pa, 600, Color(0, 0, 0, .85))
+		for e in [pa, pb]:
+			Spr.rect(e - 3, 498, 6, 46, Color(.75, .7, .6, .35 * k))
+		Spr.seg(pa - 30, 499, pa, 499, Color(.95, .9, .75, .85 * k), 3)
+		Spr.seg(pb, 499, pb + 30, 499, Color(.95, .9, .75, .85 * k), 3)
+		for i in 3:
+			Spr.circle(pa + 6 + i * 7, 512 + i * 9, 2.5, Color(.7, .62, .5, .5 * k))
+			Spr.circle(pb - 6 - i * 7, 514 + i * 8, 2.5, Color(.7, .62, .5, .5 * k))
 	for c in g.COINS:
 		if c.got or c.x < x0 or c.x > x1:
 			continue
