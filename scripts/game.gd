@@ -330,9 +330,13 @@ static func tutorial_on() -> bool:
 	return bool(Save.getv("opt", "tutorial", true))
 
 ## dica de "como fazer": só aparece com o tutorial ligado
-func tip(m: String) -> void:
+func tip(m: String, t: int = 150) -> void:
 	if tutorial_on() and flash_t <= 30:
-		flash(m)
+		flash(m, t)
+
+## mensagem com explicação só no tutorial (sem ele, só o essencial)
+func flash_tut(short: String, long: String, t: int = 150) -> void:
+	flash(long if tutorial_on() else short, t)
 
 func burst(x: float, y: float, n: int, c: Color) -> void:
 	for i in n:
@@ -433,6 +437,8 @@ func item_msg(id: String) -> String:
 	return ""
 
 func hint_text() -> String:
+	if not tutorial_on():
+		return ""
 	var px: float = player.x + player.w / 2
 	for h in L.get("hints", []):
 		if px < h.a or px > h.b:
@@ -922,7 +928,7 @@ func step() -> void:
 				player.airJumps = 1
 				player.run = 0
 				Audio.play("climb", -8)
-				note("←/→ balança · ↑/↓ sobe e desce · PULAR solta")
+				tip("←/→ balança · ↑/↓ sobe e desce · PULAR solta")
 				break
 
 	_p1_post(pcx, pcy)
@@ -953,7 +959,7 @@ func step() -> void:
 		if s.t > 0:
 			s.t -= 1
 	if pressed("A") and player.nearL == null and not lantern_lit:
-		note("Aqui não há o que usar. Perto de um obstáculo, ✦ USAR tenta abrir caminho.")
+		tip("Aqui não há o que usar. Perto de um obstáculo, ✦ USAR tenta abrir caminho.")
 	if player.y > L.bottom + 60:
 		die("Você caiu.")
 	for pit in L.get("pits", []):
@@ -1015,7 +1021,7 @@ func step() -> void:
 				Audio.play("unlock", -10)
 				burst(e.x, b.y, 6, Color("#e8b030"))
 				if X.dog_free():
-					note("O capacete protege! O Pipoca consegue puxá-la para fora quando ela estiver debaixo da terra.")
+					tip("O capacete protege! O Pipoca consegue puxá-la para fora quando ela estiver debaixo da terra.")
 				else:
 					note("O capacete protege! Sozinho não dá...")
 				continue
@@ -1589,7 +1595,7 @@ func _p1_ladder() -> void:
 			player.vy = 0
 			player.y = z.y - player.h + 3
 			if T % 90 == 0:
-				note("Topo da escada: pule para o lado (PULAR + ← ou →).")
+				tip("Topo da escada: pule para o lado (PULAR + ← ou →).")
 
 func _p1_post(pcx: float, _pcy: float) -> void:
 	if player.ladder and player.onGround and kd("S"):

@@ -111,7 +111,7 @@ func toggle_dog() -> void:
 		X._bark()
 		if dog_note < 1:
 			dog_note = 1
-			g.flash("Agora você é o Pipoca! Ele passa por buracos pequenos, cava tocas e late (✦). Troque de volta pelo mesmo botão.", 260)
+			g.tip("Agora você é o Pipoca! Ele passa por buracos pequenos, cava tocas e late (✦). Troque de volta pelo mesmo botão.", 260)
 	else:
 		_back_to_tome()
 
@@ -202,7 +202,7 @@ func _swing_hits() -> void:
 			if e.k == "mole" and e.get("helm") and not e.get("helm_off") and e.get("st", 0) != 5:
 				Audio.play("unlock", -8)
 				g.burst(e.x, e.base - 26, 8, Color("#e8b030"))
-				g.note("Clanc! O capacete aguenta a picareta. O Pipoca consegue puxá-la para fora.")
+				g.tip("Clanc! O capacete aguenta a picareta. O Pipoca consegue puxá-la para fora.")
 				e.stun = 30
 			else:
 				g.kill_enemy(e, "hit")

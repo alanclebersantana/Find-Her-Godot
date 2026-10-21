@@ -151,7 +151,7 @@ func pre_step() -> void:
 			p.y -= 14
 		if a_notes < 99 and not g.L.get("_swim_note", false):
 			g.L["_swim_note"] = true
-			g.flash("Na água: PULAR dá braçadas para cima, ↓ mergulha. De olho no fôlego!", 220)
+			g.tip("Na água: PULAR dá braçadas para cima, ↓ mergulha. De olho no fôlego!", 220)
 	was_swim = p.swim
 	if p.swim and p.y + 8 > w.y:
 		breath -= 1
@@ -251,7 +251,7 @@ func post() -> void:
 	focus = g.kd("A") and not focus_block and not g.M.is_dog() and g.lantern_lit and p.nearL == null and p.ladder == null and p.vine == null and not p.swim and p.dyingT == 0
 	if focus and a_notes < 1:
 		a_notes = 1
-		g.note("Facho concentrado: espanta corujas e morcegos e revela o que está escondido no escuro.")
+		g.tip("Facho concentrado: espanta corujas e morcegos e revela o que está escondido no escuro.")
 	# espelhos do teto: girar com uma cabeçada
 	for m in MIRRORS:
 		if m.cd > 0:
@@ -333,7 +333,7 @@ func _use_crack() -> bool:
 			if g.has_item("picareta"):
 				break_crack(c, true)
 			else:
-				g.flash("Uma rocha rachada. Com uma picareta dava para quebrar...", 200)
+				g.tip("Uma rocha rachada. Com uma picareta dava para quebrar...", 200)
 			return true
 	return false
 
@@ -520,9 +520,9 @@ func cine_end(id: String) -> void:
 			BOSS.t = 0
 			g.flash("Suba num galho! Deixe o Javali-Rei bater na árvore ou no barranco e pule nas costas dele quando ficar tonto.", 240)
 		"vargas":
-			g.flash("Atrás dele! Pule os buracos e abaixe sob as vigas.", 180)
+			g.tip("Atrás dele! Pule os buracos e abaixe sob as vigas.", 180)
 		"cao":
-			g.flash("O Pipoca agora vai com você! Perto de uma toca, toque ✦ USAR e ele busca o que tiver lá dentro.", 260)
+			g.flash_tut("O Pipoca agora vai com você!", "O Pipoca agora vai com você! Perto de uma toca, toque ✦ USAR e ele busca o que tiver lá dentro.", 260)
 
 # ======================================================================
 #  CHEFE: O JAVALI-REI

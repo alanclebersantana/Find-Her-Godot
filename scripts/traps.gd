@@ -80,7 +80,7 @@ func throw_pick() -> void:
 	p.act = "throw1"
 	p.actT = 14
 	Audio.play("slide", -4)
-	g.note("A picareta crava em troncos e paredes. GOLPE de novo: ela volta.")
+	g.tip("A picareta crava em troncos e paredes. GOLPE de novo: ela volta.")
 
 func pick_out() -> bool:
 	return not PICK.is_empty()
@@ -235,7 +235,7 @@ func _launch_from(o: Dictionary, top: float) -> void:
 	g.burst(o.x, top, 12, Color(1, .6, .7) if o.get("c", "") == "rosa" else Color("#ffd27a"))
 	if bounce_note < 1:
 		bounce_note = 1
-		g.note("Cogumelo saltador! Ele te lança direto para o próximo.")
+		g.tip("Cogumelo saltador! Ele te lança direto para o próximo.")
 
 ## velocidade inicial para ir de a até b em um arco (mesma física do jogo: gravidade a cada quadro)
 ## devolve (vx, vy, quadros)
@@ -319,7 +319,7 @@ func _roll(o: Dictionary, p: Dictionary, pcx: float) -> void:
 				o.vx = 0.0
 				Audio.play("stomp", -2)
 				g.shake = max(g.shake, 8)
-				g.flash("CORRA! (toque duas vezes → para correr)", 140)
+				g.flash_tut("CORRA!", "CORRA! (toque duas vezes → para correr)", 140)
 		"go":
 			o.vx = move_toward(o.vx, o.vmax * o.dir, .09)
 			o.bx += o.vx
@@ -392,7 +392,7 @@ func _cage(o: Dictionary, p: Dictionary, pcx: float) -> void:
 				Audio.play("stomp")
 				g.burst(o.x + w / 2, o.y - 4, 16, Color("#b7a77f"))
 				if g.X.dog_free():
-					g.flash("Preso na jaula! Use o PIPOCA: roa a corda do poste (✦).", 300)
+					g.flash_tut("Preso numa jaula de caçador!", "Preso na jaula! Use o PIPOCA: roa a corda do poste (✦).", 300)
 				else:
 					g.flash("Preso! Bata com a picareta nas grades para quebrar.", 300)
 		"shut":
@@ -437,7 +437,7 @@ func swing_hits(hb: Dictionary) -> void:
 			g.note("As grades cederam!")
 	for o in T:
 		if o.k == "net" and o.st == "idle" and Game.hit(hb, o.sol):
-			g.note("A rede é grossa demais para a picareta. Um dente afiado roeria a corda...")
+			g.tip("A rede é grossa demais para a picareta. Um dente afiado roeria a corda...")
 
 func reset_on_respawn() -> void:
 	trapped = null

@@ -607,6 +607,7 @@ func show_options(from_pause: bool) -> void:
 	opt_row.call("Transparência", "btn_alpha", [["Clara", "clara"], ["Média", "media"], ["Forte", "forte"]], "media")
 	opt_row.call("Mão", "left", [["Destro", false], ["Canhoto", true]], false)
 	opt_row.call("Velocidade", "tps", [["Calma", 44], ["Média", 52], ["Rápida", 60]], 60)
+	opt_row.call("Tutorial (dicas)", "tutorial", [["Ligado", true], ["Desligado", false]], true)
 	opt_row.call("Som", "sound", [["Ligado", true], ["Desligado", false]], true)
 	opt_row.call("Vibração", "vibrate", [["Sim", true], ["Não", false]], true)
 	opt_row.call("Tremor da tela", "shake", [["Sim", true], ["Não", false]], true)
@@ -638,7 +639,23 @@ func start_level(cont: bool) -> void:
 	if cont:
 		show_intro(true)
 	else:
-		play_cut("abertura", func(): show_intro(false))
+		_ask_tutorial(func(): play_cut("abertura", func(): show_intro(false)))
+
+## no começo de um jogo novo: quer as dicas do tutorial?
+func _ask_tutorial(next: Callable) -> void:
+	state = S.INTRO
+	_show_hud(false)
+	var vb := _overlay(.9)
+	vb.add_child(_label("ANTES DE COMEÇAR", 30, GOLD, Spr.font_title))
+	vb.add_child(_label("Quer ajuda do tutorial? As dicas explicam os controles e os desafios pelo caminho. Dá para mudar depois em OPÇÕES.", 17, Color("#e8dcc0"), Spr.font_i, 620))
+	var pick := func(on: bool):
+		Save.setv("opt", "tutorial", on)
+		panel.queue_free()
+		panel = null
+		next.call()
+	vb.add_child(_button("SIM, QUERO DICAS", func(): pick.call(true)))
+	vb.add_child(_button("NÃO, QUERO DESCOBRIR SOZINHO", func(): pick.call(false)))
+	panel.set_meta("ok", func(): pick.call(true))
 
 func show_intro(cont: bool) -> void:
 	state = S.INTRO
