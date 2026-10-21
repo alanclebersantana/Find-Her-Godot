@@ -353,3 +353,17 @@ static func plant(e: Dictionary, T: int) -> void:
 	Spr.line(top, OUT, 1.5)
 	Spr.line(bot, OUT, 1.5)
 	Spr.restore()
+
+static func _icicle(o: Dictionary, T: int) -> void:
+	if o.st == "broken":
+		return
+	var ln: float = o.get("len", 46) * (o.grow if o.st == "idle" else 1.0)
+	var sx: float = sin(T * 1.7) * 2.0 if o.st == "shake" else 0.0
+	var y: float = o.y + o.fy
+	var w: float = 24.0
+	var pts := PackedVector2Array([Vector2(o.x - w / 2 + sx, y), Vector2(o.x + w / 2 + sx, y), Vector2(o.x + sx, y + ln)])
+	Spr.poly(pts, Color(.82, .94, 1, .96))
+	Spr.ci.draw_polyline(pts + PackedVector2Array([pts[0]]), Color(.35, .55, .75), 2, true)
+	Spr.seg(o.x - 3 + sx, y + 3, o.x - 1 + sx, y + ln * .7, Color(1, 1, 1, .8), 2)
+	if o.st == "shake" and (T / 4) % 2 == 0:
+		Spr.seg(o.x - 12, y - 2, o.x + 12, y - 2, Color(1, 1, 1, .7), 2)

@@ -82,11 +82,14 @@ func _draw() -> void:
 			l.y = -20
 			l.x = randf() * vs.x
 		if snow > .3:
-			# flocos de neve caindo devagar
-			l.y += .5 + l.s * .6
+			# flocos de neve caindo devagar — só nos momentos em que está nevando
+			var fall: float = g.AMB.get("snowfall", snow)
+			l.y += .5 + l.s * .6 + fall * .6
+			if k >= int(26 * fall):
+				continue
 			var fs: float = 2.0 + l.s * 2.4
-			draw_circle(Vector2(l.x, l.y), fs, Color(1, 1, 1, .85 * snow))
-			draw_circle(Vector2(fmod(l.x + 517.0, vs.x), fmod(l.y + 233.0, vs.y)), fs * .7, Color(1, 1, 1, .6 * snow))
+			draw_circle(Vector2(l.x, l.y), fs, Color(1, 1, 1, .85 * fall))
+			draw_circle(Vector2(fmod(l.x + 517.0, vs.x), fmod(l.y + 233.0, vs.y)), fs * .7, Color(1, 1, 1, .6 * fall))
 			continue
 		var lc: Color = [Color(.42, .6, .2), Color(.75, .5, .15), Color(.6, .3, .12)][l.c]
 		if song in ["noite", "perseguicao", "tunel"]:

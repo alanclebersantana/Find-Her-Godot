@@ -51,6 +51,19 @@ func _draw() -> void:
 				rx += 90
 		else:
 			Spr.rect(ca, c.y, cb - ca, c.h, CAVE)
+	# vãos no chão dos túneis (embaixo dos cavaletes da mina): fundo escuro e paredes de terra
+	for sh in L.get("shafts", []):
+		if sh[1] < x0 or sh[0] > x1:
+			continue
+		var sa: float = max(float(sh[0]), x0)
+		var sb: float = min(float(sh[1]), x1)
+		var sy: float = sh[2]
+		Spr.vgrad(sa, sy - 6, sb - sa, 160, Color(.03, .02, .02), Color(0, 0, 0))
+		Spr.rect(sa, sy + 150, sb - sa, L.bottom - sy, Color(0, 0, 0))
+		if sh[0] >= x0 and sh[0] < x1:
+			Spr.hgrad(sh[0], sy, 22, 200, Color("#4a3220"), Color(0, 0, 0, 0))
+		if sh[1] > x0 and sh[1] <= x1:
+			Spr.hgrad(sh[1] - 22, sy, 22, 200, Color(0, 0, 0, 0), Color("#4a3220"))
 	for d in L.get("decor", []):
 		if d.x + 160 < x0 or d.x - 160 > x1:
 			continue

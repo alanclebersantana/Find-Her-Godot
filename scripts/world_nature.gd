@@ -16,8 +16,8 @@ static func decor(d: Dictionary) -> void:
 			var n: String = "v_house1" if d.k == "house1" else "v_house2"
 			var w: float = 210 * s
 			Spr.ellipse(d.x, d.y + 2, w * .55, 10, Color(0, 0, 0, .25))
-			# casas são só cenário: um pouco apagadas para não parecerem plataforma
-			Spr.ABb(n, d.x, d.y + 6, w, .72)
+			# casas são só cenário (sólidas, sem transparência)
+			Spr.ABb(n, d.x, d.y + 6, w)
 			# neve no telhado de palha
 			var r = Spr.AR[n]
 			var hh: float = w * r[3] / r[2]
@@ -31,7 +31,7 @@ static func decor(d: Dictionary) -> void:
 				var u2 := 1.0 - i / 12.0
 				var yy2: float = top + hh * .14 + abs(u2 - .5) * hh * .62
 				pts.push_back(Vector2(d.x - w * .48 + u2 * w * .96, yy2 + 10 + sin(u2 * 23) * 3))
-			Spr.poly(pts, Color(.96, .97, 1, .75))
+			Spr.poly(pts, Color(.96, .97, 1))
 			for i in 7:
 				var ix: float = d.x - w * .44 + i * w * .145
 				Spr.poly(PackedVector2Array([Vector2(ix - 3, top + hh * .52), Vector2(ix, top + hh * .52 + 10 + (i % 3) * 5), Vector2(ix + 3, top + hh * .52)]), Color(.85, .93, 1, .9))

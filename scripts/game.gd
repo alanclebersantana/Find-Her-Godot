@@ -60,7 +60,7 @@ var CLUEGOT := {}
 var SPECGOT := {}
 var DRAWN := {}
 var STATS := {"pen": 0, "penTotal": 0}
-var AMB := {"dark": 0.0, "rain": 0.0, "night": 0.0, "tint": "", "song": "manha", "fog": 0.0, "wind": 0.0, "snow": 0.0}
+var AMB := {"dark": 0.0, "rain": 0.0, "night": 0.0, "tint": "", "song": "manha", "fog": 0.0, "wind": 0.0, "snow": 0.0, "snowfall": 0.0}
 var X: Extras
 var M: Mech
 var PR: Props
@@ -569,6 +569,9 @@ func ambient() -> void:
 	AMB.rain = mix.call("rain")
 	AMB.night = mix.call("night")
 	AMB.snow = mix.call("snow")
+	# na neve, neva de vez em quando: períodos de nevasca e de céu calmo (~45 s por ciclo)
+	var cyc: float = .5 + .5 * sin(T * TAU / 2700.0)
+	AMB.snowfall = AMB.snow * clamp((cyc - .3) / .35, 0.0, 1.0)
 	var src: Dictionary = a if (t < .5 or b == null) else b
 	AMB.tint = src.get("tint", "")
 	AMB.song = src.get("song", "manha")

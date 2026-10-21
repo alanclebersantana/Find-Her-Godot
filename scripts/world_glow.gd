@@ -32,6 +32,19 @@ func _draw() -> void:
 		for i in 3:
 			Spr.circle(pa + 6 + i * 7, 512 + i * 9, 2.5, Color(.7, .62, .5, .5 * k))
 			Spr.circle(pb - 6 - i * 7, 514 + i * 8, 2.5, Color(.7, .62, .5, .5 * k))
+	for sh in g.L.get("shafts", []):
+		if sh[1] < x0 or sh[0] > x1:
+			continue
+		var qa: float = sh[0]
+		var qb: float = sh[1]
+		var qy: float = sh[2]
+		var q: float = .55 + .15 * sin(T * .05)
+		Spr.vgrad(qa, qy, qb - qa, 120, Color(0, 0, 0, .55), Color(0, 0, 0, .9))
+		Spr.rect(qa, qy + 120, qb - qa, 600, Color(0, 0, 0, .9))
+		Spr.seg(qa - 30, qy - 1, qa, qy - 1, Color(.95, .9, .75, .85 * q), 3)
+		Spr.seg(qb, qy - 1, qb + 30, qy - 1, Color(.95, .9, .75, .85 * q), 3)
+		for e in [qa, qb]:
+			Spr.rect(e - 3, qy - 2, 6, 46, Color(.75, .7, .6, .35 * q))
 	for c in g.COINS:
 		if c.got or c.x < x0 or c.x > x1:
 			continue

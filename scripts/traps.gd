@@ -10,6 +10,7 @@ class_name Traps
 ##  snap    galho que estala e cai pouco depois de pisar
 ##  cage    jaula de caçador: prende o Tomé; o Pipoca solta mordendo a corda
 ##  net     rede de caçador fechando a passagem; o Pipoca rói a corda
+##  icicle  pingente de gelo no teto: treme quando o Tomé chega perto e cai; volta a crescer depois
 ## e a picareta arremessada (↑ + GOLPE), que fica cravada na parede e vira degrau.
 
 var g  # Game
@@ -48,6 +49,10 @@ func load_level() -> void:
 				g.SOL.append(o.sol)
 			"cage":
 				o.dy = 0.0
+			"icicle":
+				o.fy = 0.0
+				o.vy = 0.0
+				o.grow = 1.0
 		T.append(o)
 
 func by_kind(k: String) -> Array:
@@ -188,6 +193,8 @@ func post() -> void:
 					p.vy = -8
 			"roll":
 				_roll(o, p, pcx)
+			"icicle":
+				_icicle(o, p, pcx)
 			"axe":
 				var b := axe_blade(o)
 				if p.iframe == 0 and Vector2(pcx, p.y + p.h / 2).distance_to(b) < 30:
@@ -345,6 +352,47 @@ func _roll(o: Dictionary, p: Dictionary, pcx: float) -> void:
 				Audio.play("stomp", -4)
 			if o.t > 60:
 				o.st = "done"
+
+## pingente de gelo: treme ~0,7 s quando o Tomé passa embaixo, despenca e se quebra no chão
+func _icicle(o: Dictionary, p: Dictionary, pcx: float) -> void:
+	var ln: float = o.get("len", 46)
+	match o.st:
+		"idle":
+			o.grow = min(1.0, o.grow + .02)
+			if o.grow >= 1.0 and abs(pcx - o.x) < o.get("reach", 70) and p.y > o.y and p.y < o.get("floor", o.y + 300) and not p.get("dog"):
+				o.st = "shake"
+				o.t = 0
+				Audio.play("climb", -4)
+		"shake":
+			if o.t % 8 == 0:
+				g.PARTS.append({"x": o.x + randf_range(-6, 6), "y": o.y + 4, "vx": 0.0, "vy": 1.0, "life": 20, "col": Color(.85, .95, 1, .9)})
+			if o.t > 42:
+				o.st = "fall"
+				o.t = 0
+				o.vy = 0.0
+				o.fy = 0.0
+		"fall":
+			o.vy = min(o.vy + .7, 14.0)
+			o.fy += o.vy
+			var tip: float = o.y + o.fy + ln
+			if p.dyingT == 0 and abs(pcx - o.x) < 16 and tip > p.y + 4 and o.y + o.fy < p.y + p.h:
+				g.hurt(1, o.x)
+				_shatter(o)
+			elif tip >= o.get("floor", o.y + 300):
+				_shatter(o)
+		"broken":
+			if o.t > 150:
+				o.st = "idle"
+				o.grow = 0.0
+				o.fy = 0.0
+
+func _shatter(o: Dictionary) -> void:
+	o.st = "broken"
+	o.t = 0
+	var by: float = min(o.y + o.fy + o.get("len", 46), o.get("floor", o.y + 300))
+	g.burst(o.x, by, 14, Color(.85, .95, 1))
+	g.fx("fx_pieces", o.x, by - 6, 14, .25, -.3)
+	Audio.play("stomp", -10)
 
 func _snap(o: Dictionary, p: Dictionary) -> void:
 	match o.st:

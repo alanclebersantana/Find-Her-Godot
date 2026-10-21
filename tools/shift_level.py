@@ -56,6 +56,7 @@ def shift(L, X, D, mode='widen'):
             h['a'] = f(h['a']) if h['a'] >= X else X + D
             h['b'] += D
     L['pits'] = [[f(a), f(b)] for a, b in L.get('pits', [])]
+    L['shafts'] = [[f(a), f(b), y] for a, b, y in L.get('shafts', [])]
     b = L['boss']
     moved = b['x0'] >= X
     for k in ['x0', 'x1', 'trig', 'spawn']: b[k] = f(b[k])
