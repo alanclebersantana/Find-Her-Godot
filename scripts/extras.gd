@@ -904,7 +904,7 @@ func _dog() -> void:
 		DOG.bark -= 1
 	DOG.moving = false
 	# caminho do Tomé no chão
-	if p.onGround and not p.ladder and not p.vine and not p.swim and p.dyingT == 0 and not p.get("dog"):
+	if p.onGround and not p.ladder and not p.vine and not p.swim and p.dyingT == 0 and not p.get("dog") and (g.TW == null or g.TW.zone == null):
 		var cur := Vector2(pcx, feet)
 		if TRAIL.is_empty() or TRAIL[TRAIL.size() - 1].distance_to(cur) > 6:
 			TRAIL.append(cur)
@@ -914,6 +914,15 @@ func _dog() -> void:
 	match DOG.st:
 		"ctrl", "dig":
 			pass
+		"door":
+			# esperando do lado de fora da torre
+			DOG.moving = false
+			if g.TW == null or g.TW.zone == null:
+				DOG.st = "follow"
+				TRAIL = [Vector2(pcx, feet)]
+				DOG.x = pcx - p.face * 40
+				DOG.y = feet
+				_resync()
 		"stay":
 			DOG.moving = false
 			if dog_dist() > 1400:

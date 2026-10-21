@@ -63,6 +63,7 @@ var X: Extras
 var M: Mech
 var PR: Props
 var TR: Traps
+var TW: Tower
 var player: Dictionary = {}
 var keys := {}
 var T := 0
@@ -200,6 +201,8 @@ func load_level(i: int) -> void:
 	PR.load_level()
 	TR = Traps.new(self)
 	TR.load_level()
+	TW = Tower.new(self)
+	TW.load_level()
 	_reset_player(L.spawn.x - 12, L.spawn.y - 34)
 	time_left = int(L.get("time", 180)) * 60
 	coins = 0
@@ -472,6 +475,15 @@ func ambient() -> void:
 	var S: Array = L.get("sections", [])
 	if S.is_empty():
 		return
+	if TW and TW.zone != null:
+		AMB.dark = 0.0
+		AMB.rain = 0.0
+		AMB.night = 0.0
+		AMB.tint = ""
+		AMB.fog = 0.0
+		AMB.wind = 0.0
+		AMB.song = TW.zone.get("song", "manha")
+		return
 	var px: float = player.x + player.w / 2
 	var i := 0
 	while i + 1 < S.size() and S[i + 1].x <= px:
@@ -595,7 +607,8 @@ func step() -> void:
 				level_won.emit()
 		return
 	T += 1
-	max_x = max(max_x, player.x + 300)
+	if TW == null or TW.zone == null:
+		max_x = max(max_x, player.x + 300)
 	if shake > 0:
 		shake *= .85
 	for k in ["iframe", "vineCD", "actT", "pushT", "leap", "skidT"]:
@@ -612,6 +625,12 @@ func step() -> void:
 		return
 	M.pre()
 	TR.pre()
+	TW.pre()
+	if TW.busy():
+		TW.anim_step()
+		_tick_fx()
+		_camera()
+		return
 	# encostado numa parede no ar (para deslizar e pular de parede em parede)
 	player.wslide = false
 	if player.wsl > 0:
@@ -996,7 +1015,10 @@ func step() -> void:
 				player.airJumps = 1
 			elif not e.stun:
 				hurt(1, e.x)
-	player.x = clamp(player.x, 0, L.spanX - player.w)
+	if TW.zone != null:
+		player.x = clamp(player.x, TW.zone.x0, TW.zone.x1 - player.w)
+	else:
+		player.x = clamp(player.x, 0, L.spanX - player.w)
 	# saída (porta da mina)
 	if not player.dog and hit(player, R(DOOR.x + 10, DOOR.y, DOOR.w - 20, DOOR.h)) and not DOOR.locked and (VIL == null or VIL.gone):
 		player.exitT = 40
@@ -1055,8 +1077,9 @@ func _camera() -> void:
 		elif player.y < cam_focus - 150:
 			cam_focus = player.y + 150
 		ty = cam_focus - H * .55 + look_y
-	tx = clamp(tx, 0, max(0, L.spanX - W))
-	ty = clamp(ty, L.top, max(L.top, L.bottom - H))
+	var cb := cam_bounds()
+	tx = clamp(tx, cb.position.x, max(cb.position.x, cb.end.x - W))
+	ty = clamp(ty, cb.position.y, max(cb.position.y, cb.end.y - H))
 	var rx := damp(cam, tx, cam_vx, .16 if CINE.is_empty() else .5)
 	cam = rx[0]
 	cam_vx = rx[1]
@@ -1111,15 +1134,24 @@ func _cine_step() -> void:
 	_tick_fx()
 	_camera()
 
+## limites da câmera: a fase inteira, ou a sala da torre onde o Tomé está
+func cam_bounds() -> Rect2:
+	if TW and TW.zone != null:
+		return TW.cam_rect()
+	return Rect2(0, L.top, L.spanX, L.bottom - L.top)
+
 func snap_camera() -> void:
 	prev_px = -99999
 	cam_vx = 0.0
 	cam_vy = 0.0
 	look_x = player.face * 70.0
 	look_vx = 0.0
-	cam = clamp(player.x + player.w / 2 - W / 2 + look_x, 0, max(0, L.spanX - W))
+	if TW:
+		TW.zone = TW.zone_at(player.x + player.w / 2, player.y + player.h / 2)
+	var cb := cam_bounds()
+	cam = clamp(player.x + player.w / 2 - W / 2 + look_x, cb.position.x, max(cb.position.x, cb.end.x - W))
 	cam_focus = player.y
-	cam_y = clamp(player.y - H * .55, L.top, max(L.top, L.bottom - H))
+	cam_y = clamp(player.y - H * .55, cb.position.y, max(cb.position.y, cb.end.y - H))
 	prev_cam = cam
 	prev_cam_y = cam_y
 	rcam = cam
@@ -1299,6 +1331,8 @@ func _warp_step() -> void:
 func _warp_jump() -> void:
 	var w: Dictionary = player.warp
 	var e: Dictionary = w.e
+	if e.get("mode", "") == "door" and X.dog_free() and X.DOG.st in ["follow", "sit", "stay"]:
+		X.DOG.st = "door"
 	player.x = e.to[0] - player.w / 2 - int(e.get("odir", 0)) * 31
 	player.y = e.to[1] - player.h
 	_rest_player()
@@ -1412,7 +1446,8 @@ func _p1_pre(pcx: float) -> void:
 	for e in ENTR:
 		if player.onGround and not player.dog and pcx > e.x and pcx < e.x + e.w and abs(player.y + player.h - (e.y + e.h)) < 16:
 			nearE = e
-	if nearE and (keys.get("Sp", false) or (nearE.get("exit") and keys.get("Up", false))) and not player.ladder:
+	var door_up: bool = nearE != null and (nearE.get("exit") or nearE.get("mode", "") == "door") and keys.get("Up", false)
+	if nearE and ((keys.get("Sp", false) and nearE.get("mode", "") != "door") or door_up) and not player.ladder:
 		keys.Sp = false
 		keys.Up = false
 		start_warp(nearE)
@@ -1610,9 +1645,10 @@ func _p1_post(pcx: float, _pcy: float) -> void:
 	M.post()
 	PR.post()
 	TR.post()
+	TW.post()
 	# vilão foge
 	if VIL:
-		if not VIL.go and pcx > VIL.trig:
+		if not VIL.go and pcx > VIL.trig and pcx < L.spanX:
 			VIL.go = true
 			start_cine("vargas", VIL.x - 40, VIL.y - 40, 300,
 				[[44, 135, "VARGAS", "Desista, Tomé! Quem mandou abrir a boca sobre o dinheiro da mina?", "vargas"],
@@ -2101,6 +2137,7 @@ func respawn() -> void:
 		VIL.x = min(player.x + 420, VIL.gateX - 10)
 	X.boss_reset()
 	TR.reset_on_respawn()
+	TW.on_respawn()
 	X.breath = Extras.BREATH
 	snap_camera()
 	flash(msg + " Vidas: %d" % lives)

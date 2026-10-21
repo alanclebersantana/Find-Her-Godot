@@ -69,6 +69,8 @@ func dog_ok_now() -> String:
 		return "no"
 	if not g.CINE.is_empty() or g.X.boss_active() or p.dyingT > 0:
 		return "agora não"
+	if g.TW and g.TW.zone != null:
+		return "o Pipoca ficou esperando lá fora da torre"
 	if g.VIL and g.VIL.go and not g.VIL.gone:
 		return "agora não: o Vargas está fugindo!"
 	if not ctrl and (p.ladder or p.vine or p.swim or not p.onGround):

@@ -38,6 +38,10 @@ func _ready() -> void:
 	_make_theme()
 	_make_light_tex()
 	game = Game.new()
+	get_tree().root.set_meta("drag_probe", func(sp: Vector2) -> bool:
+		if state != S.PLAY or game.TW == null:
+			return false
+		return not game.TW.handle_at(game.get_global_transform_with_canvas().affine_inverse() * sp).is_empty())
 	game.name = "Game"
 	add_child(game)
 	game.clue_opened.connect(_on_clue)
@@ -234,6 +238,22 @@ func _input(e: InputEvent) -> void:
 	if state == S.PLAY and not game.CINE.is_empty() and ((e is InputEventScreenTouch and e.pressed) or (e is InputEventMouseButton and e.pressed)):
 		game.keys["Jp"] = true
 		return
+	# arrastar peças da torre com o dedo
+	if state == S.PLAY and game.TW and (e is InputEventScreenTouch or e is InputEventScreenDrag):
+		var wpos: Vector2 = game.get_global_transform_with_canvas().affine_inverse() * e.position
+		var TW = game.TW
+		if e is InputEventScreenTouch:
+			if e.pressed and TW.drag.is_empty() and TW.drag_begin(wpos, e.index):
+				get_viewport().set_input_as_handled()
+				return
+			elif not e.pressed and not TW.drag.is_empty() and TW.drag.f == e.index:
+				TW.drag_end()
+				get_viewport().set_input_as_handled()
+				return
+		elif not TW.drag.is_empty() and TW.drag.f == e.index:
+			TW.drag_move(wpos)
+			get_viewport().set_input_as_handled()
+			return
 	if e is InputEventKey and not e.echo:
 		if e.pressed and (e.keycode == KEY_ESCAPE or e.keycode == KEY_P):
 			_toggle_pause()
