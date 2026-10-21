@@ -20,4 +20,19 @@ for sh, names in SHEETS.items():
     for i, n in enumerate(names):
         if n:
             shutil.copy(os.path.join(tmp, 'p_%d.jpg' % i), os.path.join(ROOT, 'assets', 'comic', n + '.jpg'))
+# quadros avulsos (uma imagem = um quadro)
+import numpy as np
+from PIL import Image
+SINGLE = {'vargas_carrinho': 'vargas_a'}
+for src, n in SINGLE.items():
+    pth = os.path.join(ROOT, 'tools', 'art_src', src + '.jpg')
+    if not os.path.exists(pth):
+        continue
+    im = Image.open(pth).convert('RGB')
+    a = np.asarray(im)
+    nw = ~(a.min(axis=2) > 225)
+    ys = np.nonzero(nw.any(axis=1))[0]
+    xs = np.nonzero(nw.any(axis=0))[0]
+    im = im.crop((xs[0], ys[0], xs[-1] + 1, ys[-1] + 1)).resize((512, 512), Image.LANCZOS)
+    im.save(os.path.join(ROOT, 'assets', 'comic', n + '.jpg'), quality=88)
 print(sorted(os.listdir(os.path.join(ROOT, 'assets', 'comic'))))
