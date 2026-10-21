@@ -433,6 +433,279 @@ func n_clues() -> int:
 func spec(c: String) -> bool:
 	return g.SPECGOT.has(c)
 
+## a armadilha do tipo k mais perto de x
+func trap_at(k: String, x: float) -> Dictionary:
+	var best: Dictionary = {}
+	for o in g.TR.T:
+		if o.k == k and (best.is_empty() or abs(o.x - x) < abs(best.x - x)):
+			best = o
+	return best
+
+## espera os espinhos acabarem de descer e atravessa andando
+func cross_spikes(o: Dictionary, x_after: float):
+	var per: int = o.get("per", 140)
+	for i in 400:
+		if (g.T + int(o.get("ph", 0))) % per == per / 2 + 8:
+			break
+		frame()
+	return walk_to(x_after)
+
+## tronco-pêndulo: espera ele subir para o lado de lá e passa correndo por baixo
+func cross_swing(o: Dictionary, x_after: float):
+	for i in 400:
+		var th: float = fposmod(TAU * (g.T + o.get("ph", 0)) / float(o.per), TAU)
+		if abs(th - deg_to_rad(215)) < .04:
+			break
+		frame()
+	return run_to(x_after)
+
+## corta a teia com a picareta (de frente para ela)
+func cut_web(o: Dictionary):
+	walk_to(o.x - 22)
+	P.face = 1
+	press("G")
+	hold({}, 24)
+	return o.cut or "teia inteira"
+
+## pula num cogumelo saltador e deixa ele lançar até pousar
+func bounce_to(bx: float):
+	press("J")
+	var launched := false
+	for i in 300:
+		P = g.player
+		if not ok():
+			return "state"
+		if P.get("launchT", 0) > 0:
+			launched = true
+		var d := {}
+		if not launched:
+			if px() < bx - 4:
+				d = {"R": true}
+			elif px() > bx + 4:
+				d = {"L": true}
+			d["J"] = i < 16
+		frame(d)
+		P = g.player
+		if launched and P.onGround:
+			return true
+	return "não foi lançado" if not launched else "air"
+
+## corredeira: pula pedras, troncos e quedas; abaixa nos galhos
+func ride_raft():
+	var VH = g.VH
+	for it in 4000:
+		if VH.mode != "raft":
+			return VH.raft_done
+		var d := {}
+		var wl: float = VH.water_y(VH.hx)
+		for f in VH.RA.falls:
+			var df: float = f - VH.hx
+			if df > 4 and df < 40 and VH.hy >= wl - 1:
+				press("J")
+				d["J"] = true
+		for o in VH.OBS:
+			var dx: float = o.x - VH.hx
+			if dx < -140 or dx > 220:
+				continue
+			if o.k in ["rock", "log"] and dx < 70 and dx > 26 and VH.hy >= wl - 1:
+				press("J")
+				d["J"] = true
+			if o.k == "branch" and dx < 130:
+				d["S"] = true
+			if dx > -40 or o.k == "branch":
+				break
+		frame(d)
+	return "não terminou x=%d" % int(VH.hx)
+
+## subida da montanha: anda; perto de um precipício espera a rajada passar (abaixado) e pula
+func climb_gusts(x_end: float):
+	var chasms: Array = g.L.chasms
+	for it in 3000:
+		P = g.player
+		if not ok():
+			return "state"
+		if px() >= x_end and P.onGround:
+			return true
+		var gusting := false
+		for o in g.TR.T:
+			if o.k == "gust" and g.TR.gust_state(o) > 0 and px() > o.x - 220 and px() < o.x + o.w + 40:
+				gusting = true
+		# degrau à frente?
+		var step_up := false
+		for s in g.SOL:
+			if s.t == "ground" and s.x > px() and s.x - px() < 40 and s.y < P.y + P.h - 4 and P.onGround:
+				step_up = true
+		var edge := false
+		for c in chasms:
+			if c[0] - px() > 0 and c[0] - px() < 30 and P.onGround:
+				edge = true
+		if edge:
+			if gusting:
+				frame({"S": true})
+				continue
+			press("J")
+			for i in 40:
+				frame({"J": i < 18, "R": true})
+				P = g.player
+				if P.onGround and i > 4:
+					break
+			continue
+		if step_up:
+			press("J")
+			for i in 30:
+				frame({"J": i < 12, "R": true})
+				P = g.player
+				if P.onGround and i > 4:
+					break
+			continue
+		if gusting and g.TR.T.any(func(o): return o.k == "gust" and g.TR.gust_state(o) == 2 and px() > o.x and px() < o.x + o.w):
+			frame({"R": true})
+		else:
+			frame({"R": true})
+	return "timeout@%d,%d" % [int(px()), int(P.y)]
+
+## ponte que se solta: corre e pula os vãos
+func bridge_run(o: Dictionary):
+	var gaps: Array = []
+	for gi in o.get("gaps", []):
+		gaps.append(o.x + gi * 40.0)
+	frame({"R": true})
+	frame({})
+	for it in 600:
+		P = g.player
+		if not ok():
+			return "state"
+		if px() > o.x + o.w + 40 and P.onGround:
+			return true
+		var d := {"R": true}
+		for gx in gaps:
+			if gx - px() > 0 and gx - px() < 34 and P.onGround:
+				press("J")
+		d["J"] = not P.onGround and P.vy < 0
+		frame(d)
+	return "timeout@%d,%d" % [int(px()), int(P.y)]
+
+## voo: para cada grupo de obstáculos à frente calcula as alturas livres e vai para a mais perto
+func _obs_box(o: Dictionary) -> Array:
+	match o.k:
+		"flock":
+			return [o.x - 30, o.x + 90, o.y - 26, o.y + 64]
+		"cloud":
+			return [o.x + 10, o.x + o.w - 10, o.y + 8, o.y + o.h - 8]
+		"hawk":
+			if o.st == "gone":
+				return []
+			var ty: float = o.get("ty", o.y)
+			if o.st in ["warn", "dive", "sweep"]:
+				return [o.x - 400, o.x + 40, ty - 18, ty + 18]
+			return []
+	return []
+
+func _free_spans(boxes: Array, top: float, low: float) -> Array:
+	# alturas (hy) livres: a caixa do avião vai de hy-46 a hy-6
+	var spans := [[top, low]]
+	for bx in boxes:
+		var cut0: float = bx[2] + 6 - 14
+		var cut1: float = bx[3] + 46 + 14
+		var out := []
+		for sp in spans:
+			if sp[1] < cut0 or sp[0] > cut1:
+				out.append(sp)
+			else:
+				if sp[0] < cut0:
+					out.append([sp[0], cut0])
+				if sp[1] > cut1:
+					out.append([cut1, sp[1]])
+		spans = out
+	return spans
+
+func fly_plane():
+	var VH = g.VH
+	for it in 6000:
+		if VH.mode != "plane":
+			return VH.plane_done
+		if VH.phase != "fly":
+			frame()
+			continue
+		var groups := []
+		var list := []
+		for o in VH.OBS:
+			var bx := _obs_box(o)
+			if bx.is_empty() or bx[1] < VH.hx - 60 or bx[0] > VH.hx + 900:
+				continue
+			list.append(bx)
+		list.sort_custom(func(a, b): return a[0] < b[0])
+		for bx in list:
+			if groups.is_empty() or bx[0] > groups.back()[0][0] + 120:
+				groups.append([bx])
+			else:
+				groups.back().append(bx)
+		var target: float = VH.hy
+		if not groups.is_empty():
+			var spans := _free_spans(groups[0], VH.PL.top + 10, VH.PL.low - 10)
+			var nxt := []
+			if groups.size() > 1:
+				nxt = _free_spans(groups[1], VH.PL.top + 10, VH.PL.low - 10)
+			var best := 1e9
+			for sp in spans:
+				for k in 9:
+					var y: float = lerpf(sp[0], sp[1], k / 8.0)
+					var c: float = abs(y - VH.hy)
+					if not nxt.is_empty():
+						var dn := 1e9
+						for sp2 in nxt:
+							dn = min(dn, 0.0 if (y >= sp2[0] and y <= sp2[1]) else min(abs(y - sp2[0]), abs(y - sp2[1])))
+						c += dn * 2.0
+					if c < best:
+						best = c
+						target = y
+		var dd := {}
+		if VH.hy > target + 5:
+			dd["U"] = true
+		elif VH.hy < target - 5:
+			dd["S"] = true
+		frame(dd)
+	return "não terminou x=%d" % int(VH.hx)
+
+## bola gigante: corre pulando os obstáculos e se abaixa no buraco do chão
+func boulder_run(o: Dictionary):
+	var obs: Array = []
+	for sb in g.SOL:
+		if sb.get("bob") and sb.bob != "barricade":
+			obs.append(float(sb.x))
+	for pit in g.L.pits:
+		if pit[0] > o.x and pit[0] < o.end:
+			obs.append(float(pit[0]))
+	var niche: float = (o.niche[0] + o.niche[1]) / 2.0
+	frame({})
+	frame({"R": true})
+	frame({})
+	var jt := 0
+	for it in 900:
+		P = g.player
+		if not ok():
+			return "state"
+		if px() > niche - 70:
+			break
+		for ox in obs:
+			var ahead: float = ox - (px() + P.w / 2)
+			if ahead > 20 and ahead < 64 and P.onGround and jt <= 0:
+				press("J")
+				jt = 14
+		jt -= 1
+		frame({"R": true, "J": jt > 0})
+	# entra no buraco e se abaixa até a bola passar
+	for it in 400:
+		P = g.player
+		if o.get("passed", false) or o.st in ["break", "done"]:
+			break
+		if px() > o.niche[0] + 14 and px() < o.niche[1] - 14 and P.onGround:
+			frame({"S": true})
+		else:
+			frame({"R" if niche > px() else "L": true})
+	hold({}, 30)
+	return o.get("passed", false) or "bola: " + o.st
+
 func _initialize() -> void:
 	g = load("res://scripts/game.gd").new()
 	root.add_child(g)
@@ -462,6 +735,8 @@ func _initialize() -> void:
 	S("passa o portão 3", walk_to(2065))
 	S("cipó do riacho", grab_vine(g.VINES[5]))
 	S("outra margem do riacho", vine_hop(null))
+	walk_to(2525)
+	S("espinhos da manhã", cross_spikes(trap_at("spikes", 2560), 2700))
 	S("vai à escada", walk_to(2755))
 	S("sobe a escada", climb_to("U", func(): return P.y + P.h <= 228, 400))
 	walk_to(2850)
@@ -551,6 +826,7 @@ func _initialize() -> void:
 	S("rasteja para a fenda", crawl(6830))
 	S("sobe a fenda pulando nas paredes", crevice_climb())
 	S("topo da fenda", walk_to(6950))
+	S("cortou a teia", cut_web(trap_at("web", 7340)))
 	walk_to(7900)
 	S("galho 1 das copas", jump_to(8050))
 	walk_to(8105)
@@ -569,6 +845,8 @@ func _initialize() -> void:
 	S("galho 5", jump_to(9570, true))
 	S("desce ao chão", walk_to(9700))
 	walk_to(9800)
+	S("tronco-pêndulo", cross_swing(trap_at("swing", 10010), 10160))
+	S("passou o tronco", P.hp == 5)
 	walk_to(10160)
 	hold({}, 20)
 	press("D")
@@ -692,115 +970,138 @@ func _initialize() -> void:
 	S("venceu o bagre-rei", fish_fight())
 	S("corrente de bolhas", until({"R": true}, func(): return px() > 24710, 600))
 	S("subiu na corrente", until({"R": true}, func(): return P.onGround and P.y < 480, 400))
-	S("fogueira grande 3", walk_to(25010) and rests.has(3))
-	walk_to(25550)
-	S("pula a pedra", jump_to(25680, true))
-	S("empurra a bola de neve", until({"R": true}, func(): return g.NT.SNOWB[0].x + g.NT.SNOWB[0].w >= 26047, 900))
+	S("margem do rio", walk_to(25040))
+	use()
+	S("subiu na jangada", g.VH.mode == "raft")
+	S("corredeira", ride_raft())
+	S("jangada sem virar", g.VH.tries == 0)
+	S("fogueira grande 3", walk_to(32380) and rests.has(3))
+	walk_to(32750)
+	S("pula a pedra", jump_to(32880, true))
+	S("empurra a bola de neve", until({"R": true}, func(): return g.NT.SNOWB[0].x + g.NT.SNOWB[0].w >= 33247, 900))
 	S("bola cresceu", g.NT.SNOWB[0].w > 75)
-	S("sobe na bola", jump_to(25970))
-	S("paredão", jump_to(26110, true))
-	S("gelo", walk_to(26700))
-	walk_to(26870)
-	S("bola rolando 1", dodge_roll(27130, 0))
-	S("bola rolando 2", dodge_roll(27650, 1))
-	walk_to(28095)
-	S("gelo fino 1", jump_to(28151))
-	S("gelo fino 2", jump_to(28231))
-	S("gelo fino 3", jump_to(28311))
-	S("depois do gelo", jump_to(28365))
-	S("pedra da bola 2", jump_to(28475))
-	walk_to(28478)
-	S("empurra a bola 3", until({"R": true}, func(): return g.NT.SNOWB[2].x + g.NT.SNOWB[2].w >= 28607, 900))
-	S("sobe na bola 3", jump_to(28580))
-	S("2º paredão", jump_to(28650, true))
-	walk_to(28745)
-	S("vila", walk_to(29400))
-	walk_to(29600)
+	S("sobe na bola", jump_to(33170))
+	S("paredão", jump_to(33310, true))
+	S("gelo", walk_to(33900))
+	walk_to(34070)
+	S("bola rolando 1", dodge_roll(34330, 0))
+	S("bola rolando 2", dodge_roll(34850, 1))
+	walk_to(35295)
+	S("gelo fino 1", jump_to(35351))
+	S("gelo fino 2", jump_to(35431))
+	S("gelo fino 3", jump_to(35511))
+	S("depois do gelo", jump_to(35565))
+	S("pedra da bola 2", jump_to(35675))
+	walk_to(35678)
+	S("empurra a bola 3", until({"R": true}, func(): return g.NT.SNOWB[2].x + g.NT.SNOWB[2].w >= 35807, 900))
+	S("sobe na bola 3", jump_to(35780))
+	S("2º paredão", jump_to(35850, true))
+	walk_to(35945)
+	S("vila", walk_to(36600))
+	walk_to(36800)
 	S("desce na caverna de gelo", climb_to("S", func(): return P.onGround and P.y > 800, 500))
-	walk_to(30010)
-	S("bloco de gelo 1", jump_to(30090))
-	S("desce do bloco 1", jump_to(30220))
-	walk_to(30430)
-	S("bloco de gelo 2", jump_to(30510))
-	S("desce do bloco 2", jump_to(30640))
-	walk_to(31110)
+	walk_to(37210)
+	S("bloco de gelo 1", jump_to(37290))
+	S("desce do bloco 1", jump_to(37420))
+	walk_to(37630)
+	S("bloco de gelo 2", jump_to(37710))
+	S("desce do bloco 2", jump_to(37840))
+	walk_to(38310)
 	S("sobe da caverna", climb_to("U", func(): return P.ladder == null and P.onGround and P.y < 480, 500))
-	walk_to(31260)
-	walk_to(31450)
-	S("carroça", jump_to(31605))
+	walk_to(38460)
+	walk_to(38650)
+	S("carroça", jump_to(38805))
 	S("empurra a bola 2", until({"R": true}, func(): return g.NT.HOLES[0].filled, 900))
-	S("cavalo", walk_to(32260))
+	S("cavalo", walk_to(39460))
 	use()
 	S("cavalgada começou", until({}, func(): return g.RD.riding, 400))
 	S("cavalgada", ride())
 	S("sem tropeço", g.RD.tries == 0)
-	S("clareira do urso", walk_to(42960))
+	S("clareira do urso", walk_to(50160))
 	S("Urso-Rei", bear_fight())
-	S("fogueira grande 4", walk_to(45450) and rests.has(4))
-	S("margem", walk_to(45530))
+	S("fogueira grande 4", walk_to(52650) and rests.has(4))
+	S("subida da montanha", climb_gusts(55190))
+	S("ponte de cordas", bridge_run(trap_at("bridge", 55220)))
+	S("pista do avião", walk_to(56960))
+	use()
+	S("decolou", g.VH.mode == "plane")
+	S("voo", fly_plane())
+	S("avião sem rodopiar", g.VH.tries == 0)
+	S("fogueira grande 5", walk_to(63840) and rests.has(5))
+	S("margem", walk_to(64030))
 	var axe: Dictionary = g.TR.by_kind("axe")[0]
 	S("espera o machado", until({}, func(): g.TR.axe_blade(axe); return axe.ang < -.9, 300))
-	S("corre sob o machado", run_to(45650))
-	S("noite", walk_to(45785))
-	S("caixa", jump_to(45815))
-	if px() < 45840:
-		jump_to(45880, true)
-	walk_to(46060)
+	S("corre sob o machado", run_to(64150))
+	S("noite", walk_to(64285))
+	S("caixa", jump_to(64315))
+	if px() < 64340:
+		jump_to(64380, true)
+	walk_to(64805)
+	S("cogumelo saltador 1", bounce_to(64855))
+	S("chapéu alto", P.y + P.h <= 232)
+	S("cogumelo baixo", jump_to(65300))
+	S("cogumelo saltador 2", bounce_to(65345))
+	S("chapéu mais alto", P.y + P.h <= 152)
+	S("desce de chapéu", jump_to(65825))
+	S("fim do bosque", jump_to(66010))
+	S("teia da noite", cut_web(trap_at("web", 66625)))
+	walk_to(66960)
 	S("desce no poço da mina", climb_to("S", func(): return P.onGround and P.y > 820, 500))
-	walk_to(46280)
-	S("viga do poço", crawl(46420))
-	walk_to(46570)
-	S("carrinho do poço", jump_to(46760))
-	walk_to(46975)
-	S("tábua do poço 1", jump_to(47040))
-	S("tábua do poço 2", jump_to(47125))
-	S("depois das tábuas", jump_to(47220))
-	walk_to(47900)
-	S("viga 2 do poço", crawl(48050))
-	walk_to(48270)
+	walk_to(67025)
+	S("espinhos do poço", cross_spikes(trap_at("spikes", 67050), 67180))
+	S("viga do poço", crawl(67320))
+	walk_to(67470)
+	S("carrinho do poço", jump_to(67660))
+	walk_to(67875)
+	S("tábua do poço 1", jump_to(67940))
+	S("tábua do poço 2", jump_to(68025))
+	S("depois das tábuas", jump_to(68120))
+	walk_to(68800)
+	S("viga 2 do poço", crawl(68950))
+	walk_to(69170)
 	S("sobe do poço", climb_to("U", func(): return P.ladder == null and P.onGround and P.y < 480, 500))
-	walk_to(48420)
-	S("porta do galpão", walk_to(48670))
+	walk_to(69320)
+	S("porta do galpão", walk_to(69570))
 	hold({}, 20)
 	press("D")
 	frame()
 	S("Pipoca", g.M.ctrl)
-	S("Pipoca entra pela portinhola", walk_to(48900))
+	S("Pipoca entra pela portinhola", walk_to(69800))
 	S("óleo", g.INV.has("oleo"))
-	S("Pipoca sai", walk_to(48670))
+	S("Pipoca sai", walk_to(69570))
 	press("D")
 	frame()
 	S("Tomé", not g.M.ctrl)
-	S("telhado do galpão", jump_to(48745, true))
-	S("desce do telhado", walk_to(49040))
-	S("escada da coruja", walk_to(49305))
+	S("telhado do galpão", jump_to(69645, true))
+	S("desce do telhado", walk_to(69940))
+	S("escada da coruja", walk_to(70205))
 	S("sobe", climb_to("U", func(): return P.ladder == null and P.onGround and P.y + P.h <= 42, 500))
-	S("pavio", walk_to(49340))
-	S("azul", walk_to(49210))
+	S("pavio", walk_to(70240))
+	S("azul", walk_to(70110))
 	S("pavio+azul", g.INV.has("pavio") and spec("azul"))
-	walk_to(49305)
+	walk_to(70205)
 	S("desce", climb_to("S", func(): return P.onGround and P.y > 400, 600))
 	S("combina óleo+pavio", g.try_combine("oleo", "pavio") != "")
-	S("laje do X", walk_to(49110))
+	S("laje do X", walk_to(70010))
 	use()
 	S("quebrou a laje", g.X.broken.has("slab"))
 	S("desce na câmara", climb_to("S", func(): return P.onGround and P.y > 800, 500))
-	var rg = walk_to(48798)
+	var rg = walk_to(69698)
 	S("lápis dourado %s" % str(rg), g.X.GOLD.got)
-	walk_to(49185)
-	S("plataforma 1", jump_to(49195) is bool and P.y + P.h < 850)
-	S("pl. 2", jump_to(49260) is bool and P.y + P.h < 795)
-	S("pl. 3", jump_to(49188) is bool and P.y + P.h < 740)
+	walk_to(70085)
+	S("plataforma 1", jump_to(70095) is bool and P.y + P.h < 850)
+	S("pl. 2", jump_to(70160) is bool and P.y + P.h < 795)
+	S("pl. 3", jump_to(70088) is bool and P.y + P.h < 740)
 	S("sala secreta 3", g.X.found.has("s3"))
 	S("desce", until({"L": true}, func(): return P.onGround and P.y > 850, 300))
-	S("escada da laje", walk_to(49110))
+	S("escada da laje", walk_to(70010))
 	S("sobe", climb_to("U", func(): return P.ladder == null and P.onGround and P.y < 480, 500))
-	walk_to(49305)
-	S("rede de caçador", walk_to(49370))
+	walk_to(70205)
+	S("rede de caçador", walk_to(70270))
 	press("D")
 	frame()
 	S("Pipoca (rede)", g.M.ctrl)
-	S("Pipoca no poste", walk_to(49365))
+	S("Pipoca no poste", walk_to(70265))
 	press("A")
 	hold({}, 8)
 	S("rede caiu", g.TR.by_kind("net")[0].st == "down")
@@ -812,7 +1113,7 @@ func _initialize() -> void:
 	press("D")
 	frame()
 	S("Pipoca (jaula)", g.M.ctrl)
-	S("Pipoca no poste da jaula", walk_to(49462))
+	S("Pipoca no poste da jaula", walk_to(70362))
 	press("A")
 	hold({}, 8)
 	S("jaula abriu", g.TR.trapped == null)
@@ -826,61 +1127,67 @@ func _initialize() -> void:
 		if not dj and P.vy > -1:
 			press("J")
 			dj = true
-		frame({"R": px() < 49670, "J": dj and i < 60})
+		frame({"R": px() < 70570, "J": dj and i < 60})
 		P = g.player
 		if dj and P.onGround:
 			break
 	S("quica + pulo duplo", g.player.y < 130)
-	S("desenho 2", walk_to(49740))
-	walk_to(49840)
+	S("desenho 2", walk_to(70640))
+	walk_to(70740)
 	S("desce do galho", until({}, func(): return P.onGround and P.y > 400, 200))
-	S("entrada do túnel", walk_to(49850))
+	S("entrada do túnel", walk_to(70750))
 	use()
 	S("barreira aberta", g.LOCKS[2].done)
-	walk_to(50120)
-	S("viga do túnel", crawl(50300))
-	walk_to(50405)
-	S("tábua podre", jump_to(50510))
-	S("depois da tábua", jump_to(50660))
-	walk_to(50700)
-	S("carrinho do túnel", jump_to(50900))
-	walk_to(51035)
-	S("tábuas 1", jump_to(51110))
-	S("tábuas 2", jump_to(51200))
-	S("fim das tábuas", jump_to(51300))
-	walk_to(51340)
-	S("viga 2 do túnel", crawl(51490))
-	S("túnel", walk_to(51790))
-	S("rasteja", crawl(51950))
-	S("escada do nicho", walk_to(52150))
+	walk_to(71020)
+	S("viga do túnel", crawl(71200))
+	walk_to(71305)
+	S("tábua podre", jump_to(71410))
+	S("depois da tábua", jump_to(71560))
+	walk_to(71600)
+	S("carrinho do túnel", jump_to(71800))
+	walk_to(71935)
+	S("tábuas 1", jump_to(72010))
+	S("tábuas 2", jump_to(72100))
+	S("fim das tábuas", jump_to(72200))
+	walk_to(72240)
+	S("viga 2 do túnel", crawl(72390))
+	S("túnel da pedra", walk_to(72850))
+	var bol: Dictionary = trap_at("boulder", 72700)
+	S("a pedra caiu", until({"R": true}, func(): return bol.st != "idle", 200))
+	S("fuga da pedra", boulder_run(bol))
+	S("sem ser atropelado", P.hp == 5)
+	S("sai do buraco", jump_to(74540))
+	S("túnel", walk_to(74990))
+	S("rasteja", crawl(75150))
+	S("escada do nicho", walk_to(75350))
 	S("desce", climb_to("S", func(): return P.onGround and P.y > 700, 500))
-	S("roxo no nicho", walk_to(51960) and spec("roxo"))
-	walk_to(52180)
-	S("rasteja divisória", crawl(52245))
+	S("roxo no nicho", walk_to(75160) and spec("roxo"))
+	walk_to(75380)
+	S("rasteja divisória", crawl(75445))
 	S("pistas=6 (crachá)", n_clues() == 6)
 	S("vilão ainda não", not g.VIL.go)
-	walk_to(52280)
+	walk_to(75480)
 	S("sobe pela saída", climb_to("U", func(): return P.ladder == null and P.onGround and P.y < 480, 500))
-	S("vilão foge", walk_to(52500))
+	S("vilão foge", walk_to(75700))
 	S("perseguição começou", g.VIL.go)
-	walk_to(52830)
-	S("1º buraco", jump_to(53000))
-	walk_to(53120)
-	S("desliza sob a viga", crawl(53250))
-	walk_to(53485)
-	S("2º buraco", jump_to(53690, true))
-	walk_to(53750)
-	S("pula o carrinho parado", jump_to(53900, true))
-	walk_to(53970)
-	S("tábua 1", jump_to(54060))
-	S("tábua 2", jump_to(54190))
-	S("tábua 3", jump_to(54320))
-	S("chão", jump_to(54430))
-	walk_to(54570)
-	S("viga 2", crawl(54700))
-	S("vilão entrou na mina", until({"R": true}, func(): return g.VIL.gone or px() > 55000, 900))
+	walk_to(76030)
+	S("1º buraco", jump_to(76200))
+	walk_to(76320)
+	S("desliza sob a viga", crawl(76450))
+	walk_to(76685)
+	S("2º buraco", jump_to(76890, true))
+	walk_to(76950)
+	S("pula o carrinho parado", jump_to(77100, true))
+	walk_to(77170)
+	S("tábua 1", jump_to(77260))
+	S("tábua 2", jump_to(77390))
+	S("tábua 3", jump_to(77520))
+	S("chão", jump_to(77630))
+	walk_to(77770)
+	S("viga 2", crawl(77900))
+	S("vilão entrou na mina", until({"R": true}, func(): return g.VIL.gone or px() > 78200, 900))
 	S("vilão entrou", until({}, func(): return g.VIL.gone, 400))
-	walk_to(55115)
+	walk_to(78315)
 	var sa = until({}, func(): return not g.running, 300)
 	S("saída", sa is String and sa == "state")
 	var nd: int = g.DRWS.filter(func(d): return d.got).size()

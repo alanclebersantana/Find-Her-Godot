@@ -11,6 +11,14 @@ class_name Traps
 ##  cage    jaula de caçador: prende o Tomé; o Pipoca solta mordendo a corda
 ##  net     rede de caçador fechando a passagem; o Pipoca rói a corda
 ##  icicle  pingente de gelo no teto: treme quando o Tomé chega perto e cai; volta a crescer depois
+##  swing   tronco pendurado por duas cordas balançando no caminho
+##  hive    colmeia: encostou ou bateu, o enxame persegue até a água ou longe dali
+##  sand    areia movediça: parado afunda; atravessa pulando
+##  web     teia de aranha gigante: deixa lento; a picareta corta
+##  gust    rajadas de vento no alto da montanha (empurram para trás; abaixado aguenta)
+##  bridge  ponte de cordas que se solta tábua por tábua atrás do Tomé
+##  boulder bola de pedra gigante no túnel: corra, pule os obstáculos e se abaixe no nicho
+##  giant   cogumelo gigante (o chapéu é uma plataforma)
 ## e a picareta arremessada (↑ + GOLPE), que fica cravada na parede e vira degrau.
 
 var g  # Game
@@ -53,6 +61,24 @@ func load_level() -> void:
 				o.fy = 0.0
 				o.vy = 0.0
 				o.grow = 1.0
+			"hive":
+				o.sx = float(o.x)
+				o.sy = float(o.y) - 20.0
+				o.cool = 0
+			"web":
+				o.cut = false
+			"bridge":
+				_bridge_build(o)
+			"boulder":
+				o.bx = float(o.x)
+				o.by = float(o.y) - o.r
+				o.vx = 0.0
+				o.vy = 0.0
+				o.rot = 0.0
+				o.smashed = {}
+			"giant":
+				o.sol = {"t": "cap", "x": o.x - o.w / 2.0, "y": o.cap, "w": o.w, "h": 16, "oneway": 1}
+				g.SOL.append(o.sol)
 		T.append(o)
 
 func by_kind(k: String) -> Array:
@@ -206,6 +232,31 @@ func post() -> void:
 			"net":
 				if o.st == "down":
 					o.fy = o.get("fy", 0.0) + 7.0
+			"swing":
+				var e := swing_end(o)
+				if p.iframe == 0 and Game.hit(p, g.R(e.x - 44, e.y - 13, 88, 26)):
+					g.hurt(1, e.x - swing_dir(o) * 60.0)
+			"hive":
+				_hive(o, p, pcx)
+			"sand":
+				_sand(o, p, pcx, feet)
+			"web":
+				if not o.cut and not p.get("dog") and Game.hit(p, g.R(o.x + 6, o.y, o.w - 12, o.h)):
+					if p.get("webT", 0) == 0:
+						Audio.play("climb", -6)
+						g.tip("Teia de aranha! Ela te deixa lento. GOLPE com a picareta corta a teia.")
+					p.webT = 40
+			"gust":
+				_gust(o, p, pcx)
+			"bridge":
+				_bridge(o, p)
+			"boulder":
+				_boulder(o, p, pcx)
+	if p.get("webT", 0) > 0:
+		p.webT -= 1
+		p.vx *= .45
+		if p.vy < -6.0:
+			p.vy = -6.0
 
 func _launch_from(o: Dictionary, top: float) -> void:
 	var p: Dictionary = g.player
@@ -486,6 +537,14 @@ func swing_hits(hb: Dictionary) -> void:
 	for o in T:
 		if o.k == "net" and o.st == "idle" and Game.hit(hb, o.sol):
 			g.tip("A rede é grossa demais para a picareta. Um dente afiado roeria a corda...")
+		if o.k == "web" and not o.cut and Game.hit(hb, g.R(o.x, o.y, o.w, o.h)):
+			o.cut = true
+			o.t = 0
+			g.player.webT = 0
+			Audio.play("slide", -4)
+			g.burst(o.x + o.w / 2.0, o.y + o.h / 2.0, 18, Color(.92, .92, .95))
+		if o.k == "hive" and o.st == "idle" and Game.hit(hb, hive_box(o)):
+			_hive_wake(o)
 
 func reset_on_respawn() -> void:
 	trapped = null
@@ -497,6 +556,16 @@ func reset_on_respawn() -> void:
 			o.fy = 0.0
 		if o.k == "cage" and o.st in ["drop", "shut"]:
 			o.st = "idle"
+		if o.k == "hive" and o.st != "idle":
+			o.st = "idle"
+			o.sx = float(o.x)
+			o.sy = float(o.y) - 20.0
+		if o.k == "bridge" and o.st != "idle" and g.player.x < o.x + o.w:
+			_bridge_build(o)
+		if o.k == "boulder" and o.st != "done":
+			_boulder_reset(o)
+	g.player.sink = 0.0
+	g.player.webT = 0
 	if not PICK.is_empty():
 		_unpeg()
 		PICK = {}
@@ -505,7 +574,7 @@ func save_data() -> Dictionary:
 	var d := {}
 	for i in T.size():
 		var o: Dictionary = T[i]
-		if (o.k == "net" and o.st == "down") or (o.k == "cage" and o.st == "used") or (o.k == "roll" and o.st == "done"):
+		if (o.k == "net" and o.st == "down") or (o.k == "cage" and o.st == "used") or (o.k in ["roll", "boulder"] and o.st == "done") or (o.k == "web" and o.cut):
 			d[str(i)] = o.st
 	return d
 
@@ -520,6 +589,13 @@ func restore(d: Dictionary) -> void:
 				o.fy = 999.0
 			if o.k == "cage":
 				o.dy = -170.0
+			if o.k == "web":
+				o.cut = true
+				o.st = "idle"
+			if o.k == "boulder":
+				for sb in g.SOL.duplicate():
+					if sb.get("bob") and o.smash.has(sb.get("id", "")):
+						g.SOL.erase(sb)
 
 # ======================================================================
 #  PLANTA CARNÍVORA (é um inimigo: a picareta derruba, o latido atordoa)
@@ -560,3 +636,260 @@ func plant_update(e: Dictionary) -> void:
 func plant_box(e: Dictionary) -> Dictionary:
 	var hx: float = e.x + e.dir * (18 + e.get("lx", 0.0))
 	return g.R(hx - 20, e.base - 64, 40, 34)
+
+# ======================================================================
+#  ARMADILHAS NOVAS (tronco-pêndulo, colmeia, areia movediça, vento, ponte, bola gigante)
+# ======================================================================
+## ponta do tronco pendurado: as duas cordas balançam juntas, o tronco fica sempre deitado
+func swing_end(o: Dictionary) -> Vector2:
+	var a: float = o.amp * sin(TAU * (g.T + o.get("ph", 0)) / float(o.per))
+	o.ang = a
+	return Vector2(o.x + sin(a) * o.len, o.y + cos(a) * o.len)
+
+func swing_dir(o: Dictionary) -> float:
+	return 1.0 if cos(TAU * (g.T + o.get("ph", 0)) / float(o.per)) >= 0 else -1.0
+
+# ---------- colmeia ----------
+func hive_box(o: Dictionary) -> Dictionary:
+	return g.R(o.x - 22, o.y - 50, 44, 50)
+
+func _hive_wake(o: Dictionary) -> void:
+	if o.cool > 0:
+		return
+	o.st = "angry"
+	o.t = 0
+	o.sx = float(o.x)
+	o.sy = float(o.y) - 20.0
+	Audio.play("roar", -14)
+	g.shake = max(g.shake, 4)
+	g.flash_tut("Abelhas!", "Abelhas! Fuja para longe ou mergulhe na água.", 160)
+
+func _hive(o: Dictionary, p: Dictionary, pcx: float) -> void:
+	if o.cool > 0:
+		o.cool -= 1
+	match o.st:
+		"idle":
+			if not p.get("dog") and p.dyingT == 0 and Game.hit(p, hive_box(o)):
+				_hive_wake(o)
+		"angry":
+			var tx: float = pcx
+			var ty: float = p.y + 10
+			var d := Vector2(tx - o.sx, ty - o.sy)
+			# o enxame é mais rápido que andar e mais lento que correr
+			var v: Vector2 = d.normalized() * min(d.length(), 4.7)
+			o.sx += v.x
+			o.sy += v.y + sin(o.t * .2) * .8
+			if o.t % 20 == 0:
+				Audio.play("climb", -18)
+			if d.length() < 26 and p.iframe == 0 and p.dyingT == 0:
+				g.hurt(1, o.sx)
+			# abelha não entra na água; longe da colmeia ou depois de um tempo, desiste
+			if p.swim or abs(pcx - o.x) > 760 or o.t > 720 or _over_water(pcx, p.y + p.h):
+				o.st = "home"
+				o.t = 0
+		"home":
+			var d2 := Vector2(o.x - o.sx, o.y - 20 - o.sy)
+			if d2.length() < 6:
+				o.st = "idle"
+				o.cool = 150
+			else:
+				var v2: Vector2 = d2.normalized() * min(d2.length(), 3.0)
+				o.sx += v2.x
+				o.sy += v2.y
+
+func _over_water(x: float, feet: float) -> bool:
+	for sw in g.SWAMP:
+		if x > sw.x and x < sw.x + sw.w and feet > sw.y - 30:
+			return true
+	for w in g.X.WATER:
+		if x > w.x and x < w.x + w.w and feet > w.y - 10:
+			return true
+	return false
+
+# ---------- areia movediça ----------
+func _sand(o: Dictionary, p: Dictionary, pcx: float, feet: float) -> void:
+	var inside: bool = pcx > o.x and pcx < o.x + o.w and abs(feet - o.y) < 6 and p.onGround and not p.get("dog") and p.dyingT == 0
+	if inside:
+		if not o.get("was", false):
+			Audio.play("splash", -10)
+			g.tip("Areia movediça! Parado você afunda: atravesse pulando.")
+		var still: bool = abs(p.vx) < .6
+		p.sink = min(36.0, p.get("sink", 0.0) + (.4 if still else .16))
+		p.vx = clamp(p.vx, -1.6, 1.6)
+		if g.T % 9 == 0:
+			g.burst(pcx + randf_range(-10, 10), o.y, 2, Color("#b59a62"))
+		if p.sink >= 34.0:
+			p.sink = 0.0
+			g.die("Você afundou na areia movediça.")
+		o.was = true
+	elif o.get("was", false):
+		o.was = false
+		# pulo de dentro da areia sai mais baixo
+		if p.vy < 0 and not p.onGround:
+			p.vy = max(p.vy, Game.JUMP * (.82 - p.get("sink", 0.0) / 120.0))
+		p.sink = 0.0
+
+# ---------- rajadas de vento ----------
+## 0 = calmo, 1 = aviso (folhas e neve começam a voar), 2 = rajada
+func gust_state(o: Dictionary) -> int:
+	var per: int = o.get("per", 260)
+	var on: int = o.get("on", 110)
+	var u: int = (g.T + int(o.get("ph", 0))) % per
+	if u >= per - on:
+		return 2
+	if u >= per - on - 45:
+		return 1
+	return 0
+
+func _gust(o: Dictionary, p: Dictionary, pcx: float) -> void:
+	if gust_state(o) != 2 or p.dyingT > 0 or p.get("dog"):
+		return
+	if pcx < o.x or pcx > o.x + o.w or p.y + p.h < o.y or p.y > o.y + o.h or p.ladder:
+		return
+	var push: float = .25 if p.crouch else (2.9 if p.onGround else 3.3)
+	g.move_x(-push)
+	if g.T % 30 == 0 and not p.crouch:
+		g.tip("Rajada de vento! Segure ↓ para se abaixar e aguentar firme.")
+
+# ---------- ponte de cordas ----------
+func _bridge_build(o: Dictionary) -> void:
+	for pl in o.get("planks", []):
+		g.SOL.erase(pl.sol)
+	o.planks = []
+	var n: int = int(o.w / 40)
+	var gaps: Array = o.get("gaps", [])
+	for i in n:
+		if gaps.has(i):
+			continue
+		var sol := {"t": "bplank", "x": o.x + i * 40.0, "y": float(o.y), "w": 40.0, "h": 12.0, "oneway": 1, "bridge": 1}
+		g.SOL.append(sol)
+		o.planks.append({"x": o.x + i * 40.0, "sol": sol, "fy": 0.0, "vy": 0.0, "down": false})
+	o.st = "idle"
+	o.front = float(o.x) - 20.0
+	o.t = 0
+
+func _bridge(o: Dictionary, p: Dictionary) -> void:
+	match o.st:
+		"idle":
+			if p.onGround and p._g != null and p._g.get("bridge") and not p.get("dog"):
+				o.st = "go"
+				o.t = 0
+				Audio.play("climb")
+				g.shake = max(g.shake, 3)
+				g.flash_tut("CORRA!", "A ponte está se soltando! CORRA! (toque duas vezes → para correr)", 160)
+		"go":
+			if o.t > o.get("delay", 24):
+				o.front += o.get("spd", 5.0)
+			if o.front > o.x + o.w + 40:
+				o.st = "gone"
+	for pl in o.planks:
+		if o.st != "idle" and not pl.down and pl.x + 40 < o.front:
+			pl.down = true
+			g.SOL.erase(pl.sol)
+			Audio.play("stomp", -16)
+			g.burst(pl.x + 20, o.y + 6, 3, Color("#8a6a42"))
+		if pl.down:
+			pl.vy += .5
+			pl.fy += pl.vy
+
+# ---------- bola de pedra gigante ----------
+func _boulder_reset(o: Dictionary) -> void:
+	o.st = "idle"
+	o.bx = float(o.x)
+	o.by = float(o.y) - o.r
+	o.vx = 0.0
+	o.vy = 0.0
+	o.smashed = {}
+	for s in g.SOL:
+		if s.get("bob"):
+			s.erase("gone")
+	for s in g.L.solids:
+		if s.get("bob") and o.smash.has(s.id):
+			var have := false
+			for s2 in g.SOL:
+				if s2.get("id", "") == s.id:
+					have = true
+			if not have:
+				g.SOL.append(s.duplicate())
+
+func _boulder(o: Dictionary, p: Dictionary, pcx: float) -> void:
+	var R: float = o.r
+	match o.st:
+		"idle":
+			if not p.get("dog") and pcx > o.trig and pcx < o.trig + 500 and abs(p.y + p.h - o.y) < 60 and p.dyingT == 0:
+				o.st = "drop"
+				o.t = 0
+				o.bx = float(o.x)
+				o.by = float(o.y) - R - 170.0
+				o.vy = 0.0
+				o.vx = 0.0
+				Audio.play("stomp", -2)
+				g.shake = max(g.shake, 10)
+				g.want_comic("bola")
+				g.flash_tut("CORRA!", "Uma pedra gigante! CORRA (toque duas vezes →), pule os obstáculos e se abaixe no buraco do chão lá na frente!", 260)
+		"drop":
+			o.vy += .9
+			o.by += o.vy
+			if g.T % 3 == 0:
+				g.burst(o.bx + randf_range(-R, R), o.y - 120, 2, Color("#8a7a62"))
+			if o.by >= o.y - R:
+				o.by = float(o.y) - R
+				o.st = "roll"
+				o.t = 0
+				Audio.play("stomp")
+				g.shake = max(g.shake, 12)
+				g.fx("fx_dust", o.bx, o.y - 8, 24, .3, -.3)
+		"roll":
+			o.vx = move_toward(o.vx, o.vmax, .13)
+			o.bx += o.vx
+			o.rot += o.vx / R
+			if g.T % 5 == 0:
+				g.fx("fx_dust", o.bx - R * .7, o.y - 8, 18, .16, -.3)
+				g.shake = max(g.shake, 3.0)
+			if g.T % 16 == 0:
+				Audio.play("stomp", -14)
+			# esmaga caixas, carrinho e a barricada
+			for s in g.SOL.duplicate():
+				if s.get("bob") and o.smash.has(s.get("id", "")) and o.bx + R > s.x + 8:
+					g.SOL.erase(s)
+					o.smashed[s.id] = 1
+					Audio.play("stomp", -4)
+					g.shake = max(g.shake, 8)
+					g.fx("fx_pieces", s.x + s.w / 2, s.y + s.h / 2, 26, .5, -.4)
+					g.burst(s.x + s.w / 2, s.y + s.h / 2, 18, Color("#9a7448"))
+			# encostou no Tomé (abaixado no buraco do chão a bola passa por cima)
+			var cx: float = clamp(o.bx, p.x + 3, p.x + p.w - 3)
+			var cy: float = clamp(o.by, p.y + 3, p.y + p.h - 2)
+			if p.dyingT == 0 and Vector2(o.bx, o.by).distance_to(Vector2(cx, cy)) < R and not p.get("dog"):
+				_boulder_hit(o)
+			elif not o.get("passed", false) and o.bx > pcx + R:
+				o.passed = true
+				g.note("Ufa! A pedra passou por cima!")
+			if o.bx >= o.end:
+				o.st = "break"
+				o.t = 0
+				Audio.play("stomp")
+				g.shake = max(g.shake, 14)
+				g.fx("fx_pieces", o.bx, o.by, 40, .8, -.6)
+				g.burst(o.bx, o.by, 30, Color("#8a8070"))
+		"break":
+			if o.t > 30:
+				o.st = "done"
+
+func _boulder_hit(o: Dictionary) -> void:
+	var p: Dictionary = g.player
+	if p.iframe > 0:
+		return
+	g.hurt(1, o.bx)
+	if p.dyingT > 0 or not g.running:
+		return
+	# volta para o começo do trecho e a bola volta para o teto
+	g.iris_t = 30
+	p.x = float(o.back) - p.w / 2
+	p.y = float(o.y) - p.h
+	p.vx = 0.0
+	p.vy = 0.0
+	p.run = 0
+	_boulder_reset(o)
+	g.snap_camera()
+	g.flash("A pedra te alcançou! De novo: corra e se abaixe no buraco do chão.", 200)

@@ -41,6 +41,8 @@ func _initialize() -> void:
 		return
 	g.lives = 99
 	g.clue_opened.disconnect(main._on_clue)
+	for cid in ["cipo", "mergulho", "neve", "pipoca", "picareta", "cavalo", "mina", "toxico", "javali", "gaviao", "bagre", "urso", "vargas", "bola", "aviao", "jangada"]:
+		root.get_node("Save").setv("comic", cid, true)
 	for e in g.EN:
 		if e.k != "owl" and e.k != "frog" and e.k != "leech":
 			e.dead = 99
@@ -50,6 +52,7 @@ func _initialize() -> void:
 		var x := float(p[0])
 		var y := float(p[1])
 		g.CINE = {}
+		g.VH.mode = ""
 		g.X.boss_reset()
 		g.player.x = x - 12
 		g.player.y = y - 34
@@ -167,6 +170,34 @@ func _initialize() -> void:
 					for sc in g.X.SECRETS:
 						g.X.found[sc.id] = true
 						sc.a = 0.0
+				elif k == "raft":
+					g.VH._start_raft()
+					g.VH.hx = x
+				elif k == "plane":
+					g.VH._start_plane()
+					g.VH.phase = "fly"
+					g.VH.hx = x
+					g.VH.hy = y
+					g.VH.spd = 6.2
+				elif k == "taxi":
+					g.VH._start_plane()
+				elif k == "boul":
+					for o in g.TR.T:
+						if o.k == "boulder":
+							o.st = "roll"
+							o.bx = x - 260.0
+							o.by = o.y - o.r
+							o.vx = 5.0
+				elif k == "hive":
+					for o in g.TR.T:
+						if o.k == "hive":
+							g.TR._hive_wake(o)
+				elif k == "brg":
+					for o in g.TR.T:
+						if o.k == "bridge":
+							o.st = "go"
+							o.t = 30
+							o.front = x - 140
 				elif k == "noen":
 					for e in g.EN:
 						e.dead = 99

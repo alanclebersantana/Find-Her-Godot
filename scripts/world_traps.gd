@@ -28,6 +28,15 @@ static func draw(g: Game, T: int) -> void:
 			"snap": _snap(o, T)
 			"cage": _cage(o, T)
 			"net": _net(o, T)
+			"swing": _swing(TR, o, T)
+			"hive": _hive(o, T)
+			"sand": _sand_back(o, T)
+			"web": _web(o, T)
+			"gust": _gust(TR, o, T)
+			"bridge": _bridge(o, T)
+			"boulder": _boulder(g, o, T)
+			"giant": _giant(o, T)
+	_bobs(g, T)
 	if not TR.PICK.is_empty():
 		_pick(TR.PICK)
 
@@ -367,3 +376,285 @@ static func _icicle(o: Dictionary, T: int) -> void:
 	Spr.seg(o.x - 3 + sx, y + 3, o.x - 1 + sx, y + ln * .7, Color(1, 1, 1, .8), 2)
 	if o.st == "shake" and (T / 4) % 2 == 0:
 		Spr.seg(o.x - 12, y - 2, o.x + 12, y - 2, Color(1, 1, 1, .7), 2)
+
+## por cima do Tomé: a superfície da areia movediça (esconde as pernas que afundaram)
+static func draw_front(g: Game, T: int) -> void:
+	var TR: Traps = g.TR
+	if TR == null:
+		return
+	for o in TR.T:
+		if o.k == "sand" and o.x < g.cam + g.W + 100 and o.x + o.w > g.cam - 100:
+			_sand_front(o, T)
+
+# ---------- tronco-pêndulo ----------
+static func _swing(TR: Traps, o: Dictionary, T: int) -> void:
+	var e := TR.swing_end(o)
+	# galho grosso da árvore de onde ele pende
+	Spr.rr(o.x - 80, o.y - 14, 160, 22, 8, WOOD_D)
+	Spr.rr(o.x - 80, o.y - 14, 160, 8, 4, WOOD)
+	Spr.ring(o.x - 80, o.y - 3, 10, OUT, 2)
+	# rastro
+	var dv: float = TR.swing_dir(o)
+	for k in 3:
+		Spr.rr(e.x - 44 - dv * (k + 1) * 12, e.y - 12, 88, 24, 10, Color(1, 1, 1, .05))
+	# cordas
+	for sx in [-30.0, 30.0]:
+		Spr.seg(o.x + sx, o.y, e.x + sx, e.y - 8, Color("#c9a26a"), 3)
+		Spr.circle(o.x + sx, o.y, 4, Color("#7a5a32"))
+	# o tronco (sempre deitado)
+	Spr.rr(e.x - 46, e.y - 13, 92, 26, 12, Color("#6b4626"))
+	Spr.rr(e.x - 46, e.y - 13, 92, 9, 6, Color("#8a5e34"))
+	for k in 3:
+		Spr.seg(e.x - 30 + k * 26, e.y - 6, e.x - 18 + k * 26, e.y + 4, Color("#4e331d"), 2)
+	Spr.ellipse(e.x + 44, e.y, 6, 12, Color("#c9a26a"))
+	Spr.ring(e.x + 44, e.y, 4, Color("#8a6a42"), 1.5)
+	Spr.rect(e.x - 26, e.y - 14, 6, 28, Color("#c9a26a"))
+	Spr.rect(e.x + 22, e.y - 14, 6, 28, Color("#c9a26a"))
+
+# ---------- colmeia e enxame ----------
+static func _hive(o: Dictionary, T: int) -> void:
+	var x: float = o.x
+	var y: float = o.y
+	var sh: float = sin(T * .9) * 2.0 if o.st == "angry" and o.t < 40 else 0.0
+	# galho e cordinha
+	Spr.rr(x - 70, y - 70, 140, 14, 6, WOOD_D)
+	Spr.seg(x, y - 58, x + sh, y - 50, Color("#5a4632"), 3)
+	# colmeia em gomos
+	for k in 4:
+		var w: float = [20.0, 26.0, 24.0, 16.0][k]
+		Spr.ellipse(x + sh, y - 44 + k * 11, w, 8, Color("#d9a441").darkened(k * .05))
+		Spr.ellipse(x + sh, y - 46 + k * 11, w, 3, Color("#f0c766"))
+	Spr.ellipse(x + sh, y - 6, 6, 5, Color("#3a2410"))
+	if o.st == "idle":
+		for k in 3:
+			var a: float = T * .07 + k * 2.1
+			_bee(x + cos(a) * 30, y - 26 + sin(a * 1.3) * 16, T + k * 7)
+	else:
+		# o enxame: uma nuvem escura zunindo com abelhas em volta
+		Spr.circle(o.sx, o.sy, 30 + sin(T * .3) * 3, Color(.15, .1, 0, .22))
+		for k in 18:
+			var a2: float = T * .23 + k * .9
+			var r: float = 10 + (k % 5) * 6
+			_bee(o.sx + cos(a2) * r, o.sy + sin(a2 * 1.4) * r * .7, T + k * 5)
+
+static func _bee(x: float, y: float, t: int) -> void:
+	Spr.ellipse(x, y, 6.5, 4.6, Color("#f2c230"))
+	Spr.rect(x - 2, y - 4.5, 2.5, 9, Color("#2a1a0e"))
+	Spr.rect(x + 2, y - 4, 2, 8, Color("#2a1a0e"))
+	var wy: float = -4.0 - (3.0 if (t / 2) % 2 == 0 else 0.0)
+	Spr.ellipse(x - 1, y + wy, 4.5, 3, Color(1, 1, 1, .75))
+	Spr.ellipse(x + 3, y + wy, 3.5, 2.5, Color(1, 1, 1, .6))
+
+# ---------- areia movediça ----------
+static func _sand_back(o: Dictionary, T: int) -> void:
+	var x: float = o.x
+	var y: float = o.y
+	Spr.rect(x, y - 2, o.w, 44, Color("#8a7448"))
+	Spr.vgrad(x, y + 6, o.w, 40, Color("#7a643c"), Color("#4a3a20"))
+
+static func _sand_front(o: Dictionary, T: int) -> void:
+	var x: float = o.x
+	var y: float = o.y
+	var w: float = o.w
+	var pts := PackedVector2Array()
+	for i in 13:
+		var px: float = x + w * i / 12.0
+		pts.push_back(Vector2(px, y - 2 + sin(T * .05 + i * .9) * 1.5))
+	pts.push_back(Vector2(x + w, y + 40))
+	pts.push_back(Vector2(x, y + 40))
+	Spr.poly(pts, Color("#a88c58"))
+	for k in 4:
+		var rx: float = x + 20 + fmod(k * 47.0 + T * .15, w - 40)
+		Spr.ellipse(rx, y + 4, 14 + sin(T * .06 + k) * 4, 3, Color("#8a7448"))
+	Spr.ellipse(x + 10, y + 1, 12, 3, Color("#c4a872"))
+	Spr.seg(x, y - 1, x + w, y - 1, Color("#5e4a2a"), 2)
+
+# ---------- teia de aranha ----------
+static func _web(o: Dictionary, T: int) -> void:
+	var x: float = o.x
+	var y: float = o.y
+	var w: float = o.w
+	var h: float = o.h
+	var cx: float = x + w / 2
+	var cy: float = y + h * .45
+	var c := Color(.94, .94, .97, .8)
+	if o.cut:
+		# fiapos pendurados
+		if o.t < 200:
+			for k in 4:
+				var fx: float = x + 8 + k * (w - 16) / 3.0
+				Spr.seg(fx, y, fx + sin(T * .05 + k) * 4, y + 26 + k % 2 * 10, Color(c.r, c.g, c.b, .5), 1)
+		return
+	# moldura entre os galhos
+	Spr.seg(x, y, x + w, y, Color("#5a4632"), 4)
+	Spr.seg(x, y, x - 4, y + h, Color("#5a4632"), 4)
+	Spr.seg(x + w, y, x + w + 4, y + h, Color("#5a4632"), 4)
+	var spokes := 9
+	for k in spokes:
+		var a: float = TAU * k / spokes
+		Spr.seg(cx, cy, cx + cos(a) * w * .62, cy + sin(a) * h * .62, c, 1.3)
+	for r in 5:
+		var rr: float = (r + 1) / 5.0
+		var ring := PackedVector2Array()
+		for k in spokes + 1:
+			var a2: float = TAU * k / spokes
+			ring.push_back(Vector2(cx + cos(a2) * w * .5 * rr, cy + sin(a2) * h * .5 * rr))
+		Spr.line(ring, c, 1.1)
+	# a aranha descendo no fio
+	var sy: float = y + 10 + (1.0 + sin(T * .03)) * 18
+	Spr.seg(x + w - 14, y, x + w - 14, sy, Color(1, 1, 1, .5), 1)
+	Spr.circle(x + w - 14, sy + 5, 6, Color("#2a1a2e"))
+	for k in 4:
+		Spr.seg(x + w - 14 - 5, sy + 3 + k * 2, x + w - 14 - 11, sy - 1 + k * 4, Color("#2a1a2e"), 1.5)
+		Spr.seg(x + w - 14 + 5, sy + 3 + k * 2, x + w - 14 + 11, sy - 1 + k * 4, Color("#2a1a2e"), 1.5)
+	Spr.circle(x + w - 16, sy + 4, 1.4, Color(1, .3, .3))
+
+# ---------- rajadas de vento ----------
+static func _gust(TR: Traps, o: Dictionary, T: int) -> void:
+	var st: int = TR.gust_state(o)
+	if st == 0:
+		return
+	var a: float = .2 if st == 1 else .55
+	var n: int = 6 if st == 1 else 16
+	for k in n:
+		var sp: float = 9.0 if st == 2 else 5.0
+		var lx: float = o.x + o.w - fmod(T * sp + k * 97.0, o.w + 120)
+		var ly: float = o.y + fmod(k * 53.0, o.h)
+		Spr.seg(lx, ly, lx + 40 + (k % 3) * 18, ly + 1, Color(1, 1, 1, a), 2)
+		if k % 3 == 0:
+			Spr.circle(lx - 6, ly + sin(T * .3 + k) * 4, 2.5, Color(1, 1, 1, a + .2))
+
+# ---------- ponte de cordas ----------
+static func _bridge(o: Dictionary, T: int) -> void:
+	var y: float = o.y
+	var x0: float = o.x
+	var x1: float = o.x + o.w
+	# postes nas duas pontas
+	for px in [x0 - 10, x1 + 4]:
+		Spr.rect(px, y - 60, 8, 76, WOOD_D)
+		Spr.circle(px + 4, y - 60, 5, WOOD)
+	# corrimão de corda (some atrás da frente que desabou)
+	var ca: float = max(x0, o.get("front", x0)) if o.st != "idle" else x0
+	if ca < x1:
+		var pts := PackedVector2Array()
+		var steps := 24
+		for i in steps + 1:
+			var xx: float = lerpf(ca, x1, i / float(steps))
+			var sag: float = sin(PI * (xx - x0) / (x1 - x0)) * 14
+			pts.push_back(Vector2(xx, y - 40 + sag))
+		Spr.line(pts, Color("#c9a26a"), 3)
+	if o.st != "idle" and o.get("front", x0) > x0:
+		var fx: float = o.front
+		Spr.seg(fx, y - 30, fx - 20, y + 60, Color("#c9a26a"), 2)
+	for pl in o.planks:
+		if pl.down and pl.fy > 600:
+			continue
+		var sh: float = 0.0
+		if o.st == "go" and not pl.down and pl.x - o.front < 90:
+			sh = sin(T * 1.3 + pl.x) * 1.5
+		var py: float = y + pl.fy + sh + sin(PI * (pl.x + 20 - x0) / (x1 - x0)) * 6
+		Spr.save()
+		Spr.translate(pl.x + 20, py + 6)
+		if pl.down:
+			Spr.rotate(pl.fy * .01)
+		Spr.rr(-19, -6, 38, 12, 3, Color("#8a5e34"))
+		Spr.rect(-19, -6, 38, 3, Color("#a87a48"))
+		Spr.seg(-12, -6, -12, 6, Color("#4e331d"), 1.5)
+		Spr.seg(12, -6, 12, 6, Color("#4e331d"), 1.5)
+		Spr.restore()
+
+# ---------- bola de pedra gigante ----------
+static func _boulder(g: Game, o: Dictionary, T: int) -> void:
+	# teto de pedra do túnel, com escoras, e o buraco de onde ela cai
+	var ca: float = max(float(o.x) - 400, g.cam - 40)
+	var cb: float = min(float(o.end) + 200, g.cam + g.W + 40)
+	if ca < cb:
+		Spr.rect(ca, o.y - 150, cb - ca, 34, Color("#3a2c20"))
+		Spr.rect(ca, o.y - 120, cb - ca, 5, Color("#5a4632"))
+		var bx0: float = floor(ca / 260.0) * 260.0
+		while bx0 < cb:
+			Spr.rect(bx0, o.y - 118, 12, 118, Color("#4e331d"))
+			Spr.rect(bx0 - 14, o.y - 122, 40, 10, Color("#6b4626"))
+			bx0 += 260.0
+	Spr.ellipse(o.x, o.y - 120, o.r * 1.1, 10, Color(.05, .04, .03))
+	if o.st in ["idle", "done"]:
+		if o.st == "done":
+			for k in 6:
+				Spr.ellipse(o.end - 40 + k * 22, o.y - 6 - (k % 2) * 8, 16, 10, Color("#6b6a62"))
+		return
+	var R: float = o.r
+	var cx: float = o.bx
+	var cy: float = o.by
+	if o.st == "break":
+		var k2: float = o.t / 30.0
+		for i in 8:
+			var a: float = i * TAU / 8.0
+			Spr.circle(cx + cos(a) * R * k2 * 1.5, cy + sin(a) * R * .6 * k2 + k2 * k2 * 40, R * .35 * (1.0 - k2 * .5), Color("#6b6a62"))
+		return
+	Spr.ellipse(cx, o.y + 2, R * .95, 7, Color(0, 0, 0, .35))
+	Spr.circle(cx, cy, R, Color("#6e6a5e"))
+	Spr.circle(cx - R * .22, cy - R * .25, R * .62, Color("#837e70"))
+	Spr.circle(cx - R * .35, cy - R * .4, R * .25, Color("#958f80"))
+	Spr.save()
+	Spr.translate(cx, cy)
+	Spr.rotate(o.rot)
+	for k in 7:
+		var a3: float = k * .9
+		Spr.seg(cos(a3) * R * .15, sin(a3) * R * .15, cos(a3 + .5) * R * .9, sin(a3 + .5) * R * .9, Color("#4a463e"), 3)
+	for k in 5:
+		var a4: float = k * 1.25 + .4
+		Spr.ellipse(cos(a4) * R * .55, sin(a4) * R * .55, 9, 6, Color("#57534a"), a4)
+	Spr.restore()
+	Spr.ring(cx, cy, R, OUT, 3)
+
+## caixas, carrinho e barricada do trecho da bola (somem quando ela passa)
+static func _bobs(g: Game, T: int) -> void:
+	var c0: float = g.cam - 200
+	var c1: float = g.cam + g.W + 200
+	for s in g.SOL:
+		if not s.get("bob") or s.x > c1 or s.x + s.w < c0:
+			continue
+		match s.bob:
+			"crate":
+				_box(s.x, s.y, s.w, s.h)
+			"crate2":
+				_box(s.x, s.y + s.h / 2, s.w, s.h / 2)
+				_box(s.x + 4, s.y, s.w - 8, s.h / 2)
+			"cart":
+				Spr.AB("mi_cart", s.x - 8, s.y + s.h - 70, s.w + 16, 70)
+			"barricade":
+				for k in 4:
+					Spr.rr(s.x - 6, s.y + 6 + k * 28, s.w + 12, 20, 3, Color("#7a5232").darkened(k * .05))
+					Spr.rect(s.x - 6, s.y + 6 + k * 28, s.w + 12, 4, Color("#9a7044"))
+				Spr.seg(s.x - 4, s.y + 8, s.x + s.w + 4, s.y + s.h - 8, Color("#4e331d"), 4)
+				Spr.text("PERIGO", s.x + s.w / 2, s.y + 60, 11, Color("#f0d070"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3, Color(0, 0, 0, .8))
+
+static func _box(x: float, y: float, w: float, h: float) -> void:
+	Spr.rect(x, y, w, h, Color("#8a5e34"))
+	Spr.rect(x + 3, y + 3, w - 6, h - 6, Color("#a07040"))
+	Spr.seg(x + 3, y + 3, x + w - 3, y + h - 3, Color("#6b4626"), 3)
+	Spr.seg(x + w - 3, y + 3, x + 3, y + h - 3, Color("#6b4626"), 3)
+	Spr.ci.draw_rect(Rect2(x, y, w, h), OUT, false, 2.0)
+
+# ---------- cogumelo gigante ----------
+static func _giant(o: Dictionary, T: int) -> void:
+	var x: float = o.x
+	var base: float = o.y
+	var top: float = o.cap
+	var w: float = o.w
+	var c: Color = Color(o.get("c", "#6a5acd"))
+	var sw: float = 16.0 + w * .08
+	# caule
+	Spr.poly(PackedVector2Array([Vector2(x - sw * .7, base), Vector2(x - sw * .5, top + 10), Vector2(x + sw * .5, top + 10), Vector2(x + sw * .8, base)]), Color("#e8dcc4"))
+	Spr.poly(PackedVector2Array([Vector2(x + sw * .1, base), Vector2(x + sw * .2, top + 10), Vector2(x + sw * .5, top + 10), Vector2(x + sw * .8, base)]), Color("#cbbd9f"))
+	Spr.ellipse(x, top + 16, sw * .9, 6, Color("#cbbd9f"))
+	# chapéu
+	var cap := PackedVector2Array()
+	for i in 21:
+		var a := PI + PI * i / 20.0
+		cap.push_back(Vector2(x + cos(a) * w * .56, top + 8 + sin(a) * w * .3))
+	Spr.poly(cap, c)
+	Spr.ellipse(x, top + 8, w * .56, 7, c.darkened(.35))
+	for d in [[-.3, -.15, .07], [.05, -.22, .08], [.3, -.1, .06], [-.08, -.06, .05], [.18, -.04, .04]]:
+		Spr.circle(x + d[0] * w, top + 8 + d[1] * w, d[2] * w, Color(1, 1, 1, .55))
+	Spr.line(cap, OUT, 2)

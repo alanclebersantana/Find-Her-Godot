@@ -69,6 +69,7 @@ var ZN: Zones
 var NT: Nature
 var K: Kings
 var RD: Ride
+var VH: Vehicles
 var RESTED := {}        # fogueiras grandes já descansadas
 var player: Dictionary = {}
 var keys := {}
@@ -250,6 +251,8 @@ func load_level(i: int) -> void:
 	K.load_level()
 	RD = Ride.new(self)
 	RD.load_level()
+	VH = Vehicles.new(self)
+	VH.load_level()
 	RESTED = {}
 	_reset_player(L.spawn.x - 12, L.spawn.y - 34)
 	time_left = int(L.get("time", 180)) * 60
@@ -507,6 +510,10 @@ func hint_text() -> String:
 			continue
 		if h.get("horse") and (RD.H.is_empty() or RD.H.st != "trapped"):
 			continue
+		if h.get("raft") and (VH.raft_done or VH.active()):
+			continue
+		if h.get("plane") and (VH.plane_done or VH.active()):
+			continue
 		if X.boss_active() and not h.get("boss"):
 			continue
 		var m: String = lock_msg(LOCKS[int(h.lock)]) if h.has("lock") else h.get("t", "")
@@ -584,7 +591,7 @@ func ambient() -> void:
 		X.weather_amb()
 
 ## nome do período do dia em que o Tomé está (a fase é uma só, dividida pelas fogueiras grandes)
-const PERIODS := ["Manhã no bosque", "Tarde", "Pântano", "Neve", "Noite na mina"]
+const PERIODS := ["Manhã no bosque", "Tarde", "Pântano", "Neve", "Céu", "Noite na mina"]
 func period_index() -> int:
 	var px: float = player.x + player.w / 2
 	var n := 0
@@ -595,7 +602,7 @@ func period_index() -> int:
 
 func period_label() -> String:
 	var i: int = period_index()
-	return "%d/5 · %s" % [i + 1, PERIODS[min(i, 4)]]
+	return "%d/%d · %s" % [i + 1, PERIODS.size(), PERIODS[min(i, PERIODS.size() - 1)]]
 
 func section_weights() -> Dictionary:
 	## peso de cada cenário de fundo conforme a posição (para o fundo trocar suavemente)
@@ -699,6 +706,16 @@ func step() -> void:
 		if shake > 0:
 			shake *= .85
 		RD.step()
+		max_x = max(max_x, player.x + 300)
+		_tick_fx()
+		_camera()
+		return
+	if VH and VH.active():
+		if flash_t > 0:
+			flash_t -= 1
+		if shake > 0:
+			shake *= .85
+		VH.step()
 		max_x = max(max_x, player.x + 300)
 		_tick_fx()
 		_camera()
@@ -1192,6 +1209,23 @@ func _camera() -> void:
 		cam_y = lerpf(cam_y, ty, .1)
 		cam_vy = 0.0
 		cam_focus = 500.0
+		look_x = 0.0
+		return
+	elif VH and VH.active():
+		# jangada e avião: câmera firme, veículo à esquerda para ver o que vem
+		tx = VH.hx - W * .3
+		if VH.mode == "raft":
+			ty = VH.water_y(VH.hx) - H * .64
+		else:
+			ty = VH.hy - H * .5
+		var cb1 := cam_bounds()
+		tx = clamp(tx, cb1.position.x, max(cb1.position.x, cb1.end.x - W))
+		ty = clamp(ty, cb1.position.y, max(cb1.position.y, cb1.end.y - H))
+		cam = lerpf(cam, tx, .25)
+		cam_vx = 0.0
+		cam_y = lerpf(cam_y, ty, .08 if VH.mode == "plane" else .1)
+		cam_vy = 0.0
+		cam_focus = player.y
 		look_x = 0.0
 		return
 	else:
@@ -1881,6 +1915,7 @@ func _p1_post(pcx: float, _pcy: float) -> void:
 	K.post()
 	NT.post()
 	RD.post()
+	VH.check_river()
 	ZN.post()
 	# vilão foge
 	if VIL:
@@ -2455,7 +2490,7 @@ func save_checkpoint(k: int) -> void:
 	Save.save_run({"level": level_idx, "chk": k, "lives": lives, "inv": INV.duplicate(), "items": got_items, "locks": locks,
 		"clues": CLUEGOT.keys(), "specs": SPECGOT.keys(), "drawn": DRAWN.keys(), "coins": coins_got, "coin_life": coin_life,
 		"pen": STATS.pen, "lit": lantern_lit, "fires": CHK.filter(func(c): return c.on).map(func(c): return CHK.find(c)), "time": time_left, "x": X.save_data(), "m": M.save_data(), "tr": TR.save_data(),
-		"nt": NT.save_data(), "k": K.save_data(), "rd": RD.save_data(), "rested": RESTED.keys()})
+		"nt": NT.save_data(), "k": K.save_data(), "rd": RD.save_data(), "vh": VH.save_data(), "rested": RESTED.keys()})
 
 func restore_run(d: Dictionary) -> void:
 	## Continua do ponto salvo: refaz a fase no estado da fogueira
@@ -2499,6 +2534,7 @@ func restore_run(d: Dictionary) -> void:
 	NT.restore(d.get("nt", {}))
 	K.restore(d.get("k", {}))
 	RD.restore(d.get("rd", {}))
+	VH.restore(d.get("vh", {}))
 	for r in d.get("rested", []):
 		RESTED[int(r)] = 1
 	var k: int = int(d.get("chk", -1))

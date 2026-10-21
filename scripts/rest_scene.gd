@@ -22,7 +22,7 @@ void fragment() {
 """
 
 func setup(period: int, found: int) -> void:
-	n = clamp(period, 1, 4)
+	n = clamp(period, 1, 5)
 	drawings = found
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -94,6 +94,7 @@ class _Memory extends Control:
 			2: _tag(w, h, t)
 			3: _puddles(w, h, t)
 			4: _snowman(w, h, t)
+			5: _kite(w, h, t)
 		# bordas esfumaçadas
 		for i in 6:
 			var k: float = i / 6.0
@@ -181,3 +182,29 @@ class _Memory extends Control:
 			var fx: float = fmod(i * 71.0 + sin(t * .02 + i) * 20, w)
 			var fy: float = fmod(i * 43.0 + t * 1.2, h)
 			Spr.circle(fx, fy, 2.2, Color(1, 1, 1, .9))
+
+	func _kite(w: float, h: float, t: float) -> void:
+		Spr.vgrad(0, 0, w, h * .8, Color("#9cc8ec"), Color("#e6f2fa"))
+		# morro verde e nuvens
+		Spr.ellipse(w * .5, h * 1.02, w * .75, h * .3, Color("#8fb35e"))
+		for i in 3:
+			var cx: float = fmod(i * 170.0 + t * .3, w + 120) - 60
+			Spr.ellipse(cx, h * (.18 + i * .07), 46, 14, Color(1, 1, 1, .9))
+		# a pipa subindo e balançando
+		var kx: float = w * .72 + sin(t * .03) * 22
+		var ky: float = h * .22 + cos(t * .04) * 10
+		var lx: float = w * .4
+		var ly: float = h * .78
+		Spr.seg(lx + 6, ly - 34, kx, ky + 18, Color(.3, .3, .3, .7), 1.2)
+		Spr.poly(PackedVector2Array([Vector2(kx, ky - 22), Vector2(kx + 16, ky), Vector2(kx, ky + 18), Vector2(kx - 16, ky)]), Color("#e0463a"))
+		Spr.seg(kx, ky - 22, kx, ky + 18, Color("#f0c040"), 1.5)
+		Spr.seg(kx - 16, ky, kx + 16, ky, Color("#f0c040"), 1.5)
+		for i in 4:
+			var tx: float = kx - 4 - i * 9 + sin(t * .1 + i) * 4
+			Spr.ellipse(tx, ky + 24 + i * 9, 4, 2, [Color("#3a8ad0"), Color("#5ab04a"), Color("#f0c040"), Color("#e0463a")][i])
+		# um aviãozinho passando lá no alto
+		var ax: float = fmod(t * 1.2, w + 80) - 40
+		Spr.rect(ax - 10, h * .1, 20, 4, Color(.5, .3, .25))
+		Spr.rect(ax - 3, h * .1 - 5, 6, 14, Color(.6, .35, .3))
+		_lia(2, lx, ly, _kid(h))
+		Spr.frame(Spr.tex.pai, 0, 130, 160, 65, 156, w * .24, h * .8, _dad(h), false)

@@ -126,3 +126,25 @@ for n, im in zip(names, pr):
 
 json.dump(meta, open(os.path.join(ROOT, 'assets', 'data', 'art_meta.json'), 'w'), indent=1)
 print(json.dumps(meta))
+
+# ---------- biplano: parado (vazio) e voando com o Tomé; a folha vem com o nariz para a esquerda ----------
+from PIL import ImageOps
+from scipy import ndimage as nd
+bp = cut('biplano', 8)
+for i, (n, keep) in enumerate([('biplano', None), ('biplano_voo', (360, 480, 60, 220))]):
+    a = np.asarray(bp[i]).astype(np.float32)
+    w = (a[..., :3].min(axis=2) >= 236) & (a[..., 3] > 0)
+    lab, _ = nd.label(w)
+    kill = np.zeros(w.shape, bool)
+    for j, sl in enumerate(nd.find_objects(lab)):
+        x0, y0 = sl[1].start, sl[0].start
+        # vãos brancos entre as asas e as rodas viram transparentes (a barba do Tomé fica)
+        if (lab[sl] == j + 1).sum() > 120 and not (keep and keep[0] < x0 < keep[1] and keep[2] < y0 < keep[3]):
+            kill |= lab == j + 1
+    kill = nd.binary_dilation(kill, iterations=1)
+    a[..., 3] *= np.clip(nd.distance_transform_edt(~kill) / 1.5, 0, 1)
+    im = ImageOps.mirror(Image.fromarray(a.clip(0, 255).astype(np.uint8)))
+    im = im.resize((360, int(im.height * 360 / im.width)), Image.LANCZOS)
+    im.save(os.path.join(OUT, 'p_' + n + '.png'))
+    meta['props'][n] = [im.width, im.height]
+json.dump(meta, open(os.path.join(ROOT, 'assets', 'data', 'art_meta.json'), 'w'), indent=1)

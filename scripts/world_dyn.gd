@@ -28,6 +28,7 @@ func _draw() -> void:
 	WorldTraps.draw(g, T)
 	WorldNature.draw(g, T)
 	_ride_world(g)
+	WorldVehicles.draw(g, T)
 	WorldExtras.boss(g, T)
 	WorldKings.draw(g, T)
 	if g.VIL and g.VIL.go and not g.VIL.gone:
@@ -64,6 +65,7 @@ func _draw() -> void:
 	else:
 		WorldExtras.dog(g, T)
 	_player(g)
+	WorldTraps.draw_front(g, T)
 	WorldExtras.grass(g, T)
 	for f in g.FXS:
 		Spr.A(f.n, f.x, f.y, f.sc, false, 1.0 - float(f.t) / f.life)
@@ -408,6 +410,9 @@ func _player(g: Game) -> void:
 	if g.RD and g.RD.riding:
 		_rider(g)
 		return
+	if g.VH and g.VH.active():
+		WorldVehicles.rider(g, T)
+		return
 	if g.M and g.M.ctrl:
 		# o jogador está com o Pipoca: o Tomé fica parado onde estava
 		var real: Dictionary = g.player
@@ -418,7 +423,7 @@ func _player(g: Game) -> void:
 	var off := g.ip_off()
 	var p: Dictionary = g.player
 	Spr.save()
-	Spr.translate(off.x, off.y + p.get("wdy", 0.0))
+	Spr.translate(off.x, off.y + p.get("wdy", 0.0) + p.get("sink", 0.0))
 	var a0: float = Spr.alpha
 	Spr.alpha = a0 * p.get("wal", 1.0)
 	if p.get("wpose", "") != "":

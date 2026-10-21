@@ -214,6 +214,14 @@ func _process(_d: float) -> void:
 			song = "bagre"
 		if game.K and game.K.bear_on():
 			song = "urso"
+		if game.VH and game.VH.mode == "raft":
+			song = "jangada"
+		elif game.VH and game.VH.mode == "plane":
+			song = "voo"
+		if game.TR:
+			for o in game.TR.T:
+				if o.k == "boulder" and o.st in ["drop", "roll"]:
+					song = "pedra"
 		if state == S.PLAY:
 			Audio.set_song(song)
 		var in_cine: bool = not game.CINE.is_empty()
@@ -701,6 +709,7 @@ const REST_INFO := {
 	2: ["FIM DA TARDE", "Pega-pega no quintal... e ela sempre ganhava de mim.", "Aguenta firme, filha. Estou chegando."],
 	3: ["FIM DO PÂNTANO", "Pular nas poças com a lanterna acesa. Ela nunca teve medo da chuva.", "Estou chegando, Isis. Não tenha medo do escuro."],
 	4: ["FIM DA NEVE", "O boneco de neve ficou com o meu gorro. Ela riu a tarde inteira.", "Falta pouco, filha. Aguenta firme."],
+	5: ["FIM DO CÉU", "Soltar pipa no morro... ela dizia que um dia ia voar de avião.", "Voei por você, filha. Agora falta só a mina."],
 }
 
 func _on_rest(n: int) -> void:

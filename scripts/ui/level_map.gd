@@ -3,8 +3,8 @@ extends Control
 ## O que falta só aparece (como "?") nos trechos por onde você já passou.
 
 var game: Game
-const BANDS := {"manha": Color(.36, .55, .3), "tarde": Color(.66, .45, .22), "chuva": Color(.22, .38, .36), "neve": Color(.62, .7, .82), "noite": Color(.16, .19, .36), "perseguicao": Color(.34, .14, .14)}
-const NAMES := {"manha": "Manhã", "tarde": "Tarde", "chuva": "Pântano", "neve": "Neve", "noite": "Noite", "perseguicao": "Fuga"}
+const BANDS := {"manha": Color(.36, .55, .3), "tarde": Color(.66, .45, .22), "chuva": Color(.22, .38, .36), "neve": Color(.62, .7, .82), "noite": Color(.16, .19, .36), "perseguicao": Color(.34, .14, .14), "ceu": Color(.45, .62, .82), "rio": Color(.2, .42, .55)}
+const NAMES := {"manha": "Manhã", "tarde": "Tarde", "chuva": "Pântano", "neve": "Neve", "noite": "Noite", "perseguicao": "Fuga", "ceu": "Céu", "rio": "Corredeira"}
 
 func _init() -> void:
 	custom_minimum_size = Vector2(880, 250)
@@ -25,7 +25,7 @@ func _draw() -> void:
 	for i in secs.size():
 		var x0: float = secs[i].x
 		var x1: float = secs[i + 1].x if i + 1 < secs.size() else L.spanX
-		var song: String = secs[i].get("bg", secs[i].song)
+		var song: String = secs[i].get("map", secs[i].get("bg", secs[i].song))
 		draw_rect(Rect2(x0 * sx, 26, (x1 - x0) * sx, h), BANDS.get(song, Color(.2, .2, .2)))
 		if not shown.has(song):
 			shown[song] = 1

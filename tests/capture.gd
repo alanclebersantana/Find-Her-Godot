@@ -158,12 +158,12 @@ func bagre() -> void:
 
 func gelo() -> void:
 	kill_enemies()
-	put(30130, 868)
+	put(37330, 868)
 	await run(110, func(i): return {"R": i > 4 and i < 95, "Jp": i == 30 or i == 68, "J": (i > 30 and i < 42) or (i > 68 and i < 80)})
 
 func cavalo() -> void:
 	kill_enemies()
-	put(33200, 500)
+	put(40400, 500)
 	g.RD._start()
 	g.RD.hx = 33200.0
 	g.RD.spd = 5.2
@@ -184,12 +184,12 @@ func cavalo() -> void:
 
 func urso() -> void:
 	kill_enemies()
-	put(43150, 500)
+	put(50350, 500)
 	var b: Dictionary = g.K.BEAR
 	b.active = true
 	b.st = "walk"
 	b.t = 40
-	b.x = 43450.0
+	b.x = 50650.0
 	b.dir = -1
 	b.hp = 2
 	g.K._gate("bearL", true, Rect2(b.x0 - 24, b.gy - 260, 24, 260))
@@ -212,10 +212,10 @@ func urso() -> void:
 
 func noite() -> void:
 	kill_enemies()
-	put(52500, 500)
+	put(75700, 500)
 	g.lantern_lit = true
 	g.VIL.go = true
-	g.VIL.x = 52880.0
+	g.VIL.x = 76080.0
 	await run(110, func(i): return {"R": true, "Jp": i == 45, "J": i > 45 and i < 58})
 
 # ---------- ajudantes assíncronos (um passo de física por chamada, como o bot da rota) ----------
@@ -398,17 +398,17 @@ func mergulho() -> void:
 
 func bolaneve() -> void:
 	kill_enemies()
-	put(25560, 500)
+	put(32760, 500)
 	await hold({}, 10)
-	await jump_to(25680, true)
-	await until({"R": true}, func(): return g.NT.SNOWB[0].x + g.NT.SNOWB[0].w >= 26047, 900)
-	await jump_to(25970)
-	await jump_to(26110, true)
-	await walk_to(26400)
+	await jump_to(32880, true)
+	await until({"R": true}, func(): return g.NT.SNOWB[0].x + g.NT.SNOWB[0].w >= 33247, 900)
+	await jump_to(33170)
+	await jump_to(33310, true)
+	await walk_to(33600)
 
 func gelofino() -> void:
 	kill_enemies()
-	put(26870, 500)
+	put(34070, 500)
 	await hold({}, 6)
 	for i in 2:
 		var x: float = [27130.0, 27650.0][i]
@@ -419,33 +419,33 @@ func gelofino() -> void:
 		await hold({"J": true}, 16)
 		await wait_ground()
 		await hold({}, 6)
-	await walk_to(28095)
+	await walk_to(35295)
 	for x in [28151, 28231, 28311, 28365]:
 		await jump_to(x)
-	await walk_to(28470)
+	await walk_to(35670)
 
 func tunel() -> void:
 	kill_enemies()
-	put(50130, 500)
+	put(71030, 500)
 	g.lantern_lit = true
 	await hold({}, 10)
-	await crawl(50300)
-	await walk_to(50405)
-	await jump_to(50510)
-	await jump_to(50660)
-	await walk_to(50700)
-	await jump_to(50900)
-	await walk_to(51035)
-	await jump_to(51110)
-	await jump_to(51200)
-	await jump_to(51300)
-	await walk_to(51340)
-	await crawl(51490)
-	await walk_to(51700)
+	await crawl(71200)
+	await walk_to(71305)
+	await jump_to(71410)
+	await jump_to(71560)
+	await walk_to(71600)
+	await jump_to(71800)
+	await walk_to(71935)
+	await jump_to(72010)
+	await jump_to(72100)
+	await jump_to(72200)
+	await walk_to(72240)
+	await crawl(72390)
+	await walk_to(72600)
 
 func cogumelo() -> void:
 	kill_enemies()
-	put(49520, 500)
+	put(70420, 500)
 	g.lantern_lit = true
 	await hold({}, 10)
 	await until({"R": true}, func(): return g.player.vy < -15, 300)
@@ -454,9 +454,9 @@ func cogumelo() -> void:
 		if not dj and g.player.vy > -1:
 			press("J")
 			dj = true
-		await fr({"R": px() < 49670, "J": dj and i < 60})
+		await fr({"R": px() < 70570, "J": dj and i < 60})
 		if dj and g.player.onGround:
 			break
-	await walk_to(49840)
+	await walk_to(70740)
 	await until({}, func(): return g.player.onGround and g.player.y > 400, 200)
 	await hold({}, 20)

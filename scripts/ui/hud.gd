@@ -105,7 +105,7 @@ func _draw() -> void:
 			bw = max(bw, Spr.font.get_string_size(ln, HORIZONTAL_ALIGNMENT_LEFT, -1, 17).x)
 		bw += 36
 		var by := size.y - 150 - bh
-		if game.RD and game.RD.riding:
+		if (game.RD and game.RD.riding) or (game.VH and game.VH.mode == "raft"):
 			# na cavalgada o aviso fica no alto, longe dos obstáculos do chão
 			by = 158
 		Spr.rr(W / 2 - bw / 2, by, bw, bh, 10, Color(.04, .03, .02, .78 * a))

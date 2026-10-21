@@ -136,6 +136,23 @@ func _draw() -> void:
 				Spr.ci.draw_arc(Vector2(rx, s.y + 2), rr, 0, TAU, 16, Color(.86, .92, .86, .5), 1.2)
 	_projectiles(g, T)
 	_extras(g, T)
+	# cogumelos gigantes brilham no escuro, e vaga-lumes mostram o caminho
+	if g.TR:
+		for o in g.TR.T:
+			if o.k == "giant" and o.x > x0 - 200 and o.x < x1 + 200:
+				var gc := Color(o.get("c", "#6a5acd"))
+				Spr.glow(o.x, o.cap + 4, o.w * .7, Color(gc.r, gc.g, gc.b, .22 + .06 * sin(T * .05 + o.x)))
+				for d in [[-.3, -.15, .07], [.05, -.22, .08], [.3, -.1, .06]]:
+					Spr.circle(o.x + d[0] * o.w, o.cap + 8 + d[1] * o.w, d[2] * o.w * .6, Color(.85, 1, .95, .35))
+	for ff in g.L.get("fireflies", []):
+		if ff[1] < x0 or ff[0] > x1:
+			continue
+		for k in 26:
+			var fx: float = ff[0] + fposmod(k * 137.0 + sin(T * .01 + k) * 60.0, ff[1] - ff[0])
+			var fy: float = ff[2] + fposmod(k * 71.0, 360.0) + sin(T * .03 + k * 1.3) * 18
+			var on: float = .5 + .5 * sin(T * .09 + k * 2.1)
+			Spr.glow(fx, fy, 12, Color(.75, 1, .4, .3 * on))
+			Spr.circle(fx, fy, 2, Color(.9, 1, .6, .9 * on))
 	# moitas (escondem passagens)
 	var p: Dictionary = g.player
 	for bsh in g.BUSH:

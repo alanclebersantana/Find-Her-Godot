@@ -77,8 +77,9 @@ def shift(L, X, D, mode='widen'):
     for t in L.get('traps', []):
         moved = t['x'] >= X
         t['x'] = f(t['x'])
-        for k in ['trig', 'end', 'frame']:
+        for k in ['trig', 'end', 'frame', 'back']:
             if k in t and moved: t[k] += D
+        if 'niche' in t and moved: t['niche'] = [t['niche'][0] + D, t['niche'][1] + D]
         if 'post' in t and moved: t['post'][0] += D
         if isinstance(t.get('to'), list) and moved: t['to'][0] += D
     # trechos novos (natureza, reis, cavalo)
@@ -96,6 +97,19 @@ def shift(L, X, D, mode='widen'):
     for k in ['cattails']:
         if k in L: L[k] = [f(x) for x in L[k]]
     if 'tunnel' in L: L['tunnel'] = [f(x) for x in L['tunnel']]
+    # corredeira, biplano, precipícios e vaga-lumes
+    for k in ['chasms', 'fireflies']:
+        L[k] = [[f(a), f(b) if a >= X else (b + D if b >= X else b), y] for a, b, y in L.get(k, [])]
+    ra = L.get('raft')
+    if ra:
+        for kk in ['x', 'x0', 'x1']: ra[kk] = f(ra[kk])
+        ra['falls'] = [f(x) for x in ra.get('falls', [])]
+        for o in ra.get('obs', []): o['x'] = f(o['x'])
+    pl = L.get('plane')
+    if pl:
+        for kk in ['x', 'edge', 'x1', 'r0', 'vend']:
+            if kk in pl: pl[kk] = f(pl[kk])
+        for o in pl.get('obs', []): o['x'] = f(o['x'])
     return L
 
 # só mexe em números que são posições x nos testes (não em contagens de quadros nem em alturas)

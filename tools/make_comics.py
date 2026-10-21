@@ -9,6 +9,7 @@ SHEETS = {
     'hq_boss2': ['bagre_a', None, 'urso_a', None],
     'hq_tome1': ['javali_b', 'gaviao_b', 'bagre_b', 'urso_b'],
     'hq_vargas': ['vargas_a', 'vargas_b', None, None],
+    'hq_aventura': ['bola_a', 'bola_b', 'aviao_a', None],
 }
 os.makedirs(os.path.join(ROOT, 'assets', 'comic'), exist_ok=True)
 for sh, names in SHEETS.items():
@@ -23,7 +24,7 @@ for sh, names in SHEETS.items():
 # quadros avulsos (uma imagem = um quadro)
 import numpy as np
 from PIL import Image
-SINGLE = {'vargas_carrinho': 'vargas_a'}
+SINGLE = {'vargas_carrinho': 'vargas_a', 'aviao_voo': 'aviao_b', 'jangada': 'jangada'}
 for src, n in SINGLE.items():
     pth = os.path.join(ROOT, 'tools', 'art_src', src + '.jpg')
     if not os.path.exists(pth):
