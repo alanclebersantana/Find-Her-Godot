@@ -47,9 +47,6 @@ func _input(e: InputEvent) -> void:
 		return
 	if e is InputEventScreenTouch:
 		var p := _to_local(e.position)
-		var probe = get_tree().root.get_meta("drag_probe", null)
-		if e.pressed and probe != null and probe.call(e.position):
-			return
 		if e.pressed and finger == -1 and _in_zone(p):
 			finger = e.index
 			center = _home() if mode == "dpad" else p

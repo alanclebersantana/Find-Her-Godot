@@ -24,8 +24,6 @@ func _draw() -> void:
 	var g := game
 	if g == null or not g.L or not g.running and g.T == 0:
 		return
-	if g.TW and g.TW.zone != null:
-		return
 	var vs := get_viewport_rect().size
 	var cam: float = g.rcam * PAR
 	var under: bool = g.L.has("under") and g.player.y > g.L.under + 60

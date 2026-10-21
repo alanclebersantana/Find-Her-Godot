@@ -15,9 +15,6 @@ func _draw() -> void:
 	if game == null or not game.L:
 		return
 	Spr.begin(self)
-	if game.TW and game.TW.zone != null:
-		WorldTower.sky(game, game.W + 4, game.H + 4, game.T)
-		return
 	var w := game.W + 4
 	var ox := -game.rcam * PX
 	var oy: float = -(game.rcam_y - game.L.top) * PX

@@ -249,15 +249,11 @@ func _initialize() -> void:
 			break
 		var v: Dictionary = P.vine
 		frame({"R": true} if v.om > 0 else {"L": true})
-		if v.th > .95 and v.om > 0:
+		if v.th > .8 and v.om > 0:
 			break
 	press("J")
-	frame({"R": true})
-	for i in 14:
-		frame({"R": true})
-	press("J")
-	hold({"J": true, "R": true}, 14)
-	S("pousa", wait_ground({"R": true}))
+	frame()
+	S("pousa", wait_ground())
 	S("desenho 1", g.DRWS.filter(func(d): return d.got).size() == 1)
 	S("anda até o tronco oco", walk_to(2958))
 	down()
@@ -308,11 +304,6 @@ func _initialize() -> void:
 	S("Pipoca buscou o desenho", until({}, func(): return g.DRWS[2].got, 700))
 	S("moita: pista 2 e amarelo", walk_to(4480))
 	S("pistas=2 amarelo", n_clues() == 2 and spec("amarelo"))
-	S("poço entre paredes", walk_to(4640))
-	S("pulo na parede", wall_climb())
-	walk_to(4585)
-	hold({"R": true}, 8)
-	S("desce pelo poço", wait_ground())
 	S("desce do platô", walk_to(4760))
 	walk_to(4830)
 	S("armadura", jump_to(4889))

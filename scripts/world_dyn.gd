@@ -15,7 +15,6 @@ func _draw() -> void:
 	T = g.T
 	Spr.begin(self)
 	_deco(g)
-	WorldTower.draw(g, T)
 	_climb(g)
 	_locks(g)
 	_entrances(g)
@@ -141,9 +140,6 @@ func _locks(g: Game) -> void:
 func _entrances(g: Game) -> void:
 	var p: Dictionary = g.player
 	for e in g.ENTR:
-		if e.get("mode", "") == "door":
-			WorldTower.door_shape(e.x + e.w / 2, e.y + e.h, T, p.nearE == e)
-			continue
 		if e.get("exit"):
 			var cx: float = e.x + e.w / 2
 			var top: float = e.y + e.h - 200
@@ -405,8 +401,6 @@ func _player_draw(g: Game) -> void:
 			n = "pai_" + p.act
 		elif p.actT > 0 and p.act == "swing":
 			n = "pai_throw1" if p.actT > 14 else "pai_throw2"
-		elif p.onGround and abs(p.vx) < .3 and p.lookT > 10:
-			n = "pai_lookup"
 		elif p.pushT > 0 and p.onGround:
 			n = ["pai_push1", "pai_push2", "pai_push3"][(T / 10) % 3]
 		elif p.run and p.onGround and abs(p.vx) > 3:

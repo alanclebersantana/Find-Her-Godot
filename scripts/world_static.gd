@@ -99,7 +99,20 @@ func branch(s: Dictionary) -> void:
 	Spr.img(Spr.tex.galho, s.x - 12, s.y - 14, s.w + 24, 60)
 
 func trunk(s: Dictionary) -> void:
-	Spr.img(Spr.tex.tronco, s.x - s.w * .75, s.y - 10, s.w * 2.5, s.h + 12)
+	# o tronco entra na terra e as raízes se espalham num montinho de terra e grama
+	Spr.img(Spr.tex.tronco, s.x - s.w * .75, s.y - 10, s.w * 2.5, s.h + 28)
+	_root_mound(s.x + s.w / 2, s.y + s.h, s.w)
+
+func _root_mound(cx: float, gy: float, w: float) -> void:
+	Spr.ellipse(cx, gy + 4, w * 1.35, 12, Color("#4a3220"))
+	for k in 5:
+		var a: float = (k - 2) * .45
+		var rx: float = cx + (k - 2) * w * .32
+		Spr.poly(PackedVector2Array([Vector2(rx - 9, gy - 2), Vector2(rx + sin(a) * 26, gy + 9), Vector2(rx + 9, gy - 2)]), Color("#5e4028"))
+	for k in 7:
+		var gx: float = cx - w * 1.2 + k * w * .4
+		for j in 3:
+			Spr.poly(PackedVector2Array([Vector2(gx + j * 4 - 3, gy + 3), Vector2(gx + j * 4 + (j - 1) * 2, gy - 9 - (k % 3) * 3), Vector2(gx + j * 4 + 3, gy + 3)]), Color("#5d8f34"))
 
 func cabin(s: Dictionary) -> void:
 	Spr.AB("o_cabin", s.x - 15, s.y + s.h - 221, 330, 221)
@@ -130,10 +143,33 @@ func root_log(s: Dictionary) -> void:
 			while q < .7:
 				Spr.ring(cx, cy, r * q, Color(.35, .24, .12, .6), 1.5)
 				q += .18
-	Spr.ellipse(x + w / 2, y + 6, w * .3, 8, Color("#4f8a2a"))
-	Spr.rr(x - 14, y + h - 26, 26, 26, 8, Color("#6a6470"))
-	Spr.rr(x + w - 8, y + h - 26, 26, 26, 8, Color("#6a6470"))
-	Spr.rect(x, y + h, w, 24, Color(0, 0, 0, .55))
+	# presa por cordas que sobem até o alto (é por isso que fica suspensa e só passa abaixado)
+	_hang_ropes(x + w * .22, x + w * .78, y, h)
+	# sombra no chão embaixo da pilha suspensa
+	Spr.ellipse(x + w / 2, y + h + 24, w * .55, 6, Color(0, 0, 0, .3))
+
+## cordas (ou correntes) grossas subindo até sair da tela, amarradas em volta da peça, com ganchos de ferro
+func _hang_ropes(xa: float, xb: float, y: float, h: float, chain: bool = false) -> void:
+	var top: float = y - 900
+	for rx in [xa, xb]:
+		if chain:
+			var yy: float = top
+			while yy < y:
+				Spr.ring(rx, yy + 6, 5, Color("#6b6560"), 2.5)
+				yy += 10
+		else:
+			Spr.rect(rx - 3, top, 6, y - top + 6, Color("#a8875a"))
+			var yy2: float = top
+			while yy2 < y:
+				Spr.seg(rx - 3, yy2, rx + 3, yy2 + 5, Color("#7a5f3c"), 1.5)
+				yy2 += 8
+		# gancho
+		Spr.ring(rx, y - 2, 7, Color("#5f5a55"), 3, PI * .1, PI * 1.6)
+	# amarras em volta da peça
+	for f in [.18, .82]:
+		var by: float = y + h * f
+		Spr.rect(xa - 30, by - 3, xb - xa + 60, 6, Color("#a8875a" if not chain else "#6b6560"))
+		Spr.seg(xa - 30, by - 3, xb + 30, by + 3, Color(0, 0, 0, .25), 1)
 
 func cliff(s: Dictionary) -> void:
 	var t: Texture2D = Spr.tex.chao
@@ -261,9 +297,7 @@ func shed(s: Dictionary) -> void:
 
 func beam(s: Dictionary) -> void:
 	# viga baixa de escoramento da mina: só passa abaixado
-	var wood := Color("#3e2a18")
-	Spr.rect(s.x - 18, s.y - 160, 14, s.h + 160 + 24, wood)
-	Spr.rect(s.x + s.w + 4, s.y - 160, 14, s.h + 160 + 24, wood)
+	_hang_ropes(s.x + 10, s.x + s.w - 10, s.y, s.h, true)
 	planks(s, true)
 	Spr.rect(s.x - 24, s.y - 6, s.w + 48, 14, Color("#5a3d22"))
 	var y: float = s.y + s.h - 10

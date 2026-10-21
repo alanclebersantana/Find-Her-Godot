@@ -63,7 +63,7 @@ var X: Extras
 var M: Mech
 var PR: Props
 var TR: Traps
-var TW: Tower
+var ZN: Zones
 var player: Dictionary = {}
 var keys := {}
 var T := 0
@@ -97,6 +97,7 @@ var CINE := {}             # cena dramática dentro do jogo (câmera, faixas de 
 var W := 960.0
 var H := 540.0
 var running := false
+var cur_chk := -1           # fogueira onde o Tomé volta ao morrer
 var max_x := 0.0          # até onde o Tomé já chegou (para o mapa)
 var tps := 60
 var shown_crate := false
@@ -124,6 +125,7 @@ func _ready() -> void:
 func load_level(i: int) -> void:
 	level_idx = i
 	max_x = 0.0
+	cur_chk = -1
 	L = JSON.parse_string(FileAccess.get_file_as_string("res://assets/data/level%d.json" % (i + 1)))
 	SOL = []
 	for s in L.solids:
@@ -172,7 +174,10 @@ func load_level(i: int) -> void:
 		CHK.append({"x": c[0], "y": c[1], "on": false})
 	VINES = []
 	for v in L.get("vines", []):
-		VINES.append({"x": v.x, "y": v.y, "len": v.len, "th": 0.0, "om": 0.0, "bend": 0.0})
+		var vo := {"x": v.x, "y": v.y, "len": v.len, "th": 0.0, "om": 0.0, "bend": 0.0}
+		if v.has("aim"):
+			vo.aim = v.aim
+		VINES.append(vo)
 	CLK = []
 	for c in L.get("clocks", []):
 		CLK.append({"x": c[0], "y": c[1], "got": false})
@@ -201,8 +206,8 @@ func load_level(i: int) -> void:
 	PR.load_level()
 	TR = Traps.new(self)
 	TR.load_level()
-	TW = Tower.new(self)
-	TW.load_level()
+	ZN = Zones.new(self)
+	ZN.load_level()
 	_reset_player(L.spawn.x - 12, L.spawn.y - 34)
 	time_left = int(L.get("time", 180)) * 60
 	coins = 0
@@ -318,6 +323,15 @@ func flash(m: String, t: int = 150) -> void:
 
 func note(m: String) -> void:
 	if flash_t <= 30:
+		flash(m)
+
+## tutorial ligado? (opção do menu; perguntado no começo do jogo)
+static func tutorial_on() -> bool:
+	return bool(Save.getv("opt", "tutorial", true))
+
+## dica de "como fazer": só aparece com o tutorial ligado
+func tip(m: String) -> void:
+	if tutorial_on() and flash_t <= 30:
 		flash(m)
 
 func burst(x: float, y: float, n: int, c: Color) -> void:
@@ -475,14 +489,14 @@ func ambient() -> void:
 	var S: Array = L.get("sections", [])
 	if S.is_empty():
 		return
-	if TW and TW.zone != null:
+	if ZN and ZN.zone != null:
 		AMB.dark = 0.0
 		AMB.rain = 0.0
 		AMB.night = 0.0
 		AMB.tint = ""
 		AMB.fog = 0.0
 		AMB.wind = 0.0
-		AMB.song = TW.zone.get("song", "manha")
+		AMB.song = ZN.zone.get("song", "manha")
 		return
 	var px: float = player.x + player.w / 2
 	var i := 0
@@ -607,7 +621,7 @@ func step() -> void:
 				level_won.emit()
 		return
 	T += 1
-	if TW == null or TW.zone == null:
+	if ZN == null or ZN.zone == null:
 		max_x = max(max_x, player.x + 300)
 	if shake > 0:
 		shake *= .85
@@ -625,12 +639,7 @@ func step() -> void:
 		return
 	M.pre()
 	TR.pre()
-	TW.pre()
-	if TW.busy():
-		TW.anim_step()
-		_tick_fx()
-		_camera()
-		return
+	ZN.pre()
 	# encostado numa parede no ar (para deslizar e pular de parede em parede)
 	player.wslide = false
 	if player.wsl > 0:
@@ -972,14 +981,20 @@ func step() -> void:
 	# fogueiras
 	for k in CHK.size():
 		var c: Dictionary = CHK[k]
-		if not c.on and not player.dog and abs(player.x + player.w / 2 - c.x) < 26 and abs(player.y + player.h - c.y) < 60:
+		if k == cur_chk or player.dog or abs(player.x + player.w / 2 - c.x) >= 26 or abs(player.y + player.h - c.y) >= 60:
+			continue
+		# qualquer fogueira que não seja a atual vira o ponto de volta (mesmo já acesa)
+		player.spawnX = c.x - 12
+		player.spawnY = c.y - 34
+		cur_chk = k
+		if not c.on:
 			c.on = true
-			player.spawnX = c.x - 12
-			player.spawnY = c.y - 34
 			Audio.play("fire")
 			flash("Fogueira acesa: progresso salvo.")
 			burst(c.x, c.y - 30, 12, Color("#ffd76a"))
-			save_checkpoint(k)
+		else:
+			note("Progresso salvo.")
+		save_checkpoint(k)
 	# inimigos
 	for e in EN:
 		if e.dead:
@@ -1015,8 +1030,8 @@ func step() -> void:
 				player.airJumps = 1
 			elif not e.stun:
 				hurt(1, e.x)
-	if TW.zone != null:
-		player.x = clamp(player.x, TW.zone.x0, TW.zone.x1 - player.w)
+	if ZN.zone != null:
+		player.x = clamp(player.x, ZN.zone.x0, ZN.zone.x1 - player.w)
 	else:
 		player.x = clamp(player.x, 0, L.spanX - player.w)
 	# saída (porta da mina)
@@ -1136,8 +1151,8 @@ func _cine_step() -> void:
 
 ## limites da câmera: a fase inteira, ou a sala da torre onde o Tomé está
 func cam_bounds() -> Rect2:
-	if TW and TW.zone != null:
-		return TW.cam_rect()
+	if ZN and ZN.zone != null:
+		return ZN.cam_rect()
 	return Rect2(0, L.top, L.spanX, L.bottom - L.top)
 
 func snap_camera() -> void:
@@ -1146,8 +1161,8 @@ func snap_camera() -> void:
 	cam_vy = 0.0
 	look_x = player.face * 70.0
 	look_vx = 0.0
-	if TW:
-		TW.zone = TW.zone_at(player.x + player.w / 2, player.y + player.h / 2)
+	if ZN:
+		ZN.zone = ZN.zone_at(player.x + player.w / 2, player.y + player.h / 2)
 	var cb := cam_bounds()
 	cam = clamp(player.x + player.w / 2 - W / 2 + look_x, cb.position.x, max(cb.position.x, cb.end.x - W))
 	cam_focus = player.y
@@ -1174,12 +1189,12 @@ func _vine_step() -> void:
 	if d != 0:
 		player.face = d
 		var same: bool = v.om * d > 0 or abs(v.om) < .004
-		v.om += d * (.0034 if same else .0012) * max(.25, cos(v.th))
-	v.om *= .997
+		v.om += d * (.0021 if same else .0009) * max(.25, cos(v.th))
+	v.om *= .996
 	# topo macio: perto do alto o cipó perde força devagar (uma pausinha no alto antes de voltar)
-	var lim := 1.08
+	var lim := .9
 	if abs(v.th) > lim:
-		v.om -= sign(v.th) * (abs(v.th) - lim) * .03
+		v.om -= sign(v.th) * (abs(v.th) - lim) * .06
 	v.th += v.om
 	if abs(v.th) > 1.42:
 		v.th = sign(v.th) * 1.42
@@ -1191,7 +1206,7 @@ func _vine_step() -> void:
 	elif kd("S"):
 		nr = min(v.len, r + 1.8)
 	if nr != r:
-		v.om *= clamp((r / nr) * (r / nr), .8, 1.25)
+		v.om *= clamp(r / nr, .95, 1.06)
 		player.vr = nr
 		player.climbA += 3
 		r = nr
@@ -1211,6 +1226,16 @@ func _vine_step() -> void:
 		player.vy = max(-15.0, -vt * sin(v.th) - 3.4)
 		if d != 0 and abs(player.vx) < 2.0:
 			player.vx = d * 2.0
+		# ajudinha: soltando na direção do alvo do cipó (ex.: o galho do desenho), o pulo corrige o arco para cair nele
+		if v.has("aim"):
+			var tgt := Vector2(float(v.aim[0]), float(v.aim[1]) - player.h)
+			var dx: float = tgt.x - player.x - player.w / 2
+			if sign(dx) == sign(player.vx) and abs(dx) < 460 and abs(vt) > 1.2:
+				var sol := TR.ballistic(Vector2(player.x + player.w / 2, player.y), tgt, 1.0)
+				if sol.y > -16.0:
+					player.vx = sol.x
+					player.vy = sol.y
+					player.launchT = int(sol.z)
 		player.vine = null
 		player.vineCD = 22
 		player.airJumps = 1
@@ -1478,13 +1503,10 @@ func _p1_pre(pcx: float) -> void:
 			player.ladder = null
 	# abaixar / deslizar
 	var wantC: bool = player.onGround and kd("S") and not player.ladder and nearE == null and not player.vine and not player.dog
-	# passagem baixa à frente: o Tomé se abaixa sozinho (e só levanta quando sair de baixo)
+	# passagem baixa à frente: o jogador precisa segurar ↓ (só avisa, não abaixa sozinho)
 	var mdir := -1 if (kd("L") and not kd("R")) else (1 if (kd("R") and not kd("L")) else 0)
-	if player.onGround and not player.ladder and not player.vine and not player.swim and not player.dog and X.crawl_auto(mdir):
-		if not player.crouch and X.a_notes < 5:
-			X.a_notes = 5
-			note("Passagem baixa: o Tomé se abaixa sozinho. (↓ também abaixa)")
-		wantC = true
+	if player.onGround and not player.crouch and not player.ladder and not player.vine and not player.swim and not player.dog and mdir != 0 and X.crawl_auto(mdir):
+		tip("Passagem baixa: segure ↓ para se abaixar e passar.")
 	if wantC and not player.crouch:
 		player.crouch = true
 		player.y += 14
@@ -1645,7 +1667,7 @@ func _p1_post(pcx: float, _pcy: float) -> void:
 	M.post()
 	PR.post()
 	TR.post()
-	TW.post()
+	ZN.post()
 	# vilão foge
 	if VIL:
 		if not VIL.go and pcx > VIL.trig and pcx < L.spanX:
@@ -2137,7 +2159,6 @@ func respawn() -> void:
 		VIL.x = min(player.x + 420, VIL.gateX - 10)
 	X.boss_reset()
 	TR.reset_on_respawn()
-	TW.on_respawn()
 	X.breath = Extras.BREATH
 	snap_camera()
 	flash(msg + " Vidas: %d" % lives)
@@ -2159,7 +2180,7 @@ func save_checkpoint(k: int) -> void:
 			coins_got.append(c.ci)
 	Save.save_run({"level": level_idx, "chk": k, "lives": lives, "inv": INV.duplicate(), "items": got_items, "locks": locks,
 		"clues": CLUEGOT.keys(), "specs": SPECGOT.keys(), "drawn": DRAWN.keys(), "coins": coins_got, "coin_life": coin_life,
-		"pen": STATS.pen, "lit": lantern_lit, "time": time_left, "x": X.save_data(), "m": M.save_data(), "tr": TR.save_data()})
+		"pen": STATS.pen, "lit": lantern_lit, "fires": CHK.filter(func(c): return c.on).map(func(c): return CHK.find(c)), "time": time_left, "x": X.save_data(), "m": M.save_data(), "tr": TR.save_data()})
 
 func restore_run(d: Dictionary) -> void:
 	## Continua do ponto salvo: refaz a fase no estado da fogueira
@@ -2201,9 +2222,13 @@ func restore_run(d: Dictionary) -> void:
 	M.restore(d.get("m", {}))
 	TR.restore(d.get("tr", {}))
 	var k: int = int(d.get("chk", -1))
-	for i in CHK.size():
-		if i <= k:
-			CHK[i].on = true
+	if d.has("fires"):
+		for i in d.fires:
+			if int(i) < CHK.size():
+				CHK[int(i)].on = true
+	elif k >= 0 and k < CHK.size():
+		CHK[k].on = true
+	cur_chk = k
 	if k >= 0 and k < CHK.size():
 		_reset_player(CHK[k].x - 12, CHK[k].y - 34)
 	snap_camera()
