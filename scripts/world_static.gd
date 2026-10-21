@@ -13,31 +13,39 @@ func _draw() -> void:
 	Spr.begin(self)
 	if L.has("under"):
 		Spr.rect(x0, L.under, x1 - x0, L.bottom - L.under + 200, EARTH)
+	# fossos e cavernas: cada pedaço do cenário desenha só a sua faixa [x0, x1]; senão o fundo da
+	# caverna do pedaço seguinte cobre as pedras e plataformas desenhadas pelo anterior
 	for pit in L.get("pits", []):
 		if pit[1] < x0 or pit[0] > x1:
 			continue
-		Spr.vgrad(pit[0], 480, pit[1] - pit[0], 200, Color(.03, .02, .04, .0), Color(.02, .015, .03, 1))
-		Spr.rect(pit[0], 680, pit[1] - pit[0], L.bottom - 480, Color(.02, .015, .03))
+		var pa: float = max(float(pit[0]), x0)
+		var pb: float = min(float(pit[1]), x1)
+		Spr.vgrad(pa, 480, pb - pa, 200, Color(.03, .02, .04, .0), Color(.02, .015, .03, 1))
+		Spr.rect(pa, 680, pb - pa, L.bottom - 480, Color(.02, .015, .03))
 	for c in L.get("caves", []):
 		if c.x + c.w < x0 or c.x > x1:
 			continue
+		var ca: float = max(float(c.x), x0)
+		var cb: float = min(float(c.x + c.w), x1)
 		if c.get("ice"):
 			# caverna de gelo: azul escuro com pingentes no teto
-			Spr.vgrad(c.x, c.y, c.w, c.h, Color("#3a5a7a"), Color("#16263a"))
+			Spr.vgrad(ca, c.y, cb - ca, c.h, Color("#3a5a7a"), Color("#16263a"))
 			var ix: float = c.x + 14
 			while ix < c.x + c.w - 14:
-				var ln: float = 10 + fmod(ix * 1.37, 22.0)
-				Spr.poly(PackedVector2Array([Vector2(ix - 6, c.y), Vector2(ix, c.y + ln), Vector2(ix + 6, c.y)]), Color(.8, .92, 1, .85))
+				if ix >= x0 and ix < x1:
+					var ln: float = 10 + fmod(ix * 1.37, 22.0)
+					Spr.poly(PackedVector2Array([Vector2(ix - 6, c.y), Vector2(ix, c.y + ln), Vector2(ix + 6, c.y)]), Color(.8, .92, 1, .85))
 				ix += 30
 		elif c.get("wet"):
 			# fundo de lago: azul-esverdeado escuro, com pedras no fundo
-			Spr.vgrad(c.x, c.y, c.w, c.h, Color("#2a5a66"), Color("#0c1e28"))
+			Spr.vgrad(ca, c.y, cb - ca, c.h, Color("#2a5a66"), Color("#0c1e28"))
 			var rx: float = c.x + 30
 			while rx < c.x + c.w - 30:
-				Spr.ellipse(rx, c.y + c.h - 6, 26 + fmod(rx * .7, 18.0), 9, Color("#16303a"))
+				if rx >= x0 and rx < x1:
+					Spr.ellipse(rx, c.y + c.h - 6, 26 + fmod(rx * .7, 18.0), 9, Color("#16303a"))
 				rx += 90
 		else:
-			Spr.rect(c.x, c.y, c.w, c.h, CAVE)
+			Spr.rect(ca, c.y, cb - ca, c.h, CAVE)
 	for d in L.get("decor", []):
 		if d.x + 160 < x0 or d.x - 160 > x1:
 			continue
@@ -105,11 +113,15 @@ func ground(s: Dictionary) -> void:
 	var tw: float = t.get_width() - 1
 	var start: float = s.x + floor((x_a - s.x) / tw) * tw
 	var x := start
+	# nada passa do fundo do bloco (senão a terra cobre a caverna que fica embaixo)
+	var th: float = min(float(t.get_height()), s.h + 28.0)
 	while x < x_b:
 		var w: float = min(tw + 1, s.x + s.w - x)
-		Spr.img(t, x, s.y - 28, w, t.get_height(), Rect2(0, 0, w, t.get_height()))
+		Spr.img(t, x, s.y - 28, w, th, Rect2(0, 0, w, th))
 		x += tw
-	Spr.rect(x_a, s.y - 30 + t.get_height(), x_b - x_a, s.h, Color("#34200f"))
+	var fy: float = s.y - 30 + t.get_height()
+	if s.y + s.h > fy:
+		Spr.rect(x_a, fy, x_b - x_a, s.y + s.h - fy, Color("#34200f"))
 	if s.get("snow"):
 		_snow_top(x_a, x_b, s.y)
 
