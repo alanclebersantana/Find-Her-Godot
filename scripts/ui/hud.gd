@@ -174,7 +174,7 @@ func _cine(W: float, H: float) -> void:
 				Spr.ci.draw_texture_rect_region(Spr.tex.pai, Rect2(-50, -95, 100, 123), Rect2(15, 0, 100, 123), Color(1, 1, 1, k2))
 				Spr.restore()
 				Spr.rect(bx + 10, by + 76, 68, 20, Color(.05, .04, .03, .88 * k2))
-		var col: Color = {"VARGAS": Color("#ff9a7a"), "LIA": Color("#ffb0d0"), "TOMÉ": Color("#ffd27a")}.get(l[2], Color.WHITE)
+		var col: Color = {"VARGAS": Color("#ff9a7a"), "ISIS": Color("#ffb0d0"), "TOMÉ": Color("#ffd27a")}.get(l[2], Color.WHITE)
 		Spr.text(l[2], bx + 92, by + 26, 15, Color(col.r, col.g, col.b, k2), HORIZONTAL_ALIGNMENT_LEFT, Spr.font_title)
 		var shown: int = int((t - l[0]) * 1.6)
 		var txt: String = l[3].substr(0, shown)

@@ -79,22 +79,22 @@ jobs:
           sed -i "s/^version\/code=.*/version\/code=${{ github.run_number }}/" export_presets.cfg
           sed -i "s/^version\/name=.*/version\/name=\"0.1.${{ github.run_number }}\"/" export_presets.cfg
           if [ "$RELEASE_BUILD" = "1" ]; then MODE=--export-release; else MODE=--export-debug; fi
-          ~/godot/godot --headless --path . $MODE "Android" build/find-her.apk
+          ~/godot/godot --headless --path . $MODE "Android" build/encontre-a.apk
           ls -la build
 
       - uses: actions/upload-artifact@v4
         with:
-          name: find-her-apk
-          path: build/find-her.apk
+          name: encontre-a-apk
+          path: build/encontre-a.apk
 
       - name: Publicar na página de versões (para baixar no celular)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: apk-${{ github.run_number }}
-          name: Find Her 0.1.${{ github.run_number }}
+          name: Encontre-a 0.1.${{ github.run_number }}
           body: |
             APK de teste gerado automaticamente.
-            No celular: baixe o arquivo **find-her.apk** abaixo e toque nele para instalar
+            No celular: baixe o arquivo **encontre-a.apk** abaixo e toque nele para instalar
             (pode ser preciso permitir "instalar apps desconhecidos" para o navegador).
-          files: build/find-her.apk
+          files: build/encontre-a.apk
           prerelease: true

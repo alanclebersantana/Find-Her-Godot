@@ -292,7 +292,7 @@ func post() -> void:
 		Audio.vib(80)
 		g.shake = 6
 		g.burst(GOLD.x, GOLD.y, 30, Color("#ffd76a"))
-		g.flash("O LÁPIS DOURADO! O lápis mais especial da Lia — ela guardava para desenhar o sol.", 300)
+		g.flash("O LÁPIS DOURADO! O lápis mais especial da Isis — ela guardava para desenhar o sol.", 300)
 	_boss()
 	_dog()
 	_critters()
@@ -819,9 +819,9 @@ func _use_dog() -> bool:
 		g.burst(DOG.x - 30, DOG.y - 20, 10, Color("#c9a26a"))
 		Audio.play("item")
 		g.start_cine("cao", DOG.x - 40, DOG.y - 40, 215,
-			[[24, 110, "TOMÉ", "Calma, amigão... Você é o Pipoca! O vira-lata que a Lia alimentava todo dia!", "tome"],
-			[110, 205, "TOMÉ", "O Vargas te amarrou aqui para você não seguir a Lia, né? Vem comigo, vamos achá-la!", "tome"]],
-			[150, 205, "PIPOCA", "o melhor amigo da Lia"])
+			[[24, 110, "TOMÉ", "Calma, amigão... Você é o Pipoca! O vira-lata que a Isis alimentava todo dia!", "tome"],
+			[110, 205, "TOMÉ", "O Vargas te amarrou aqui para você não seguir a Isis, né? Vem comigo, vamos achá-la!", "tome"]],
+			[150, 205, "PIPOCA", "o melhor amigo da Isis"])
 		return true
 	return false
 

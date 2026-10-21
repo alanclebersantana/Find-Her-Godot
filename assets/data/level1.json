@@ -14,7 +14,7 @@
  "time": 300,
  "results": 1,
  "lanternOutX": 27250,
- "intro": "Lia desenhava na varanda quando foi levada. Siga a trilha dos lápis de cor que ela deixou cair. Procure os esconderijos: lá estão os desenhos dela e pistas de quem a levou. Alguns caminhos só se abrem combinando objetos na mochila 🎒.",
+ "intro": "Isis desenhava na varanda quando foi levada. Siga a trilha dos lápis de cor que ela deixou cair. Procure os esconderijos: lá estão os desenhos dela e pistas de quem a levou. Alguns caminhos só se abrem combinando objetos na mochila 🎒.",
  "sections": [
   {
    "x": 0,
@@ -1435,18 +1435,18 @@
   {
    "x": 2755,
    "y": -40,
-   "txt": "Um desenho da Lia: vocês dois embaixo da árvore grande."
+   "txt": "Um desenho da Isis: vocês dois embaixo da árvore grande."
   },
   {
    "x": 28535,
    "y": 92,
-   "txt": "Um desenho da Lia: a lanterna do papai espantando o escuro."
+   "txt": "Um desenho da Isis: a lanterna do papai espantando o escuro."
   },
   {
    "x": 4310,
    "y": 80,
    "toca": 1,
-   "txt": "Um desenho da Lia: ela abraçando o Pipoca! Ele tinha guardado na toca."
+   "txt": "Um desenho da Isis: ela abraçando o Pipoca! Ele tinha guardado na toca."
   }
  ],
  "vines": [
@@ -3322,7 +3322,7 @@
    "b": 27990,
    "yl": 520,
    "crack": "slab",
-   "t": "Uma laje rachada com um X de giz da Lia... Uma picareta quebraria isso (✦ USAR)."
+   "t": "Uma laje rachada com um X de giz da Isis... Uma picareta quebraria isso (✦ USAR)."
   },
   {
    "a": 27560,
@@ -3340,7 +3340,7 @@
    "a": 2790,
    "b": 2900,
    "yg": 860,
-   "t": "A Lia desenhou uma seta apontando para a parede... será que dá para passar?"
+   "t": "A Isis desenhou uma seta apontando para a parede... será que dá para passar?"
   },
   {
    "a": 27100,

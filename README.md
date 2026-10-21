@@ -1,7 +1,7 @@
-# Find Her
+# Encontre-a
 
 Jogo de plataforma 2D em **Godot 4.6** (Android).
-Tomé, um mineiro, segue a trilha de lápis de cor deixada pela filha, Lia, que foi levada por
+Tomé, um mineiro, segue a trilha de lápis de cor deixada pela filha, Isis, que foi levada por
 Ademar Vargas, o gerente da mina que ele denunciou por roubo.
 
 Esta é a versão Godot da Fase 1, **"O Bosque até a Mina"**, portada da versão HTML com a mesma física e as mesmas mecânicas:
@@ -25,7 +25,7 @@ Cada envio para a branch `main` dispara o GitHub Actions (`.github/workflows/and
 2. roda o teste automático que joga a Fase 1 inteira (`tests/route.gd`);
 3. gera o APK e o publica em **Releases** (página de versões do repositório).
 
-No celular: abra a página **Releases**, baixe `find-her.apk` e toque nele para instalar.
+No celular: abra a página **Releases**, baixe `encontre-a.apk` e toque nele para instalar.
 Talvez seja preciso permitir "instalar apps desconhecidos" para o navegador.
 
 Para publicar na Play Store mais tarde, cadastre a chave de assinatura nos *Secrets* do repositório:

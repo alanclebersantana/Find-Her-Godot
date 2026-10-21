@@ -1745,7 +1745,7 @@ func _p1_post(pcx: float, _pcy: float) -> void:
 			VIL.go = true
 			start_cine("vargas", VIL.x - 40, VIL.y - 40, 300,
 				[[44, 135, "VARGAS", "Desista, Tomé! Quem mandou abrir a boca sobre o dinheiro da mina?", "vargas"],
-				[135, 205, "LIA", "PAPAI! ME AJUDA!", "lia"],
+				[135, 205, "ISIS", "PAPAI! ME AJUDA!", "lia"],
 				[205, 290, "TOMÉ", "Aguenta firme, filha! Eu vou te buscar!", "tome"]],
 				[8, 44, "ADEMAR VARGAS", "o gerente ladrão"])
 		if VIL.go and not VIL.gone:

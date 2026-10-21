@@ -1,9 +1,9 @@
-; Find Her — projeto Godot 4.6
+; Encontre-a — projeto Godot 4.6
 config_version=5
 
 [application]
 
-config/name="Find Her"
+config/name="Encontre-a"
 config/description="Um pai, uma lanterna e uma trilha de lápis de cor."
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.6", "GL Compatibility")

@@ -4,7 +4,7 @@ class_name Props
 ## - o barco do canal: boia na água, balança, afunda um pouco com o peso do Tomé e, quando a comporta
 ##   escoa o canal, desce junto e fica encalhado em cima das pedras (vira uma ponte);
 ## - a mesa da varanda: assentada no chão, escorrega quando o Tomé esbarra e tomba com a picareta,
-##   espalhando os papéis da Lia.
+##   espalhando os papéis da Isis.
 
 var g  # Game
 var BOAT := {}
@@ -191,7 +191,7 @@ func swing_hits(hb: Dictionary) -> void:
 		TABLE.va = .02
 		Audio.play("unlock", -8)
 		g.burst(TABLE.x + TABLE_W / 2, TABLE.y + 10, 10, Color("#c9a26a"))
-		g.note("A mesa tombou e os papéis da Lia voaram...")
+		g.note("A mesa tombou e os papéis da Isis voaram...")
 
 func post() -> void:
 	_boat_post()

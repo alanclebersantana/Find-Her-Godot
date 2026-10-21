@@ -1,7 +1,7 @@
 extends Control
 class_name RestScene
 ## Grande fogueira no fim de cada período: o Tomé se aquece, olha os desenhos que achou
-## e, no fundo, em tom de sépia, lembra de um momento com a Lia.
+## e, no fundo, em tom de sépia, lembra de um momento com a Isis.
 ##   1 desenhando na varanda · 2 pega-pega no quintal · 3 pulando nas poças com a lanterna
 ##   4 o boneco de neve ganhando o gorro verde do Tomé
 

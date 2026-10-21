@@ -1,5 +1,5 @@
 extends Control
-## Desenhos da Lia, feitos "com giz de cera" (traço tremido), para a galeria.
+## Desenhos da Isis, feitos "com giz de cera" (traço tremido), para a galeria.
 ## kind: 0 = "vocês dois embaixo da árvore grande", 1 = "a lanterna espantando o escuro", 2 = "Papai e eu" (final)
 
 var kind := 0
@@ -119,4 +119,4 @@ func _draw() -> void:
 		_person(w * .58, h * .78, 1.1, col.call("roxo"), Color(0, 0, 0, 0))
 		_person(w * .68, h * .78, .8, col.call("vermelho"), Color(0, 0, 0, 0))
 	var cap: String = ["\"Eu e o papai\"", "\"A lanterna do papai\"", "\"Papai e eu\"", "\"Eu e o Pipoca\""][kind]
-	draw_string(Spr.font_i, Vector2(8, h - 6), cap + " — Lia", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#3a2a1a"))
+	draw_string(Spr.font_i, Vector2(8, h - 6), cap + " — Isis", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#3a2a1a"))

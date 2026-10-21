@@ -55,7 +55,7 @@ func use() -> bool:
 	g.burst(H.x - 40, H.y - 40, 16, Color("#cdbfa6"))
 	g.start_cine("cavalo", H.x + 40, H.y - 80, 300,
 		[[20, 120, "TOMÉ", "Calma, garoto... pronto, o arame saiu. Você está livre!", "tome"],
-		 [130, 240, "TOMÉ", "Me leva até a mina? A Lia está me esperando. Vamos!", "tome"]],
+		 [130, 240, "TOMÉ", "Me leva até a mina? A Isis está me esperando. Vamos!", "tome"]],
 		[])
 	return true
 

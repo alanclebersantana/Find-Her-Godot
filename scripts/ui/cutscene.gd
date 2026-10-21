@@ -26,7 +26,7 @@ func _ready() -> void:
 	match scene_id:
 		"abertura":
 			shots = [
-				{"d": _s_porch, "txt": "Toda tarde, a Lia desenhava na varanda enquanto o pai voltava da mina.", "dur": 5.5},
+				{"d": _s_porch, "txt": "Toda tarde, a Isis desenhava na varanda enquanto o pai voltava da mina.", "dur": 5.5},
 				{"d": _s_shadow, "txt": "Naquele dia, uma sombra chegou antes dele.", "dur": 4.5},
 				{"d": _s_pencils, "txt": "Tomé encontrou só os lápis espalhados... e uma trilha de cores entrando no bosque.", "dur": 6.0},
 				{"d": _s_lantern, "txt": "— Aguenta firme, filha. O papai está indo.", "dur": 4.5},
@@ -39,12 +39,12 @@ func _ready() -> void:
 		"posfinal":
 			shots = [
 				{"d": _s_post_rails, "txt": "Lá no fundo da mina, longe de qualquer luz...", "dur": 4.5},
-				{"d": _s_post_pencil, "txt": "...uma mãozinha deixou cair mais um lápis nos trilhos. A Lia ainda está marcando o caminho.", "dur": 6.0},
+				{"d": _s_post_pencil, "txt": "...uma mãozinha deixou cair mais um lápis nos trilhos. A Isis ainda está marcando o caminho.", "dur": 6.0},
 				{"d": _s_post_card, "txt": "Fase 2: As Profundezas da Mina — em breve.", "dur": 4.5},
 			]
 		"mina":
 			shots = [
-				{"d": _s_mine_enter, "txt": "O carrinho sumiu na boca da mina, com a Lia lá dentro.", "dur": 5.0},
+				{"d": _s_mine_enter, "txt": "O carrinho sumiu na boca da mina, com a Isis lá dentro.", "dur": 5.0},
 				{"d": _s_mine_closed, "txt": "O portão bateu. Mas no chão, mais um lápis: a trilha continua mina adentro.", "dur": 6.0},
 			]
 	skip_btn = Button.new()

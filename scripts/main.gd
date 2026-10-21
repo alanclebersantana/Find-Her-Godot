@@ -546,8 +546,8 @@ func show_title() -> void:
 	img.modulate = Color(.55, .5, .45)
 	panel.add_child(img)
 	panel.move_child(img, 0)
-	vb.add_child(_label("FIND HER", 68, Color("#f2d28a"), Spr.font_title))
-	vb.add_child(_label("Levaram a Lia. Siga a trilha dos lápis de cor.", 18, Color("#e8dcc0"), Spr.font_i))
+	vb.add_child(_label("ENCONTRE-A", 68, Color("#f2d28a"), Spr.font_title))
+	vb.add_child(_label("Levaram a Isis. Siga a trilha dos lápis de cor.", 18, Color("#e8dcc0"), Spr.font_i))
 	var sp := Control.new()
 	sp.custom_minimum_size = Vector2(0, 8)
 	vb.add_child(sp)
@@ -643,11 +643,11 @@ func start_level(cont: bool) -> void:
 	else:
 		_ask_tutorial(func(): play_cut("abertura", func(): show_intro(false)))
 
-## grande fogueira: fim de um período. Pausa, lembrança da Lia e escolha de seguir ou parar.
+## grande fogueira: fim de um período. Pausa, lembrança da Isis e escolha de seguir ou parar.
 const REST_INFO := {
 	1: ["FIM DA MANHÃ", "Toda tarde ela desenhava na varanda, esperando eu voltar do trabalho.", "Aguenta firme, filha. Estou chegando."],
 	2: ["FIM DA TARDE", "Pega-pega no quintal... e ela sempre ganhava de mim.", "Aguenta firme, filha. Estou chegando."],
-	3: ["FIM DO PÂNTANO", "Pular nas poças com a lanterna acesa. Ela nunca teve medo da chuva.", "Estou chegando, Lia. Não tenha medo do escuro."],
+	3: ["FIM DO PÂNTANO", "Pular nas poças com a lanterna acesa. Ela nunca teve medo da chuva.", "Estou chegando, Isis. Não tenha medo do escuro."],
 	4: ["FIM DA NEVE", "O boneco de neve ficou com o meu gorro. Ela riu a tarde inteira.", "Falta pouco, filha. Aguenta firme."],
 }
 
@@ -977,7 +977,7 @@ func show_map(from_pause: bool, from_bag: bool = false) -> void:
 # ---------- galeria ----------
 func show_gallery() -> void:
 	var vb := _overlay(.92)
-	vb.add_child(_label("GALERIA DA LIA", 30, GOLD, Spr.font_title))
+	vb.add_child(_label("GALERIA DA ISIS", 30, GOLD, Spr.font_title))
 	vb.add_child(_label("Os desenhos que você encontrou pelo caminho.", 14, Color(.85, .8, .7), Spr.font_i))
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -1006,7 +1006,7 @@ func show_gallery() -> void:
 		var gl := HBoxContainer.new()
 		gl.alignment = BoxContainer.ALIGNMENT_CENTER
 		gl.add_child(_atlas_icon("pen_gold", 34))
-		gl.add_child(_label("  O lápis dourado da Lia — encontrado!", 14, Color("#ffd76a"), Spr.font_i))
+		gl.add_child(_label("  O lápis dourado da Isis — encontrado!", 14, Color("#ffd76a"), Spr.font_i))
 		vb.add_child(gl)
 	vb.add_child(_label("PISTAS ENCONTRADAS", 13, Color("#b8a888")))
 	var cl := HBoxContainer.new()
@@ -1080,13 +1080,13 @@ func _on_results() -> void:
 	for t in ["⏱ Tempo  %d:%02d" % [secs / 60, secs % 60], "✏ Lápis  %d/%d" % [pen, pt], "Lápis especiais  %d/6" % ns, "Desenhos  %d/%d" % [dr, game.DRWS.size()], "Pistas  %d/6" % nc, gold_txt, sec_txt]:
 		grid.add_child(_label(t, 15, INK))
 	vb.add_child(grid)
-	var story := "Agora eu sei: foi Ademar Vargas, o gerente que roubava a mina. Ele levou a Lia para se vingar. Vou atrás dele — mina adentro." if nc == 6 else "Ele fugiu para a mina. Ainda faltam pistas para ter certeza de quem é... (%d/6)" % nc
+	var story := "Agora eu sei: foi Ademar Vargas, o gerente que roubava a mina. Ele levou a Isis para se vingar. Vou atrás dele — mina adentro." if nc == 6 else "Ele fugiu para a mina. Ainda faltam pistas para ter certeza de quem é... (%d/6)" % nc
 	vb.add_child(_label(story, 16, Color("#e8dcc0"), Spr.font_i, 640))
 	vb.add_child(_label("As próximas fases chegam em breve.", 13, Color(.75, .7, .6)))
 	vb.add_child(_button("CONTINUAR", func(): play_cut("posfinal", show_title)))
 
 class _FinalDrawing extends Control:
-	## O desenho da Lia, colorido com os lápis especiais encontrados
+	## O desenho da Isis, colorido com os lápis especiais encontrados
 	var specs := {}
 	func _init() -> void:
 		custom_minimum_size = Vector2(300, 170)
@@ -1117,7 +1117,7 @@ class _FinalDrawing extends Control:
 			draw_colored_polygon(b, colr(f[2]))
 			draw_polyline(PackedVector2Array([b[0], b[1], b[2], b[0]]), ink, 3)
 		draw_line(Vector2(w * .55 + 8, h * .55 - 10), Vector2(w * .66 - 8, h * .55 - 6), ink, 3)
-		var txt := "\"Papai e eu\" — Lia" if specs.size() == 6 else "Faltam cores: %d" % (6 - specs.size())
+		var txt := "\"Papai e eu\" — Isis" if specs.size() == 6 else "Faltam cores: %d" % (6 - specs.size())
 		draw_string(Spr.font_i, Vector2(10, h - 8), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, ink)
 
 # ---------- fim de jogo ----------

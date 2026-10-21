@@ -1,7 +1,7 @@
 extends RefCounted
 class_name WorldExtras
 ## Desenho dos sistemas novos que ficam no mundo (escurecem com a noite):
-## capim que balança, pegadas, giz da Lia, rochas rachadas, grades, espelhos, cristais,
+## capim que balança, pegadas, giz da Isis, rochas rachadas, grades, espelhos, cristais,
 ## plataformas de luz, troncos e o Javali-Rei, e os inimigos novos (morcego, aranha, toupeira).
 
 const CHALK := Color(.96, .95, .9, .82)
@@ -74,7 +74,7 @@ static func footprints(g: Game) -> void:
 		Spr.ellipse(f.x, f.y - 1, 5, 2, Color(.12, .08, .05, a))
 		Spr.ellipse(f.x + f.f * 5, f.y - 1.5, 2.2, 1.6, Color(.12, .08, .05, a))
 
-# ---------------------------------------------------------------- giz da Lia
+# ---------------------------------------------------------------- giz da Isis
 static func _stroke(pts: PackedVector2Array, w: float = 3.0) -> void:
 	Spr.ci.draw_polyline(pts, CHALK, w, true)
 	var o := PackedVector2Array()
