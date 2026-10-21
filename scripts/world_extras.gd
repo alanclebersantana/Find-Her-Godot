@@ -172,9 +172,6 @@ static func solids(g: Game, T: int) -> void:
 				for i in 4:
 					Spr.rect(s.x + 2 + i * 15, s.y, 12, 8, Color("#6b4a2a"))
 				Spr.rect(s.x, s.y + 2, s.w, 3, Color("#4a3220"))
-	for l in g.X.LOGS:
-		if not l.landed and not l.dead:
-			_log(l.x, l.y)
 	# plataformas de luz
 	for gp in g.X.GHOST:
 		var a: float = gp.a
@@ -250,9 +247,7 @@ static func boss(g: Game, T: int) -> void:
 			shake_x = sin(T * 1.3) * 2
 		"charge", "flee":
 			fr = 5 if (T / 4) % 2 == 0 else 3
-		"stun":
-			fr = 6
-		"hit":
+		"stun", "down":
 			fr = 6
 		"trot":
 			fr = [0, 1, 2, 3][(T / 6) % 4]
@@ -262,8 +257,13 @@ static func boss(g: Game, T: int) -> void:
 	Spr.ellipse(b.x, 502, 90, 12, Color(0, 0, 0, .3))
 	Spr.save()
 	Spr.translate(b.x + shake_x, b.y)
+	if b.st == "down":
+		# tomba de lado e some devagar
+		Spr.rotate(-b.dir * min(1.0, b.t / 30.0) * 1.35)
 	Spr.scale(1 if b.dir > 0 else -1, 1)
 	var tint := Color(1, .45, .4, 1) if b.red > 0 and (T / 3) % 2 == 0 else Color(1, 1, 1, 1)
+	if b.st == "down":
+		tint.a = clamp(1.0 - (b.t - 90) / 60.0, 0.0, 1.0)
 	Spr.ci.draw_texture_rect_region(Spr.tex.javali, Rect2(-105 * sc, -136 * sc + 4, 210 * sc, 140 * sc), Rect2(fr * 210, 0, 210, 140), tint)
 	# coroa de folhas (é o rei)
 	var cx := 30.0

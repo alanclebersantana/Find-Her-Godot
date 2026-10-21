@@ -17,7 +17,6 @@ var GOLD := {}
 var WATER: Array = []
 var CHALK: Array = []
 var BOSS := {}
-var LOGS: Array = []
 var BEAM: Array = []          # pontos do raio refletido pelos espelhos (para desenhar)
 var focus := false
 var focus_block := false
@@ -87,7 +86,6 @@ func load_level() -> void:
 		GOLD = {"x": L.gold.x, "y": L.gold.y, "got": false}
 	WATER = L.get("water", []).duplicate(true)
 	CHALK = L.get("chalk", [])
-	LOGS = []
 	BOSS = {}
 	if L.has("boss"):
 		var b: Dictionary = L.boss
@@ -287,7 +285,6 @@ func post() -> void:
 		g.burst(GOLD.x, GOLD.y, 30, Color("#ffd76a"))
 		g.flash("O LÁPIS DOURADO! O lápis mais especial da Lia — ela guardava para desenhar o sol.", 300)
 	_boss()
-	_logs()
 	_dog()
 	_critters()
 	_footprints()
@@ -518,7 +515,7 @@ func cine_end(id: String) -> void:
 				BOSS.y = 500.0
 				BOSS.st = "idle"
 			BOSS.t = 0
-			g.flash("Suba num galho! Deixe o Javali-Rei bater na árvore ou no barranco e pule nas costas dele quando ficar tonto.", 240)
+			g.flash_tut("Faça o Javali-Rei bater a cabeça 4 vezes!", "Fique no chão para ele investir. Quando ele correr, pule para um galho: ele bate a cabeça na árvore ou no barranco. 4 batidas!", 260)
 		"vargas":
 			g.tip("Atrás dele! Pule os buracos e abaixe sob as vigas.", 180)
 		"cao":
@@ -546,6 +543,8 @@ func _boss() -> void:
 	var b: Dictionary = BOSS
 	var p: Dictionary = g.player
 	var pcx: float = p.x + p.w / 2
+	# o Tomé está no chão da clareira (e não num galho)? só aí o javali investe
+	var on_floor: bool = p.onGround and p.y + p.h >= 494 and pcx > b.x0 and pcx < b.x1
 	if b.red > 0:
 		b.red -= 1
 	match b.st:
@@ -562,7 +561,7 @@ func _boss() -> void:
 				Audio.play("thunder", -6)
 				g.shake = 6
 				g.start_cine("boss", b.spawn - 60, 420, 260,
-					[[165, 250, "TOMÉ", "Um javali desse tamanho... Ele é forte demais para pisar. Preciso subir num galho!", "tome"]],
+					[[165, 250, "TOMÉ", "Um javali desse tamanho... Forte demais para enfrentar de frente. Vou fazer ele bater a cabeça!", "tome"]],
 					[75, 160, "JAVALI-REI", "o terror da clareira"])
 			return
 		"intro":
@@ -578,21 +577,28 @@ func _boss() -> void:
 		"idle":
 			b.t += 1
 			b.dir = 1 if pcx > b.x else -1
-			if b.t > 55:
+			if on_floor and b.t > 30:
 				b.st = "paw"
 				b.t = 0
+			elif not on_floor and b.t > 240:
+				b.t = 0
+				g.tip("Desça ao chão para chamar a atenção dele. Quando ele vier, pule para um galho!", 180)
 		"paw":
 			b.t += 1
+			b.dir = 1 if pcx > b.x else -1
 			if b.t % 9 == 0:
 				g.fx("fx_dust", b.x - b.dir * 50, 494, 16, .14, -.3)
 				Audio.play("slide", -12)
-			if b.t > 48:
+			if not on_floor and b.t < 20:
+				b.st = "idle"
+				b.t = 0
+			elif b.t > 44:
 				b.st = "charge"
 				b.t = 0
 				b.spd = 2.0
-				b.dir = 1 if pcx > b.x else -1
+				Audio.play("roar", -14)
 		"charge":
-			b.spd = min(b.spd + .45, 8.2)
+			b.spd = min(b.spd + .42, 8.0)
 			b.x += b.dir * b.spd
 			if g.T % 4 == 0:
 				g.fx("fx_dust", b.x - b.dir * 60, 494, 14, .16, -.25)
@@ -603,109 +609,73 @@ func _boss() -> void:
 			elif b.dir > 0 and b.x + 72 >= b.x1:
 				b.x = b.x1 - 72
 				crash = true
-			for l in LOGS:
-				if l.landed and Game.hit(boss_box(), l.s):
-					crash = true
-					l.dead = true
-					g.SOL.erase(l.s)
-					g.fx("fx_pieces", l.s.x + l.s.w / 2, l.s.y, 20, .35, -.4)
 			if crash:
-				b.st = "stun"
-				b.t = 0
 				g.shake = 18
-				g.hit_stop = 4
+				g.hit_stop = 6
 				Audio.play("stomp")
 				Audio.play("thunder", -12)
 				Audio.vib(120)
 				g.burst(b.x + b.dir * 70, 440, 20, Color("#cdbfa6"))
-				if LOGS.filter(func(l): return not l.dead).size() < 2:
-					var lx: float = b.x - b.dir * (170 + randf() * 90)
-					lx = clamp(lx, b.x0 + 40, b.x1 - 160)
-					LOGS.append({"x": lx, "y": -40.0, "vy": 0.0, "landed": false, "dead": false, "s": {}})
-				if b.hp == b.maxhp and b.get("told", 0) == 0:
-					b.told = 1
-					g.flash("Ele bateu e ficou tonto! Agora: pule nas costas dele!", 200)
+				g.fx("fx_pieces", b.x + b.dir * 76, 420, 18, .3, -.4)
+				boss_damage()
 		"stun":
 			b.t += 1
-			if b.t > 160:
-				b.st = "trot"
-				b.t = 0
-		"hit":
-			b.t += 1
-			if b.t > 36:
+			if b.t > 110:
 				b.st = "trot"
 				b.t = 0
 		"trot":
 			if b.t == 0:
 				b.side = 1 if b.x > (b.x0 + b.x1) / 2.0 else -1
 			b.t += 1
-			var tx: float = (b.x0 + 120) if b.side > 0 else (b.x1 - 120)
+			var tx: float = (b.x0 + b.x1) / 2.0 + b.side * -60.0
 			b.dir = 1 if tx > b.x else -1
 			b.x += b.dir * 3.0
 			if abs(tx - b.x) < 4:
 				b.st = "idle"
 				b.t = 0
-		"flee":
+		"down":
 			b.t += 1
-			b.dir = -1
-			b.x -= 6.5
-			if g.T % 4 == 0:
-				g.fx("fx_dust", b.x + 60, 494, 14, .16, -.25)
-			if b.x < b.x0 - 600:
+			if b.t == 1:
+				Audio.play("roar", -6)
+			if b.t > 150:
 				b.done = true
 				b.active = false
 	# contato com o Tomé
-	if b.st in ["intro", "idle", "paw", "charge", "stun", "hit", "trot"] and p.dyingT == 0:
+	if b.st in ["intro", "idle", "paw", "charge", "stun", "trot"] and p.dyingT == 0:
 		var bb := boss_box()
 		if Game.hit(p, bb):
 			var feet: float = p.y + p.h
-			var from_top: bool = p.vy > 0.5 and feet - bb.y < 34
-			if from_top and b.st == "stun":
-				p.vy = Game.STOMP * 1.05
-				p.y = bb.y - p.h - 1
-				p.cutOk = false
-				p.airJumps = 1
-				boss_damage()
-			elif from_top:
+			if p.vy > 0.5 and feet - bb.y < 34:
 				p.vy = -8.5
 				p.y = bb.y - p.h - 1
 				p.cutOk = false
 				Audio.play("spring", -8)
-				g.note("O couro dele é duro! Faça ele bater na árvore ou no barranco primeiro.")
+				g.tip("O couro dele é duro! Faça ele bater a cabeça na árvore ou no barranco.")
 			elif b.st == "charge" or b.st == "intro":
 				g.hurt(1, b.x)
 
-## acerto no Javali-Rei tonto (pulo nas costas ou golpe de picareta)
+## o Javali-Rei bateu a cabeça: perde uma vida
 func boss_damage() -> void:
 	var b: Dictionary = BOSS
-	if b.st != "stun":
-		return
 	b.hp -= 1
 	b.red = 30
-	g.hit_stop = 7
-	g.shake = 14
-	Audio.play("stomp")
 	Audio.play("roar", -10)
-	Audio.vib(70)
-	g.burst(b.x, b.y - 100, 22, Color("#e0a0a0"))
 	if b.hp <= 0:
-		b.st = "flee"
+		b.st = "down"
 		b.t = 0
 		_gate_on(false)
-		for l in LOGS:
-			if l.s:
-				g.SOL.erase(l.s)
-				g.fx("fx_pieces", l.s.x + 65, l.s.y + 10, 20, .35, -.4)
-			l.dead = true
-		g.flash("O Javali-Rei fugiu para o mato! Você ganhou uma armadura de casca de árvore (aguenta 1 golpe).", 260)
+		g.flash("O Javali-Rei caiu! Você ganhou uma armadura de casca de árvore (aguenta 1 golpe).", 260)
 		g.player.armor = 1
 		for i in 12:
 			g.gain_coin(b.item[0], b.item[1] - 20, true)
 		Audio.play("door", -4)
 	else:
-		b.st = "hit"
+		b.st = "stun"
 		b.t = 0
-		g.flash("Acertou! Falta%s %d." % ["m" if b.hp > 1 else "", b.hp], 120)
+		if b.hp == b.maxhp - 1:
+			g.flash_tut("Bum! Falta%s %d." % ["m" if b.hp > 1 else "", b.hp], "Bum! Ele bateu a cabeça. Falta%s %d. Volte ao chão e chame de novo!" % ["m" if b.hp > 1 else "", b.hp], 160)
+		else:
+			g.flash("Bum! Falta%s %d." % ["m" if b.hp > 1 else "", b.hp], 120)
 
 func boss_reset() -> void:
 	if BOSS.is_empty() or BOSS.done:
@@ -715,10 +685,6 @@ func boss_reset() -> void:
 	BOSS.hp = BOSS.maxhp
 	BOSS.x = BOSS.spawn
 	_gate_on(false)
-	for l in LOGS:
-		if l.s:
-			g.SOL.erase(l.s)
-	LOGS = []
 
 func boss_finish_silent() -> void:
 	if BOSS.is_empty():
@@ -726,29 +692,6 @@ func boss_finish_silent() -> void:
 	BOSS.done = true
 	BOSS.active = false
 
-func _logs() -> void:
-	var p: Dictionary = g.player
-	for l in LOGS:
-		if l.dead or l.landed:
-			continue
-		l.vy += .55
-		l.y += l.vy
-		if Game.hit(p, g.R(l.x, l.y, 130, 28)) and p.dyingT == 0:
-			g.hurt(1, l.x + 65)
-		if l.y >= 472:
-			l.y = 472.0
-			l.landed = true
-			l.s = {"t": "bosslog", "x": l.x, "y": 472.0, "w": 130, "h": 28}
-			g.SOL.append(l.s)
-			g.shake = max(g.shake, 8)
-			Audio.play("stomp", -6)
-			g.burst(l.x + 65, 500, 14, Color("#b7a77f"))
-			if Game.hit(p, l.s):
-				p.y = l.s.y - p.h
-
-# ======================================================================
-#  MUNDO QUE REAGE
-# ======================================================================
 func ripple(x: float, y: float, s: float = 1.0) -> void:
 	RIP.append({"x": x, "y": y, "t": 0, "s": s})
 

@@ -184,22 +184,26 @@ func on_perch() -> bool:
 	return P.onGround and P.y + P.h <= 372
 
 func boss_fight():
-	for it in 120:
+	for it in 60:
 		P = g.player
 		var b: Dictionary = g.X.BOSS
-		if b.done or b.st == "flee":
-			hold({}, 120)
+		if b.done or b.st == "down":
+			hold({}, 160)
 			return true
 		if not ok():
 			return "state"
-		if b.st == "stun":
-			jump_to(b.x, true)
-			hold({}, 2)
-		elif not on_perch():
-			walk_to(3175)
-			jump_to(3175, true)
-		else:
-			until({}, func(): return g.X.BOSS.st == "stun" or g.X.BOSS.st == "flee" or not on_perch(), 900)
+		if on_perch():
+			# espera ele se afastar e desce de novo
+			until({}, func(): return g.X.BOSS.st == "idle" or g.X.BOSS.st == "down", 600)
+			if g.X.BOSS.st == "down":
+				continue
+			walk_to(3275)
+			until({}, func(): return P.onGround and P.y + P.h >= 494, 60)
+		walk_to(3175)
+		# no chão: ele investe; pula para o galho quando chega perto
+		until({}, func(): return g.X.BOSS.st == "charge" and abs(g.X.BOSS.x - px()) < 330, 400)
+		jump_to(3175, true)
+		hold({}, 4)
 	return "hp=%d st=%s" % [g.X.BOSS.hp, g.X.BOSS.st]
 
 func n_clues() -> int:
@@ -356,7 +360,7 @@ func _initialize() -> void:
 	S("pedra 2", jump_to(6760))
 	walk_to(6790)
 	S("pedrinha (pista 4)", until({"R": true}, func(): return P.onGround and P.y > 520, 100))
-	S("pistas=4", n_clues() == 4)
+	S("pistas=4", n_clues() >= 4)
 	S("pedra 3", jump_to(6900))
 	S("margem", jump_to(7060))
 	var axe: Dictionary = g.TR.by_kind("axe")[0]
@@ -458,13 +462,13 @@ func _initialize() -> void:
 	S("rasteja", crawl(9050))
 	S("escada do nicho", walk_to(9250))
 	S("desce", climb_to("S", func(): return P.onGround and P.y > 700, 500))
-	S("pista 5", walk_to(9090))
+	S("roxo no nicho", walk_to(9060) and spec("roxo"))
 	walk_to(9280)
-	S("rasteja divisória", crawl(9360))
-	S("pistas=6 e roxo", n_clues() == 6 and spec("roxo"))
-	S("volta", crawl(9260))
-	S("sobe", climb_to("U", func(): return P.ladder == null and P.onGround and P.y < 480, 500))
-	walk_to(8105)
+	S("rasteja divisória", crawl(9345))
+	S("pistas=6 (crachá)", n_clues() == 6)
+	S("vilão ainda não", not g.VIL.go)
+	walk_to(9380)
+	S("sobe pela saída", climb_to("U", func(): return P.ladder == null and P.onGround and P.y < 480, 500))
 	S("vilão foge", walk_to(9600))
 	S("perseguição começou", g.VIL.go)
 	walk_to(9930)

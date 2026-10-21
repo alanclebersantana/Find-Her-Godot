@@ -16,6 +16,9 @@ func _initialize() -> void:
 		return
 	main.start_level(false)
 	await process_frame
+	if main.panel and main.panel.has_meta("ok"):
+		main.panel.get_meta("ok").call()
+		await process_frame
 	for c in main.ui_layer.get_children():
 		if c.has_method("_end"):
 			c._end()

@@ -209,9 +209,6 @@ func _swing_hits() -> void:
 	g.PR.swing_hits(hb)
 	g.TR.swing_hits(hb)
 	var X = g.X
-	if X.boss_active() and X.BOSS.st == "stun" and not swing_hit.has("boss") and Game.hit(hb, X.boss_box()):
-		swing_hit["boss"] = 1
-		X.boss_damage()
 	for c in g.CR:
 		if not c.dead and c.t == "break" and not swing_hit.has(c) and Game.hit(hb, c):
 			swing_hit[c] = 1
@@ -219,11 +216,6 @@ func _swing_hits() -> void:
 	for c in X.CRACKS:
 		if not X.broken.has(c.id) and Game.hit(hb, c):
 			X.break_crack(c, true)
-	for l in X.LOGS:
-		if l.landed and not l.dead and l.s and Game.hit(hb, l.s):
-			l.dead = true
-			g.SOL.erase(l.s)
-			g.fx("fx_pieces", l.s.x + 65, l.s.y + 10, 20, .35, -.4)
 	for c in g.COAL:
 		if not c.get("ref") and Game.hit(hb, g.R(c.x - 12, c.y - 12, 24, 24)):
 			reflect(c)
