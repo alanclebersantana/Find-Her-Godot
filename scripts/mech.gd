@@ -419,6 +419,12 @@ func try_push(c: Dictionary, dx: float) -> bool:
 	if c.t != "push" or p._g == null or p.crouch or p.get("dog") or p.get("guard"):
 		return false
 	var amt: float = clamp(dx * .6, -2.6, 2.6)
+	# a caixa nunca volta para trás do lugar onde começou: assim não fica presa num paredão
+	# sem espaço para o Tomé passar para trás dela
+	if amt < 0 and c.x + amt < c.ox:
+		amt = c.ox - c.x
+		if amt > -.01:
+			return false
 	var r: Dictionary = g.R(c.x + amt, c.y, c.w, c.h - 2)
 	for s in g.blockers():
 		if s == c or s.get("oneway"):
@@ -443,5 +449,15 @@ func save_data() -> Dictionary:
 func restore(d: Dictionary) -> void:
 	var cs: Array = d.get("push", [])
 	for i in min(cs.size(), PUSH.size()):
-		PUSH[i].x = float(cs[i][0])
+		PUSH[i].x = max(float(cs[i][0]), float(PUSH[i].ox))
 		PUSH[i].y = float(cs[i][1])
+		if float(cs[i][0]) < float(PUSH[i].ox):
+			PUSH[i].y = float(PUSH[i].oy)
+
+## ↻ voltar à fogueira: as caixas que ainda estão à frente voltam ao lugar
+func reset_crates(from_x: float) -> void:
+	for c in PUSH:
+		if not c.dead and c.ox > from_x - 40:
+			c.x = float(c.ox)
+			c.y = float(c.oy)
+			c.vy = 0.0

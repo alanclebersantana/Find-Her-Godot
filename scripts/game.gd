@@ -751,6 +751,7 @@ func step() -> void:
 		if player.crouch:
 			player.crouch = false
 			player.h = 34
+		M.reset_crates(player.spawnX)
 		flash("De volta à fogueira.")
 	# corrida: dois toques na mesma direção
 	if kd("R") and not player.hR:
@@ -1224,8 +1225,8 @@ func _cine_step() -> void:
 		CINE.t = CINE.dur
 	elif not cl.is_empty():
 		var full_t: int = int(cl[0] + cl[3].length() / 1.6) + 1
-		if tap and CINE.t < full_t:
-			CINE.t = full_t
+		if tap and CINE.t < min(full_t, cl[1] - 3):
+			CINE.t = min(full_t, cl[1] - 3)
 		elif CINE.t >= cl[1] - 3 and not CINE.get("ok", {}).has(cl[0]) and not auto_cine:
 			CINE.waiting = true
 			if tap:

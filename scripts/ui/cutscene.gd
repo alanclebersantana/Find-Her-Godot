@@ -1,6 +1,6 @@
 extends Control
 ## Cenas curtas da história: quadros com zoom/pan lento, legenda que vai aparecendo letra a letra,
-## toque para avançar e botão PULAR. Cenas: "abertura", "cracha", "mina".
+## a fala fica parada até o toque, e o botão PULAR CENA pula tudo. Cenas: "abertura", "cracha", "mina".
 
 signal finished
 
@@ -13,6 +13,9 @@ var done := false
 var skip_btn: Button
 var cena: Texture2D
 var img_rect := Rect2()   # onde a última imagem de fundo foi desenhada (para posicionar coisas sobre ela)
+var leaving := -1.0       # >= 0: o jogador tocou e o quadro está escurecendo para o próximo
+## nos testes automáticos (sem tela) as falas avançam sozinhas
+var auto := DisplayServer.get_name() == "headless"
 
 const INK := Color("#f0e4c8")
 
@@ -48,11 +51,11 @@ func _ready() -> void:
 				{"d": _s_mine_closed, "txt": "O portão bateu. Mas no chão, mais um lápis: a trilha continua mina adentro.", "dur": 6.0},
 			]
 	skip_btn = Button.new()
-	skip_btn.text = "PULAR  ›"
+	skip_btn.text = "PULAR CENA  ›"
 	skip_btn.focus_mode = Control.FOCUS_NONE
 	skip_btn.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	skip_btn.position = Vector2(-150, 18)
-	skip_btn.custom_minimum_size = Vector2(130, 44)
+	skip_btn.position = Vector2(-190, 18)
+	skip_btn.custom_minimum_size = Vector2(170, 44)
 	skip_btn.pressed.connect(_end)
 	add_child(skip_btn)
 
@@ -61,14 +64,19 @@ func _process(d: float) -> void:
 		return
 	t += d
 	var dur: float = shots[idx].dur
-	if t < .5:
+	if auto and leaving < 0 and t >= dur:
+		leaving = 0.0
+	if leaving >= 0:
+		# o jogador tocou: escurece e passa para o próximo quadro
+		leaving += d
+		fade = clamp(leaving / .35, 0, 1)
+		if leaving >= .35:
+			_next()
+	elif t < .5:
 		fade = 1.0 - t / .5
-	elif t > dur - .45:
-		fade = clamp((t - (dur - .45)) / .45, 0, 1)
 	else:
+		# a fala fica parada na tela até o jogador tocar
 		fade = 0.0
-	if t >= dur:
-		_next()
 	queue_redraw()
 
 func _gui_input(e: InputEvent) -> void:
@@ -85,15 +93,18 @@ func _unhandled_input(e: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 func _tap() -> void:
+	if done or leaving >= 0:
+		return
 	var full: String = shots[idx].txt
 	if _shown_chars() < full.length():
 		t = max(t, full.length() / 38.0 + .6)   # completa a legenda
 	else:
-		_next()
+		leaving = 0.0
 
 func _next() -> void:
 	idx += 1
 	t = 0.0
+	leaving = -1.0
 	if idx >= shots.size():
 		_end()
 
@@ -137,8 +148,13 @@ func _draw() -> void:
 	# pontinhos de progresso
 	for i in shots.size():
 		draw_circle(Vector2(W / 2 - (shots.size() - 1) * 9 + i * 18, H - 14), 4, Color(1, .9, .7, .9 if i == idx else .25))
-	if n >= full.length() and fmod(t, 1.0) < .6:
-		draw_string(Spr.font, Vector2(W - 120, H - 12), "toque ›", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1, .9, .7, .6))
+	if n >= full.length() and leaving < 0:
+		# aviso bem visível, piscando devagar, até o toque
+		var a: float = .78 + .22 * sin(t * 4.0)
+		var msg := "▸ toque para continuar"
+		var mw: float = Spr.font_b.get_string_size(msg, HORIZONTAL_ALIGNMENT_LEFT, -1, 17).x
+		draw_string_outline(Spr.font_b, Vector2(W - mw - 24, H - 10), msg, HORIZONTAL_ALIGNMENT_LEFT, -1, 17, 4, Color(0, 0, 0, .9))
+		draw_string(Spr.font_b, Vector2(W - mw - 24, H - 10), msg, HORIZONTAL_ALIGNMENT_LEFT, -1, 17, Color(1, .88, .55, a))
 	if fade > 0:
 		draw_rect(Rect2(0, 0, W, H), Color(0, 0, 0, fade))
 

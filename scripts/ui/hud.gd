@@ -159,7 +159,9 @@ func _cine(W: float, H: float) -> void:
 		Spr.restore()
 	var l = game.cine_line()
 	if l != null:
-		var k2: float = clamp(min(t - l[0], l[1] - t) / 8.0, 0, 1)
+		var wt: bool = c.get("waiting", false)
+		# parada esperando o toque: a caixa da fala fica totalmente visível
+		var k2: float = 1.0 if wt else clamp(min(t - l[0], l[1] - t) / 8.0, 0, 1)
 		var bw: float = min(W - 80, 760)
 		var bx: float = W / 2 - bw / 2
 		var by: float = H - 62 - 92
@@ -180,14 +182,15 @@ func _cine(W: float, H: float) -> void:
 				Spr.rect(bx + 10, by + 76, 68, 20, Color(.05, .04, .03, .88 * k2))
 		var col: Color = {"VARGAS": Color("#ff9a7a"), "ISIS": Color("#ffb0d0"), "TOMÉ": Color("#ffd27a")}.get(l[2], Color.WHITE)
 		Spr.text(l[2], bx + 92, by + 26, 15, Color(col.r, col.g, col.b, k2), HORIZONTAL_ALIGNMENT_LEFT, Spr.font_title)
-		var shown: int = int((t - l[0]) * 1.6)
+		var shown: int = 9999 if c.get("waiting", false) else int((t - l[0]) * 1.6)
 		var txt: String = l[3].substr(0, shown)
 		var yy := by + 50
 		for ln in _lines(txt, bw - 110, 17):
 			Spr.text(ln, bx + 92, yy, 17, Color(.96, .92, .82, k2), HORIZONTAL_ALIGNMENT_LEFT, Spr.font_i)
 			yy += 21
-		if c.get("waiting", false) and (game.T / 18) % 2 == 0:
-			Spr.text("▸ toque para continuar", bx + bw - 14, by + 76, 13, Color(1, .88, .6, k2), HORIZONTAL_ALIGNMENT_RIGHT, Spr.font_b)
+		if wt:
+			var pa: float = .78 + .22 * sin(game.T * .12)
+			Spr.text("▸ toque para continuar", bx + bw - 14, by + 78, 15, Color(1, .88, .6, pa), HORIZONTAL_ALIGNMENT_RIGHT, Spr.font_b, 3, Color(0, 0, 0, .8))
 	Spr.text("PULAR CENA ▸", W - 20, H - 22, 15, Color(1, .9, .7, .7 * a), HORIZONTAL_ALIGNMENT_RIGHT, Spr.font_b)
 
 func _portrait(n: String, cx: float, cy: float, h: float, al: float) -> void:
