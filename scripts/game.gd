@@ -775,7 +775,7 @@ func step() -> void:
 		if player.vine == v:
 			continue
 		v.om += -(VINE_G / v.len) * sin(v.th)
-		v.om *= .985
+		v.om *= .97
 		v.th += v.om
 
 	var pcx: float = player.x + player.w / 2
@@ -979,9 +979,10 @@ func step() -> void:
 		player.blink = 8
 	player.anim += abs(player.vx) * .06
 	# agarrar cipó
-	if player.onGround or player.get("bar") or player.swim:
+	if player.onGround or player.swim:
 		player.lastVine = null
-	if not player.vine and not player.onGround and player.vineCD <= 0 and not player.ladder and not player.dog:
+	# pendurado na corda não agarra cipó (o cipó balançando passava por ele e o puxava de volta)
+	if not player.vine and not player.onGround and player.vineCD <= 0 and not player.ladder and not player.dog and not player.get("bar"):
 		var hx: float = player.x + player.w / 2
 		var hy: float = player.y + 6
 		for v in VINES:
@@ -1370,6 +1371,8 @@ func _vine_step() -> void:
 		player.lastVine = v
 		player.vine = null
 		player.vineCD = 22
+		# sem ninguém pendurado, o cipó perde o embalo logo
+		v.om *= .4
 		player.airJumps = 1
 		player.cutOk = false
 		player.jbuf = 0
