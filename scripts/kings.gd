@@ -10,6 +10,7 @@ class_name Kings
 var g
 var HAWK := {}
 var FISH := {}
+var BEAR := {}
 
 func _init(game) -> void:
 	g = game
@@ -17,7 +18,12 @@ func _init(game) -> void:
 func load_level() -> void:
 	HAWK = {}
 	FISH = {}
+	BEAR = {}
 	var L: Dictionary = g.L
+	if L.has("bear"):
+		var b: Dictionary = L.bear
+		BEAR = {"x0": b.x0, "x1": b.x1, "gy": b.y, "trig": b.trig, "maxhp": b.hp, "hp": b.hp, "st": "wait",
+			"x": b.x1 - 160.0, "dir": -1, "t": 0, "red": 0, "anim": 0.0, "active": false, "done": false, "hx": 0.0}
 	if L.has("hawk"):
 		var h: Dictionary = L.hawk
 		HAWK = {"x0": h.x0, "x1": h.x1, "gy": h.y, "trig": h.trig, "maxhp": h.hp, "hp": h.hp, "st": "wait",
@@ -30,7 +36,10 @@ func load_level() -> void:
 			"active": false, "done": false, "cyc": 0, "mud": 0.0, "mouth": 0.0, "scales": [true, true, true, true], "al": 1.0}
 
 func active() -> bool:
-	return (not HAWK.is_empty() and HAWK.active and not HAWK.done) or (not FISH.is_empty() and FISH.active and not FISH.done)
+	return (not HAWK.is_empty() and HAWK.active and not HAWK.done) or (not FISH.is_empty() and FISH.active and not FISH.done) or bear_on()
+
+func bear_on() -> bool:
+	return not BEAR.is_empty() and BEAR.active and not BEAR.done
 
 func fish_done() -> bool:
 	return FISH.is_empty() or FISH.done
@@ -45,6 +54,7 @@ func _gate(id: String, on: bool, r: Rect2) -> void:
 func post() -> void:
 	_hawk()
 	_fish()
+	_bear()
 
 # ======================================================================
 #  GAVIÃO-REI
@@ -169,6 +179,9 @@ func hawk_shadow() -> Vector2:
 
 ## golpe de picareta (Mech chama com a caixa do golpe)
 func swing_hits(hb: Dictionary) -> void:
+	if not BEAR.is_empty() and not BEAR.done and BEAR.st == "dizzy" and BEAR.red == 0 and Game.hit(hb, bear_box()):
+		_bear_hit()
+		return
 	if HAWK.is_empty() or HAWK.done or HAWK.st != "stuck" or HAWK.red > 0:
 		return
 	if not Game.hit(hb, hawk_box()):
@@ -209,6 +222,158 @@ func swing_hits(hb: Dictionary) -> void:
 		g.flash("Acertou! Ele chamou um corvo — e agora mergulha duas vezes!", 200)
 	else:
 		g.flash("Acertou! Falta%s %d." % ["m" if h.hp > 1 else "", h.hp], 120)
+
+
+# ======================================================================
+#  URSO-PARDO-REI (fim da neve)
+#  anda até o Tomé, se ergue com um rugido e dá uma patada forte no chão à frente.
+#  Se a patada erra, fica tonto: pular na cabeça dele ou bater com a picareta. 4 acertos.
+# ======================================================================
+func bear_box() -> Dictionary:
+	var b: Dictionary = BEAR
+	match b.st:
+		"rear", "slam":
+			return g.R(b.x - 60, b.gy - 200, 120, 200)
+		"dizzy":
+			return g.R(b.x - 70, b.gy - 120, 140, 120)
+		"down", "flee":
+			return g.R(-9999, -9999, 0, 0)
+	return g.R(b.x - 95, b.gy - 130, 190, 130)
+
+## área da patada (à frente do urso)
+func bear_paw() -> Rect2:
+	var b: Dictionary = BEAR
+	var a: float = b.x + b.dir * 25.0
+	var c: float = b.x + b.dir * 215.0
+	return Rect2(min(a, c), b.gy - 80, abs(c - a), 80)
+
+func _bear() -> void:
+	if BEAR.is_empty() or BEAR.done:
+		return
+	var b: Dictionary = BEAR
+	var p: Dictionary = g.player
+	var pcx: float = p.x + p.w / 2
+	var feet: float = p.y + p.h
+	var gy: float = b.gy
+	if b.red > 0:
+		b.red -= 1
+	var lvl: int = b.maxhp - b.hp          # 0..3: fica mais rápido a cada acerto
+	match b.st:
+		"wait":
+			if pcx > b.trig and pcx < b.x1 and feet <= gy + 4 and feet > gy - 300 and p.dyingT == 0:
+				b.active = true
+				b.st = "walk"
+				b.t = 0
+				b.hp = b.maxhp
+				b.x = b.x1 - 420.0
+				b.dir = -1
+				_gate("bearL", true, Rect2(b.x0 - 24, gy - 260, 24, 260))
+				_gate("bearR", true, Rect2(b.x1, gy - 260, 24, 260))
+				Audio.play("roar", -4)
+				g.start_cine("urso", (b.x0 + b.x1) / 2.0, gy - 140, 250,
+					[[150, 245, "TOMÉ", "Um urso enorme... e de coroa! Quando ele errar a patada, é a minha vez.", "tome"]],
+					[60, 150, "URSO-PARDO-REI", "o guardião da neve"])
+			return
+		"walk":
+			b.t += 1
+			var dx: float = pcx - b.x
+			b.dir = 1 if dx > 0 else -1
+			var spd: float = 1.7 + lvl * .35
+			b.x = clamp(b.x + b.dir * spd, b.x0 + 100, b.x1 - 100)
+			b.anim += spd * .05
+			if abs(dx) < 200 and b.t > 30 and p.dyingT == 0:
+				b.st = "rear"
+				b.t = 0
+				Audio.play("roar", -6)
+		"rear":
+			# se ergue: aviso para o jogador sair da frente
+			b.t += 1
+			if b.t > 46 - lvl * 5:
+				b.st = "slam"
+				b.t = 0
+				var hit_tome := false
+				var paw := bear_paw()
+				if p.dyingT == 0 and pcx > paw.position.x - 12 and pcx < paw.end.x + 12 and feet > gy - 90:
+					hit_tome = true
+					g.hurt(1, b.x)
+				g.shake = 14
+				Audio.play("stomp")
+				Audio.vib(80)
+				g.burst(b.x + b.dir * 150, gy, 24, Color(.95, .97, 1))
+				g.fx("fx_dust", b.x + b.dir * 150, gy - 10, 20, .4, -.3)
+				b.missed = not hit_tome
+		"slam":
+			b.t += 1
+			if b.t > 22:
+				b.t = 0
+				if b.missed:
+					b.st = "dizzy"
+					Audio.play("dj", -6)
+					if not g.L.get("_bear_tip", false):
+						g.L["_bear_tip"] = true
+						g.flash_tut("Errou! Ele está tonto: pule na cabeça ou GOLPE!", "A patada errou e o urso ficou tonto! Pule na cabeça dele ou acerte com a picareta (GOLPE)!", 200)
+				else:
+					b.st = "back"
+		"dizzy":
+			b.t += 1
+			# pular na cabeça dele conta como acerto
+			if p.vy > 0 and p.dyingT == 0 and abs(pcx - b.x) < 70 and feet > gy - 128 and feet < gy - 96 and b.red == 0:
+				p.vy = -10.5
+				p.y = gy - 128 - p.h
+				_bear_hit()
+				return
+			if b.t > 150 - lvl * 20:
+				b.st = "back"
+				b.t = 0
+		"back":
+			# acorda e se afasta um pouco antes de voltar a andar
+			b.t += 1
+			var away: float = -1.0 if pcx > b.x else 1.0
+			b.dir = -int(away)
+			b.x = clamp(b.x + away * 4.5, b.x0 + 100, b.x1 - 100)
+			b.anim += .2
+			if b.t > 45:
+				b.st = "walk"
+				b.t = 0
+		"flee":
+			b.t += 1
+			b.dir = 1
+			b.x += 4.0
+			b.anim += .2
+			if b.t > 140:
+				b.done = true
+				b.active = false
+	# encostar no urso (sem ser em cima dele tonto) machuca
+	if b.st in ["walk", "rear"] and p.dyingT == 0 and Game.hit(p, bear_box()):
+		if p.vy > 0 and feet < gy - 110:
+			p.vy = -8.0
+		else:
+			g.hurt(1, b.x)
+
+func _bear_hit() -> void:
+	var b: Dictionary = BEAR
+	b.hp -= 1
+	b.red = 30
+	g.hit_stop = 6
+	g.shake = 10
+	Audio.play("stomp")
+	Audio.play("roar", -10)
+	Audio.vib(60)
+	g.burst(b.x, b.gy - 100, 18, Color("#c89a6a"))
+	if b.hp <= 0:
+		b.st = "flee"
+		b.t = 0
+		_gate("bearL", false, Rect2())
+		_gate("bearR", false, Rect2())
+		for i in 10:
+			g.gain_coin(b.x, b.gy - 120, true)
+		g.player.hp = Game.MAXHP
+		Audio.play("door", -4)
+		g.flash("O Urso-Rei voltou para a floresta! O caminho da mina está livre.", 240)
+		return
+	b.st = "back"
+	b.t = 0
+	g.flash("Acertou! Falta%s %d." % ["m" if b.hp > 1 else "", b.hp], 120)
 
 # ======================================================================
 #  BAGRE-REI
@@ -425,6 +590,8 @@ func cine_end(id: String) -> void:
 	match id:
 		"gaviao":
 			g.tip("Fuja da sombra! Se ele errar, acerte com a picareta. O facho (segure ✦) ofusca o gavião.", 220)
+		"urso":
+			g.tip("Fique longe da frente dele quando ele se erguer. Se a patada errar, pule na cabeça ou use a picareta (GOLPE).", 220)
 		"bagre":
 			g.tip("Com o capacete você não perde fôlego. Fuja das investidas e use o arpão (GOLPE) nas escamas brilhantes.", 220)
 
@@ -439,6 +606,13 @@ func reset_on_respawn() -> void:
 		for e in g.EN:
 			if e.get("minion"):
 				e.dead = 99
+	if bear_on():
+		BEAR.active = false
+		BEAR.st = "wait"
+		BEAR.hp = BEAR.maxhp
+		BEAR.x = BEAR.x1 - 160.0
+		_gate("bearL", false, Rect2())
+		_gate("bearR", false, Rect2())
 	if not FISH.is_empty() and FISH.active and not FISH.done:
 		FISH.active = false
 		FISH.st = "wait"
@@ -449,10 +623,12 @@ func reset_on_respawn() -> void:
 		_gate("fishR", false, Rect2())
 
 func save_data() -> Dictionary:
-	return {"hawk": HAWK.get("done", false), "fish": FISH.get("done", false)}
+	return {"hawk": HAWK.get("done", false), "fish": FISH.get("done", false), "bear": BEAR.get("done", false)}
 
 func restore(d: Dictionary) -> void:
 	if d.get("hawk", false) and not HAWK.is_empty():
 		HAWK.done = true
 	if d.get("fish", false) and not FISH.is_empty():
 		FISH.done = true
+	if d.get("bear", false) and not BEAR.is_empty():
+		BEAR.done = true

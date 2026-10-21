@@ -18,7 +18,8 @@ var gallop := 0.0
 var done := false
 var tries := 0
 
-const BOX_W := 80.0
+const BOX_W := 66.0
+var jbuf := 0          # PULAR apertado um pouco antes de pousar ainda vale
 
 func _init(game) -> void:
 	g = game
@@ -83,6 +84,7 @@ func _start() -> void:
 	spd = 1.0
 	duck = false
 	stumble = 0
+	jbuf = 0
 	for o in OBS:
 		o.hit = false
 	for s in g.SOL.duplicate():
@@ -122,12 +124,18 @@ func step() -> void:
 	else:
 		spd = move_toward(spd, float(H.spd), .08)
 	var on_ground: bool = hy >= 500.0
-	if g.pressed("J") and on_ground and stumble < 20:
-		vy = -12.4
+	if g.pressed("J"):
+		jbuf = 9
+	elif jbuf > 0:
+		jbuf -= 1
+	if jbuf > 0 and on_ground and stumble < 20:
+		jbuf = 0
+		vy = -11.0
 		Audio.play("jump", -4)
 		g.burst(hx - 30, 500, 8, Color(.95, .97, 1))
 	duck = g.kd("S") and on_ground
-	vy += .55
+	# segurando PULAR o salto vai um pouco mais longe; soltando, o cavalo desce logo (pulo preciso)
+	vy += .42 if (vy < 0 and g.kd("J")) else .62
 	hy = min(500.0, hy + vy)
 	if hy >= 500.0:
 		if vy > 6:
@@ -142,15 +150,16 @@ func step() -> void:
 		if o.hit or o.x + 140 < hx - 80 or o.x > hx + 80:
 			continue
 		var bad := false
+		# as caixas de batida têm uma folga: raspar de leve não conta
 		match o.k:
 			"log":
-				bad = Game.hit(b, g.R(o.x, 470, 62, 30))
+				bad = Game.hit(b, g.R(o.x + 8, 476, 46, 24))
 			"rock":
-				bad = Game.hit(b, g.R(o.x, 452, 54, 48))
+				bad = Game.hit(b, g.R(o.x + 8, 460, 38, 40))
 			"gap":
-				bad = hy >= 498 and hx > o.x + 10 and hx < o.x + o.w - 10
+				bad = hy >= 498 and hx > o.x + 22 and hx < o.x + o.w - 22
 			"branch", "rope":
-				bad = Game.hit(b, g.R(o.x, 372, 84, 24))
+				bad = Game.hit(b, g.R(o.x + 6, 376, 72, 18))
 		if bad:
 			o.hit = true
 			_hurt(o)

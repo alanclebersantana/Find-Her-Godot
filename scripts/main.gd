@@ -212,6 +212,8 @@ func _process(_d: float) -> void:
 			song = "gaviao"
 		if game.K and not game.K.FISH.is_empty() and game.K.FISH.active and not game.K.FISH.done:
 			song = "bagre"
+		if game.K and game.K.bear_on():
+			song = "urso"
 		if state == S.PLAY:
 			Audio.set_song(song)
 		var in_cine: bool = not game.CINE.is_empty()

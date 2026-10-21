@@ -86,7 +86,7 @@ def shift(L, X, D, mode='widen'):
             e['x'] = f(e['x'])
     for b in L.get('bars', []):
         if b['x0'] >= X: b['x0'] += D; b['x1'] += D
-    for k in ['hawk', 'fish']:
+    for k in ['hawk', 'fish', 'bear']:
         if k in L and L[k]['x0'] >= X:
             for kk in ['x0', 'x1', 'trig']: L[k][kk] += D
     if 'horse' in L:

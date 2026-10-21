@@ -54,6 +54,10 @@ func _draw() -> void:
 		var pad := 140.0
 		if s.x + s.get("w", 0) + pad < x0 or s.x - pad > x1:
 			continue
+		# morros e paredões grandes: só o pedaço onde eles começam desenha (os pedaços seguintes
+		# desenham por cima o que fica na frente; antes o morro cobria o carrinho da mina)
+		if s.t in ["hill", "cliff"] and (s.x < x0 or s.x >= x1):
+			continue
 		match s.t:
 			"ground": ground(s)
 			"plat": plat(s)
@@ -329,7 +333,31 @@ func planks(s: Dictionary, dark: bool) -> void:
 		Spr.rect(s.x - 2, y, s.w + 4, 8, Color("#5a5a62"))
 		y += 90
 
+## bloco de gelo (as "pedras" da neve)
+func ice_block(s: Dictionary) -> void:
+	var x: float = s.x
+	var y: float = s.y
+	var w: float = s.w
+	var h: float = s.h
+	Spr.rect(x + 4, y + h - 6, w - 8, 8, Color(0, 0, 0, .18))
+	Spr.vgrad(x, y, w, h, Color(.78, .92, 1, .96), Color(.46, .68, .88, .96))
+	# faces: brilho em cima, sombra do lado
+	Spr.rect(x, y, w, 6, Color(.96, .99, 1, .95))
+	Spr.rect(x + w - 8, y + 6, 8, h - 6, Color(.3, .5, .72, .35))
+	Spr.ci.draw_rect(Rect2(x, y, w, h), Color(.22, .38, .58), false, 2.5)
+	# rachaduras e reflexos
+	var k := hash(int(x)) % 7
+	Spr.seg(x + w * .3, y + 8, x + w * .45, y + h * .45, Color(1, 1, 1, .7), 1.5)
+	Spr.seg(x + w * .45, y + h * .45, x + w * .35, y + h * .8, Color(1, 1, 1, .5), 1.2)
+	Spr.seg(x + w * (.6 + k * .03), y + h * .2, x + w * .75, y + h * .55, Color(.25, .45, .65, .6), 1.2)
+	Spr.seg(x + 6, y + 12, x + 6, y + h * .5, Color(1, 1, 1, .55), 3)
+	# neve por cima
+	Spr.rr(x - 3, y - 5, w + 6, 10, 5, Color(.97, .98, 1))
+
 func stone(s: Dictionary) -> void:
+	if s.get("ice"):
+		ice_block(s)
+		return
 	var rw: float = s.w + 16
 	var rh: float = rw * .82
 	if s.h <= rh + 12:

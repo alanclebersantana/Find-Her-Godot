@@ -84,7 +84,7 @@ func _stream(base: String) -> AudioStream:
 
 ## Troca a música com um cruzamento suave (e o som ambiente do trecho junto)
 ## músicas de batalha dos reis: a mesma faixa de batalha em outro andamento e tom
-const SONG_ALIAS := {"gaviao": ["perseguicao", 1.1], "bagre": ["perseguicao", .84]}
+const SONG_ALIAS := {"gaviao": ["perseguicao", 1.1], "bagre": ["perseguicao", .84], "urso": ["perseguicao", .94]}
 
 func set_song(n: String) -> void:
 	if n == song or n == "":

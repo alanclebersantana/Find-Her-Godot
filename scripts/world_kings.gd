@@ -15,6 +15,7 @@ static func draw(g: Game, T: int) -> void:
 	if K == null:
 		return
 	_hawk(g, K, T)
+	_bear(g, K, T)
 
 ## o bagre é desenhado na camada de cima (depois da água), para não sumir no fundo escuro
 static func draw_fish(g: Game, T: int) -> void:
@@ -122,3 +123,42 @@ static func gate(s: Dictionary, T: int) -> void:
 		Spr.rr(s.x - 8, y, s.w + 16, hh - 2, 10, Color("#5e5a52"))
 		Spr.rect(s.x - 4, y + 4, s.w + 8, 6, Color(1, 1, 1, .1))
 		y += 44
+
+## Urso-Pardo-Rei (arte em assets/sprites/urso.png: 0-1 andando, 2 em pé, 3 patada, 4 tonto, 5 derrotado)
+static func _bear(g: Game, K: Kings, T: int) -> void:
+	var b: Dictionary = K.BEAR
+	if b.is_empty() or b.done or b.st == "wait":
+		return
+	if not Spr.tex.has("urso"):
+		Spr.tex["urso"] = load("res://assets/sprites/urso.png")
+	var fr: int = int(b.anim * 2.0) % 2
+	match b.st:
+		"rear":
+			fr = 2
+		"slam":
+			fr = 3
+		"dizzy":
+			fr = 4
+		"flee":
+			fr = int(b.anim * 2.0) % 2
+	var sc := 1.0
+	var tint := Color(1, .55, .5) if b.red > 0 and (T / 3) % 2 == 0 else Color(1, 1, 1)
+	# aviso da patada: área no chão à frente dele pisca vermelha enquanto ele se ergue
+	if b.st == "rear":
+		var paw: Rect2 = K.bear_paw()
+		var k: float = .35 + .25 * sin(T * .5)
+		Spr.ellipse(paw.position.x + paw.size.x / 2, b.gy + 1, paw.size.x / 2, 9, Color(1, .25, .15, k))
+	Spr.ellipse(b.x, b.gy + 2, 100, 12, Color(0, 0, 0, .28))
+	Spr.save()
+	Spr.translate(b.x, b.gy + 2)
+	if b.st == "rear":
+		Spr.translate(0, -sin(min(1.0, b.t / 20.0) * PI * .5) * 6)
+	Spr.scale(b.dir * sc, sc)
+	Spr.ci.draw_texture_rect_region(Spr.tex.urso, Rect2(-140, -228, 280, 230), Rect2(fr * 280, 0, 280, 230), Color(tint.r, tint.g, tint.b, Spr.alpha))
+	Spr.restore()
+	if b.st == "dizzy":
+		for i in 3:
+			var a := T * .12 + TAU * i / 3.0
+			Spr.text("★", b.x + cos(a) * 34, b.gy - 150 + sin(a) * 8, 16, Color("#ffe27a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3)
+	if b.st == "rear" and (T / 6) % 2 == 0:
+		Spr.text("!", b.x, b.gy - 240, 34, Color("#ff6a4a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 5)

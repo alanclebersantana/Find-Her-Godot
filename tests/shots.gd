@@ -126,6 +126,13 @@ func _initialize() -> void:
 					g.NT.harpoon = true
 				elif k == "mud":
 					g.K.FISH.mud = .8
+				elif k == "bearw" or k == "bearr" or k == "beard":
+					var b: Dictionary = g.K.BEAR
+					b.active = true
+					b.st = {"bearw": "walk", "bearr": "rear", "beard": "dizzy"}[k]
+					b.t = 20
+					b.x = x + 220
+					b.dir = -1
 				elif k == "ride":
 					g.RD._start()
 					g.RD.hx = x

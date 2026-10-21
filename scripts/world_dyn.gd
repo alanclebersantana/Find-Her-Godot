@@ -324,10 +324,23 @@ func _ride_world(g: Game) -> void:
 			"rock":
 				WorldNature.prop("pedra_neve", o.x + 27, 504, 60)
 			"gap":
-				Spr.rect(o.x, 472, o.w, 30, Color(.02, .02, .05))
-				Spr.vgrad(o.x, 500, o.w, 160, Color(.05, .05, .1), Color(.01, .01, .02))
-				Spr.rect(o.x - 6, 466, 12, 10, Color(.96, .97, 1))
-				Spr.rect(o.x + o.w - 6, 466, 12, 10, Color(.96, .97, 1))
+				# riacho gelado: água escura correndo, placas de gelo quebradas e margens de neve
+				var gw: float = o.w
+				Spr.vgrad(o.x, 470, gw, 30, Color("#5f9cc4"), Color("#24506e"))
+				Spr.vgrad(o.x, 500, gw, 160, Color("#163a52"), Color("#04090f"))
+				Spr.rect(o.x, 470, gw, 3, Color(.85, .95, 1, .8))
+				for k in 3:
+					var wx: float = o.x + fposmod(T * 1.4 + k * 41.0, gw - 20) + 4
+					Spr.seg(wx, 482 + k * 6, wx + 14, 482 + k * 6, Color(.6, .8, .95, .5), 1.5)
+				for k in 2:
+					var fx: float = o.x + 18 + k * (gw - 56)
+					var bob: float = sin(T * .08 + k * 2.0) * 1.5
+					Spr.poly(PackedVector2Array([Vector2(fx, 476 + bob), Vector2(fx + 22, 473 + bob), Vector2(fx + 28, 479 + bob), Vector2(fx + 4, 482 + bob)]), Color(.85, .94, 1, .95))
+				# bordas de gelo rachado e neve das margens
+				Spr.poly(PackedVector2Array([Vector2(o.x - 14, 468), Vector2(o.x + 10, 470), Vector2(o.x + 4, 480), Vector2(o.x - 14, 484)]), Color(.8, .92, 1))
+				Spr.poly(PackedVector2Array([Vector2(o.x + gw + 14, 468), Vector2(o.x + gw - 10, 470), Vector2(o.x + gw - 4, 480), Vector2(o.x + gw + 14, 484)]), Color(.8, .92, 1))
+				Spr.rr(o.x - 20, 462, 30, 12, 6, Color(.97, .98, 1))
+				Spr.rr(o.x + gw - 10, 462, 30, 12, 6, Color(.97, .98, 1))
 			"branch":
 				# galho baixo de uma árvore (o tronco fica do lado de lá; o galho aponta para o cavalo)
 				var bw: float = 190.0 * 220.0 / 175.0

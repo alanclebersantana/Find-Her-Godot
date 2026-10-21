@@ -44,6 +44,10 @@ static func decor(d: Dictionary) -> void:
 			Spr.ellipse(d.x, d.y - 134, 16, 5, Color(.96, .97, 1))
 		"snowman":
 			snowman(d.x, d.y, s, false)
+		"snowtree":
+			prop("arvore_neve", d.x, d.y + 4, 300 * s)
+		"tracks":
+			pass   # desenhado na camada de cima (tracks), por cima do chão
 
 ## objeto pintado (assets/sprites/p_<nome>.png), com a base no ponto (x, y) e a altura dada
 static func prop(n: String, x: float, y: float, h: float, flip: bool = false, a: float = 1.0) -> void:
@@ -74,6 +78,20 @@ static func snowman(x: float, y: float, s: float, hat: bool) -> void:
 static func beanie(x: float, y: float, s: float) -> void:
 	prop("gorro", x, y + 12 * s, 40 * s)
 
+
+## marcas das rodas do carrinho e pegadas na neve (por cima do chão)
+static func tracks(d: Dictionary) -> void:
+	var w: float = d.get("w", 800)
+	for k in 2:
+		var ty: float = d.y - 3 + k * 5
+		Spr.seg(d.x, ty, d.x + w, ty + 2, Color(.55, .62, .74, .8), 3)
+	var fx: float = d.x + 20
+	var n := 0
+	while fx < d.x + w:
+		Spr.ellipse(fx, d.y - 1 + (n % 2) * 4, 6, 2.5, Color(.5, .56, .68, .75))
+		fx += 46
+		n += 1
+
 # ---------------------------------------------------------------- dinâmico (world_dyn)
 static func draw(g: Game, T: int) -> void:
 	var NT: Nature = g.NT
@@ -81,6 +99,9 @@ static func draw(g: Game, T: int) -> void:
 		return
 	var x0: float = g.cam - 120
 	var x1: float = g.cam + g.W + 120
+	for d in g.L.get("decor", []):
+		if d.k == "tracks" and d.x < x1 and d.x + d.get("w", 800) > x0:
+			tracks(d)
 	# corda esticada entre dois postes
 	for b in NT.BARS:
 		if b.x0 > x1 or b.x1 < x0:

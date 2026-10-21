@@ -77,6 +77,20 @@ S = sheet(frames, CW, CH, lambda i, im: ((CW - im.width) / 2, (CH - im.height) /
 S.save(os.path.join(OUT, 'bagre.png'))
 meta['bagre'] = {'w': CW, 'h': CH, 'n': len(frames)}
 
+# ---------- Urso-Pardo-Rei: andando (2), em pé, patada, tonto, derrotado (todos olhando para a direita) ----------
+u = cut('urso', 4)
+from PIL import ImageOps
+order = [(0, False), (1, True), (2, False), (3, True), (4, False), (5, True)]
+sc = .55
+frames = []
+for i, fl in order:
+    im = ImageOps.mirror(u[i]) if fl else u[i]
+    frames.append(im.resize((int(im.width * sc), int(im.height * sc)), Image.LANCZOS))
+CW, CH = 280, 230
+S = sheet(frames, CW, CH, lambda i, im: ((CW - im.width) / 2, CH - 2 - im.height))
+S.save(os.path.join(OUT, 'urso.png'))
+meta['urso'] = {'w': CW, 'h': CH, 'n': len(frames)}
+
 json.dump(meta, open(os.path.join(ROOT, 'assets', 'data', 'art_meta.json'), 'w'), indent=1)
 print(json.dumps(meta))
 

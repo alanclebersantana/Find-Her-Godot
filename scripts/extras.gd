@@ -918,10 +918,16 @@ func _dog() -> void:
 				_resync()
 		"hunt":
 			var e: Dictionary = DOG.mole
-			if e.dead or e.get("st", 0) not in [0, 6]:
+			DOG.hunt_t = DOG.get("hunt_t", 0) + 1
+			var pl: Dictionary = g.player
+			if e.dead or e.get("st", 0) not in [0, 6] or DOG.hunt_t > 240 or abs(pl.x + pl.w / 2 - DOG.x) > 520:
+				# não alcançou a toupeira (ou o Tomé foi embora): desiste e volta a seguir
+				DOG.hunt_t = 0
+				e.cd_dog = 400
 				DOG.st = "follow"
 				_resync()
 			elif _run_to(e.x, e.base, 6.0):
+				DOG.hunt_t = 0
 				DOG.st = "dig"
 				DOG.t = 0
 				e.st = 6
