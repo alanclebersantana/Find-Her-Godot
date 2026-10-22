@@ -976,7 +976,7 @@ func _player(g: Game) -> void:
 	# fim de tarde: sombra comprida do Tomé deitada no chão
 	var tw: float = g.section_weights().get("tarde", 0.0)
 	if tw > 0 and p.onGround:
-		var u: float = clamp((p.x - 3350.0) / 11350.0, 0, 1) * tw
+		var u: float = clamp((p.x - 3430.0) / 11710.0, 0, 1) * tw
 		if u > .2:
 			Spr.ellipse(p.x + p.w / 2 + off.x + 22 * u, p.y + p.h + 1 + off.y, 18 + 26 * u, 3.2, Color(.2, .08, .02, .22 * u))
 	Spr.save()

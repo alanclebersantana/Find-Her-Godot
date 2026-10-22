@@ -60,7 +60,7 @@ func _sky(k: String, al: float, w: float, oy: float) -> void:
 			_geese(al, w, oy, Color(.72, .74, .8) if k == "neve" else Color(.6, .64, .66))
 		"tarde":
 			# o sol vai baixando: o céu esquenta e escurece aos poucos até o pântano
-			var u: float = clamp((game.player.x - 3350.0) / (14700.0 - 3350.0), 0, 1)
+			var u: float = clamp((game.player.x - 3430.0) / (15140.0 - 3430.0), 0, 1)
 			Spr.vgrad(0, 0, w, H * .7, Color(.45, .12, .25, .3 * u * al), Color(.9, .35, .15, .12 * u * al))
 		"noite":
 			# halo respirando em volta da lua pintada no fundo (a lua fica em 878,90 na pintura)

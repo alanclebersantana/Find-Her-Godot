@@ -30,7 +30,7 @@ static func grass(g: Game, T: int) -> void:
 		while x < xb:
 			var r := h(x)
 			if r > .3:
-				var by: float = s.y + 1
+				var by: float = s.y + 4
 				var near: float = clamp(1.0 - abs(x - pcx) / 34.0, 0, 1) if abs(p.y + p.h - s.y) < 40 else 0.0
 				var push: float = sign(x - pcx) * near * 8.0
 				var sway: float = sin(T * (.03 + wind * .05) + x * .03) * (1.2 + wind * 4.0) + wind * 3.0

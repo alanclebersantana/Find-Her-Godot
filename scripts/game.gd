@@ -984,7 +984,7 @@ func step() -> void:
 		X.swim()
 	else:
 		# planar
-		player.puff = (kd("P") or (kd("J") and player.airJumps == 0 and player.vy > .5)) and not player.onGround and not player.slam and player.vy > -1.5 and not player.dog and player.wall == 0
+		player.puff = (kd("P") or (kd("J") and player.airJumps == 0 and player.vy > .5)) and not player.onGround and not player.slam and player.vy > -1.5 and not player.dog and player.wall == 0 and not in_fumes()
 		# pulos
 		var g0 = player._g
 		if pressed("J"):
@@ -2438,6 +2438,14 @@ func _update_coal() -> void:
 			c.life = 0
 			burst(c.x, c.y, 10, Color(.25, .25, .27) if not c.get("k", "") in ["dirt", "acorn"] else Color("#7a5a3a"))
 	COAL = COAL.filter(func(c): return c.life > 0 and c.y < L.bottom)
+
+## em cima de um lago de veneno: o vapor não deixa planar
+func in_fumes() -> bool:
+	var pcx: float = player.x + player.w / 2
+	for sw in SWAMP:
+		if sw.get("fumes") and pcx > float(sw.x) - 10 and pcx < float(sw.x) + float(sw.w) + 10 and player.y < float(sw.y):
+			return true
+	return false
 
 ## todas as peças de uma trava estão na mochila (falta só juntar)
 func parts_ready(l) -> bool:

@@ -576,8 +576,10 @@ static func _cloud(o: Dictionary, T: int) -> void:
 	if Spr.has("p_stormcloud"):
 		Spr.PR("stormcloud", x - w * .08, y - h * .15, w * 1.16, h * 1.2)
 		if (T + int(x)) % 120 < 8:
+			# raio pintado inteiro saindo de baixo da nuvem, com clarão
 			var lx0: float = x + w * .5
-			Spr.line(PackedVector2Array([Vector2(lx0, y + h * .9), Vector2(lx0 - 10, y + h * 1.15), Vector2(lx0 + 4, y + h * 1.2), Vector2(lx0 - 8, y + h * 1.5)]), Color("#fff4a0"), 3)
+			Spr.glow(lx0, y + h * 1.25, h * .9, Color(1, .95, .6, .35))
+			Spr.P("bolt", lx0, y + h * 1.75, h * .45)
 		for k in 6:
 			var rx0: float = x + 16 + fmod(k * 41.0, w - 32)
 			var ry0: float = y + h * .9 + fmod(T * 4.0 + k * 13.0, 50.0)

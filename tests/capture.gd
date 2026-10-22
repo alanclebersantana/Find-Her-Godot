@@ -73,22 +73,22 @@ func kill_enemies() -> void:
 # ---------- trechos ----------
 func manha() -> void:
 	kill_enemies()
-	put(2470, 430)
+	put(2550, 430)
 	await run(120, func(i): return {})
 
 func flor() -> void:
 	kill_enemies()
-	put(3775, 440)
+	put(3855, 440)
 	await run(110, func(i): return {})
 
 func javali() -> void:
 	kill_enemies()
-	put(4960, 500)
+	put(5040, 500)
 	var b: Dictionary = g.X.BOSS
 	b.active = true
 	b.st = "paw"
 	b.t = 0
-	b.x = 5380.0
+	b.x = 5460.0
 	b.y = 500.0
 	b.dir = -1
 	b.hp = b.maxhp
@@ -106,7 +106,7 @@ func javali() -> void:
 
 func cipos() -> void:
 	kill_enemies()
-	put(18700, 300)
+	put(19140, 300)
 	var v: Dictionary = g.VINES[1]
 	g.player.vine = v
 	g.player.vr = 210.0
@@ -123,13 +123,13 @@ func cipos() -> void:
 
 func gaviao() -> void:
 	kill_enemies()
-	put(13900, 500)
+	put(14340, 500)
 	var h: Dictionary = g.K.HAWK
 	h.active = true
 	h.st = "mark"
 	h.t = 0
-	h.tx = 13900.0
-	h.x = 13900.0
+	h.tx = 14340.0
+	h.x = 14340.0
 	h.y = h.gy - 300.0
 	g.K._gate("hawkL", true, Rect2(h.x0 - 24, h.gy - 260, 24, 260))
 	g.K._gate("hawkR", true, Rect2(h.x1, h.gy - 260, 24, 260))
@@ -145,28 +145,28 @@ func gaviao() -> void:
 
 func bagre() -> void:
 	kill_enemies()
-	put(23700, 850)
+	put(24140, 850)
 	g.NT.helmet = true
 	g.NT.harpoon = true
 	var f: Dictionary = g.K.FISH
 	f.active = true
 	f.st = "suck"
 	f.t = 0
-	f.x = 23700 + 330.0
+	f.x = 24140 + 330.0
 	f.y = 850.0
 	f.dir = -1
 	await run(100, func(i): return {"L": i > 10 and i < 70, "U": i % 18 < 6})
 
 func gelo() -> void:
 	kill_enemies()
-	put(37330, 868)
+	put(37770, 868)
 	await run(110, func(i): return {"R": i > 4 and i < 95, "Jp": i == 30 or i == 68, "J": (i > 30 and i < 42) or (i > 68 and i < 80)})
 
 func cavalo() -> void:
 	kill_enemies()
-	put(40400, 500)
+	put(40840, 500)
 	g.RD._start()
-	g.RD.hx = 33200.0
+	g.RD.hx = 33640.0
 	g.RD.spd = 5.2
 	g.snap_camera()
 	await run(150, func(i):
@@ -185,12 +185,12 @@ func cavalo() -> void:
 
 func urso() -> void:
 	kill_enemies()
-	put(50350, 500)
+	put(50790, 500)
 	var b: Dictionary = g.K.BEAR
 	b.active = true
 	b.st = "walk"
 	b.t = 40
-	b.x = 50650.0
+	b.x = 51090.0
 	b.dir = -1
 	b.hp = 2
 	g.K._gate("bearL", true, Rect2(b.x0 - 24, b.gy - 260, 24, 260))
@@ -213,10 +213,10 @@ func urso() -> void:
 
 func noite() -> void:
 	kill_enemies()
-	put(77500, 500)
+	put(78300, 500)
 	g.lantern_lit = true
 	g.VIL.go = true
-	g.VIL.x = 77880.0
+	g.VIL.x = 78680.0
 	await run(110, func(i): return {"R": true, "Jp": i == 45, "J": i > 45 and i < 58})
 
 # ---------- ajudantes assíncronos (um passo de física por chamada, como o bot da rota) ----------
@@ -233,7 +233,7 @@ func fr(set: Dictionary = {}) -> void:
 	nf += 1
 	if nf % 60 == 0:
 		print("f%d x=%d y=%d st=%s" % [nf, int(px()), int(g.player.y), str(main.state)])
-	if nf > 2400:
+	if nf > 2480:
 		quit()
 
 func press(k: String) -> void:
@@ -331,88 +331,88 @@ func grab_vine(v) -> void:
 # ---------- trechos da versão 2 (mais jogabilidade) ----------
 func fenda() -> void:
 	kill_enemies()
-	put(6640, 500)
+	put(7080, 500)
 	await hold({}, 20)
-	await crawl(6830)
+	await crawl(7270)
 	await crevice()
-	await walk_to(7000)
+	await walk_to(7440)
 	await hold({}, 20)
 
 func copas() -> void:
 	kill_enemies()
-	put(7960, -10)
+	put(8400, -10)
 	await hold({}, 15)
-	await jump_to(8050)
-	await walk_to(8105)
-	await jump_to(8260, true)
-	await walk_to(8305)
-	await jump_to(8435)
-	await jump_to(8600, true)
-	await walk_to(8665)
-	await jump_to(8760)
-	await walk_to(8780)
+	await jump_to(8490)
+	await walk_to(8545)
+	await jump_to(8700, true)
+	await walk_to(8745)
+	await jump_to(8875)
+	await jump_to(9040, true)
+	await walk_to(9105)
+	await jump_to(9200)
+	await walk_to(9220)
 	await until({}, func(): return g.player.onGround and g.player.y + g.player.h <= -250, 400)
-	await walk_to(9075)
-	await jump_to(9230)
-	await walk_to(9290)
-	await jump_to(9405)
-	await jump_to(9570, true)
+	await walk_to(9515)
+	await jump_to(9670)
+	await walk_to(9730)
+	await jump_to(9845)
+	await jump_to(10010, true)
 	await hold({}, 20)
 
 func regias() -> void:
 	kill_enemies()
-	put(17180, 500)
+	put(17620, 500)
 	await hold({}, 10)
-	await walk_to(17280)
-	for x in [17406, 17556, 17706, 17870]:
+	await walk_to(17720)
+	for x in [17846, 17996, 18146, 18310]:
 		await jump_to(x)
-	await walk_to(17980)
-	for x in [18126, 18276, 18426, 18550]:
+	await walk_to(18420)
+	for x in [18566, 18716, 18866, 18990]:
 		await jump_to(x)
-	await walk_to(18630)
+	await walk_to(19070)
 	await grab_vine(g.VINES[1])
 	await vine_hop(g.VINES[2])
 	await vine_hop(g.VINES[3])
 	await vine_hop(null)
-	await walk_to(19750)
+	await walk_to(20190)
 
 func corda() -> void:
 	kill_enemies()
-	put(19900, 500)
+	put(20340, 500)
 	await hold({}, 10)
-	await walk_to(19990)
+	await walk_to(20430)
 	await grab_vine(g.VINES[4])
 	await swing_off()
 	await until({}, func(): return g.player.get("bar") != null, 120)
-	await until({"R": true}, func(): return px() > 21040, 600)
+	await until({"R": true}, func(): return px() > 21480, 600)
 	press("J")
 	await fr()
 	await wait_ground()
-	await walk_to(21200)
+	await walk_to(21640)
 
 func mergulho() -> void:
 	kill_enemies()
-	put(15440, 500)
+	put(15880, 500)
 	await hold({}, 10)
-	await until({"R": true, "S": true}, func(): return px() > 15750 and g.player.y > 600, 300)
-	await until({"R": true}, func(): return px() > 16700, 600)
+	await until({"R": true, "S": true}, func(): return px() > 16190 and g.player.y > 600, 300)
+	await until({"R": true}, func(): return px() > 17140, 600)
 
 func bolaneve() -> void:
 	kill_enemies()
-	put(32760, 500)
+	put(33200, 500)
 	await hold({}, 10)
-	await jump_to(32880, true)
-	await until({"R": true}, func(): return g.NT.SNOWB[0].x + g.NT.SNOWB[0].w >= 33247, 900)
-	await jump_to(33170)
-	await jump_to(33310, true)
-	await walk_to(33600)
+	await jump_to(33320, true)
+	await until({"R": true}, func(): return g.NT.SNOWB[0].x + g.NT.SNOWB[0].w >= 33687, 900)
+	await jump_to(33610)
+	await jump_to(33750, true)
+	await walk_to(34040)
 
 func gelofino() -> void:
 	kill_enemies()
-	put(34070, 500)
+	put(34510, 500)
 	await hold({}, 6)
 	for i in 2:
-		var x: float = [27130.0, 27650.0][i]
+		var x: float = [27570.0, 28090.0][i]
 		await walk_to(x)
 		var o: Dictionary = g.TR.by_kind("roll")[1 + i]
 		await until({}, func(): return o.st == "go" and o.bx - px() < 85, 400)
@@ -420,37 +420,37 @@ func gelofino() -> void:
 		await hold({"J": true}, 16)
 		await wait_ground()
 		await hold({}, 6)
-	await walk_to(35295)
-	for x in [28151, 28231, 28311, 28365]:
+	await walk_to(35735)
+	for x in [28591, 28671, 28751, 28805]:
 		await jump_to(x)
-	await walk_to(35670)
+	await walk_to(36110)
 
 func tunel() -> void:
 	kill_enemies()
-	put(71030, 500)
+	put(71830, 500)
 	g.lantern_lit = true
 	await hold({}, 10)
-	await crawl(71200)
-	await walk_to(71305)
-	await jump_to(71410)
-	await jump_to(71560)
-	await walk_to(71600)
-	await jump_to(71800)
-	await walk_to(71935)
-	await jump_to(72010)
-	await jump_to(72100)
-	await jump_to(72200)
-	await walk_to(72240)
-	await crawl(72390)
-	await walk_to(72460)
+	await crawl(72000)
+	await walk_to(72105)
+	await jump_to(72210)
+	await jump_to(72360)
+	await walk_to(72400)
+	await jump_to(72600)
+	await walk_to(72735)
+	await jump_to(72810)
+	await jump_to(72900)
+	await jump_to(73000)
+	await walk_to(73040)
+	await crawl(73190)
+	await walk_to(73260)
 	for k in 6:
 		g.crank_tap(g.CRANKS[0])
 		await hold({}, 8)
-	await walk_to(72600)
+	await walk_to(73400)
 
 func cogumelo() -> void:
 	kill_enemies()
-	put(70420, 500)
+	put(71220, 500)
 	g.lantern_lit = true
 	await hold({}, 10)
 	await until({"R": true}, func(): return g.player.vy < -15, 300)
@@ -459,10 +459,10 @@ func cogumelo() -> void:
 		if not dj and g.player.vy > -1:
 			press("J")
 			dj = true
-		await fr({"R": px() < 70570, "J": dj and i < 60})
+		await fr({"R": px() < 71370, "J": dj and i < 60})
 		if dj and g.player.onGround:
 			break
-	await walk_to(70740)
+	await walk_to(71540)
 	await until({}, func(): return g.player.onGround and g.player.y > 400, 200)
 	await hold({}, 20)
 
@@ -476,12 +476,12 @@ func trap_at(k: String, x: float) -> Dictionary:
 
 func jangada() -> void:
 	kill_enemies()
-	put(25070, 500)
+	put(25510, 500)
 	await hold({}, 4)
 	press("A")
 	await fr()
 	var VH = g.VH
-	VH.hx = 27180.0
+	VH.hx = 27620.0
 	VH.spd = 5.0
 	g.snap_camera()
 	for it in 520:
@@ -509,10 +509,10 @@ func jangada() -> void:
 
 func vento() -> void:
 	kill_enemies()
-	put(53440, 360)
+	put(53880, 360)
 	await hold({}, 10)
 	for it in 420:
-		if px() > 54660:
+		if px() > 55100:
 			break
 		var gusting := false
 		for o in g.TR.T:
@@ -551,9 +551,9 @@ func vento() -> void:
 
 func ponte() -> void:
 	kill_enemies()
-	put(55080, 190)
+	put(55520, 190)
 	await hold({}, 10)
-	var o: Dictionary = trap_at("bridge", 55220)
+	var o: Dictionary = trap_at("bridge", 55660)
 	var gaps: Array = []
 	for gi in o.get("gaps", []):
 		gaps.append(o.x + gi * 40.0)
@@ -603,7 +603,7 @@ func _free_spans(boxes: Array, top: float, low: float) -> Array:
 
 func voo() -> void:
 	kill_enemies()
-	put(56940, 190)
+	put(57380, 190)
 	await hold({}, 6)
 	press("A")
 	await fr()
@@ -672,25 +672,25 @@ func bounce_to(bx: float) -> void:
 
 func cogumelos() -> void:
 	kill_enemies()
-	put(64640, 500)
+	put(65080, 500)
 	g.lantern_lit = true
 	await hold({}, 10)
-	await walk_to(64805)
-	await bounce_to(64855)
+	await walk_to(65245)
+	await bounce_to(65295)
 	await hold({}, 8)
-	await jump_to(65300)
-	await bounce_to(65345)
+	await jump_to(65740)
+	await bounce_to(65785)
 	await hold({}, 8)
-	await jump_to(65825)
-	await jump_to(66010)
-	await walk_to(66200)
+	await jump_to(66265)
+	await jump_to(66450)
+	await walk_to(66640)
 
 func pedra() -> void:
 	kill_enemies()
-	put(72780, 500)
+	put(73580, 500)
 	g.lantern_lit = true
 	await hold({}, 6)
-	var o: Dictionary = trap_at("boulder", 72700)
+	var o: Dictionary = trap_at("boulder", 73500)
 	await until({"R": true}, func(): return o.st != "idle", 200)
 	var obs: Array = []
 	for sb in g.SOL:
@@ -722,17 +722,17 @@ func pedra() -> void:
 		else:
 			await fr({"R" if niche > px() else "L": true})
 	await hold({}, 30)
-	await jump_to(76340)
-	await walk_to(76600)
+	await jump_to(77140)
+	await walk_to(77400)
 
 func colmeia() -> void:
 	kill_enemies()
-	put(11560, 500)
+	put(12000, 500)
 	await hold({}, 8)
-	await jump_to(11640)
+	await jump_to(12080)
 	await hold({}, 12)
 	await fr({})
 	await fr({"L": true})
 	await fr({})
-	await until({"L": true}, func(): return px() < 11000, 260)
+	await until({"L": true}, func(): return px() < 11440, 260)
 	await hold({}, 20)

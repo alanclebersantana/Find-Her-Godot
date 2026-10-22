@@ -74,7 +74,9 @@ func _draw_raw() -> void:
 		if sh[1] > x0 and sh[1] <= x1 + 40:
 			_pit_wall(sh[1], sy, -1.0)
 	for d in L.get("decor", []):
-		if d.x + 160 < x0 or d.x - 160 > x1:
+		# peças largas (a toca do urso) passam por mais de um pedaço do cenário: margem maior
+		var mg: float = 480.0 if d.k == "bearden" else 160.0
+		if d.x + mg < x0 or d.x - mg > x1:
 			continue
 		if WorldNature.is_front(L, d):
 			continue
@@ -205,16 +207,16 @@ func ground(s: Dictionary) -> void:
 	var start: float = s.x + floor((x_a - s.x) / tw) * tw
 	var x := start
 	# nada passa do fundo do bloco (senão a terra cobre a caverna que fica embaixo)
-	var th: float = min(float(t.get_height()), s.h + 28.0)
+	var th: float = min(float(t.get_height()), s.h + 32.0)
 	while x < x_b:
 		var xa2: float = max(x, cut_a)
 		var xb2: float = min(x + tw + 1, cut_b)
 		if xb2 > xa2:
 			# o chão muda de cor aos poucos entre os trechos (grama amarelando, lama, frio)
 			var tc := _ground_tint((xa2 + xb2) * .5)
-			Spr.ci.draw_texture_rect_region(t, Rect2(xa2, s.y - 28, xb2 - xa2, th), Rect2(xa2 - x, 0, xb2 - xa2, th), tc)
+			Spr.ci.draw_texture_rect_region(t, Rect2(xa2, s.y - 32, xb2 - xa2, th), Rect2(xa2 - x, 0, xb2 - xa2, th), tc)
 		x += tw
-	var fy: float = s.y - 30 + t.get_height()
+	var fy: float = s.y - 34 + t.get_height()
 	if s.y + s.h > fy:
 		# a terra continua para baixo com a mesma textura (raízes, pedras), escurecendo aos poucos
 		_dirt_fill(max(x_a, cut_a), min(x_b, cut_b), fy - 2, s.y + s.h, s.x)
@@ -581,7 +583,7 @@ func _ground_end(s: Dictionary, t: Texture2D, tw: float, right: bool) -> void:
 	var e: float = s.x + s.w if right else s.x
 	var inner: float = e - ROUND if right else e + ROUND
 	var top: float = s.y - 10
-	var fy: float = s.y - 30 + t.get_height()
+	var fy: float = s.y - 34 + t.get_height()
 	var bot: float = s.y + min(s.h, 900.0)
 	var tile_x: float = s.x + floor((min(inner, e) - s.x) / tw) * tw
 	var t2: Texture2D = _chao2(t, tw)
@@ -601,7 +603,7 @@ func _ground_end(s: Dictionary, t: Texture2D, tw: float, right: bool) -> void:
 	# parte de cima: a textura do chão (grama + terra com raízes); embaixo, terra lisa
 	var y_tex: float = min(fy, bot)
 	var gt := _ground_tint(e)
-	_end_band(top, y_tex, 8.0, inner, e, right, inset, t2, tile_x, s.y - 28, gt, Color(.86, .83, .8) * gt)
+	_end_band(top, y_tex, 8.0, inner, e, right, inset, t2, tile_x, s.y - 32, gt, Color(.86, .83, .8) * gt)
 	if bot > y_tex + 1:
 		_end_band(y_tex, bot, 30.0, inner, e, right, inset, null, 0, 0, Color("#34200f"), Color("#2a190b"))
 	# tufo de grama arredondando a quina de cima
@@ -610,8 +612,8 @@ func _ground_end(s: Dictionary, t: Texture2D, tw: float, right: bool) -> void:
 	if s.get("snow"):
 		Spr.ellipse(gx, s.y - 3, 15, 7, Color(.96, .98, 1))
 	else:
-		Spr.ellipse(gx, s.y - 1, 13, 6, gc.darkened(.15))
-		Spr.ellipse(gx + (2 if right else -2), s.y - 4, 9, 4, gc)
+		# tufo de grama pintado caindo por cima da quina
+		Spr.P("grass%d" % int(hh(e, 41) * 5), gx, s.y + 4, 24, right, 0.0, _ground_tint(e))
 	# pedrinhas soltas na parede
 	for k in 2:
 		var py: float = s.y + 30 + k * 34
@@ -696,15 +698,13 @@ func trunk(s: Dictionary) -> void:
 	_root_mound(s.x + s.w / 2, s.y + s.h, s.w)
 
 func _root_mound(cx: float, gy: float, w: float) -> void:
-	Spr.ellipse(cx, gy + 4, w * 1.35, 12, Color("#4a3220"))
-	for k in 5:
-		var a: float = (k - 2) * .45
-		var rx: float = cx + (k - 2) * w * .32
-		Spr.poly(PackedVector2Array([Vector2(rx - 9, gy - 2), Vector2(rx + sin(a) * 26, gy + 9), Vector2(rx + 9, gy - 2)]), Color("#5e4028"))
-	for k in 7:
-		var gx: float = cx - w * 1.2 + k * w * .4
-		for j in 3:
-			Spr.poly(PackedVector2Array([Vector2(gx + j * 4 - 3, gy + 3), Vector2(gx + j * 4 + (j - 1) * 2, gy - 9 - (k % 3) * 3), Vector2(gx + j * 4 + 3, gy + 3)]), Color("#5d8f34"))
+	# base da árvore: sombra macia e tufos de grama pintados enraizados no musgo (nada solto no ar)
+	Spr.ellipse(cx, gy + 3, w * 1.1, 6, Color(0, 0, 0, .22))
+	for k in 4:
+		var side: float = -1.0 if k % 2 == 0 else 1.0
+		var gx: float = cx + side * (w * .55 + (k / 2) * 14.0)
+		var kind: int = int(hh(gx, 31) * 5)
+		Spr.P("grass%d" % kind, gx, gy + 4, 22.0 + (k / 2) * 4.0, side > 0, 0.0, _ground_tint(gx))
 
 func cabin(s: Dictionary) -> void:
 	Spr.AB("o_cabin", s.x - 15, s.y + s.h - 221, 330, 221)
@@ -990,7 +990,6 @@ func stone(s: Dictionary) -> void:
 	for k in [-1, 1]:
 		var fw: float = 26 + ((h >> (k + 2)) & 7) * 2.0
 		Spr.PR("mossrock_s", cx + k * (s.w / 2 + 2) - fw / 2, gy - fw * .55, fw, fw * .7, Color(.9, .88, .84), k > 0)
-	Spr.ellipse(cx, gy + 2, base_w * .55, 6, Color("#4a3220"))
 	# laje de cima: plana, com musgo, um pouco mais larga que a coluna
 	var lw: float = s.w + 18
 	var lh: float = 26.0

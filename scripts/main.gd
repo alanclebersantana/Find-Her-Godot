@@ -44,12 +44,16 @@ const INK := Color("#f0e4c8")
 
 func _ready() -> void:
 	RenderingServer.set_default_clear_color(Color("#0b0906"))
-	# fluidez: o jogo anda a 60 passos por segundo, o mesmo ritmo da tela (a 44 a imagem tremia);
-	# quem nunca mexeu na velocidade passa para 60 uma vez só
-	if not Save.getv("opt", "tps60b", false):
-		Save.setv("opt", "tps60b", true)
-		Save.setv("opt", "tps", 60)
-	Engine.physics_ticks_per_second = int(Save.getv("opt", "tps", 60))
+	# ritmo do jogo: o antigo "Calma" (44 passos por segundo) agora é o Normal;
+	# todo mundo passa para ele uma vez só (depois vale o que a pessoa escolher nas opções)
+	if not Save.getv("opt", "tps44n", false):
+		Save.setv("opt", "tps44n", true)
+		Save.setv("opt", "tps", 44)
+	Engine.physics_ticks_per_second = int(Save.getv("opt", "tps", 44))
+	# o analógico de madeira passa a ser o controle padrão (uma vez só; depois vale a escolha nas opções)
+	if not Save.getv("opt", "stick_an1", false):
+		Save.setv("opt", "stick_an1", true)
+		Save.setv("opt", "stick", "analog")
 	Engine.max_fps = 0
 	_make_theme()
 	_make_light_tex()
@@ -507,7 +511,7 @@ func _notification(what: int) -> void:
 func _make_touch() -> void:
 	stick = preload("res://scripts/ui/touch_stick.gd").new()
 	stick.set_anchors_preset(Control.PRESET_FULL_RECT)
-	stick.mode = Save.getv("opt", "stick", "dpad")
+	stick.mode = Save.getv("opt", "stick", "analog")
 	stick.changed.connect(_on_stick)
 	hud_layer.add_child(stick)
 	var defs = [["J", "btn_jump", 112], ["A", "btn_use", 90], ["G", "btn_golpe", 86]]
@@ -542,7 +546,7 @@ func apply_controls() -> void:
 	stick.ui_scale = sz
 	stick.opacity = op
 	stick.left_handed = Save.getv("opt", "left", false)
-	stick.mode = Save.getv("opt", "stick", "dpad")
+	stick.mode = Save.getv("opt", "stick", "analog")
 	stick._release()
 	for b in touch:
 		var base: float = b.get_meta("size") * sz
@@ -854,11 +858,11 @@ func show_options(from_pause: bool) -> void:
 				show_options(from_pause))
 			hb.add_child(b)
 		grid.add_child(hb)
-	opt_row.call("Controle", "stick", [["Direcional", "dpad"], ["Analógico", "analog"]], "dpad")
+	opt_row.call("Controle", "stick", [["Analógico", "analog"], ["Direcional", "dpad"]], "analog")
 	opt_row.call("Tamanho dos botões", "btn_size", [["Pequeno", "P"], ["Médio", "M"], ["Grande", "G"]], "M")
 	opt_row.call("Transparência", "btn_alpha", [["Clara", "clara"], ["Média", "media"], ["Forte", "forte"]], "media")
 	opt_row.call("Mão", "left", [["Destro", false], ["Canhoto", true]], false)
-	opt_row.call("Velocidade", "tps", [["Calma", 44], ["Média", 52], ["Normal (mais fluido)", 60]], 60)
+	opt_row.call("Velocidade", "tps", [["Normal", 44], ["Rápida", 52], ["Muito rápida", 60]], 44)
 	opt_row.call("Efeitos", "lowfx", [["Completos", false], ["Leves (celular lento)", true]], false)
 	opt_row.call("Tutorial (dicas)", "tutorial", [["Ligado", true], ["Desligado", false]], true)
 	opt_row.call("Som", "sound", [["Ligado", true], ["Desligado", false]], true)

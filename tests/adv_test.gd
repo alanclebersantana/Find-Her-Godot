@@ -35,13 +35,13 @@ func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
 	var all := args.is_empty()
 	if all or args.has("armadilhas"):
-		put(2525, 500)
-		S("espinhos da manhã", cross_spikes(trap_at("spikes", 2560), 2700))
+		put(2605, 500)
+		S("espinhos da manhã", cross_spikes(trap_at("spikes", 2640), 2780))
 		S("sem dano (espinhos)", P.hp == 5)
-		put(9800, 500)
-		S("tronco-pêndulo", cross_swing(trap_at("swing", 10010), 10290))
+		put(10240, 500)
+		S("tronco-pêndulo", cross_swing(trap_at("swing", 10450), 10730))
 		S("sem dano (tronco)", P.hp == 5)
-		for hx in [21215.0, 15465.0, 22918.0]:
+		for hx in [21655.0, 15905.0, 23358.0]:
 			# espaço de chão antes (para pousar e abaixar) e depois (para levantar)
 			var ga: float = hx
 			var gb: float = hx
@@ -69,31 +69,31 @@ func _initialize() -> void:
 			hv0.sy = hv0.y - 20
 			P.hp = 5
 			P.iframe = 0
-		put(15370, 500)
-		S("sob a colmeia", crawl(15530))
-		S("colmeia quieta", trap_at("hive", 15465).st == "idle")
+		put(15810, 500)
+		S("sob a colmeia", crawl(15970))
+		S("colmeia quieta", trap_at("hive", 15905).st == "idle")
 		# cutucou a colmeia: só mergulhando no lago o enxame desiste
-		var hv: Dictionary = trap_at("hive", 15465)
+		var hv: Dictionary = trap_at("hive", 15905)
 		g.TR._hive_wake(hv)
 		S("enxame acordou", hv.st == "angry")
-		S("pula no lago", walk_to(15700))
+		S("pula no lago", walk_to(16140))
 		hold({"S": true}, 50)
 		S("mergulhou e despistou", until({"S": true}, func(): return hv.st != "angry", 200))
 		hold({"J": true}, 60)
-		put(19665, 500)
-		S("areia movediça", walk_to(19990))
+		put(20105, 500)
+		S("areia movediça", walk_to(20430))
 		S("vivo na areia", g.lives >= 9)
-		put(19760, 500)
+		put(20200, 500)
 		hold({}, 200)
 		S("parado afunda", g.lives == 8)
 		g.lives = 9
 	if all or args.has("tronco"):
-		put(4605, 500)
+		put(4685, 500)
 		use()
 		S("picareta não quebra (é do mergulho)", not g.X.broken.has("chao1"))
 		slam_here()
 		S("quebrou o chão", g.X.broken.has("chao1"))
-		walk_to(4610)
+		walk_to(4690)
 		S("desceu", climb_to("S", func(): return P.onGround and P.y > 800, 500))
 		# solto lá embaixo (e com ↓ ainda apertado) ele não sobe sozinho
 		hold({"S": true}, 40)
@@ -101,16 +101,16 @@ func _initialize() -> void:
 		S("continua no esconderijo", g.player.y > 800)
 		S("sobe com ↑", climb_to("U", func(): return P.ladder == null and P.onGround and P.y < 500, 500))
 	if all or args.has("raft"):
-		put(25010, 500)
-		walk_to(25050)
-		jump_to(25165)
+		put(25450, 500)
+		walk_to(25490)
+		jump_to(25605)
 		S("pulou na jangada e embarcou", g.VH.mode == "raft")
 		g.VH.mode = ""
 		g.load_level(0)
 		for e in g.EN:
 			e.dead = 99
-		put(25010, 500)
-		walk_to(25040)
+		put(25450, 500)
+		walk_to(25480)
 		use()
 		S("subiu na jangada", g.VH.mode == "raft")
 		S("corredeira", ride_raft())
@@ -129,8 +129,8 @@ func _initialize() -> void:
 			g.load_level(0)
 			for e in g.EN:
 				e.dead = 99
-			put(25010, 500)
-			walk_to(25040 + k * 6)
+			put(25450, 500)
+			walk_to(25480 + k * 6)
 			var lv: int = g.lives
 			press("J")
 			hold({"R": true, "J": true}, 8 + k * 6)
@@ -146,18 +146,18 @@ func _initialize() -> void:
 		g.load_level(0)
 		for e in g.EN:
 			e.dead = 99
-		put(25010, 500)
-		walk_to(25040)
+		put(25450, 500)
+		walk_to(25480)
 		use()
 		hold({}, 200)
 		S("no meio da corredeira", g.VH.mode == "raft")
-		g.player.spawnX = 25000
+		g.player.spawnX = 25440
 		g.player.spawnY = 466
 		g.die("teste")
 		hold({}, 200)
 		S("voltou da morte a pé", g.VH.mode == "")
 		S("jangada de volta ao cais", abs(g.VH.RA.px - float(g.VH.RA.x)) < 1 and g.SOL.has(g.VH.RAFT_SOL))
-		walk_to(25040)
+		walk_to(25480)
 		use()
 		S("embarca de novo", g.VH.mode == "raft")
 	if all or args.has("ceu"):
@@ -165,9 +165,9 @@ func _initialize() -> void:
 		P = g.player
 		for e in g.EN:
 			e.dead = 99
-		put(52800, 500)
-		S("subida", climb_gusts(55190))
-		S("ponte", bridge_run(trap_at("bridge", 55220)))
+		put(53240, 500)
+		S("subida", climb_gusts(55630))
+		S("ponte", bridge_run(trap_at("bridge", 55660)))
 		S("vivo na ponte", g.lives >= 9)
 	if all or args.has("voo"):
 		# espaço entre os obstáculos do voo: ondas com trechos calmos para aproveitar o céu
@@ -183,7 +183,7 @@ func _initialize() -> void:
 			prev = x
 		S("obstáculos do voo espaçados (>= 400)", mind >= 400)
 		S("trechos calmos no voo (>= 3)", calm >= 3)
-		put(56600, 190)
+		put(57040, 190)
 		g.comic_req = ""
 		var cams: Array = []
 		var boarded = until({"R": true}, func(): return g.VH.mode == "plane", 900)
@@ -225,7 +225,7 @@ func _initialize() -> void:
 		P = g.player
 		for e in g.EN:
 			e.dead = 99
-		put(25000, 500)
+		put(25440, 500)
 		hold({}, 30)
 		var jr1: float = meas.call(10, {"R": true})
 		press("J")
@@ -250,8 +250,8 @@ func _initialize() -> void:
 		# trenó: senta, escorrega, a tela fecha e abre lá no morro
 		g.load_level(0)
 		P = g.player
-		put(51420, 500)
-		walk_to(51440)
+		put(51860, 500)
+		walk_to(51880)
 		use()
 		S("trenó: embarque com animação", g.VH.mode == "sled" and g.VH.sboard > 0)
 		var sc: float = meas.call(80, {})
@@ -260,37 +260,37 @@ func _initialize() -> void:
 		# cavalo: começa e termina sem pulo de câmera
 		g.load_level(0)
 		P = g.player
-		put(39380, 500)
+		put(39820, 500)
 		for h in g.NT.HOLES:
 			h.filled = true
-		walk_to(39440)
+		walk_to(39880)
 		use()
 		var hc: float = meas.call(120, {})
 		S("cavalo: câmera suave na partida (< 30)", hc < 30.0)
 		g.load_level(0)
 		P = g.player
 	if all or args.has("cogumelos"):
-		put(64400, 500)
-		walk_to(64470)
-		S("pula a caixa de coração", jump_to(64610, true))
-		walk_to(64805)
-		S("saltador 1", bounce_to(64855))
+		put(64840, 500)
+		walk_to(64910)
+		S("pula a caixa de coração", jump_to(65050, true))
+		walk_to(65245)
+		S("saltador 1", bounce_to(65295))
 		S("chapéu alto", P.y + P.h <= 232)
-		S("saltador 2: o gigante laranja lança sozinho", bounce_to(65315))
+		S("saltador 2: o gigante laranja lança sozinho", bounce_to(65755))
 		S("chapéu mais alto", P.y + P.h <= 152)
-		S("desce", jump_to(65825))
-		S("fim", jump_to(66010))
+		S("desce", jump_to(66265))
+		S("fim", jump_to(66450))
 		S("vivo", g.lives >= 9)
 		# sem cogumelinho em cima dos gigantes; todo saltador é um gigante laranja
 		var small_on_top := false
 		for o in g.TR.T:
-			if o.k == "bounce" and o.x > 64000 and o.x < 67000:
+			if o.k == "bounce" and o.x > 64440 and o.x < 67800:
 				small_on_top = true
 		S("sem cogumelo pequeno em cima dos gigantes", not small_on_top)
 		# o buraco embaixo dos cogumelos tem água verde de veneno (e os outros buracos da noite também)
 		var all_filled := true
 		for pt in g.L.pits:
-			if float(pt[0]) < 64900:
+			if float(pt[0]) < 65340:
 				continue
 			var f := false
 			for sw in g.SWAMP:
@@ -304,7 +304,7 @@ func _initialize() -> void:
 		P = g.player
 		for e in g.EN:
 			e.dead = 99
-		put(65000, 300)
+		put(65440, 300)
 		var drown := false
 		for i in 200:
 			frame()
@@ -317,28 +317,80 @@ func _initialize() -> void:
 		P = g.player
 		for e in g.EN:
 			e.dead = 99
-		put(64700, 500)
+		put(65140, 500)
 		g.X.DOG.st = "follow"
-		g.X.DOG.x = 64650.0
+		g.X.DOG.x = 65090.0
 		g.X.DOG.y = 500.0
 		hold({}, 30)
-		walk_to(64805)
-		bounce_to(64855)
-		bounce_to(65315)
-		jump_to(65825)
-		jump_to(66010)
+		walk_to(65245)
+		bounce_to(65295)
+		bounce_to(65755)
+		jump_to(66265)
+		jump_to(66450)
 		hold({}, 240)
 		S("Pipoca acompanha pelos cogumelos", abs(float(g.X.DOG.x) - px()) < 300)
 	if all or args.has("pedra"):
-		put(72700, 500)
-		S("túnel da pedra", walk_to(72850))
-		var bol: Dictionary = trap_at("boulder", 72700)
+		put(73500, 500)
+		S("túnel da pedra", walk_to(73650))
+		var bol: Dictionary = trap_at("boulder", 73500)
 		S("a pedra caiu", until({"R": true}, func(): return bol.st != "idle", 200))
 		S("fuga da pedra", boulder_run(bol))
 		S("sem ser atropelado", P.hp == 5)
 		until({"S": true}, func(): return bol.st in ["break", "done"], 600)
-		S("sai do buraco", jump_to(76340))
-		S("barricada quebrada", walk_to(76700))
+		S("sai do buraco", jump_to(77140))
+		S("barricada quebrada", walk_to(77500))
+	if all or args.has("lagos"):
+		# lagos de veneno com ponte de estaca: só passa baixando a ponte
+		for sx in [2040.0, 6480.0, 67100.0]:
+			var crossed := false
+			var died := 0
+			for mode in ["pulo", "duplo", "planar", "nadar", "alto"]:
+				g.load_level(0)
+				P = g.player
+				for e in g.EN:
+					e.dead = 99
+				g.died_log = []
+				var st: Dictionary = {}
+				for o in g.SL.STAKES:
+					if abs(float(o.x) - sx) < 5:
+						st = o
+				var far: float = float(st.bridge.x) + float(st.bridge.w)
+				if mode == "alto" and sx == 6480.0:
+					put(6300.0, 100)   # do alto do platô, correndo e planando
+				elif mode == "alto":
+					continue
+				else:
+					put(sx - (12.0 if sx < 2100 else 200.0), 500)
+				hold({"R": true}, 40 if sx > 2100 else 2)
+				press("J")
+				for i in 16:
+					frame({"J": true, "R": true})
+				if mode != "pulo" and mode != "nadar":
+					for i in 40:
+						if P.vy >= -.5:
+							break
+						frame({"R": true})
+					press("J")
+					for i in 16:
+						frame({"J": true, "R": true})
+				for i in 300:
+					frame({"R": true, "P": mode in ["planar", "alto"]})
+					if px() > far + 10 and P.onGround:
+						crossed = true
+					if P.dyingT > 0:
+						break
+				if P.dyingT > 0 or not g.died_log.is_empty():
+					died += 1
+				hold({}, 80)
+			S("lago %d: não passa pulando, planando nem nadando" % int(sx), not crossed)
+			S("lago %d: cair é morte (veneno)" % int(sx), died >= 3)
+			g.load_level(0)
+			P = g.player
+			for e in g.EN:
+				e.dead = 99
+			put(sx - (12.0 if sx < 2100 else 120.0), 500)
+			S("lago %d: estaca baixa a ponte e atravessa" % int(sx), stake_cross(sx))
+			S("lago %d: vivo" % int(sx), g.lives >= 9)
 	if all or args.has("mochila"):
 		# perto da trava com as peças soltas: botão da mochila → junta → ✔ → usa
 		var wanted := []
@@ -448,8 +500,8 @@ func _initialize() -> void:
 			S("porta %s: não passa sem a caixa no botão" % gid, not passed)
 	if all or args.has("vargas"):
 		# trecho da pedra gigante ~2x mais comprido
-		var bo: Dictionary = trap_at("boulder", 72700)
-		S("pedra gigante: trecho comprido (>= 3200)", float(bo.end) - float(bo.trig) >= 3200)
+		var bo: Dictionary = trap_at("boulder", 73500)
+		S("pedra gigante: trecho comprido (>= 3280)", float(bo.end) - float(bo.trig) >= 3280)
 		# perseguição do Vargas: sem óleo, sem pedra rolando, lanterna cheia e sem medidor
 		var vt: float = float(g.L.villain.trig)
 		var oil_in := 0
@@ -472,35 +524,35 @@ func _initialize() -> void:
 		for e in g.EN:
 			e.dead = 99
 		g.INV.append("engrenagem")
-		put(13110, 900)
+		put(13550, 900)
 		g.lives = 9
 		S("chegou na escada", climb_to("U", func(): return g.EV.FL.st != "idle", 120))
 		S("enchente começou", g.EV.FL.st in ["warn", "rise"])
 		S("subiu antes da água", climb_to("U", func(): return P.ladder == null and P.onGround and P.y < 500, 500))
 		S("vivo na enchente", g.lives >= 9)
 	if all or args.has("alavancas"):
-		put(70910, 500)
+		put(71710, 500)
 		S("portão fechado", g.EV.GATE.lift < 1)
-		walk_to(70925)
+		walk_to(71725)
 		use()
-		walk_to(70985)
+		walk_to(71785)
 		use()
 		S("portão abriu", until({}, func(): return g.EV.GATE.lift >= g.EV.GATE.h - 8, 200))
-		S("passa o portão", walk_to(71070))
+		S("passa o portão", walk_to(71870))
 	if all or args.has("mergulho"):
 		# estaca: subir nela e mergulhar baixa a ponte do riacho
 		put(2040, 456)
-		var stk: Dictionary = g.SL.STAKES[0]
+		var stk: Dictionary = g.SL.STAKES.filter(func(o): return abs(float(o.x) - 2040.0) < 5)[0]
 		S("ponte em pé", not g.SOL.has(stk.sol))
 		S("em cima da estaca", P.onGround and P.y + P.h < 470)
 		slam_here()
 		S("estaca cravada", stk.done)
 		hold({}, 120)
 		S("ponte deitou", g.SOL.has(stk.sol))
-		S("atravessa a ponte", walk_to(2380))
+		S("atravessa a ponte", walk_to(2460))
 		S("seco (não caiu na água)", not P.swim)
 		# gangorra: mergulho na ponta de cá lança a pedra e caem lápis e uma fruta
-		put(63485, 456)
+		put(63925, 456)
 		var sw: Dictionary = g.SL.SAWS[0]
 		var c0: int = g.coin_life
 		S("na ponta de cá", P.onGround and P.y + P.h < 470)
@@ -513,39 +565,39 @@ func _initialize() -> void:
 				walk_to(d.x)
 		S("pegou os lápis", g.coin_life > c0)
 		# arbusto de frutas: o mergulho perto derruba as frutas; cada uma devolve um coração
-		put(66220, 500)
+		put(66660, 500)
 		P.hp = 3
 		slam_here()
 		hold({}, 60)
 		S("frutas caíram", g.SL.FRUIT[1].left == 0)
-		walk_to(66330)
-		walk_to(66270)
+		walk_to(66770)
+		walk_to(66710)
 		S("comeu fruta (+coração)", P.hp >= 4)
 		# onda de choque: um bicho do chão por perto fica tonto
-		put(34120, 500)
+		put(34560, 500)
 		var en: Dictionary = {}
 		for e in g.EN:
 			if e.k == "squirrel":
 				en = e
 				break
 		en.dead = 0
-		en.x = 34210.0
+		en.x = 34650.0
 		en.y = 500.0
 		en.base = 500.0
-		en.r = [34230, 34260]
+		en.r = [34670, 34700]
 		slam_here()
 		S("bicho ficou tonto", en.stun > 0)
 		en.dead = 99
 	if all or args.has("treno"):
-		put(51420, 500)
-		walk_to(51440)
+		put(51860, 500)
+		walk_to(51880)
 		use()
 		S("subiu no trenó", g.VH.mode == "sled")
 		var VH = g.VH
-		S("descida comprida (>= 4000)", float(VH.SL.len) >= 4000)
+		S("descida comprida (>= 4080)", float(VH.SL.len) >= 4080)
 		var ok_sled = "timeout"
 		var top_spd := 0.0
-		for i in 3000:
+		for i in 3080:
 			if g.VH.mode == "":
 				ok_sled = true
 				break
@@ -582,15 +634,15 @@ func _initialize() -> void:
 		# batidas de propósito nas duas primeiras: perde 1 coração cada e segue (sem voltar)
 		g.load_level(0)
 		P = g.player
-		put(51420, 500)
-		walk_to(51440)
+		put(51860, 500)
+		walk_to(51880)
 		use()
 		VH = g.VH
 		var back := false
 		var last_u := 0.0
 		var hits := 0
 		ok_sled = "timeout"
-		for i in 3000:
+		for i in 3080:
 			if g.VH.mode == "":
 				ok_sled = true
 				break
@@ -624,13 +676,13 @@ func _initialize() -> void:
 		# batendo em tudo: sem corações, morre e volta para a fogueira; o trenó fica no alto de novo
 		g.load_level(0)
 		P = g.player
-		put(51420, 500)
-		walk_to(51440)
+		put(51860, 500)
+		walk_to(51880)
 		use()
 		VH = g.VH
 		var lv0: int = g.lives
 		var died := false
-		for i in 3000:
+		for i in 3080:
 			if P.dyingT > 0:
 				died = true
 			if died and P.dyingT == 0:
@@ -638,10 +690,10 @@ func _initialize() -> void:
 			frame({})
 		hold({}, 40)
 		S("bateu em tudo: morreu", died and g.lives <= lv0)
-		S("bateu em tudo: volta da fogueira", VH.mode == "" and abs(px() - 51320) < 200)
+		S("bateu em tudo: volta da fogueira", VH.mode == "" and abs(px() - 51760) < 200)
 		S("bateu em tudo: trenó de volta no alto", not VH.sled_done and VH.near_sled() or abs(float(VH.SL.x) - px()) < 300)
 	if all or args.has("urso"):
-		put(50250, 500)
+		put(50690, 500)
 		S("Urso-Rei", bear_fight())
 		S("urso: Tomé vivo", g.lives >= 9)
 		# o galho não é esconderijo: parado nele, o urso sacode a árvore e derruba
@@ -649,12 +701,12 @@ func _initialize() -> void:
 		for e in g.EN:
 			e.dead = 99
 		P = g.player
-		put(50250, 500)
+		put(50690, 500)
 		hold({}, 300)
 		var bb: Dictionary = g.K.BEAR
-		bb.x = 50950.0
+		bb.x = 51390.0
 		bb.st = "walk"
-		put(50325, 310)
+		put(50765, 310)
 		var shook := false
 		for i in 600:
 			frame()
@@ -669,36 +721,36 @@ func _initialize() -> void:
 		for e in g.EN:
 			e.dead = 99
 		P = g.player
-		put(50250, 500)
+		put(50690, 500)
 		hold({}, 300)
 		var esc := false
 		for side in ["L", "R"]:
-			for start in [50110.0, 50340.0, 50830.0, 51100.0]:
+			for start in [50550.0, 50780.0, 51270.0, 51540.0]:
 				put(start, 500)
-				g.K.BEAR.x = 50600.0
+				g.K.BEAR.x = 51040.0
 				g.K.BEAR.st = "dizzy"
 				g.K.BEAR.t = 0
 				djump(side)
 				hold({side: true}, 60)
-				if px() < 50060 or px() > 51150:
+				if px() < 50500 or px() > 51590:
 					esc = true
-		put(50325, 310)
+		put(50765, 310)
 		djump("L")
 		hold({"L": true}, 60)
-		if px() < 50060:
+		if px() < 50500:
 			esc = true
-		put(50825, 310)
+		put(51265, 310)
 		djump("R")
 		hold({"R": true}, 60)
-		if px() > 51150:
+		if px() > 51590:
 			esc = true
 		S("não pula os muros da arena", not esc)
 	if all or args.has("cavalo"):
-		put(39380, 500)
+		put(39820, 500)
 		for h in g.NT.HOLES:
 			h.filled = true
 		S("cavalo preso", g.RD.H.st == "trapped")
-		walk_to(39440)
+		walk_to(39880)
 		use()
 		S("cavalgada começou", until({}, func(): return g.RD.riding, 500))
 		var obsd: Array = g.RD.OBS.map(func(o): return float(o.x))
@@ -714,10 +766,10 @@ func _initialize() -> void:
 		P = g.player
 		for e in g.EN:
 			e.dead = 99
-		put(39380, 500)
+		put(39820, 500)
 		for h in g.NT.HOLES:
 			h.filled = true
-		walk_to(39440)
+		walk_to(39880)
 		use()
 		until({}, func(): return g.RD.riding, 500)
 		for o in g.RD.OBS:
@@ -743,18 +795,18 @@ func _initialize() -> void:
 		var ax: Dictionary = g.TR.by_kind("axe")[0]
 		var bad := 0
 		for k in 8:
-			put(64010, 500)
+			put(64450, 500)
 			for e in g.EN:
 				e.dead = 99
 			hold({}, k * 16)
-			walk_to(64020)
+			walk_to(64460)
 			until({}, func(): g.TR.axe_blade(ax); return ax.ang > .35, 300)
 			var hp0: int = P.hp
-			jump_to(64360, true)
+			jump_to(64800, true)
 			if P.hp < hp0:
 				bad += 1
 		S("pulos bem feitos sobre a lâmina sem dano (%d batidas)" % bad, bad == 0)
-		put(64200, 500)
+		put(64640, 500)
 		var hp1: int = P.hp
 		hold({}, 140)
 		S("parado no caminho da lâmina leva dano", P.hp < hp1)
@@ -762,29 +814,29 @@ func _initialize() -> void:
 		var pts: PackedVector2Array = g.TR.axe_points(ax, 0.0)
 		S("haste não está na área de dano", pts.size() == 18)
 	if all or args.has("gelo"):
-		put(35200, 500)
+		put(35640, 500)
 		for e in g.EN:
 			e.dead = 99
 		for o in g.TR.T:
 			if o.k == "roll":
 				o.st = "done"
-		walk_to(35280)
-		S("pula o buraco de gelo aberto", jump_to(35565, true))
-		S("passou vivo", g.lives >= 9 and px() > 35510)
+		walk_to(35720)
+		S("pula o buraco de gelo aberto", jump_to(36005, true))
+		S("passou vivo", g.lives >= 9 and px() > 35950)
 	if all or args.has("pingentes"):
-		var ic: Dictionary = trap_at("icicle", 37450)
-		put(37300, 868)
+		var ic: Dictionary = trap_at("icicle", 37890)
+		put(37740, 868)
 		S("pingente pronto", ic.st == "idle" and ic.grow >= 1.0)
-		put(37452, 868)
+		put(37892, 868)
 		S("pingente tremendo", until({}, func(): return ic.st == "shake", 60))
 		var t0: int = g.T
 		S("treme ~1 s antes de cair", until({}, func(): return ic.st == "fall", 120) and g.T - t0 >= 50)
 		S("cai e acerta quem fica parado", until({}, func(): return ic.st == "broken", 120) and P.hp == 4)
 		S("volta a crescer", until({}, func(): return ic.st == "shake" or (ic.st == "idle" and ic.grow >= 1.0), 400))
-		var ic2: Dictionary = trap_at("icicle", 37080)
-		put(36950, 868)
+		var ic2: Dictionary = trap_at("icicle", 37520)
+		put(37390, 868)
 		S("pingente 2 tremendo", until({"R": true}, func(): return ic2.st == "shake", 120))
-		S("dá tempo de fugir", walk_to(36960) and until({}, func(): return ic2.st == "broken", 200) and P.hp == 5)
+		S("dá tempo de fugir", walk_to(37400) and until({}, func(): return ic2.st == "broken", 200) and P.hp == 5)
 	for l in log_lines:
 		print(l)
 	print("FALHAS: ", fails)

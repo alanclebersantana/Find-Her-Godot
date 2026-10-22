@@ -128,7 +128,33 @@ func __draw_raw() -> void:
 		var depth: float = max(30, s.y0 + s.h - s.y)
 		# água tóxica (verde ácido): aqui o Tomé afunda — bem diferente da água azul onde dá para nadar
 		_water(g, a, b5, s.y, depth, Color(.42, .86, .16, .9), Color(.08, .26, .04, .97), T, false, 0.0, "s%d" % g.SWAMP.find(s), s.x, s.x + s.w)
-		_shade_under(s.y + depth, Color(.02, .03, .08, g.AMB.dark * .45))
+		if not s.get("fumes"):
+			_shade_under(s.y + depth, Color(.02, .03, .08, g.AMB.dark * .45))
+		if s.get("fumes"):
+			# fundo do lago: leito de lama irregular com pedrinhas (nada de linha reta)
+			var bed := PackedVector2Array()
+			var bx2: float = a
+			var by0: float = s.y0 + s.h
+			while bx2 <= b5 + 12:
+				var u2: float = clamp((bx2 - s.x) / max(1.0, float(s.w)), 0.0, 1.0)
+				var dip: float = sin(u2 * PI) * 26.0
+				bed.push_back(Vector2(min(bx2, b5), by0 - 34 + 26 - dip + 5 * sin(bx2 * .07) + 3 * sin(bx2 * .19)))
+				bx2 += 12
+			bed.push_back(Vector2(b5, by0 + 4))
+			bed.push_back(Vector2(a, by0 + 4))
+			Spr.poly(bed, Color("#2e2410"))
+			var pk: float = floor(a / 46.0) * 46.0
+			while pk < b5:
+				if pk > s.x + 12 and pk < s.x + s.w - 12 and WorldExtras.h(pk, 7) > .55:
+					Spr.P("peb%d" % (int(pk) % 3), pk, by0 - 6 - sin(clamp((pk - s.x) / float(s.w), 0, 1) * PI) * 18, 16, false, 0.0, Color(.55, .65, .4))
+				pk += 46
+			# vapor de veneno subindo (não deixa planar por cima)
+			for k in 7:
+				var fx: float = s.x + fposmod(k * 53.0 + T * .3, max(20.0, s.w - 20)) + 10
+				var u: float = fposmod(T * .006 + k * .37, 1.0)
+				var fy: float = s.y - u * 170.0
+				var fa: float = sin(u * PI) * .22
+				Spr.circle(fx + sin(T * .03 + k) * 10, fy, 10 + u * 22, Color(.55, .95, .3, fa))
 		Spr.rect(a, s.y - 2, b5 - a, 4, Color(.75, 1, .35, .7))
 		# bolhas tóxicas subindo e estourando, e um vapor fraco por cima
 		var bx: float = floor(a / 46.0) * 46.0

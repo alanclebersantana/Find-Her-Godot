@@ -23,6 +23,11 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for k in ["L", "R", "U", "S"]:
 		tex[k] = load("res://assets/ui/pad_%s.png" % k)
+	# analógico de madeira (base com moldura de latão e pegador de madeira)
+	if ResourceLoader.exists("res://assets/ui/stick_base.png"):
+		tex["base"] = load("res://assets/ui/stick_base.png")
+	if ResourceLoader.exists("res://assets/ui/stick_knob.png"):
+		tex["knob"] = load("res://assets/ui/stick_knob.png")
 
 func set_mode(m: String) -> void:
 	mode = m
@@ -136,6 +141,13 @@ func _draw() -> void:
 	else:
 		var c2 := center if finger != -1 else _home()
 		var a := (.7 if finger != -1 else .38) * al
+		if tex.has("base") and tex.has("knob"):
+			var ab: float = min(1.0, (.95 if finger != -1 else .7) * al + .15)
+			var br: float = r * 1.12
+			draw_texture_rect(tex.base, Rect2(c2 - Vector2(br, br), Vector2(br, br) * 2), false, Color(1, 1, 1, ab))
+			var kr: float = 34 * ui_scale
+			draw_texture_rect(tex.knob, Rect2(c2 + knob - Vector2(kr, kr), Vector2(kr, kr) * 2), false, Color(1, 1, 1, min(1.0, ab + .1)))
+			return
 		draw_circle(c2, r, Color(.1, .08, .05, a * .7))
 		draw_arc(c2, r, 0, TAU, 48, Color(.93, .85, .65, a), 3, true)
 		draw_circle(c2 + knob, 30 * ui_scale, Color(.93, .85, .65, a + .15))
