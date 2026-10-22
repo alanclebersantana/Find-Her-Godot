@@ -104,6 +104,8 @@ func _table_post() -> void:
 	if TABLE.is_empty():
 		return
 	var t: Dictionary = TABLE
+	if abs(t.x - (g.cam + g.W / 2)) > 1500 and abs(t.vx) < .05 and t.vy == 0.0:
+		return
 	var p: Dictionary = g.player
 	# esbarrão: andando contra a mesa (de pé), ela escorrega um pouco sem travar o caminho
 	if t.st == "up" and p.onGround and abs(p.vx) > .8 and Game.hit(p, _table_rect()):

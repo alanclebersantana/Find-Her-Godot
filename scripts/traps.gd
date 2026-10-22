@@ -195,6 +195,9 @@ func post() -> void:
 	var pcx: float = p.x + p.w / 2
 	var feet: float = p.y + p.h
 	for o in T:
+		# longe do Tomé e sem nada acontecendo: pula (a fase tem muitas armadilhas)
+		if abs(o.x + o.get("w", 0) / 2.0 - pcx) > 1800 and not o.k in ["roll", "boulder", "bridge", "cage", "net"] and not (o.k == "hive" and o.st != "idle"):
+			continue
 		o.t += 1
 		match o.k:
 			"bounce":

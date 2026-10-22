@@ -3,6 +3,11 @@ extends Node
 ## parecida com o canvas 2D da versão HTML, para portar o desenho quase 1:1.
 
 var tex := {}            # nome -> Texture2D
+var prof_on := false      # medição de tempo por quadro (tests/bench.gd)
+var prof := {}
+func pt(k: String, t0: int) -> void:
+	if prof_on:
+		prof[k] = prof.get(k, 0) + Time.get_ticks_usec() - t0
 var AR := {}             # peça -> [x,y,w,h,ax,ay,atlas]
 var ci: CanvasItem
 var M := Transform2D.IDENTITY

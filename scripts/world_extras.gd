@@ -44,7 +44,7 @@ static func grass(g: Game, T: int) -> void:
 					var hh: float = 8 + h(bx, 2) * 9
 					var lean: float = sway + push + (k - 1.5) * 1.6
 					Spr.ci.draw_polyline(PackedVector2Array([Vector2(bx, by), Vector2(bx + lean * .45, by - hh * .55), Vector2(bx + lean, by - hh)]),
-						Color(col.r * (.85 + k * .06), col.g * (.85 + k * .06), col.b, .95), 1.6, true)
+						Color(col.r * (.85 + k * .06), col.g * (.85 + k * .06), col.b, .95), 1.8, false)
 			x += 30
 
 # ---------------------------------------------------------------- passagens baixas
@@ -526,7 +526,11 @@ static func mech(g: Game, T: int) -> void:
 	var M: Mech = g.M
 	if M == null:
 		return
+	var c0: float = g.cam - 150
+	var c1: float = g.cam + g.W + 150
 	for pl in M.PLATES:
+		if pl.x + pl.w < c0 or pl.x > c1:
+			continue
 		var dd: float = pl.d * 4
 		Spr.rr(pl.x - 4, pl.y - 2, pl.w + 8, 10, 4, Color(.25, .22, .2))
 		Spr.rr(pl.x, pl.y - 8 + dd, pl.w, 10, 3, Color(.62, .58, .5) if not pl.on else Color(.95, .82, .45))
@@ -534,6 +538,8 @@ static func mech(g: Game, T: int) -> void:
 		if pl.on:
 			Spr.glow(pl.x + pl.w / 2, pl.y - 4, 30, Color(1, .85, .4, .35))
 	for gt in M.GATES:
+		if gt.x + gt.w < c0 or gt.x > c1:
+			continue
 		var lift: float = gt.open * (gt.h - 18)
 		var y0: float = gt.y - lift
 		var hh: float = gt.h
@@ -565,7 +571,7 @@ static func mech(g: Game, T: int) -> void:
 				for k in 3:
 					Spr.circle(px - 4 + k * 4, fy + 9, 1.6, Color(.3, .2, .1))
 	for c in M.PUSH:
-		if c.dead:
+		if c.dead or c.x + c.w < c0 or c.x > c1:
 			continue
 		if c.get("snow"):
 			WorldNature.snowball(c, T)
@@ -578,6 +584,8 @@ static func mech(g: Game, T: int) -> void:
 		if g.player.get("pushT", 0) > 0 and Game.hit(g.R(g.player.x - 6, g.player.y, g.player.w + 12, g.player.h), c):
 			Spr.text("⇆", c.x + c.w / 2, c.y - 10, 16, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3)
 	for s in M.CRUMB:
+		if s.x + s.w < c0 or s.x > c1:
+			continue
 		var shake: float = (sin(T * 1.7) * 2.0) if (s.ct > 0 and not s.fallen) else 0.0
 		var yy: float = s.y + s.fy
 		if s.fallen and s.fy > 400:

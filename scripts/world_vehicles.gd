@@ -4,6 +4,7 @@ class_name WorldVehicles
 ## gaviões e nuvens de tempestade). Tudo por código, menos o avião (sprite pintado).
 
 const OUT := Color("#2a1a0e")
+static var dog_on_board := false
 
 static func draw(g: Game, T: int) -> void:
 	var VH: Vehicles = g.VH
@@ -32,7 +33,7 @@ static func rider(g: Game, T: int) -> void:
 		if VH.duck:
 			Spr.A("pai_crouch", 0, -6, .56)
 		else:
-			Spr.frame(Spr.tex.pai, 0, 130, 160, 65, 156, 0, -6, .46, false)
+			Spr.frame(Spr.tex.pai, 0, 170, 160, 85, 156, 0, -6, .46, false)
 			var pa: float = sin(T * .12) * .5
 			Spr.seg(-4 + cos(pa) * 18, -40 + sin(pa) * 6, -4 - cos(pa) * 26, -4 - sin(pa) * 4, Color("#7a5232"), 4)
 			Spr.ellipse(-4 - cos(pa) * 28, -2 - sin(pa) * 4, 6, 10, Color("#8a5e34"), pa)
@@ -46,6 +47,7 @@ static func rider(g: Game, T: int) -> void:
 		_raft(0, 0)
 		Spr.restore()
 	elif VH.mode == "plane":
+		dog_on_board = g.X.DOG.get("st", "") == "ride"
 		_plane_fly(VH.hx, VH.hy, VH.tilt, T, VH.phase == "taxi" or VH.phase == "land")
 	Spr.alpha = 1.0
 
@@ -200,6 +202,15 @@ static func _plane_fly(x: float, y: float, tilt: float, T: int, ground: bool) ->
 	Spr.rotate(tilt)
 	if not ground:
 		Spr.translate(0, sin(T * .1) * 2)
+	# o Pipoca vai na cabine, atrás do Tomé (só a cabeça aparece por cima da fuselagem)
+	if dog_on_board:
+		Spr.save()
+		Spr.translate(-34, -60)
+		Spr.rotate(-.08)
+		if not Spr.novo("pipoca", 6, 30):
+			Spr.scale(.3, .3)
+			Spr.A("dog0", 0, 0, 1)
+		Spr.restore()
 	WorldNature.prop("biplano_voo", 0, 0, 120)
 	Spr.restore()
 

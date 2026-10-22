@@ -12,6 +12,11 @@ func _box(x: float, y: float, w: float, h: float) -> void:
 	Spr.rr(x, y, w, h, 9, Color(.04, .03, .02, .55))
 
 func _draw() -> void:
+	var __t := Time.get_ticks_usec()
+	__draw_raw()
+	Spr.pt("hud", __t)
+
+func __draw_raw() -> void:
 	if game == null or not game.L or not visible:
 		return
 	var W := size.x
@@ -181,7 +186,7 @@ func _cine(W: float, H: float) -> void:
 			_:
 				Spr.save()
 				Spr.translate(bx + 44, by + 96)
-				Spr.ci.draw_texture_rect_region(Spr.tex.pai, Rect2(-50, -95, 100, 123), Rect2(15, 0, 100, 123), Color(1, 1, 1, k2))
+				Spr.ci.draw_texture_rect_region(Spr.tex.pai, Rect2(-50, -95, 100, 123), Rect2(35, 0, 100, 123), Color(1, 1, 1, k2))
 				Spr.restore()
 				Spr.rect(bx + 10, by + 76, 68, 20, Color(.05, .04, .03, .88 * k2))
 		var col: Color = {"VARGAS": Color("#ff9a7a"), "ISIS": Color("#ffb0d0"), "TOMÉ": Color("#ffd27a")}.get(l[2], Color.WHITE)

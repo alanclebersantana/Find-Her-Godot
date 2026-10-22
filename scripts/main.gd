@@ -245,7 +245,9 @@ func _physics_process(_d: float) -> void:
 		game.comic_req = ""
 		return
 	if state == S.PLAY:
+		var __t := Time.get_ticks_usec()
 		game.step()
+		Spr.pt("step", __t)
 
 ## quadrinho (chefe ou primeira vez em algo novo): o jogo espera até ele acabar
 func _show_comic(id: String) -> void:
@@ -368,7 +370,7 @@ func _make_touch() -> void:
 		var sc: float = d[2] / float(t.get_width())
 		b.scale = Vector2(sc, sc)
 		var sh := CircleShape2D.new()
-		sh.radius = t.get_width() * .62
+		sh.radius = t.get_width() * .70   # área de toque um pouco maior que o desenho
 		b.shape = sh
 		b.shape_centered = true
 		b.visibility_mode = TouchScreenButton.VISIBILITY_TOUCHSCREEN_ONLY

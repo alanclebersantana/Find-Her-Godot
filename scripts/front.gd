@@ -21,6 +21,11 @@ static func hh(x: float, k: int = 0) -> float:
 	return v - floor(v)
 
 func _draw() -> void:
+	var __t := Time.get_ticks_usec()
+	__draw_raw()
+	Spr.pt("front", __t)
+
+func __draw_raw() -> void:
 	var g := game
 	if g == null or not g.L or not g.running and g.T == 0:
 		return

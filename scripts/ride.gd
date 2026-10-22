@@ -164,7 +164,7 @@ func step() -> void:
 			o.hit = true
 			_hurt(o)
 	# lápis
-	for c in g.COINS:
+	for c in g.coins_near(hx - 120, hx + 120):
 		if not c.got and abs(c.x - hx) < 70 and Game.hit(b, g.R(c.x - 15, c.y - 15, 30, 30)):
 			c.got = true
 			g.STATS.pen += 1

@@ -323,8 +323,12 @@ func post() -> void:
 		elif X.DOG.st == "dig":
 			X.DOG.st = "ctrl"
 	# caixas de empurrar caem
+	var camc: float = g.cam + g.W / 2
 	for c in PUSH:
 		if c.dead:
+			continue
+		# longe da tela e parada: não precisa simular (a fase é longa)
+		if abs(c.x - camc) > 1500 and c.vy == 0.0:
 			continue
 		c.vy = min(c.vy + .6, 12.0)
 		var ny: float = c.y + c.vy

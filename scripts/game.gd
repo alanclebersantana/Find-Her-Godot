@@ -17,8 +17,8 @@ const TOP := 4.3
 const ACCg := .9
 const ACCa := .52
 const FRIC := .70
-const COY := 7
-const BUF := 8
+const COY := 10
+const BUF := 11
 const PUFF_GRAV := .10
 const PUFF_FALL := 1.8
 const PUFF_TOP := 3.8
@@ -39,6 +39,7 @@ var CR: Array = []
 var SPR: Array = []
 var EN: Array = []
 var COINS: Array = []
+var COIN_GRID := {}      # lápis por faixa de 512 px (para não testar os 660 a cada passo)
 var CHK: Array = []
 var VINES: Array = []
 var CLK: Array = []
@@ -178,9 +179,15 @@ func load_level(i: int) -> void:
 		o.sx = e.x
 		EN.append(o)
 	COINS = []
+	COIN_GRID = {}
 	for k in L.get("coins", []).size():
 		var c = L.coins[k]
-		COINS.append({"x": c[0], "y": c[1], "got": false, "ci": k})
+		var co := {"x": c[0], "y": c[1], "got": false, "ci": k}
+		COINS.append(co)
+		var cell := int(floor(float(c[0]) / 512.0))
+		if not COIN_GRID.has(cell):
+			COIN_GRID[cell] = []
+		COIN_GRID[cell].append(co)
 	CHK = []
 	for c in L.get("checks", []):
 		var ch := {"x": c[0], "y": c[1], "on": false}
@@ -392,10 +399,26 @@ func burst(x: float, y: float, n: int, c: Color) -> void:
 func fx(n: String, x: float, y: float, life: int, sc: float, vy: float = 0.0) -> void:
 	FXS.append({"n": n, "x": x, "y": y, "t": 0, "life": life, "sc": sc, "vy": vy})
 
+## sólidos que bloqueiam, só os perto da tela (a fase tem centenas): calculado uma vez por passo
+var _blk: Array = []
+var _blk_key := ""
+var _blk_a := 0.0
+var _blk_b := 0.0
 func blockers() -> Array:
-	var b: Array = []
+	var px: float = player.get("x", 0.0)
 	var dog: bool = player.get("dog", false)
+	var key := "%d|%d|%s" % [T, SOL.size() + CR.size() * 1000, dog]
+	if key == _blk_key and px > _blk_a + 500 and px < _blk_b - 500:
+		return _blk
+	var a: float = min(cam, px) - 1500.0
+	var b0: float = max(cam + W, px) + 1500.0
+	_blk_a = a
+	_blk_b = b0
+	_blk_key = key
+	var b: Array = []
 	for s in SOL:
+		if s.x > b0 or s.x + s.w < a:
+			continue
 		if s.get("ghost") and not s.on:
 			continue
 		if s.get("fallen"):
@@ -411,7 +434,20 @@ func blockers() -> Array:
 	for p in LILY:
 		if p.st != 2:
 			b.append(p)
+	_blk = b
 	return b
+
+## esquece a lista de sólidos (depois de abrir/fechar algo no meio do passo)
+## lápis entre x0 e x1 (pela grade)
+func coins_near(x0: float, x1: float) -> Array:
+	var out: Array = []
+	for cell in range(int(floor(x0 / 512.0)), int(floor(x1 / 512.0)) + 1):
+		if COIN_GRID.has(cell):
+			out.append_array(COIN_GRID[cell])
+	return out
+
+func blockers_dirty() -> void:
+	_blk_key = ""
 
 func has_item(id: String) -> bool:
 	return INV.has(id)
@@ -600,8 +636,18 @@ func period_index() -> int:
 			n = max(n, int(c.rest))
 	return n
 
+## o nome no topo acompanha o cenário (a fogueira grande marca o fim de cada período)
+const PERIOD_OF := {"manha": 0, "tarde": 1, "chuva": 2, "rio": 2, "neve": 3, "ceu": 4, "noite": 5, "perseguicao": 5, "tunel": 5}
 func period_label() -> String:
+	var px: float = player.x + player.w / 2
 	var i: int = period_index()
+	var S: Array = L.get("sections", [])
+	for sc in S:
+		if sc.x <= px:
+			var k: String = sc.get("map", sc.get("bg", sc.get("song", "manha")))
+			if sc.get("bg", "") == "neve" and not sc.has("map"):
+				k = "neve"
+			i = PERIOD_OF.get(k, i)
 	return "%d/%d · %s" % [i + 1, PERIODS.size(), PERIODS[min(i, PERIODS.size() - 1)]]
 
 func section_weights() -> Dictionary:
@@ -734,6 +780,7 @@ func step() -> void:
 	if time_left <= 0:
 		die("O tempo acabou.")
 		return
+	var __m := Time.get_ticks_usec()
 	X.pre_step()
 	if player.dyingT > 0:
 		return
@@ -741,6 +788,7 @@ func step() -> void:
 	M.pre()
 	TR.pre()
 	ZN.pre()
+	Spr.pt("s_pre", __m); __m = Time.get_ticks_usec()
 	# encostado numa parede no ar (para deslizar e pular de parede em parede)
 	player.wslide = false
 	if player.wsl > 0:
@@ -1041,7 +1089,9 @@ func step() -> void:
 				tip("←/→ balança · ↑/↓ sobe e desce · PULAR solta")
 				break
 
+	Spr.pt("s_phys", __m); __m = Time.get_ticks_usec()
 	_p1_post(pcx, pcy)
+	Spr.pt("s_post", __m); __m = Time.get_ticks_usec()
 	for d in DRWS:
 		if not d.got and not d.get("hidden") and hit(player, R(d.x - 22, d.y - 22, 44, 44)):
 			d.got = true
@@ -1080,7 +1130,7 @@ func step() -> void:
 		_camera()
 		return
 	# lápis (moedas)
-	for c in COINS:
+	for c in coins_near(player.x - 80, player.x + 80):
 		if c.got:
 			continue
 		if hit(player, R(c.x - 15, c.y - 15, 30, 30)):
@@ -1119,6 +1169,7 @@ func step() -> void:
 			rest_reached.emit(c.rest)
 			return
 		save_checkpoint(k)
+	Spr.pt("s_items", __m); __m = Time.get_ticks_usec()
 	# inimigos
 	for e in EN:
 		if e.dead:
@@ -1163,8 +1214,10 @@ func step() -> void:
 		player.exitT = 40
 		burst(DOOR.x + DOOR.w / 2, DOOR.y + DOOR.h / 2, 20, Color("#ffe9a0"))
 		Audio.play("door")
+	Spr.pt("s_enem", __m); __m = Time.get_ticks_usec()
 	_tick_fx()
 	_camera()
+	Spr.pt("s_fxcam", __m)
 
 func _tick_fx() -> void:
 	for f in FXS:
@@ -1904,15 +1957,33 @@ func _p1_post(pcx: float, _pcy: float) -> void:
 		else:
 			flash(lock_msg(nearL), 260)
 			Audio.vib(15)
+	var __qX := Time.get_ticks_usec()
 	X.post()
+	Spr.pt("p_X", __qX)
+	var __qM := Time.get_ticks_usec()
 	M.post()
+	Spr.pt("p_M", __qM)
+	var __qPR := Time.get_ticks_usec()
 	PR.post()
+	Spr.pt("p_PR", __qPR)
+	var __qTR := Time.get_ticks_usec()
 	TR.post()
+	Spr.pt("p_TR", __qTR)
+	var __qK := Time.get_ticks_usec()
 	K.post()
+	Spr.pt("p_K", __qK)
+	var __qNT := Time.get_ticks_usec()
 	NT.post()
+	Spr.pt("p_NT", __qNT)
+	var __qRD := Time.get_ticks_usec()
 	RD.post()
+	Spr.pt("p_RD", __qRD)
+	var __qVH := Time.get_ticks_usec()
 	VH.check_river()
+	Spr.pt("p_VH", __qVH)
+	var __qZN := Time.get_ticks_usec()
 	ZN.post()
+	Spr.pt("p_ZN", __qZN)
 	# vilão foge
 	if VIL:
 		if not VIL.go and pcx > VIL.trig and pcx < L.spanX:
@@ -1943,8 +2014,12 @@ func _p1_post(pcx: float, _pcy: float) -> void:
 				burst(VIL.gateX, VIL.y - 30, 20, Color("#ffd28a"))
 				Audio.play("door", -4)
 				shake = 6
+	var __qupdatecoal := Time.get_ticks_usec()
 	_update_coal()
+	Spr.pt("p_updatecoal", __qupdatecoal)
+	var __qambient := Time.get_ticks_usec()
 	ambient()
+	Spr.pt("p_ambient", __qambient)
 	# raio na tempestade
 	if AMB.rain > .6:
 		thunder_t -= 1

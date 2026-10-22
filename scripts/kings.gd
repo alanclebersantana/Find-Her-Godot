@@ -281,7 +281,23 @@ func _bear() -> void:
 			var dx: float = pcx - b.x
 			b.dir = 1 if dx > 0 else -1
 			var spd: float = 1.7 + lvl * .35
-			b.x = clamp(b.x + b.dir * spd, b.x0 + 100, b.x1 - 100)
+			var nx: float = clamp(b.x + b.dir * spd, b.x0 + 100, b.x1 - 100)
+			# não atravessa os blocos de gelo: encosta, para e dá a volta
+			var blk = _bear_block(nx)
+			if blk != null:
+				# encostou no bloco: se o Tomé está perto, dá a patada por cima do gelo; se não, pula o bloco
+				g.burst(blk.x + blk.w / 2.0, blk.y + 20, 6, Color(.85, .95, 1))
+				if abs(dx) < 300:
+					b.st = "rear"
+					b.t = 0
+					Audio.play("roar", -6)
+				else:
+					b.st = "hop"
+					b.t = 0
+					b.hx0 = b.x
+					b.hx1 = (blk.x + blk.w + 66.0) if b.dir > 0 else (blk.x - 66.0)
+			else:
+				b.x = nx
 			b.anim += spd * .05
 			if abs(dx) < 200 and b.t > 30 and p.dyingT == 0:
 				b.st = "rear"
@@ -301,6 +317,12 @@ func _bear() -> void:
 				g.shake = 14
 				Audio.play("stomp")
 				Audio.vib(80)
+				# a patada no bloco de gelo faz ele tremer e soltar lascas
+				for s2 in g.SOL:
+					if s2.get("ice") and s2.y < gy and s2.x < paw.end.x and s2.x + s2.w > paw.position.x:
+						s2.shk = 18
+						for i in 14:
+							g.PARTS.append({"x": s2.x + randf() * s2.w, "y": s2.y + randf() * 20, "vx": (randf() - .5) * 6, "vy": -2.0 - randf() * 4, "life": 30, "col": Color(.85, .95, 1, .95)})
 				g.burst(b.x + b.dir * 150, gy, 24, Color(.95, .97, 1))
 				g.fx("fx_dust", b.x + b.dir * 150, gy - 10, 20, .4, -.3)
 				b.missed = not hit_tome
@@ -336,12 +358,28 @@ func _bear() -> void:
 			if b.t > 150 - lvl * 20:
 				b.st = "back"
 				b.t = 0
+		"hop":
+			# pulo pesado por cima do bloco de gelo
+			b.t += 1
+			var u: float = min(1.0, b.t / 34.0)
+			b.x = lerpf(b.hx0, b.hx1, u)
+			b.hy = -sin(u * PI) * 150.0
+			b.anim += .1
+			if u >= 1.0:
+				b.hy = 0.0
+				b.st = "walk"
+				b.t = 20
+				g.shake = max(g.shake, 10)
+				Audio.play("stomp")
+				g.burst(b.x, gy, 18, Color(.95, .97, 1))
 		"back":
 			# acorda e se afasta um pouco antes de voltar a andar
 			b.t += 1
 			var away: float = -1.0 if pcx > b.x else 1.0
 			b.dir = -int(away)
-			b.x = clamp(b.x + away * 4.5, b.x0 + 100, b.x1 - 100)
+			var bx2: float = clamp(b.x + away * 4.5, b.x0 + 100, b.x1 - 100)
+			if _bear_block(bx2) == null:
+				b.x = bx2
 			b.anim += .2
 			if b.t > 45:
 				b.st = "walk"
@@ -360,6 +398,17 @@ func _bear() -> void:
 			p.vy = -8.0
 		else:
 			g.hurt(1, b.x)
+
+## bloco de gelo da clareira que o urso encostaria em x (ou null)
+func _bear_block(x: float):
+	var b: Dictionary = BEAR
+	for s2 in g.SOL:
+		if s2.get("ice") and s2.t == "stone" and s2.x < b.x1 and s2.x + s2.w > b.x0:
+			if x + 62 > s2.x and x - 62 < s2.x + s2.w:
+				# só bloqueia se estiver vindo de fora (não prende o urso que já está em cima)
+				if not (b.x + 62 > s2.x and b.x - 62 < s2.x + s2.w):
+					return s2
+	return null
 
 func _bear_hit() -> void:
 	var b: Dictionary = BEAR

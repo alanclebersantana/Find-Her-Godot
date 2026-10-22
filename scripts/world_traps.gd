@@ -37,6 +37,8 @@ static func draw(g: Game, T: int) -> void:
 			"boulder": _boulder(g, o, T)
 			"giant": _giant(o, T)
 	_bobs(g, T)
+	_ice_hits(g, T)
+	_tunnel_ceiling(g, T)
 	if not TR.PICK.is_empty():
 		_pick(TR.PICK)
 
@@ -565,17 +567,7 @@ static func _bridge(o: Dictionary, T: int) -> void:
 
 # ---------- bola de pedra gigante ----------
 static func _boulder(g: Game, o: Dictionary, T: int) -> void:
-	# teto de pedra do túnel, com escoras, e o buraco de onde ela cai
-	var ca: float = max(float(o.x) - 400, g.cam - 40)
-	var cb: float = min(float(o.end) + 200, g.cam + g.W + 40)
-	if ca < cb:
-		Spr.rect(ca, o.y - 150, cb - ca, 34, Color("#3a2c20"))
-		Spr.rect(ca, o.y - 120, cb - ca, 5, Color("#5a4632"))
-		var bx0: float = floor(ca / 260.0) * 260.0
-		while bx0 < cb:
-			Spr.rect(bx0, o.y - 118, 12, 118, Color("#4e331d"))
-			Spr.rect(bx0 - 14, o.y - 122, 40, 10, Color("#6b4626"))
-			bx0 += 260.0
+	# buraco no teto de onde ela cai
 	Spr.ellipse(o.x, o.y - 120, o.r * 1.1, 10, Color(.05, .04, .03))
 	if o.st in ["idle", "done"]:
 		if o.st == "done":
@@ -658,3 +650,41 @@ static func _giant(o: Dictionary, T: int) -> void:
 	for d in [[-.3, -.15, .07], [.05, -.22, .08], [.3, -.1, .06], [-.08, -.06, .05], [.18, -.04, .04]]:
 		Spr.circle(x + d[0] * w, top + 8 + d[1] * w, d[2] * w, Color(1, 1, 1, .55))
 	Spr.line(cap, OUT, 2)
+
+## bloco de gelo que levou a patada: brilha e treme um instante
+static func _ice_hits(g: Game, T: int) -> void:
+	for s in g.SOL:
+		if s.get("shk", 0) > 0:
+			s.shk -= 1
+			var d: float = sin(T * 2.3) * s.shk * .25
+			Spr.rr(s.x + d, s.y, s.w, s.h + 4, 5, Color(.85, .95, 1, .55 * s.shk / 18.0))
+
+## teto de rocha com escoras e lampiões apagados ao longo de todo o túnel da mina
+static func _tunnel_ceiling(g: Game, T: int) -> void:
+	var tn: Array = g.L.get("tunnel", [])
+	if tn.size() < 2:
+		return
+	var ca: float = max(float(tn[0]), g.cam - 40)
+	var cb: float = min(float(tn[1]), g.cam + g.W + 40)
+	if ca >= cb:
+		return
+	var y0: float = 350.0
+	Spr.rect(ca, y0, cb - ca, 30, Color("#3a2c20"))
+	Spr.rect(ca, y0 + 26, cb - ca, 5, Color("#5a4632"))
+	var bx0: float = floor(ca / 260.0) * 260.0
+	while bx0 < cb:
+		# só escora onde há chão firme embaixo (não em cima de buracos)
+		var ok := false
+		for s in g.SOL:
+			if s.t == "ground" and abs(s.y - 500) < 2 and s.x <= bx0 and s.x + s.w >= bx0 + 12:
+				ok = true
+				break
+		if ok:
+			Spr.rect(bx0, y0 + 30, 12, 120, Color("#4e331d"))
+			Spr.rect(bx0 - 14, y0 + 26, 40, 10, Color("#6b4626"))
+			if int(bx0 / 260.0) % 2 == 0:
+				# lampião apagado pendurado
+				Spr.seg(bx0 + 22, y0 + 36, bx0 + 22, y0 + 50, Color("#2a2018"), 2)
+				Spr.rr(bx0 + 16, y0 + 50, 12, 16, 3, Color("#5a5048"))
+				Spr.rect(bx0 + 18, y0 + 54, 8, 8, Color(.25, .22, .18))
+		bx0 += 260.0

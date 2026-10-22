@@ -201,7 +201,7 @@ func _tome(x: float, by: float, sc: float, fr: int = 0, flip: bool = false, lamp
 		var fl := 1.0 + sin(t * 9) * .04
 		Spr.glow(x + (-38 if flip else 38) * sc / .5, by - 70 * sc / .5, 190 * sc / .5 * fl, Color(1, .82, .45, .45))
 	Spr.ellipse(x, by + 2, 34 * sc / .5, 7 * sc / .5, Color(0, 0, 0, .3))
-	Spr.frame(Spr.tex.pai, fr, 130, 160, 65, 156, x, by, sc, flip)
+	Spr.frame(Spr.tex.pai, fr, 170, 160, 85, 156, x, by, sc, flip)
 
 # ---------- abertura ----------
 func _s_porch(W: float, H: float, k: float) -> void:

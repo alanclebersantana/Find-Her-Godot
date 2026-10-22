@@ -9,6 +9,11 @@ const EARTH := Color("#2a1a0e")
 const CAVE := Color("#0d0a06")
 
 func _draw() -> void:
+	var __t := Time.get_ticks_usec()
+	_draw_raw()
+	Spr.pt("static", __t)
+
+func _draw_raw() -> void:
 	var L := game.L
 	Spr.begin(self)
 	if L.has("under"):

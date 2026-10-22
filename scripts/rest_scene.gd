@@ -60,7 +60,7 @@ func _draw() -> void:
 	# chão
 	Spr.ellipse(fx - 40, fy + 6, 300, 28, Color(.18, .1, .05))
 	# o Tomé se aquecendo (de lado para o fogo)
-	Spr.frame(Spr.tex.pai, 0, 130, 160, 65, 156, fx - 130, fy + 4, .8, false)
+	Spr.frame(Spr.tex.pai, 0, 170, 160, 85, 156, fx - 130, fy + 4, .8, false)
 	# a fogueira grande
 	Spr.A("o_fire_on", fx, fy + 4, 1.6)
 	for i in 6:
@@ -143,7 +143,7 @@ class _Memory extends Control:
 		var dir: float = cos(t * .03)
 		var tx: float = lx - sign(dir) * 90
 		_lia(2 if int(t / 12) % 2 == 0 else 1, lx, h * .84 - abs(sin(t * .2)) * 8, _kid(h), dir < 0)
-		Spr.frame(Spr.tex.pai, [1, 2, 3, 2][int(t / 8) % 4], 130, 160, 65, 156, tx, h * .84, _dad(h), dir < 0)
+		Spr.frame(Spr.tex.pai, [1, 2, 3, 2][int(t / 8) % 4], 170, 160, 85, 156, tx, h * .84, _dad(h), dir < 0)
 		Spr.text("hihi!", lx, h * .3, 15, Color(.4, .25, .2), HORIZONTAL_ALIGNMENT_CENTER)
 
 	func _puddles(w: float, h: float, t: float) -> void:
@@ -162,7 +162,7 @@ class _Memory extends Control:
 			for k in 6:
 				Spr.circle(lx + (k - 2.5) * 12, h * .84 - k % 3 * 6, 4, Color(.6, .75, .9))
 		# o pai com a lanterna acesa
-		Spr.frame(Spr.tex.pai, 0, 130, 160, 65, 156, w * .22, h * .86, _dad(h), false)
+		Spr.frame(Spr.tex.pai, 0, 170, 160, 85, 156, w * .22, h * .86, _dad(h), false)
 		Spr.glow(w * .22 + 160 * _dad(h) * .36, h * .86 - 160 * _dad(h) * .45, 60, Color(1, .85, .5, .5))
 
 	func _snowman(w: float, h: float, t: float) -> void:
@@ -207,4 +207,4 @@ class _Memory extends Control:
 		Spr.rect(ax - 10, h * .1, 20, 4, Color(.5, .3, .25))
 		Spr.rect(ax - 3, h * .1 - 5, 6, 14, Color(.6, .35, .3))
 		_lia(2, lx, ly, _kid(h))
-		Spr.frame(Spr.tex.pai, 0, 130, 160, 65, 156, w * .24, h * .8, _dad(h), false)
+		Spr.frame(Spr.tex.pai, 0, 170, 160, 85, 156, w * .24, h * .8, _dad(h), false)

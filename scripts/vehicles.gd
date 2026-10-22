@@ -24,6 +24,7 @@ var plane_done := false
 var phase := ""         # avião: "taxi", "fly", "land", "stop"
 var tilt := 0.0
 var OBS: Array = []
+var RAFT_SOL := {}
 
 func _init(game) -> void:
 	g = game
@@ -34,8 +35,12 @@ func load_level() -> void:
 	plane_done = false
 	RA = g.L.get("raft", {}).duplicate(true)
 	PL = g.L.get("plane", {}).duplicate(true)
+	RAFT_SOL = {}
 	if not RA.is_empty():
 		RA.px = float(RA.x)
+		# a jangada parada no cais é um chão de verdade: pular nela também embarca
+		RAFT_SOL = {"t": "raftsol", "x": RA.px - 38.0, "y": water_y(RA.px) - 8.0, "w": 76.0, "h": 12.0, "oneway": 1, "raft": 1}
+		g.SOL.append(RAFT_SOL)
 	if not PL.is_empty():
 		PL.px = float(PL.x)
 		PL.py = float(PL.y)
@@ -59,6 +64,11 @@ func check_river() -> void:
 	if RA.is_empty() or mode == "raft":
 		return
 	var p: Dictionary = g.player
+	# pousou em cima da jangada: embarca e a corredeira começa
+	if not RAFT_SOL.is_empty() and p.onGround and p._g == RAFT_SOL and not p.get("dog") and p.dyingT == 0:
+		g.want_comic("jangada")
+		_start_raft()
+		return
 	var pcx: float = p.x + p.w / 2
 	if pcx > RA.x0 and pcx < RA.x1 and p.y + p.h > water_y(pcx) + 12 and p.dyingT == 0:
 		g.die("A correnteza te levou! Suba na jangada (✦).")
@@ -111,6 +121,7 @@ func _common_start() -> void:
 
 func _start_raft() -> void:
 	mode = "raft"
+	_drop_raft_sol()
 	_common_start()
 	OBS = []
 	for o in RA.get("obs", []):
@@ -259,10 +270,16 @@ func _hurt_raft(_k: String) -> void:
 		g.flash("A jangada virou! De novo — PULAR para saltar, ↓ para abaixar.", 220)
 		_start_raft()
 
+func _drop_raft_sol() -> void:
+	if not RAFT_SOL.is_empty():
+		g.SOL.erase(RAFT_SOL)
+		RAFT_SOL = {}
+
 func _finish_raft() -> void:
 	var p: Dictionary = g.player
 	mode = ""
 	raft_done = true
+	_drop_raft_sol()
 	RA.px = float(RA.x1) - 90
 	p.x = float(RA.x1) + 10
 	p.y = 500 - p.h - 4
@@ -423,7 +440,7 @@ func _finish_plane() -> void:
 	g.flash("Pouso perfeito! A mina fica logo ali.", 220)
 
 func _coins(b: Dictionary) -> void:
-	for c in g.COINS:
+	for c in g.coins_near(hx - 120, hx + 120):
 		if not c.got and abs(c.x - hx) < 90 and Game.hit(b, g.R(c.x - 15, c.y - 15, 30, 30)):
 			c.got = true
 			g.STATS.pen += 1
@@ -437,6 +454,7 @@ func restore(d: Dictionary) -> void:
 	plane_done = d.get("plane", false)
 	if raft_done and not RA.is_empty():
 		RA.px = float(RA.x1) - 90
+		_drop_raft_sol()
 	if plane_done and not PL.is_empty():
 		PL.px = d.get("ppx", PL.x1)
 		PL.py = d.get("ppy", PL.land)

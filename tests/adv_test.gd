@@ -66,6 +66,14 @@ func _initialize() -> void:
 		S("sobe com ↑", climb_to("U", func(): return P.ladder == null and P.onGround and P.y < 500, 500))
 	if all or args.has("raft"):
 		put(25010, 500)
+		walk_to(25050)
+		jump_to(25165)
+		S("pulou na jangada e embarcou", g.VH.mode == "raft")
+		g.VH.mode = ""
+		g.load_level(0)
+		for e in g.EN:
+			e.dead = 99
+		put(25010, 500)
 		walk_to(25040)
 		use()
 		S("subiu na jangada", g.VH.mode == "raft")

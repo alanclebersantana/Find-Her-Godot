@@ -249,7 +249,11 @@ func bear_fight():
 				var side: float = -1.0 if dx < 0 else 1.0
 				var tx: float = b.x + side * 90
 				if abs(tx - px()) > 6:
+					var before: float = px()
 					frame({"R" if tx > px() else "L": true})
+					# o bloco de gelo no caminho: pula por cima dele (cai na cabeça do urso)
+					if abs(px() - before) < .2 and P.onGround:
+						jump_to(b.x)
 				else:
 					P.face = -int(side)
 					press("G")

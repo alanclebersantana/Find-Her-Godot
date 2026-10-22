@@ -8,6 +8,11 @@ func _process(_d: float) -> void:
 	queue_redraw()
 
 func _draw() -> void:
+	var __t := Time.get_ticks_usec()
+	__draw_raw()
+	Spr.pt("glow", __t)
+
+func __draw_raw() -> void:
 	if game == null or not game.L:
 		return
 	var g := game
@@ -45,7 +50,7 @@ func _draw() -> void:
 		Spr.seg(qb, qy - 1, qb + 30, qy - 1, Color(.95, .9, .75, .85 * q), 3)
 		for e in [qa, qb]:
 			Spr.rect(e - 3, qy - 2, 6, 46, Color(.75, .7, .6, .35 * q))
-	for c in g.COINS:
+	for c in g.coins_near(x0, x1):
 		if c.got or c.x < x0 or c.x > x1:
 			continue
 		var pen: String = "pen_" + GameData.PEN_LIST[int(c.ci) % 6]

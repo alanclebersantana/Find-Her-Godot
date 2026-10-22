@@ -12,6 +12,11 @@ func _process(_d: float) -> void:
 	queue_redraw()
 
 func _draw() -> void:
+	var __t := Time.get_ticks_usec()
+	__draw_raw()
+	Spr.pt("bg", __t)
+
+func __draw_raw() -> void:
 	if game == null or not game.L:
 		return
 	Spr.begin(self)

@@ -19,6 +19,11 @@ static func css(s: String) -> Color:
 	return Color(float(m[0]) / 255.0, float(m[1]) / 255.0, float(m[2]) / 255.0, float(m[3]) if m.size() > 3 else 1.0)
 
 func _draw() -> void:
+	var __t := Time.get_ticks_usec()
+	__draw_raw()
+	Spr.pt("fx", __t)
+
+func __draw_raw() -> void:
 	if game == null or not game.L:
 		return
 	var vs := get_viewport_rect().size

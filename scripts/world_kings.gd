@@ -150,7 +150,7 @@ static func _bear(g: Game, K: Kings, T: int) -> void:
 		Spr.ellipse(paw.position.x + paw.size.x / 2, b.gy + 1, paw.size.x / 2, 9, Color(1, .25, .15, k))
 	Spr.ellipse(b.x, b.gy + 2, 100, 12, Color(0, 0, 0, .28))
 	Spr.save()
-	Spr.translate(b.x, b.gy + 2)
+	Spr.translate(b.x, b.gy + 2 + b.get("hy", 0.0))
 	if b.st == "rear":
 		Spr.translate(0, -sin(min(1.0, b.t / 20.0) * PI * .5) * 6)
 	Spr.scale(b.dir * sc, sc)

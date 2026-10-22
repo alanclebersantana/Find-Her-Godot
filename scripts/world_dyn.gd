@@ -9,41 +9,86 @@ func _process(_d: float) -> void:
 	queue_redraw()
 
 func _draw() -> void:
+	var __t := Time.get_ticks_usec()
+	__draw_raw()
+	Spr.pt("dyn", __t)
+
+func __draw_raw() -> void:
 	if game == null or not game.L:
 		return
 	var g := game
 	T = g.T
 	Spr.begin(self)
+	var __d__deco := Time.get_ticks_usec()
 	_deco(g)
+	Spr.pt("d__deco", __d__deco)
+	var __d__climb := Time.get_ticks_usec()
 	_climb(g)
+	Spr.pt("d__climb", __d__climb)
+	var __d__locks := Time.get_ticks_usec()
 	_locks(g)
+	Spr.pt("d__locks", __d__locks)
+	var __d__entrances := Time.get_ticks_usec()
 	_entrances(g)
+	Spr.pt("d__entrances", __d__entrances)
+	var __d__lily_mud := Time.get_ticks_usec()
 	_lily_mud(g)
+	Spr.pt("d__lily_mud", __d__lily_mud)
+	var __d_Extras_chalk := Time.get_ticks_usec()
 	WorldExtras.chalk(g, T)
+	Spr.pt("d_Extras_chalk", __d_Extras_chalk)
+	var __d_Extras_footprints := Time.get_ticks_usec()
 	WorldExtras.footprints(g)
+	Spr.pt("d_Extras_footprints", __d_Extras_footprints)
+	var __d_Extras_crawl := Time.get_ticks_usec()
 	WorldExtras.crawl(g, T)
+	Spr.pt("d_Extras_crawl", __d_Extras_crawl)
+	var __d_Extras_solids := Time.get_ticks_usec()
 	WorldExtras.solids(g, T)
+	Spr.pt("d_Extras_solids", __d_Extras_solids)
+	var __d_Extras_mech := Time.get_ticks_usec()
 	WorldExtras.mech(g, T)
+	Spr.pt("d_Extras_mech", __d_Extras_mech)
+	var __d_Props_draw := Time.get_ticks_usec()
 	WorldProps.draw(g, T)
+	Spr.pt("d_Props_draw", __d_Props_draw)
+	var __d_Traps_draw := Time.get_ticks_usec()
 	WorldTraps.draw(g, T)
+	Spr.pt("d_Traps_draw", __d_Traps_draw)
+	var __d_Nature_draw := Time.get_ticks_usec()
 	WorldNature.draw(g, T)
+	Spr.pt("d_Nature_draw", __d_Nature_draw)
+	var __d__ride_world := Time.get_ticks_usec()
 	_ride_world(g)
+	Spr.pt("d__ride_world", __d__ride_world)
+	var __d_Vehicles_draw := Time.get_ticks_usec()
 	WorldVehicles.draw(g, T)
+	Spr.pt("d_Vehicles_draw", __d_Vehicles_draw)
+	var __d_Extras_boss := Time.get_ticks_usec()
 	WorldExtras.boss(g, T)
+	Spr.pt("d_Extras_boss", __d_Extras_boss)
+	var __d_Kings_draw := Time.get_ticks_usec()
 	WorldKings.draw(g, T)
+	Spr.pt("d_Kings_draw", __d_Kings_draw)
 	if g.VIL and g.VIL.go and not g.VIL.gone:
 		var v: Dictionary = g.VIL
 		var f: int = (T / max(3, int(10 - v.get("spd", 3.3)))) % 2
 		Spr.A("lia_scared", v.x + 44, v.y - 58, .5)
 		Spr.A("vg_cart1" if f else "vg_cart2", v.x, v.y + 2, 1)
+	var cx0: float = g.cam - 400
+	var cx1: float = g.cam + g.W + 400
 	for v in g.VINES:
+		if v.x + v.len < cx0 or v.x - v.len > cx1:
+			continue
 		_vine(v)
 	for s in g.SPR:
 		_glow_mush(s.x, s.y, s.t)
 	for c in g.CHK:
+		if c.x < cx0 or c.x > cx1:
+			continue
 		_campfire(c)
 	for c in g.CR:
-		if not c.dead and c.t != "push":
+		if not c.dead and c.t != "push" and c.x > cx0 and c.x < cx1:
 			_crate(c)
 	for e in g.EN:
 		if e.dead > 50:
@@ -55,7 +100,9 @@ func _draw() -> void:
 		Spr.translate(eo.x, eo.y)
 		_enemy(e)
 		Spr.restore()
+	var __d_Extras_tocas := Time.get_ticks_usec()
 	WorldExtras.tocas(g, T)
+	Spr.pt("d_Extras_tocas", __d_Extras_tocas)
 	if g.M and g.M.ctrl:
 		var doff := g.ip_off()
 		Spr.save()
@@ -64,9 +111,15 @@ func _draw() -> void:
 		Spr.restore()
 	else:
 		WorldExtras.dog(g, T)
+	var __d__player := Time.get_ticks_usec()
 	_player(g)
+	Spr.pt("d__player", __d__player)
+	var __d_Traps_draw_front := Time.get_ticks_usec()
 	WorldTraps.draw_front(g, T)
+	Spr.pt("d_Traps_draw_front", __d_Traps_draw_front)
+	var __d_Extras_grass := Time.get_ticks_usec()
 	WorldExtras.grass(g, T)
+	Spr.pt("d_Extras_grass", __d_Extras_grass)
 	for f in g.FXS:
 		Spr.A(f.n, f.x, f.y, f.sc, false, 1.0 - float(f.t) / f.life)
 	for p in g.PARTS:
@@ -113,6 +166,8 @@ func _deco(g: Game) -> void:
 
 func _climb(g: Game) -> void:
 	for z in g.CLIMB:
+		if z.x + z.w < g.cam - 200 or z.x > g.cam + g.W + 200:
+			continue
 		if z.kind == "ladder":
 			Spr.strip_v("o_ladder", z.x + z.w / 2 - 18, z.y - 4, 36, z.h + 4)
 		elif z.kind == "net":
@@ -393,7 +448,7 @@ func _rider(g: Game) -> void:
 		Spr.rotate(.6)
 	elif RD.stumble > 0:
 		Spr.rotate(sin(T * .8) * .15)
-	Spr.frame(Spr.tex.pai, 0, 130, 160, 65, 156, 0, 0, .46, false)
+	Spr.frame(Spr.tex.pai, 0, 170, 160, 85, 156, 0, 0, .46, false)
 	Spr.restore()
 	if g.X.DOG.get("st", "") == "ride":
 		Spr.save()
@@ -475,7 +530,7 @@ func _player_draw(g: Game) -> void:
 		Spr.translate(cx, by - 30)
 		Spr.rotate((46 - p.dyingT) * .12)
 		Spr.translate(0, 30)
-		Spr.frame(pai2, 8, 130, 160, 65, 156, 0, 0, .48, p.face < 0)
+		Spr.frame(pai2, 8, 170, 160, 85, 156, 0, 0, .48, p.face < 0)
 		Spr.restore()
 		return
 	# pendurado na corda esticada: mão sobre mão
@@ -629,7 +684,7 @@ func _player_draw(g: Game) -> void:
 	elif p.run and p.onGround:
 		Spr.rotate(p.face * .07)
 	Spr.scale(p.face * sc * (1 + sq * .25) * turn, sc * (1 - sq * .3 + idle))
-	Spr.ci.draw_texture_rect_region(tex, Rect2(-65, -156, 130, 160), Rect2(fr * 130, 0, 130, 160), Color(1, 1, 1, Spr.alpha))
+	Spr.ci.draw_texture_rect_region(tex, Rect2(-85, -156, 170, 160), Rect2(fr * 170, 0, 170, 160), Color(1, 1, 1, Spr.alpha))
 	Spr.restore()
 	_armor(p, cx, by)
 	if not p.onGround and not p.vine and not p.ladder and p.airJumps > 0:
