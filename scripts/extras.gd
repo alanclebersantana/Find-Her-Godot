@@ -299,7 +299,7 @@ func post() -> void:
 	_footprints()
 
 func weather_amb() -> void:
-	var under: bool = g.L.has("under") and g.player.y > g.L.under
+	var under: bool = g.indoors()
 	g.AMB.fog = 0.0
 	g.AMB.wind = 0.0
 	if under or g.AMB.get("snow", 0.0) > .3:

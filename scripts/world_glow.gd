@@ -30,13 +30,8 @@ func __draw_raw() -> void:
 		# o vão fica bem mais escuro que o chão em volta
 		Spr.vgrad(pa, 500, pb - pa, 120, Color(0, 0, 0, .55), Color(0, 0, 0, .85))
 		Spr.rect(pa, 620, pb - pa, 600, Color(0, 0, 0, .85))
-		for e in [pa, pb]:
-			Spr.rect(e - 3, 498, 6, 46, Color(.75, .7, .6, .35 * k))
-		Spr.seg(pa - 30, 499, pa, 499, Color(.95, .9, .75, .85 * k), 3)
-		Spr.seg(pb, 499, pb + 30, 499, Color(.95, .9, .75, .85 * k), 3)
-		for i in 3:
-			Spr.circle(pa + 6 + i * 7, 512 + i * 9, 2.5, Color(.7, .62, .5, .5 * k))
-			Spr.circle(pb - 6 - i * 7, 514 + i * 8, 2.5, Color(.7, .62, .5, .5 * k))
+		_pit_rim(pa, 499, 1.0, k)
+		_pit_rim(pb, 499, -1.0, k)
 	for sh in g.L.get("shafts", []):
 		if sh[1] < x0 or sh[0] > x1:
 			continue
@@ -46,10 +41,8 @@ func __draw_raw() -> void:
 		var q: float = .55 + .15 * sin(T * .05)
 		Spr.vgrad(qa, qy, qb - qa, 120, Color(0, 0, 0, .55), Color(0, 0, 0, .9))
 		Spr.rect(qa, qy + 120, qb - qa, 600, Color(0, 0, 0, .9))
-		Spr.seg(qa - 30, qy - 1, qa, qy - 1, Color(.95, .9, .75, .85 * q), 3)
-		Spr.seg(qb, qy - 1, qb + 30, qy - 1, Color(.95, .9, .75, .85 * q), 3)
-		for e in [qa, qb]:
-			Spr.rect(e - 3, qy - 2, 6, 46, Color(.75, .7, .6, .35 * q))
+		_pit_rim(qa, qy - 1, 1.0, q)
+		_pit_rim(qb, qy - 1, -1.0, q)
 	for c in g.coins_near(x0, x1):
 		if c.got or c.x < x0 or c.x > x1:
 			continue
@@ -158,6 +151,35 @@ func __draw_raw() -> void:
 				Spr.glow(o.x, o.cap + 4, o.w * .7, Color(gc.r, gc.g, gc.b, .22 + .06 * sin(T * .05 + o.x)))
 				for d in [[-.3, -.15, .07], [.05, -.22, .08], [.3, -.1, .06]]:
 					Spr.circle(o.x + d[0] * o.w, o.cap + 8 + d[1] * o.w, d[2] * o.w * .6, Color(.85, 1, .95, .35))
+	# no túnel: gotas pingando do teto e poeira dançando na luz da lanterna
+	var tn: Array = g.L.get("tunnel", [])
+	if tn.size() >= 2 and float(tn[1]) > x0 and float(tn[0]) < x1:
+		for k in 9:
+			var dx: float = float(tn[0]) + fposmod(k * 433.0 + 97.0, float(tn[1]) - float(tn[0]))
+			if dx < x0 or dx > x1:
+				continue
+			var per: float = 90.0 + k * 13
+			var ph: float = fposmod(T + k * 37.0, per)
+			if ph < 30:
+				# gota se formando
+				Spr.ellipse(dx, 382 + ph * .1, 2 + ph * .05, 2.5 + ph * .08, Color(.6, .75, .85, .7))
+			elif ph < 55:
+				var fy: float = 385 + pow((ph - 30) / 25.0, 2) * 115
+				Spr.ellipse(dx, fy, 1.8, 3.5, Color(.7, .85, .95, .8))
+			elif ph < 70:
+				var u: float = (ph - 55) / 15.0
+				Spr.ring(dx, 499, 3 + u * 12, Color(.7, .85, .95, .6 * (1.0 - u)), 1.2)
+	if g.indoors() or g.AMB.dark > .45:
+		var pl: Dictionary = g.player
+		var lx: float = pl.x + pl.w / 2 + pl.face * 16
+		var ly: float = pl.y + pl.h * .4
+		for k in 16:
+			var ang: float = k * 2.4 + T * (.004 + k * .0007)
+			var rad: float = 30 + fposmod(k * 17.0, 70.0) + sin(T * .01 + k) * 10
+			var mx: float = lx + cos(ang) * rad + pl.face * 30
+			var my: float = ly + sin(ang * 1.3) * rad * .6 - 10
+			var a: float = clamp(1.0 - rad / 110.0, 0, 1) * (.4 + .3 * sin(T * .07 + k))
+			Spr.circle(mx, my, 1.2, Color(1, .92, .7, a))
 	# janelas acesas das casas da vila: a luz de dentro tremula como lamparina
 	for d in g.L.get("decor", []):
 		if not d.k in ["house1", "house2"] or d.x < x0 - 200 or d.x > x1 + 200:
@@ -184,6 +206,29 @@ func __draw_raw() -> void:
 	for bsh in g.BUSH:
 		var near: bool = abs(p.x + p.w / 2 - (bsh.x + bsh.w / 2)) < bsh.w / 2 + 10 and abs(p.y + p.h - (bsh.y + bsh.h)) < bsh.h
 		Spr.AB("o_bush_gold", bsh.x - 20, bsh.y + bsh.h - 84, bsh.w + 40, 84, .35 if near else 1.0)
+
+## beirada do buraco que aparece até no escuro: contorno claro seguindo a terra que desmorona e
+## pedrinhas soltas caindo da borda
+func _pit_rim(e: float, y: float, dir: float, k: float) -> void:
+	var pts := PackedVector2Array()
+	for i in 9:
+		var u := i / 8.0
+		# vem pelo chão, faz a curva da beirada e desce pela parede irregular
+		var px: float
+		var py: float
+		if u < .45:
+			px = e - dir * (30.0 - u / .45 * 30.0)
+			py = y
+		else:
+			var v: float = (u - .45) / .55
+			px = e + dir * (sin(v * 1.6) * 16 + 3 * sin(v * 9.0 + e))
+			py = y + v * v * 46
+		pts.push_back(Vector2(px, py))
+	Spr.line(pts, Color(.95, .9, .75, .8 * k), 3)
+	Spr.line(pts, Color(.75, .68, .55, .3 * k), 7)
+	for i in 3:
+		var fy: float = fmod(game.T * (.6 + i * .2) + i * 40.0, 120.0)
+		Spr.circle(e + dir * (10 + i * 5), y + 14 + fy, 2.2, Color(.7, .62, .5, .45 * k * (1.0 - fy / 120.0)))
 
 ## Objeto pousado no chão (com sombra e brilho suave); se não houver chão perto, flutua.
 func _ground_obj(n: String, o: Dictionary, sc: float, glow: Color, flat: bool) -> float:
@@ -332,7 +377,10 @@ func _water(g: Game, a: float, b: float, y: float, depth: float, c0: Color, c1: 
 	var ys: Array = []
 	while x2 <= b + 8.1:
 		var xx: float = clamp(x2, a, b)
-		var oy: float = sin(xx * .045 + T * .07) * 1.6 + sin(xx * .11 - T * .05) * .7
+		# balanço constante (três ondas cruzando) — a água nunca fica parada
+		var oy: float = sin(xx * .028 + T * .055) * 3.0 + sin(xx * .071 - T * .043) * 1.6 + sin(xx * .16 + T * .1) * .6
+		if swamp or key.begins_with("s"):
+			oy *= .7
 		if not wb.is_empty():
 			oy += g.WV.height(wb, xx)
 		top.push_back(Vector2(xx, y + oy))
@@ -379,6 +427,30 @@ func _water(g: Game, a: float, b: float, y: float, depth: float, c0: Color, c1: 
 		var al: float = .35 * (1.0 - abs(p.y + p.h - y) / 140.0)
 		for k in 4:
 			Spr.ellipse(rx + sin(T * .1 + k) * 3, y + 6 + k * 7, 14 - k * 2.5, 2, Color(1, .85, .5, al * (1.0 - k * .2)))
+	if not swamp and not key.begins_with("s") and depth > 40:
+		# luz dançando no fundo (cáusticas) e fachos de luz entrando na água
+		var cy0: float = y + depth - 26
+		for k in 3:
+			var cpts := PackedVector2Array()
+			var cx: float = a
+			while cx <= b + .1:
+				cpts.push_back(Vector2(cx, cy0 + k * 8 + sin(cx * (.05 + k * .013) + T * (.05 - k * .012) + k) * 5 + sin(cx * .13 - T * .07) * 2))
+				cx += 10
+			Spr.line(cpts, Color(.85, 1, 1, .12 - k * .03), 2.2 - k * .5)
+		var rk: float = floor(a / 90.0) * 90.0
+		while rk < b:
+			var ra: float = .045 + .03 * sin(T * .02 + rk * .01)
+			var r0: float = rk + 30 + sin(T * .01 + rk) * 10
+			if r0 > a and r0 < b - 20:
+				Spr.ci.draw_polygon(PackedVector2Array([Vector2(r0, y + 6), Vector2(r0 + 20, y + 6), Vector2(r0 + 46, y + min(depth, 160.0)), Vector2(r0 + 18, y + min(depth, 160.0))]),
+					PackedColorArray([Color(1, 1, .9, ra), Color(1, 1, .9, ra), Color(1, 1, .9, 0), Color(1, 1, .9, 0)]))
+			rk += 90
+	# margens: barranco arredondado cobrindo a quina, faixa de lama, juncos, pedras molhadas e folhas
+	for side in [0, 1]:
+		var ex: float = bx0 if side == 0 else bx1
+		if bx1 - bx0 < 60 or ex < a - 70 or ex > b + 70:
+			continue
+		_bank(ex, y, 1.0 if side == 0 else -1.0, swamp or key.begins_with("s"), T, min(depth, 120.0))
 	if swamp:
 		# lentilha-d'água e folhinhas boiando
 		for k in int(w / 55.0):
@@ -390,3 +462,41 @@ func _water(g: Game, a: float, b: float, y: float, depth: float, c0: Color, c1: 
 			var bx: float = a + fmod(k * 97.1, w)
 			var ph: float = fmod(T * .6 + k * 37.0, depth)
 			Spr.ring(bx + sin(ph * .1 + k) * 3, y + depth - ph, 1.5 + ph * .01, Color(.85, .95, 1, .45 * (ph / depth)), 1.0)
+
+
+## margem de um corpo d'água: terra arredondada descendo para dentro da água (sem quina reta),
+## faixa de lama molhada, pedras brilhando, juncos e uma vitória-régia
+func _bank(e: float, y: float, dir: float, toxic: bool, T: int, depth: float) -> void:
+	var earth := Color("#4a3220") if not toxic else Color("#3a3018")
+	var mud := Color("#2e2014") if not toxic else Color("#29301a")
+	var pts := PackedVector2Array([Vector2(e - dir * 4, y - 4)])
+	for i in 13:
+		var u := i / 12.0
+		# curva do barranco: começa na beira e vai entrando na água conforme desce
+		pts.push_back(Vector2(e + dir * (4 + sin(u * PI * .5) * 26 + sin(u * 9.0 + e) * 3), y - 4 + u * depth))
+	pts.push_back(Vector2(e - dir * 4, y + depth))
+	Spr.poly(pts, earth)
+	# faixa de lama molhada na linha da água
+	Spr.ellipse(e + dir * 10, y + 2, 20, 5, mud)
+	Spr.ellipse(e + dir * 6, y, 14, 2, Color(1, 1, 1, .18))
+	# pedras molhadas
+	for k in 2:
+		var rx: float = e + dir * (12 + k * 14)
+		var ry: float = y + 4 + k * 3
+		Spr.ellipse(rx, ry, 8 - k * 2, 5 - k, Color("#5e5d56"))
+		Spr.ellipse(rx - 2, ry - 2, 3, 1.4, Color(1, 1, 1, .45))
+	# juncos balançando
+	for k in 3:
+		var jx: float = e - dir * (2 + k * 6)
+		var jh: float = 24 + fmod(abs(jx) * 1.3, 16.0)
+		var sw: float = sin(T * .04 + jx) * 3
+		Spr.seg(jx, y, jx + sw + dir * 2, y - jh, Color("#4f7a34") if not toxic else Color("#5a6a2a"), 2.2)
+		if k != 1:
+			Spr.rr(jx + sw + dir * 2 - 2.5, y - jh - 1, 5, 11, 2.5, Color("#6b4626"))
+	# vitória-régia boiando perto da margem
+	if not toxic:
+		var lx: float = e + dir * 52
+		var ly: float = y + 1 + sin(T * .05 + e) * 1.2
+		Spr.ellipse(lx, ly, 14, 4, Color("#4f8a3a"))
+		Spr.poly(PackedVector2Array([Vector2(lx, ly), Vector2(lx + 12, ly - 2), Vector2(lx + 12, ly + 2)]), Color(.2, .35, .4, .8))
+		Spr.circle(lx - 4, ly - 2, 2.5, Color(1, .8, .9))

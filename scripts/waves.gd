@@ -90,6 +90,16 @@ func step() -> void:
 				vv[i - 1] -= d
 		b.h = hh
 		b.v = vv
+		# vento e chuva mexendo a água o tempo todo (as ondinhas se espalham pela física)
+		if n > 2:
+			if g.T % 9 == 0:
+				var j: int = randi() % n
+				vv[j] += randf_range(-.6, .6)
+			var rain: float = g.AMB.get("rain", 0.0)
+			if rain > .1 and randf() < rain * .5:
+				var j2: int = randi() % n
+				vv[j2] += randf_range(.4, 1.1)
+			b.v = vv
 	_player_waves()
 
 ## o Tomé mexendo a água: entrar, sair, nadar na superfície

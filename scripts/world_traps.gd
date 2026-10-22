@@ -669,8 +669,22 @@ static func _tunnel_ceiling(g: Game, T: int) -> void:
 	if ca >= cb:
 		return
 	var y0: float = 350.0
-	Spr.rect(ca, y0, cb - ca, 30, Color("#3a2c20"))
-	Spr.rect(ca, y0 + 26, cb - ca, 5, Color("#5a4632"))
+	# teto de rocha com a borda de baixo irregular e pontas (estalactites), sem régua
+	var top := PackedVector2Array([Vector2(ca - 10, y0 - 400)])
+	var bot := PackedVector2Array()
+	var xx: float = floor(ca / 14.0) * 14.0 - 14
+	while xx <= cb + 14:
+		var d: float = 26 + 5 * sin(xx * .05) + 3 * sin(xx * .13 + 1.0)
+		var r: float = fposmod(xx * .37, 1.0)
+		if fposmod(xx, 98.0) < 14 and r > .3:
+			d += 12 + r * 14
+		bot.push_back(Vector2(xx, y0 + d))
+		xx += 14
+	for p in bot:
+		top.push_back(p)
+	top.push_back(Vector2(cb + 10, y0 - 400))
+	Spr.poly(top, Color("#3a2c20"))
+	Spr.line(bot, Color("#5a4632"), 3)
 	var bx0: float = floor(ca / 260.0) * 260.0
 	while bx0 < cb:
 		# só escora onde há chão firme embaixo (não em cima de buracos)

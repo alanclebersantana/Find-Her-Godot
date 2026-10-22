@@ -4,7 +4,20 @@ extends Node2D
 var game: Game
 var rain: Array = []
 
+var vign: GradientTexture2D
 func _ready() -> void:
+	# vinheta: bordas um pouco mais escuras, centro limpo
+	var gr := Gradient.new()
+	gr.set_color(0, Color(0, 0, 0, 0))
+	gr.add_point(.62, Color(0, 0, 0, 0))
+	gr.set_color(gr.get_point_count() - 1, Color(0, 0, 0, 1))
+	vign = GradientTexture2D.new()
+	vign.gradient = gr
+	vign.fill = GradientTexture2D.FILL_RADIAL
+	vign.fill_from = Vector2(.5, .5)
+	vign.fill_to = Vector2(1.08, .5)
+	vign.width = 256
+	vign.height = 144
 	for i in 160:
 		rain.append({"x": randf() * 1400, "y": randf() * 540, "v": 12 + randf() * 8})
 
@@ -31,7 +44,7 @@ func __draw_raw() -> void:
 	if tint != "" and tint != null:
 		draw_rect(Rect2(Vector2.ZERO, vs), css(tint))
 	var r: float = game.AMB.rain
-	if game.L.has("under") and game.player.y > game.L.under:
+	if game.indoors():
 		r = 0.0
 	if r > .05 and game.running:
 		var n := int(rain.size() * r)
@@ -45,7 +58,23 @@ func __draw_raw() -> void:
 			if d.x < -20:
 				d.x += vs.x + 40
 			draw_line(Vector2(d.x, d.y), Vector2(d.x + 3, d.y - 14), Color(.78, .84, .9, .45), 1.3)
+	draw_texture_rect(vign, Rect2(Vector2.ZERO, vs), false, Color(1, 1, 1, .32))
 	if game.lightning > 0:
 		draw_rect(Rect2(Vector2.ZERO, vs), Color(.9, .94, 1, game.lightning / 14.0))
-	if game.iris_t > 0:
-		draw_rect(Rect2(Vector2.ZERO, vs), Color(0, 0, 0, game.iris_t / 30.0))
+	# transição em círculo (íris), como nos desenhos antigos: fecha no Tomé quando ele cai e abre de novo
+	var p: Dictionary = game.player
+	var z: float = game.camera.zoom.x if game.camera else 1.0
+	var pc := Vector2((p.x + p.w / 2 - game.rcam) * z, (p.y + p.h / 2 - game.rcam_y) * z)
+	var maxr: float = vs.length()
+	var ir := -1.0
+	if p.dyingT > 0:
+		var u: float = clamp((p.dyingT - 4) / 40.0, 0.0, 1.0)
+		ir = maxr * u * u
+	elif game.iris_t > 0:
+		var u2: float = 1.0 - game.iris_t / 30.0
+		ir = maxr * u2 * u2
+	if ir >= 0 and ir < maxr:
+		var wide: float = maxr * 2.0
+		draw_arc(pc, ir + wide / 2.0, 0, TAU, 72, Color(0, 0, 0), wide, true)
+		if ir > 2:
+			draw_arc(pc, ir + 2, 0, TAU, 72, Color(.1, .07, .04, .6), 4, true)

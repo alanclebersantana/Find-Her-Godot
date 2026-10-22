@@ -84,7 +84,7 @@ static func _river(g: Game, VH: Vehicles, T: int) -> void:
 			var xx: float = floor(sa / 8.0) * 8.0
 			while xx <= sb + 8.1:
 				var cx: float = clamp(xx, sa, sb)
-				top.push_back(Vector2(cx, wl - 3 + g.WV.height(wb, cx) + sin(cx * .06 - T * .2) * 1.5))
+				top.push_back(Vector2(cx, wl - 3 + g.WV.height(wb, cx) + sin(cx * .06 - T * .2) * 2.2 + sin(cx * .023 - T * .09) * 2.0 + sin(cx * .15 + T * .17) * .8))
 				xx += 8
 			var band := top.duplicate()
 			band.push_back(Vector2(sb, wl + 10))
@@ -110,8 +110,8 @@ static func _river(g: Game, VH: Vehicles, T: int) -> void:
 				Spr.circle(f + 8 + k * 9, top + 44 + sin(T * .2 + k) * 3, 7 - k, Color(1, 1, 1, .5))
 			Spr.rr(f - 26, top - 30, 20, 34, 6, Color("#5a5a52"))
 		# as margens
-		Spr.hgrad(float(RA.x0), 470, 26, 200, Color("#4a3220"), Color(.03, .02, .02, 0))
-		Spr.hgrad(float(RA.x1) - 26, 470, 26, 200, Color(.03, .02, .02, 0), Color("#4a3220"))
+		_bank(float(RA.x0), 470, 1.0)
+		_bank(float(RA.x1), 470, -1.0)
 	# obstáculos (os do passeio, ou os do mapa enquanto ninguém está na jangada)
 	var obs: Array = VH.OBS if VH.mode == "raft" else RA.get("obs", [])
 	for o in obs:
@@ -146,6 +146,72 @@ static func _river(g: Game, VH: Vehicles, T: int) -> void:
 				Spr.seg(float(RA.x0) - 6, 488, rx - 30, wl2 - 6, Color("#c9a26a"), 2)
 				Spr.rect(float(RA.x0) - 12, 470, 8, 40, Color("#5a3d22"))
 
+## margem do rio: barranco de terra irregular com pedras, entrando na água
+static func _bank(e: float, y0: float, dir: float) -> void:
+	for b in [[Color("#5a3d26"), 0.0], [Color("#3c281a"), 70.0], [Color("#1e140c"), 150.0]]:
+		var pts := PackedVector2Array([Vector2(e - dir * 2, y0 + b[1])])
+		var y: float = y0 + b[1]
+		while y <= y0 + b[1] + 100:
+			pts.push_back(Vector2(e + dir * (16 + 8 * sin(y * .11 + e) + 5 * sin(y * .29 + e)), y))
+			y += 10
+		pts.push_back(Vector2(e - dir * 2, y0 + b[1] + 100))
+		Spr.poly(pts, b[0])
+	for k in 3:
+		var rx: float = e + dir * (14 + k * 9)
+		Spr.ellipse(rx, y0 + 22 + k * 5, 9 - k * 2, 6 - k, Color("#6b6a62"))
+		Spr.ellipse(rx - 2, y0 + 19 + k * 5, 4 - k, 2, Color(1, 1, 1, .25))
+	# juncos na beira
+	for k in 4:
+		var jx: float = e - dir * (6 + k * 7)
+		var jh: float = 26 + fmod(jx * 1.3, 14.0)
+		Spr.seg(jx, y0 + 4, jx + dir * 3, y0 + 4 - jh, Color("#4f7a34"), 2.5)
+		if k % 2 == 0:
+			Spr.rr(jx + dir * 3 - 2.5, y0 + 4 - jh - 2, 5, 12, 2.5, Color("#6b4626"))
+
+## o vale visto do avião: colinas suaves ao longe, copas de árvore com contorno e um riozinho brilhando
+static func _valley(a: float, b: float, bottom: float, T: int) -> void:
+	var hills := PackedVector2Array()
+	var x: float = floor(a / 20.0) * 20.0 - 20
+	var x_end: float = b + 20
+	while x <= x_end:
+		hills.push_back(Vector2(x, 548 - 22 * sin(x * .0021) - 12 * sin(x * .0057 + 1.3)))
+		x += 20
+	var hp := PackedVector2Array(hills)
+	hp.push_back(Vector2(x_end, 700))
+	hp.push_back(Vector2(hills[0].x, 700))
+	Spr.poly(hp, Color("#a9c49a"))
+	Spr.line(hills, Color("#c4d8b4"), 2)
+	# rio no fundo do vale
+	var rv := PackedVector2Array()
+	x = floor(a / 20.0) * 20.0 - 20
+	while x <= x_end:
+		rv.push_back(Vector2(x, 600 + 8 * sin(x * .004)))
+		x += 20
+	Spr.line(rv, Color("#9fd0e8"), 5)
+	Spr.line(rv, Color(1, 1, 1, .4), 1.5)
+	# duas fileiras de copas (a de trás mais clara), cada árvore um cacho de bolas
+	for layer in [0, 1]:
+		var step: float = 34.0 if layer == 0 else 42.0
+		var base_y: float = 590.0 if layer == 0 else 628.0
+		var tx: float = floor(a / step) * step - step
+		while tx < b + step:
+			var h1: float = WorldStatic_hh(tx + layer * 7.0, 1)
+			var cx: float = tx + h1 * 10
+			var r: float = (14 + h1 * 9) * (1.0 if layer == 0 else 1.3)
+			var col := Color("#5b8a4c") if layer == 0 else Color("#3f6a36")
+			col = col.lightened(h1 * .08)
+			Spr.circle(cx, base_y - r * .4, r, col)
+			Spr.circle(cx - r * .6, base_y - r * .1, r * .7, col.darkened(.06))
+			Spr.circle(cx + r * .6, base_y - r * .05, r * .72, col.darkened(.03))
+			Spr.circle(cx - r * .25, base_y - r * .75, r * .35, col.lightened(.12))
+			tx += step
+	Spr.vgrad(a, 640, b - a, 120, Color("#3f6a36"), Color("#2c4a28"))
+	Spr.rect(a, 760, b - a, bottom - 560, Color("#2c4a28"))
+
+static func WorldStatic_hh(x: float, k: int = 0) -> float:
+	var v := sin(x * 12.9898 + k * 78.233) * 43758.5453
+	return v - floor(v)
+
 # ---------- pista e voo ----------
 static func _runway(g: Game, VH: Vehicles, T: int) -> void:
 	var PL: Dictionary = VH.PL
@@ -179,13 +245,7 @@ static func _runway(g: Game, VH: Vehicles, T: int) -> void:
 	var a: float = max(v0, g.cam - 50)
 	var b: float = min(v1, g.cam + g.W + 50)
 	if a < b:
-		Spr.vgrad(a, 560, b - a, 90, Color("#9ab88a"), Color("#4f7a44"))
-		var tx: float = floor(a / 38.0) * 38.0
-		while tx < b:
-			var hh: float = 18 + fmod(tx * 1.7, 14.0)
-			Spr.ellipse(tx, 572 - hh * .3, 20, hh * .6, Color("#3f6a3a").lightened(fmod(tx, 3.0) * .04))
-			tx += 38
-		Spr.rect(a, 640, b - a, float(g.L.bottom) - 440, Color("#3a5a32"))
+		_valley(a, b, float(g.L.bottom), T)
 	# os obstáculos do céu
 	if VH.mode == "plane":
 		for o in VH.OBS:

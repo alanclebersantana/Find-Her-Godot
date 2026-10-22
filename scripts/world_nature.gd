@@ -18,23 +18,40 @@ static func decor(d: Dictionary) -> void:
 			Spr.ellipse(d.x, d.y + 2, w * .55, 10, Color(0, 0, 0, .25))
 			# casas são só cenário (sólidas, sem transparência)
 			Spr.ABb(n, d.x, d.y + 6, w)
-			# neve no telhado de palha
+			# neve de verdade cobrindo o telhado: acompanha o contorno de cima da casa (lido da arte)
 			var r = Spr.AR[n]
-			var hh: float = w * r[3] / r[2]
-			var top: float = d.y + 6 - hh
-			var pts := PackedVector2Array()
-			for i in 13:
-				var u := i / 12.0
-				var yy: float = top + hh * .14 + abs(u - .5) * hh * .62
-				pts.push_back(Vector2(d.x - w * .48 + u * w * .96, yy - 2 - sin(u * 31) * 2))
-			for i in 13:
-				var u2 := 1.0 - i / 12.0
-				var yy2: float = top + hh * .14 + abs(u2 - .5) * hh * .62
-				pts.push_back(Vector2(d.x - w * .48 + u2 * w * .96, yy2 + 10 + sin(u2 * 23) * 3))
-			Spr.poly(pts, Color(.96, .97, 1))
-			for i in 7:
-				var ix: float = d.x - w * .44 + i * w * .145
-				Spr.poly(PackedVector2Array([Vector2(ix - 3, top + hh * .52), Vector2(ix, top + hh * .52 + 10 + (i % 3) * 5), Vector2(ix + 3, top + hh * .52)]), Color(.85, .93, 1, .9))
+			var k: float = w / r[2]
+			var line: PackedFloat32Array = _roof_line(n)
+			var left: float = d.x - w / 2
+			var base: float = d.y + 6 - r[3] * k
+			var tp := PackedVector2Array()
+			var bp := PackedVector2Array()
+			for i in line.size():
+				var sx: float = left + i * 3 * k
+				var ty: float = base + line[i] * k
+				var fluff: float = 2.5 + 1.5 * sin(sx * .21) + 1.2 * sin(sx * .07)
+				tp.push_back(Vector2(sx, ty - fluff))
+				bp.push_back(Vector2(sx, ty + 7 + 2.5 * sin(sx * .13 + 1.0)))
+			var sp := PackedVector2Array(tp)
+			for i in range(bp.size() - 1, -1, -1):
+				sp.push_back(bp[i])
+			Spr.poly(sp, Color(.96, .97, 1))
+			Spr.line(bp, Color(.72, .8, .92, .8), 2)
+			# pingentes nas beiradas mais baixas do telhado
+			for side in [0, 1]:
+				var lo_i := 0
+				var lo_y := -1e9
+				var rng: Array = range(0, line.size() / 3) if side == 0 else range(line.size() * 2 / 3, line.size())
+				for i in rng:
+					if line[i] > lo_y and line[i] < r[3] * .75:
+						lo_y = line[i]
+						lo_i = i
+				for q in 4:
+					var qi: int = clamp(lo_i + (q - 2) * 3 * (1 if side == 0 else -1), 0, line.size() - 1)
+					var ix: float = left + qi * 3 * k
+					var iy: float = base + line[qi] * k + 6
+					var ln: float = 8 + (q * 7 % 5) * 3
+					Spr.poly(PackedVector2Array([Vector2(ix - 3, iy), Vector2(ix, iy + ln), Vector2(ix + 3, iy)]), Color(.85, .95, 1, .95))
 		"lamp":
 			Spr.rect(d.x - 3, d.y - 110, 6, 110, Color("#3a2a1a"))
 			Spr.rect(d.x - 12, d.y - 6, 24, 6, Color("#3a2a1a"))
@@ -48,6 +65,26 @@ static func decor(d: Dictionary) -> void:
 			prop("arvore_neve", d.x, d.y + 4, 300 * s)
 		"tracks":
 			pass   # desenhado na camada de cima (tracks), por cima do chão
+
+## linha de cima da arte (o contorno do telhado), a cada 3 px, para a neve assentar certinho
+static var _roofs := {}
+static func _roof_line(n: String) -> PackedFloat32Array:
+	if _roofs.has(n):
+		return _roofs[n]
+	var r = Spr.AR[n]
+	var im: Image = Spr.atlas_tex(r).get_image()
+	if im.is_compressed():
+		im.decompress()
+	var out := PackedFloat32Array()
+	var x := 0
+	while x < int(r[2]):
+		var y := 0
+		while y < int(r[3]) and im.get_pixel(int(r[0]) + x, int(r[1]) + y).a < .5:
+			y += 1
+		out.push_back(float(y))
+		x += 3
+	_roofs[n] = out
+	return out
 
 ## objeto pintado (assets/sprites/p_<nome>.png), com a base no ponto (x, y) e a altura dada
 static func prop(n: String, x: float, y: float, h: float, flip: bool = false, a: float = 1.0) -> void:
@@ -128,9 +165,37 @@ static func draw(g: Game, T: int) -> void:
 		if h.x > x1 or h.x + h.w < x0:
 			continue
 		if not h.filled:
-			# água gelada mortal: escura, quase preta, com placas de gelo rachadas e fumacinha de frio
-			Spr.vgrad(h.x, h.y + 6, h.w, 134, Color(.07, .1, .14), Color(.01, .02, .04))
-			Spr.rect(h.x, h.y + 6, h.w, 2, Color(.5, .6, .7, .5))
+			# água gelada mortal: paredes de gelo irregulares, água escura ondulando e margens de neve fofa
+			var wpts := PackedVector2Array()
+			var wx: float = h.x + 4
+			while wx <= h.x + h.w - 4:
+				wpts.push_back(Vector2(wx, h.y + 8 + sin(T * .05 + wx * .05) * 1.6 + sin(T * .031 - wx * .09) * 1.0))
+				wx += 8
+			var surf := PackedVector2Array(wpts)
+			wpts.push_back(Vector2(h.x + h.w - 4, h.y + 140))
+			wpts.push_back(Vector2(h.x + 4, h.y + 140))
+			var wcols := PackedColorArray()
+			for i in wpts.size():
+				wcols.push_back(Color(.07, .12, .17) if i < surf.size() else Color(.01, .02, .04))
+			Spr.ci.draw_polygon(wpts, wcols)
+			Spr.line(surf, Color(.55, .68, .8, .6), 2)
+			for side in [0, 1]:
+				var e: float = h.x if side == 0 else h.x + h.w
+				var dir: float = 1.0 if side == 0 else -1.0
+				var wp := PackedVector2Array([Vector2(e - dir * 2, h.y)])
+				var wy: float = h.y
+				while wy <= h.y + 140:
+					wp.push_back(Vector2(e + dir * (16 + 10 * sin(wy * .09 + e) + 6 * sin(wy * .27 + e) + max(0.0, 18.0 - (wy - h.y) * .3)), wy))
+					wy += 10
+				wp.push_back(Vector2(e - dir * 2, h.y + 140))
+				Spr.poly(wp, Color(.3, .42, .58))
+				# gelo claro na parte de cima da parede
+				var wp2 := PackedVector2Array([Vector2(e - dir * 2, h.y)])
+				for q in 6:
+					var qy: float = h.y + q * 6
+					wp2.push_back(Vector2(e + dir * (22 - q * 2.5 + 4 * sin(qy * .3 + e)), qy))
+				wp2.push_back(Vector2(e - dir * 2, h.y + 30))
+				Spr.poly(wp2, Color(.7, .85, .97))
 			var k := 0
 			var px: float = h.x + 10
 			while px < h.x + h.w - 30:
@@ -142,6 +207,11 @@ static func draw(g: Game, T: int) -> void:
 				Spr.seg(px + pw * .3, h.y + 7 + bob, px + pw * .55, h.y + 12 + bob, Color(.45, .58, .72), 1.2)
 				px += pw + 14 + fmod(px * 1.3, 12.0)
 				k += 1
+			# margens de neve arredondadas cobrindo a quina do buraco
+			for side in [0, 1]:
+				var ex: float = h.x if side == 0 else h.x + h.w
+				Spr.ellipse(ex, h.y + 2, 26, 11, Color(.8, .87, .97))
+				Spr.ellipse(ex - (2 if side == 0 else -2), h.y - 1, 22, 8, Color(.97, .98, 1))
 			for v in 3:
 				var vx: float = h.x + h.w * (.2 + v * .3) + sin(T * .02 + v) * 10
 				var vy: float = h.y - fmod(T * .5 + v * 30.0, 50.0)
@@ -262,7 +332,10 @@ static func crow(e: Dictionary, T: int) -> void:
 	if e.dead:
 		Spr.A("crow_dead", 0, 0, .5)
 		return
-	Spr.A("crow%d" % ((T / 4) % 3), 0, -6, .5)
+	if Spr.tex.has("en_crow2"):
+		Spr.frame(Spr.tex.en_crow2, (T / 5 + int(e.x * .1)) % 4, 170, 130, 85, 65, 0, -6, .5)
+	else:
+		Spr.A("crow%d" % ((T / 4) % 3), 0, -6, .5)
 
 static func piranha(e: Dictionary, T: int) -> void:
 	if e.dead:

@@ -9,6 +9,8 @@ var players: Array[AudioStreamPlayer] = []
 var music: AudioStreamPlayer
 var music2: AudioStreamPlayer
 var rain: AudioStreamPlayer
+var danger: AudioStreamPlayer
+var danger_lv := 0.0
 var song := ""
 var amb: AudioStreamPlayer
 var amb2: AudioStreamPlayer
@@ -41,6 +43,12 @@ func _ready() -> void:
 	amb2 = AudioStreamPlayer.new()
 	add_child(amb)
 	add_child(amb2)
+	# camada extra da música (tambores) que cresce quando há perigo por perto
+	danger = AudioStreamPlayer.new()
+	if ResourceLoader.exists("res://assets/audio/loop_tambores.wav"):
+		danger.stream = _loop(load("res://assets/audio/loop_tambores.wav"))
+	danger.volume_db = -60
+	add_child(danger)
 	rain = AudioStreamPlayer.new()
 	rain.stream = _loop(load("res://assets/audio/rain.wav"))
 	rain.volume_db = -60
@@ -142,8 +150,35 @@ func set_amb(n: String) -> void:
 func stop_music() -> void:
 	music.stop()
 	music2.stop()
+	danger.stop()
+	danger_lv = 0.0
 	song = ""
 	set_amb("")
+
+## perigo de 0 a 1: os tambores entram aos poucos e saem suavemente
+func set_danger(v: float) -> void:
+	if danger.stream == null:
+		return
+	danger_lv = lerpf(danger_lv, v, .02 if v > danger_lv else .008)
+	if danger_lv > .02 and not danger.playing:
+		danger.play()
+	elif danger_lv <= .02 and danger.playing:
+		danger.stop()
+	danger.volume_db = linear_to_db(max(danger_lv, .0001)) - 9.0
+
+## som que sai de um ponto do mundo (fogueira, riacho): mais alto de perto e do lado certo no fone
+func emitter(parent: Node, name_: String, pos: Vector2, vol: float, dist: float) -> void:
+	var path := "res://assets/audio/%s.wav" % name_
+	if not ResourceLoader.exists(path):
+		return
+	var e := AudioStreamPlayer2D.new()
+	e.stream = _loop(load(path))
+	e.position = pos
+	e.volume_db = vol
+	e.max_distance = dist
+	e.attenuation = 1.6
+	e.autoplay = true
+	parent.add_child(e)
 
 func set_rain(v: float) -> void:
 	rain_target = v

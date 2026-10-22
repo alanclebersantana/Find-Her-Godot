@@ -23,7 +23,7 @@ func _draw() -> void:
 	var g := game
 	if g == null or not g.L or not g.running and g.T == 0:
 		return
-	if g.L.has("under") and g.player.y > g.L.under + 60:
+	if g.indoors():
 		return
 	var song: String = g.AMB.get("song", "manha")
 	var ws: Dictionary = g.section_weights()

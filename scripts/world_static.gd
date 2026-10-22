@@ -27,11 +27,11 @@ func _draw_raw() -> void:
 		var pb: float = min(float(pit[1]), x1)
 		Spr.vgrad(pa, 480, pb - pa, 200, Color(.03, .02, .04, .0), Color(.02, .015, .03, 1))
 		Spr.rect(pa, 680, pb - pa, L.bottom - 480, Color(.02, .015, .03))
-		# paredes de terra do buraco (dá para ver a profundidade)
-		if pit[0] >= x0 and pit[0] < x1:
-			Spr.hgrad(pit[0], 500, 26, 260, Color("#4a3220"), Color(.03, .02, .02, 0))
-		if pit[1] > x0 and pit[1] <= x1:
-			Spr.hgrad(pit[1] - 26, 500, 26, 260, Color(.03, .02, .02, 0), Color("#4a3220"))
+		# paredes de terra do buraco: barranco irregular com pedras, sumindo no escuro
+		if pit[0] >= x0 - 40 and pit[0] < x1:
+			_pit_wall(pit[0], 500, 1.0)
+		if pit[1] > x0 and pit[1] <= x1 + 40:
+			_pit_wall(pit[1], 500, -1.0)
 	for c in L.get("caves", []):
 		if c.x + c.w < x0 or c.x > x1:
 			continue
@@ -56,6 +56,7 @@ func _draw_raw() -> void:
 				rx += 90
 		else:
 			Spr.rect(ca, c.y, cb - ca, c.h, CAVE)
+		_cave_border(c, c.get("ice", false))
 	# vãos no chão dos túneis (embaixo dos cavaletes da mina): fundo escuro e paredes de terra
 	for sh in L.get("shafts", []):
 		if sh[1] < x0 or sh[0] > x1:
@@ -65,10 +66,10 @@ func _draw_raw() -> void:
 		var sy: float = sh[2]
 		Spr.vgrad(sa, sy - 6, sb - sa, 160, Color(.03, .02, .02), Color(0, 0, 0))
 		Spr.rect(sa, sy + 150, sb - sa, L.bottom - sy, Color(0, 0, 0))
-		if sh[0] >= x0 and sh[0] < x1:
-			Spr.hgrad(sh[0], sy, 22, 200, Color("#4a3220"), Color(0, 0, 0, 0))
-		if sh[1] > x0 and sh[1] <= x1:
-			Spr.hgrad(sh[1] - 22, sy, 22, 200, Color(0, 0, 0, 0), Color("#4a3220"))
+		if sh[0] >= x0 - 40 and sh[0] < x1:
+			_pit_wall(sh[0], sy, 1.0)
+		if sh[1] > x0 and sh[1] <= x1 + 40:
+			_pit_wall(sh[1], sy, -1.0)
 	for d in L.get("decor", []):
 		if d.x + 160 < x0 or d.x - 160 > x1:
 			continue
@@ -86,7 +87,7 @@ func _draw_raw() -> void:
 			"plat": plat(s)
 			"branch": branch(s)
 			"trunk": trunk(s)
-			"dirt": Spr.rect(s.x, s.y, s.w, s.h, EARTH)
+			"dirt": dirt(s)
 			"fakewall":
 				Spr.rect(s.x, s.y, s.w, s.h, EARTH)
 				Spr.seg(s.x + 4, s.y + 10, s.x + 14, s.y + 30, Color(0, 0, 0, .35), 1.5)
@@ -113,12 +114,27 @@ func _draw_raw() -> void:
 				else:
 					Spr.AB("mi_cart", s.x - 8, s.y + s.h - 84, s.w + 16, 84)
 			"ice":
-				Spr.rr(s.x, s.y, s.w, s.h + 4, 5, Color(.72, .88, 1, .9))
-				Spr.rect(s.x + 6, s.y + 2, s.w - 12, 2, Color(1, 1, 1, .8))
-				var ix: float = s.x + 20
-				while ix < s.x + s.w - 20:
-					Spr.seg(ix, s.y + 4, ix + 14, s.y + s.h, Color(1, 1, 1, .5), 1.2)
-					ix += 46
+				# placa de gelo sobre a água: borda ondulada, pontas arredondadas e rachaduras
+				var tp := PackedVector2Array()
+				var bp := PackedVector2Array()
+				var ix: float = s.x
+				while ix <= s.x + s.w:
+					var u: float = (ix - s.x) / s.w
+					var endk: float = 1.0 - pow(abs(u - .5) * 2.0, 8.0)
+					tp.push_back(Vector2(ix, s.y + 1.5 * sin(ix * .05) + (1.0 - endk) * 5))
+					bp.push_back(Vector2(ix, s.y + s.h + 3 + 2 * sin(ix * .08 + 1.0) - (1.0 - endk) * 5))
+					ix += 10
+				var ip := PackedVector2Array(tp)
+				for i in range(bp.size() - 1, -1, -1):
+					ip.push_back(bp[i])
+				Spr.poly(ip, Color(.72, .88, 1, .9))
+				Spr.line(tp, Color(1, 1, 1, .85), 2)
+				Spr.line(bp, Color(.4, .6, .8, .6), 1.5)
+				var cx2: float = s.x + 24
+				while cx2 < s.x + s.w - 24:
+					Spr.seg(cx2, s.y + 3, cx2 + 9, s.y + s.h * .6, Color(1, 1, 1, .5), 1.2)
+					Spr.seg(cx2 + 9, s.y + s.h * .6, cx2 + 4, s.y + s.h + 2, Color(1, 1, 1, .35), 1)
+					cx2 += 46 + fmod(cx2 * .7, 30.0)
 
 # ---------- peças ----------
 func tile_h(t: Texture2D, x0_: float, x1_: float, y: float, src: Rect2 = Rect2()) -> void:
@@ -186,6 +202,7 @@ func ground(s: Dictionary) -> void:
 	var fy: float = s.y - 30 + t.get_height()
 	if s.y + s.h > fy:
 		Spr.rect(max(x_a, cut_a), fy, min(x_b, cut_b) - max(x_a, cut_a), s.y + s.h - fy, Color("#34200f"))
+		_earth_detail(max(x_a, cut_a + 6), min(x_b, cut_b - 6), fy + 4, s.y + min(s.h, 700.0), Color("#34200f"))
 	if ol and s.x >= x0 - ROUND and s.x < x1:
 		_ground_end(s, t, tw, false)
 	if orr and s.x + s.w > x0 and s.x + s.w <= x1 + ROUND:
@@ -193,6 +210,122 @@ func ground(s: Dictionary) -> void:
 	if s.get("snow"):
 		_snow_top(x_a + (8.0 if ol and x_a <= s.x else 0.0), x_b - (8.0 if orr and x_b >= s.x + s.w else 0.0), s.y)
 	_ground_deco(s)
+
+## contorno de rocha da caverna: pontas no teto, paredes irregulares e pedras no chão (sem quinas retas)
+func _cave_border(c: Dictionary, ice: bool) -> void:
+	var rock: Color = Color("#2a1a0e") if not ice else Color("#1d2c40")
+	var rock2: Color = Color("#3a2616") if not ice else Color("#2c4060")
+	# teto: dentes irregulares descendo
+	var x: float = c.x
+	while x < c.x + c.w:
+		var w: float = 22 + hh(x, 51) * 30
+		if x + w > x0 - 4 and x < x1 + 4:
+			var d: float = 6 + hh(x, 52) * 16
+			Spr.poly(PackedVector2Array([Vector2(x, c.y - 1), Vector2(x + w * .45, c.y + d), Vector2(x + w * .6, c.y + d * .8), Vector2(x + w, c.y - 1)]), rock)
+			# chão: pedras arredondadas
+			var rh: float = 4 + hh(x, 53) * 8
+			Spr.ellipse(x + w * .5, c.y + c.h, w * .55, rh, rock2)
+		x += w
+	# paredes dos lados: bordas onduladas entrando no vazio
+	for side in [0, 1]:
+		var e: float = c.x if side == 0 else c.x + c.w
+		if e < x0 - 30 or e > x1 + 30:
+			continue
+		var dir: float = 1.0 if side == 0 else -1.0
+		var pts := PackedVector2Array([Vector2(e - dir, c.y)])
+		var y: float = c.y
+		while y <= c.y + c.h:
+			var u: float = (y - c.y) / max(1.0, c.h)
+			var dep: float = max(2.0, 10 + 6 * sin(y * .13 + e) + 5 * sin(y * .37 + e * .7) + 14 * pow(abs(u - .5) * 2.0, 3.0))
+			pts.push_back(Vector2(e + dir * dep, y))
+			y += 10
+		pts.push_back(Vector2(e - dir, c.y + c.h))
+		Spr.poly(pts, rock)
+
+## parede de um buraco: terra desmoronada, entrando no vão com contorno de pedras, escurecendo para baixo
+func _pit_wall(e: float, y0: float, dir: float) -> void:
+	var bands := [[Color("#5a3d26"), 0.0], [Color("#3c281a"), 60.0], [Color("#1e140c"), 140.0], [Color(.05, .03, .02), 220.0]]
+	for b in bands:
+		var pts := PackedVector2Array()
+		var yt: float = y0 + b[1]
+		pts.push_back(Vector2(e - dir * 2, yt))
+		var y: float = yt
+		while y <= yt + 90:
+			var depth: float = 14 + 9 * sin(y * .11 + e) + 6 * sin(y * .31 + e * 1.7) + max(0.0, 20.0 - (y - y0) * .2)
+			pts.push_back(Vector2(e + dir * depth, y))
+			y += 9
+		pts.push_back(Vector2(e - dir * 2, yt + 90))
+		Spr.poly(pts, b[0])
+	# pedras presas na parede e na beirada
+	for k in 4:
+		var py: float = y0 + 14 + k * 36
+		var px: float = e + dir * (10 + hh(e + k, 48) * 10)
+		var rw: float = 5 + hh(e - k, 49) * 4
+		var c := Color(.42, .34, .26).darkened(k * .2)
+		Spr.ellipse(px, py, rw, rw * .7, c)
+		Spr.ellipse(px - rw * .3, py - rw * .3, rw * .35, rw * .2, Color(1, 1, 1, .15 * (1.0 - k * .25)))
+
+## terra por dentro: pedrinhas, raízes finas e manchas, escurecendo com a profundidade (nada de chapado)
+func _earth_detail(xa: float, xb: float, ya: float, yb: float, base: Color) -> void:
+	xa = max(xa, x0)
+	xb = min(xb, x1)
+	if xb <= xa or yb <= ya:
+		return
+	Spr.vgrad(xa, ya, xb - xa, min(yb - ya, 260.0), Color(0, 0, 0, 0), Color(0, 0, 0, .28))
+	if yb - ya > 260:
+		Spr.rect(xa, ya + 260, xb - xa, yb - ya - 260, Color(0, 0, 0, .28))
+	var gx: float = floor(xa / 46.0) * 46.0
+	while gx < xb:
+		var gy: float = floor(ya / 40.0) * 40.0
+		while gy < min(yb, ya + 420):
+			var r := hh(gx * 1.3 + gy, 41)
+			var px: float = gx + hh(gx + gy, 42) * 40
+			var py: float = gy + hh(gx - gy, 43) * 34
+			if px > xa + 4 and px < xb - 4 and py > ya + 4 and py < yb - 4:
+				var fade: float = clamp(1.0 - (py - ya) / 420.0, .3, 1.0)
+				if r < .32:
+					var rw: float = 3 + hh(px, 44) * 5
+					Spr.ellipse(px, py, rw, rw * .65, base.lightened(.22 + hh(py, 45) * .15) * Color(1, 1, 1, fade))
+					Spr.ellipse(px - rw * .3, py - rw * .25, rw * .4, rw * .22, Color(1, 1, 1, .12 * fade))
+				elif r < .45:
+					var pts := PackedVector2Array()
+					var dir: float = 1.0 if hh(px, 46) > .5 else -1.0
+					for k in 6:
+						var u := k / 5.0
+						pts.push_back(Vector2(px + dir * u * 22, py + sin(u * 4.0 + px) * 4 + u * 8))
+					Spr.line(pts, base.lightened(.12) * Color(1, 1, 1, .7 * fade), 1.6)
+				elif r < .55:
+					Spr.ellipse(px, py, 12 + hh(py, 47) * 10, 5, base.darkened(.25) * Color(1, 1, 1, .6 * fade))
+			gy += 40
+		gx += 46
+
+## bloco de terra: quando a lateral fica à mostra, ela tem contorno irregular (barranco), não corte reto
+func dirt(s: Dictionary) -> void:
+	var xa: float = max(s.x, x0 - 2)
+	var xb: float = min(s.x + s.w, x1 + 2)
+	if xb <= xa:
+		return
+	var ol: bool = _open_end(s, false) and s.x >= x0 - 2
+	var orr: bool = _open_end(s, true) and s.x + s.w <= x1 + 2
+	var ia: float = xa + (10.0 if ol else 0.0)
+	var ib: float = xb - (10.0 if orr else 0.0)
+	Spr.rect(ia, s.y, ib - ia, s.h, EARTH)
+	for side in [0, 1]:
+		if (side == 0 and not ol) or (side == 1 and not orr):
+			continue
+		var e: float = s.x if side == 0 else s.x + s.w
+		var pts := PackedVector2Array()
+		var y: float = s.y
+		var inner: float = e + 10.0 if side == 0 else e - 10.0
+		pts.push_back(Vector2(inner, s.y))
+		while y <= s.y + s.h:
+			var ins: float = 2.0 + 3.0 * sin(y * .07 + e) + 2.0 * sin(y * .19 + e * 2.0) + 3.0
+			pts.push_back(Vector2(e + ins if side == 0 else e - ins, y))
+			y += 12
+		pts.push_back(Vector2(e + 4 if side == 0 else e - 4, s.y + s.h))
+		pts.push_back(Vector2(inner, s.y + s.h))
+		Spr.poly(pts, EARTH)
+	_earth_detail(ia, ib, s.y + 6, s.y + s.h, EARTH)
 
 ## o "clima" do trecho em x (para escolher os enfeites do chão)
 func _theme_at(x: float) -> String:
@@ -411,8 +544,23 @@ func plat(s: Dictionary) -> void:
 			Spr.rect(lx, s.y + 10, 8, 700 - s.y, wood)
 		Spr.seg(s.x + 12, s.y + 30, s.x + s.w - 12, s.y + 120, wood, 5)
 		Spr.seg(s.x + s.w - 12, s.y + 30, s.x + 12, s.y + 120, wood, 5)
-	Spr.rr(s.x, s.y, s.w, 16, 6, Color("#6b4a2a"))
-	Spr.rect(s.x + 6, s.y + 2, s.w - 12, 3, Color(1, 1, 1, .12))
+	# tábuas separadas (cada uma com veio e prego), pontas arredondadas e um pouco irregulares
+	var bx: float = s.x
+	var bi := 0
+	while bx < s.x + s.w - 2:
+		var bw: float = min(36.0 + hh(s.x + bi, 61) * 26.0, s.x + s.w - bx)
+		if s.x + s.w - (bx + bw) < 14:
+			bw = s.x + s.w - bx
+		var jy: float = (hh(s.x - bi, 62) - .5) * 2.5
+		var wc := Color("#6b4a2a").lerp(Color("#7d5732"), hh(s.x + bi * 3, 63))
+		Spr.rr(bx + .5, s.y + jy, bw - 1, 16, 5, Color("#3a2414"))
+		Spr.rr(bx + 1.5, s.y + 1 + jy, bw - 3, 13, 4, wc)
+		Spr.rr(bx + 4, s.y + 3 + jy, bw - 8, 3, 1.5, Color(1, 1, 1, .12))
+		Spr.seg(bx + 6, s.y + 9 + jy, bx + bw - 8, s.y + 10 + jy, Color(0, 0, 0, .18), 1.2)
+		Spr.circle(bx + 5, s.y + 8 + jy, 1.4, Color(.25, .22, .2))
+		Spr.circle(bx + bw - 5, s.y + 8 + jy, 1.4, Color(.25, .22, .2))
+		bx += bw
+		bi += 1
 	if s.get("hatch"):
 		return
 	Spr.seg(s.x + 10, s.y + 16, s.x + 4, s.y + 40, Color(0, 0, 0, .35), 2)
@@ -514,63 +662,84 @@ func _wrap(x: float, y: float, w: float, h: float, rad: float, chain: bool) -> v
 		Spr.circle(kx, y, 6, Color("#8a6a40") if not chain else Color("#4a4642"))
 		Spr.ring(kx, y, 6, Color("#4a3420"), 1.5)
 
-## número "aleatório" fixo para cada posição (o cenário não muda entre quadros)
+## paredão de pedras (rocha ou gelo): cada fileira termina onde a última pedra termina, com as
+## pontas arredondadas e desencontradas — a borda segue o contorno das pedras, nada de corte reto
+func _masonry(s: Dictionary, c_hi: Color, c_lo: Color, mortar: Color, y0: float) -> void:
+	var yy: float = y0
+	var row := 0
+	var seed_x: float = s.x * .37 + s.y * .11
+	while yy < s.y + s.h - 4:
+		var bh: float = 30.0 + hh(seed_x + row, 33) * 24.0
+		var hb: float = min(bh, s.y + s.h - yy + 6)
+		# pontas da fileira: entram ou saem um pouco da linha da parede
+		var lo: float = s.x + (hh(seed_x + row, 31) - .35) * 16.0
+		var ro: float = s.x + s.w - (hh(seed_x + row, 32) - .35) * 16.0
+		# argamassa (fundo escuro da fileira), também arredondada nas pontas
+		Spr.rr(lo - 3, yy - 2, ro - lo + 6, hb + 4, 14, mortar)
+		var u: float = clamp((yy - s.y) / max(1.0, s.h), 0, 1)
+		var x: float = lo
+		var i := 0
+		while x < ro - 10:
+			var bw: float = 46.0 + hh(seed_x + row * 13 + i, 34) * 70.0
+			if ro - (x + bw) < 30:
+				bw = ro - x
+			var jy: float = (hh(seed_x + row * 7 + i, 35) - .5) * 5.0
+			var shade: float = (hh(seed_x + row * 3 + i, 36) - .5) * .08
+			var col := c_hi.lerp(c_lo, u * .8)
+			col = Color(col.r + shade, col.g + shade, col.b + shade)
+			var bx: float = x + 2
+			var bww: float = bw - 4
+			var byy: float = yy + 1 + max(jy, 0.0)
+			var bhh: float = hb - 3 - abs(jy)
+			if bww > 8 and bhh > 6:
+				Spr.rr(bx, byy, bww, bhh, min(14.0, bhh * .45), col)
+				# luz em cima, sombra embaixo (pedra com volume)
+				Spr.rr(bx + 5, byy + 3, bww - 10, 4, 2, Color(1, 1, 1, .1))
+				Spr.rr(bx + 4, byy + bhh - 6, bww - 8, 5, 2.5, Color(0, 0, 0, .16))
+			x += bw
+			i += 1
+		yy += bh
+		row += 1
+
+## faixa de chão (grama e terra) no topo de um paredão, com as pontas arredondadas como o chão
+func _cap(s: Dictionary) -> void:
+	var fake := {"x": s.x - 6, "y": s.y, "w": s.w + 12, "h": 30, "_ol": true, "_or": true, "t": "ground"}
+	ground(fake)
+
 func snow_cliff(s: Dictionary) -> void:
-	Spr.vgrad(s.x, s.y, s.w, s.h, Color("#b9c6da"), Color("#6f7e98"))
-	var y: float = s.y + 34
-	var k := 0
-	while y < s.y + s.h - 10:
-		var off: float = fmod(k * 53.0, 60.0)
-		var x: float = s.x + off
-		while x < s.x + s.w - 30:
-			Spr.rr(x, y, 52 + fmod(x * .37, 30.0), 26, 9, Color(.52, .6, .74, .55))
-			Spr.seg(x + 6, y + 24, x + 46, y + 24, Color(.3, .36, .48, .5), 2)
-			x += 74
-		y += 38
-		k += 1
-	Spr.hgrad(s.x, s.y, 40, s.h, Color(0, 0, 0, .25), Color(0, 0, 0, 0))
-	Spr.ci.draw_rect(Rect2(s.x, s.y, s.w, s.h), Color(.25, .3, .42, .8), false, 2)
-	_snow_top(s.x, s.x + s.w, s.y)
+	_masonry(s, Color(.7, .78, .9), Color(.42, .5, .66), Color(.3, .36, .5, .95), s.y + 10)
+	_snow_cap(s.x, s.x + s.w, s.y)
 	if s.get("overhang"):
-		Spr.rect(s.x, s.y + s.h - 16, s.w, 16, Color(.85, .93, 1))
+		# beirada de neve fofa embaixo, com pingentes de gelo
+		var by: float = s.y + s.h
+		Spr.rr(s.x - 6, by - 18, s.w + 12, 20, 10, Color(.85, .93, 1))
 		var ix: float = s.x + 8
 		var n := 0
 		while ix < s.x + s.w - 8:
 			var L2: float = 14 + (n * 37 % 5) * 6
-			Spr.poly(PackedVector2Array([Vector2(ix - 6, s.y + s.h), Vector2(ix, s.y + s.h + L2), Vector2(ix + 6, s.y + s.h)]), Color(.85, .95, 1, .95))
+			Spr.poly(PackedVector2Array([Vector2(ix - 6, by), Vector2(ix, by + L2), Vector2(ix + 6, by)]), Color(.85, .95, 1, .95))
 			ix += 22
 			n += 1
+
+## neve por cima de um bloco, com as pontas fofas e arredondadas (sem corte reto)
+func _snow_cap(xa: float, xb: float, y: float) -> void:
+	Spr.rr(xa - 8, y - 9, xb - xa + 16, 20, 10, Color(.97, .98, 1))
+	Spr.rr(xa - 2, y + 6, xb - xa + 4, 6, 3, Color(.78, .85, .96))
+	var x: float = xa + 6
+	while x < xb - 6:
+		var hgt: float = 4 + fmod(x * 7.31, 5.0)
+		Spr.ellipse(x + 10, y - 6, 15, hgt, Color(.97, .98, 1))
+		x += 24
+	Spr.ellipse(xa - 4, y + 1, 10, 9, Color(.97, .98, 1))
+	Spr.ellipse(xb + 4, y + 1, 10, 9, Color(.97, .98, 1))
 
 func cliff(s: Dictionary) -> void:
 	if s.get("snow"):
 		snow_cliff(s)
 		return
-	var t: Texture2D = Spr.tex.chao
-	# rocha maciça: blocos de pedra encaixados, sem faixas de grama por dentro (grama só no topo)
-	Spr.vgrad(s.x, s.y, s.w, s.h, Color("#6e5c48"), Color("#3e3226"))
-	var yy: float = s.y + 30
-	var row := 0
-	while yy < s.y + s.h - 8:
-		var bh: float = 28.0 + fmod(row * 17.0, 26.0)
-		var x: float = s.x - fmod(row * 41.0, 50.0)
-		var i := 0
-		while x < s.x + s.w:
-			var bw: float = 44.0 + fmod((row * 7 + i * 11) * 5.3, 70.0)
-			var xa: float = max(x, s.x)
-			var xb: float = min(x + bw - 4, s.x + s.w)
-			var hb: float = min(bh - 4, s.y + s.h - yy)
-			if xb - xa > 8 and hb > 6:
-				var shade: float = fmod((row * 5 + i * 3) * 1.0, 4.0) * .025
-				var jy: float = fmod((row * 3 + i * 7) * 1.7, 6.0) - 3.0
-				Spr.rr(xa, yy + jy, xb - xa, hb - abs(jy), 12, Color(.47 + shade, .39 + shade, .31 + shade))
-				Spr.rect(xa + 4, yy + 3, xb - xa - 8, 3, Color(1, 1, 1, .07))
-				Spr.rect(xa + 3, yy + hb - 5, xb - xa - 6, 4, Color(0, 0, 0, .18))
-			x += bw
-			i += 1
-		yy += bh
-		row += 1
-	tile_h(t, s.x, s.x + s.w, s.y - 28)
-	Spr.hgrad(s.x, s.y, 60, s.h, Color(0, 0, 0, .35), Color(0, 0, 0, 0))
+	# rocha maciça: pedras encaixadas com a borda seguindo as pedras; grama só no topo
+	_masonry(s, Color(.5, .42, .34), Color(.3, .25, .2), Color(.19, .15, .11, .97), s.y + 24)
+	_cap(s)
 
 func dead_tree(s: Dictionary) -> void:
 	var p := PackedVector2Array([Vector2(s.x, s.y + s.h), Vector2(s.x + 6, s.y + 40), Vector2(s.x - 30, s.y - 10), Vector2(s.x + 10, s.y + 20),
@@ -596,26 +765,40 @@ func planks(s: Dictionary, dark: bool) -> void:
 		Spr.rect(s.x - 2, y, s.w + 4, 8, Color("#5a5a62"))
 		y += 90
 
-## bloco de gelo (as "pedras" da neve)
+## bloco de gelo (as "pedras" da neve): lascado nos cantos, com facetas, brilho e neve fofa por cima
 func ice_block(s: Dictionary) -> void:
 	var x: float = s.x
 	var y: float = s.y
 	var w: float = s.w
 	var h: float = s.h
-	Spr.rect(x + 4, y + h - 6, w - 8, 8, Color(0, 0, 0, .18))
-	Spr.vgrad(x, y, w, h, Color(.78, .92, 1, .96), Color(.46, .68, .88, .96))
-	# faces: brilho em cima, sombra do lado
-	Spr.rect(x, y, w, 6, Color(.96, .99, 1, .95))
-	Spr.rect(x + w - 8, y + 6, 8, h - 6, Color(.3, .5, .72, .35))
-	Spr.ci.draw_rect(Rect2(x, y, w, h), Color(.22, .38, .58), false, 2.5)
+	Spr.ellipse(x + w / 2, y + h + 2, w * .55, 6, Color(0, 0, 0, .18))
+	var k: float = float(hash(int(x)) % 97) / 97.0
+	# contorno com cantos lascados (cada bloco do seu jeito)
+	var c1: float = 6 + k * 8
+	var c2: float = 5 + (1.0 - k) * 9
+	var pts := PackedVector2Array([
+		Vector2(x + c1, y), Vector2(x + w * .55, y - 2), Vector2(x + w - c2, y + 1), Vector2(x + w + 1, y + c2 + 2),
+		Vector2(x + w - 1, y + h * .55), Vector2(x + w + 1, y + h - 4), Vector2(x + w - 6, y + h), Vector2(x + 7, y + h + 1),
+		Vector2(x - 1, y + h - 6), Vector2(x + 1, y + h * .45), Vector2(x - 1, y + c1 + 1)])
+	var cols := PackedColorArray()
+	for p in pts:
+		var u: float = (p.y - y) / h
+		cols.push_back(Color(.8, .93, 1, .96).lerp(Color(.42, .64, .86, .96), u))
+	Spr.ci.draw_polygon(pts, cols)
+	# faceta escura de um lado e clara do outro
+	Spr.poly(PackedVector2Array([Vector2(x + w - c2, y + 1), Vector2(x + w + 1, y + c2 + 2), Vector2(x + w - 1, y + h * .55), Vector2(x + w * .72, y + h * .42)]), Color(.3, .5, .72, .3))
+	Spr.poly(PackedVector2Array([Vector2(x + c1, y), Vector2(x + w * .4, y + h * .2), Vector2(x + 1, y + h * .45), Vector2(x - 1, y + c1 + 1)]), Color(1, 1, 1, .25))
+	var outl := PackedVector2Array(pts)
+	outl.push_back(pts[0])
+	Spr.line(outl, Color(.22, .38, .58), 2.5)
 	# rachaduras e reflexos
-	var k := hash(int(x)) % 7
 	Spr.seg(x + w * .3, y + 8, x + w * .45, y + h * .45, Color(1, 1, 1, .7), 1.5)
 	Spr.seg(x + w * .45, y + h * .45, x + w * .35, y + h * .8, Color(1, 1, 1, .5), 1.2)
-	Spr.seg(x + w * (.6 + k * .03), y + h * .2, x + w * .75, y + h * .55, Color(.25, .45, .65, .6), 1.2)
-	Spr.seg(x + 6, y + 12, x + 6, y + h * .5, Color(1, 1, 1, .55), 3)
-	# neve por cima
-	Spr.rr(x - 3, y - 5, w + 6, 10, 5, Color(.97, .98, 1))
+	Spr.seg(x + w * (.6 + k * .2), y + h * .2, x + w * .75, y + h * .55, Color(.25, .45, .65, .6), 1.2)
+	# neve fofa por cima, escorrendo nas pontas
+	Spr.ellipse(x + w / 2, y - 1, w * .5 + 3, 7, Color(.97, .98, 1))
+	Spr.ellipse(x + 4, y + 3, 7, 6, Color(.97, .98, 1))
+	Spr.ellipse(x + w - 4, y + 4, 6, 7, Color(.97, .98, 1))
 
 func stone(s: Dictionary) -> void:
 	if s.get("ice"):

@@ -31,7 +31,7 @@ func __draw_raw() -> void:
 		return
 	var vs := get_viewport_rect().size
 	var cam: float = g.rcam * PAR
-	var under: bool = g.L.has("under") and g.player.y > g.L.under + 60
+	var under: bool = (g.L.has("under") and g.player.y > g.L.under + 60) or g.indoors()
 	var song: String = g.AMB.get("song", "manha")
 	var dark: float = g.AMB.dark
 	var base := Color(.07, .13, .05)

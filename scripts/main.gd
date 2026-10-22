@@ -102,6 +102,9 @@ func _build_world() -> void:
 	var bg := preload("res://scripts/bg.gd").new()
 	bg.game = game
 	bg.z_index = -10
+	var bm := ShaderMaterial.new()
+	bm.shader = preload("res://scripts/blur.gdshader")
+	bg.material = bm
 	game.add_child(bg)
 	var span: int = game.L.spanX
 	var x := 0
@@ -120,6 +123,21 @@ func _build_world() -> void:
 	glow_layer.add_child(gl)
 	modulate_node = CanvasModulate.new()
 	game.add_child(modulate_node)
+	# sons posicionados: fogueiras estalando e água correndo
+	for c in game.CHK:
+		Audio.emitter(game, "loop_fogo", Vector2(c.x, c.y - 20), -4.0 if c.has("rest") else -9.0, 700.0)
+	var waters: Array = []
+	for w in game.X.WATER:
+		waters.append([float(w.x), float(w.x + w.w), float(w.y)])
+	for sw in game.SWAMP:
+		waters.append([float(sw.x), float(sw.x + sw.w), float(sw.y)])
+	if game.VH and not game.VH.RA.is_empty():
+		waters.append([float(game.VH.RA.x0), float(game.VH.RA.x1), 480.0])
+	for wv in waters:
+		var wx: float = wv[0] + 200
+		while wx < wv[1]:
+			Audio.emitter(game, "loop_agua", Vector2(wx, wv[2]), -8.0, 800.0)
+			wx += 900
 	player_light = _light(Color(1, .86, .62), 210)
 	for c in game.CHK:
 		lights.append({"n": _light(Color(1, .7, .35), 140), "chk": c})
@@ -205,6 +223,12 @@ func _process(_d: float) -> void:
 		var amp: float = game.shake * (.55 if Save.getv("opt", "shake", true) else 0.0)
 		var tt := Time.get_ticks_msec() / 1000.0
 		var sh := Vector2(sin(tt * 53.0) + sin(tt * 31.0) * .5, cos(tt * 47.0) + sin(tt * 29.0) * .5) * amp * .5
+		# câmera chega mais perto nas cenas calmas e abre nas de ação
+		var zt: float = _zoom_target()
+		cam_zoom = lerpf(cam_zoom, zt, .02)
+		game.camera.zoom = Vector2(cam_zoom, cam_zoom)
+		game.W = vs.x / cam_zoom
+		game.H = vs.y / cam_zoom
 		game.update_render_cam()
 		if stick.mode == "analog" and stick.finger != -1:
 			game.axis_x = stick.axis
@@ -235,6 +259,7 @@ func _process(_d: float) -> void:
 					song = "pedra"
 		if state == S.PLAY:
 			Audio.set_song(song)
+			Audio.set_danger(_danger_level())
 		var in_cine: bool = not game.CINE.is_empty()
 		if state == S.PLAY and top_buttons.visible == in_cine:
 			top_buttons.visible = not in_cine
@@ -243,6 +268,48 @@ func _process(_d: float) -> void:
 				b.visible = not in_cine
 			if in_cine:
 				stick._release()
+
+## quanto perigo há por perto (para a camada de tambores da música)
+func _danger_level() -> float:
+	var g := game
+	if g.X and g.X.boss_active():
+		return 1.0
+	if g.K and (g.K.bear_on() or (not g.K.HAWK.is_empty() and g.K.HAWK.active and not g.K.HAWK.done) or (not g.K.FISH.is_empty() and g.K.FISH.active and not g.K.FISH.done)):
+		return 1.0
+	if g.TR:
+		for o in g.TR.T:
+			if o.k == "boulder" and o.st in ["drop", "roll"]:
+				return 1.0
+	var p: Dictionary = g.player
+	var px: float = p.x + p.w / 2
+	for e in g.EN:
+		if not e.dead and abs(e.x - px) < 380 and abs(e.y - p.y) < 220:
+			return .65
+	return 0.0
+
+var cam_zoom := 1.0
+func _zoom_target() -> float:
+	var g := game
+	if not g.CINE.is_empty():
+		return 1.0
+	# ação: veículos, cavalgada, chefes, pedra rolando, perseguição
+	if (g.VH and g.VH.active()) or (g.RD and g.RD.riding) or (g.X and g.X.boss_active()):
+		return .88
+	if g.K and (g.K.bear_on() or (not g.K.HAWK.is_empty() and g.K.HAWK.active and not g.K.HAWK.done) or (not g.K.FISH.is_empty() and g.K.FISH.active and not g.K.FISH.done)):
+		return .88
+	if g.VIL and g.VIL.go and not g.VIL.gone:
+		return .9
+	if g.TR:
+		for o in g.TR.T:
+			if o.k == "boulder" and o.st in ["drop", "roll"]:
+				return .88
+	# calma: perto de uma fogueira, parado
+	var p: Dictionary = g.player
+	if abs(p.vx) < .5 and p.onGround:
+		for c in g.CHK:
+			if abs(c.x - (p.x + p.w / 2)) < 220 and abs(c.y - (p.y + p.h)) < 80:
+				return 1.1
+	return 1.0
 
 func _physics_process(_d: float) -> void:
 	if state == S.PLAY and game.comic_req != "":
@@ -428,46 +495,32 @@ func _layout() -> void:
 		b.position = pos
 
 func _make_top_buttons() -> void:
+	# faixa do topo: só mochila e pausa (menores), logo à esquerda do painel com o nome do trecho;
+	# som e "voltar à fogueira" ficam no menu de pausa
 	top_buttons = HBoxContainer.new()
 	top_buttons.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	top_buttons.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	top_buttons.offset_left = -12
-	top_buttons.offset_right = -12
-	top_buttons.offset_top = 90
-	top_buttons.offset_bottom = 90
-	top_buttons.add_theme_constant_override("separation", 8)
+	top_buttons.offset_left = -262
+	top_buttons.offset_right = -262
+	top_buttons.offset_top = 6
+	top_buttons.offset_bottom = 6
+	top_buttons.add_theme_constant_override("separation", 6)
 	hud_layer.add_child(top_buttons)
 	var bag := TextureButton.new()
 	bag.texture_normal = load("res://assets/ui/btn_bag.png")
 	bag.ignore_texture_size = true
 	bag.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
-	bag.custom_minimum_size = Vector2(56, 56)
+	bag.custom_minimum_size = Vector2(44, 44)
 	bag.pressed.connect(open_bag)
 	top_buttons.add_child(bag)
-	# ícone desenhado (o emoji de alto-falante não aparece em alguns celulares)
-	var spk := _Speaker.new()
-	snd_btn = _small_btn("", func():
-		Audio.set_on(not Audio.on)
-		spk.queue_redraw())
-	spk.set_anchors_preset(Control.PRESET_FULL_RECT)
-	spk.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	snd_btn.add_child(spk)
-	top_buttons.add_child(snd_btn)
-	var rb := TextureButton.new()
-	rb.texture_normal = load("res://assets/ui/pad_B.png")
-	rb.ignore_texture_size = true
-	rb.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
-	rb.custom_minimum_size = Vector2(52, 52)
-	rb.tooltip_text = "Voltar à última fogueira"
-	rb.pressed.connect(func(): game.keys["Bp"] = true)
-	top_buttons.add_child(rb)
 	var pb := _small_btn("II", _toggle_pause)
+	pb.custom_minimum_size = Vector2(44, 44)
 	top_buttons.add_child(pb)
 	dog_btn = TextureButton.new()
 	dog_btn.texture_normal = load("res://assets/ui/btn_dog.png")
 	dog_btn.ignore_texture_size = true
 	dog_btn.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
-	dog_btn.custom_minimum_size = Vector2(60, 60)
+	dog_btn.custom_minimum_size = Vector2(46, 46)
 	dog_btn.tooltip_text = "Trocar entre o Tomé e o Pipoca (Q)"
 	dog_btn.pressed.connect(func(): game.keys["Dp"] = true)
 	dog_btn.visible = false
@@ -859,6 +912,14 @@ func _pause_menu() -> void:
 	if pause_reason != "":
 		vb.add_child(_label("(pausado por: %s)" % pause_reason, 12, Color("#a89a80"), Spr.font_i))
 	vb.add_child(_button("CONTINUAR", close_panel))
+	var sb := _button("SOM: " + ("LIGADO" if Audio.on else "DESLIGADO"), func(): pass)
+	sb.pressed.connect(func():
+		Audio.set_on(not Audio.on)
+		sb.text = "SOM: " + ("LIGADO" if Audio.on else "DESLIGADO"))
+	vb.add_child(sb)
+	vb.add_child(_button("VOLTAR À ÚLTIMA FOGUEIRA", func():
+		close_panel()
+		game.keys["Bp"] = true))
 	vb.add_child(_button("MAPA DA FASE", func(): show_map(true)))
 	vb.add_child(_button("OPÇÕES", func(): show_options(true)))
 	vb.add_child(_button("MENU INICIAL", func():

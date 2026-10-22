@@ -24,7 +24,7 @@ var font_title: Font
 ## Animações extras do Tomé (opcionais): assets/sprites/tome/<nome>.png, quadros QUADRADOS lado a lado,
 ## pés no centro da base. Se o arquivo existir, o jogo usa no lugar das poses antigas.
 var anim := {}
-const ANIM_NAMES := ["idle", "walk", "run", "jump", "fall", "land", "crawl", "push"]
+const ANIM_NAMES := ["idle", "walk", "run", "jump", "fall", "land", "crawl", "push", "look", "rain", "shiver", "lantern", "tired"]
 var novos := {}
 const NOVOS := ["pipoca", "toupeira", "toupeira_capacete", "morcego", "aranha"]
 
@@ -44,6 +44,10 @@ func novo(n: String, f: int, h: float, flip: bool = false, al: float = 1.0) -> b
 func _ready() -> void:
 	for k in ["atlas1", "atlas2"]:
 		tex[k] = load("res://assets/sprites/%s.png" % k)
+	for k in ["en_boar", "en_frog2", "en_crow2"]:
+		var ep := "res://assets/sprites/%s.png" % k
+		if ResourceLoader.exists(ep):
+			tex[k] = load(ep)
 	for k in ["pai", "pai2", "javali", "chao", "tronco", "galho", "filha", "pai_climb", "pai_rope_a", "pai_rope_b", "pai_vine_a", "pai_vine_b", "gaviao", "bagre"]:
 		tex[k] = load("res://assets/sprites/%s.png" % k)
 	for k in ["bosque", "tarde", "pantano", "noite", "neve"]:
@@ -263,6 +267,15 @@ func ring(x: float, y: float, r: float, c: Color, w: float = 2.0, a0: float = 0.
 	ci.draw_arc(Vector2(x, y), r, a0, a1, 24, col(c), w, true)
 
 func ellipse(x: float, y: float, rx: float, ry: float, c: Color, rot: float = 0.0) -> void:
+	# elipse muito pequena vira círculo (polígono minúsculo não triangula)
+	if rx < 3.5 or ry < 2.0:
+		if rx >= 3.5:
+			# elipse fininha: um traço com a mesma largura
+			var d := Vector2(rx - ry, 0).rotated(rot)
+			ci.draw_line(Vector2(x, y) - d, Vector2(x, y) + d, col(c), max(1.0, ry * 2.0), true)
+		else:
+			ci.draw_circle(Vector2(x, y), max(.5, (rx + ry) * .5), col(c))
+		return
 	var pts := PackedVector2Array()
 	for i in 20:
 		var a := TAU * i / 20.0
@@ -281,7 +294,12 @@ func seg(x0: float, y0: float, x1: float, y1: float, c: Color, w: float = 2.0) -
 	ci.draw_line(Vector2(x0, y0), Vector2(x1, y1), col(c), w, true)
 
 func rr(x: float, y: float, w: float, h: float, r: float, c: Color) -> void:
+	if w < 1.0 or h < 1.0:
+		return
 	r = min(r, min(w, h) / 2)
+	if r < 1.0:
+		ci.draw_rect(Rect2(x, y, w, h), col(c))
+		return
 	var pts := PackedVector2Array()
 	var cs = [[x + w - r, y + r, -PI / 2], [x + w - r, y + h - r, 0.0], [x + r, y + h - r, PI / 2], [x + r, y + r, PI]]
 	for cc in cs:

@@ -82,6 +82,7 @@ var coins := 0
 var coin_life := 0
 var shake := 0.0
 var hit_stop := 0
+var bird_near := false     # algum passarinho voando perto (o Tomé olha para cima)
 var iris_t := 0
 var flash_msg := ""
 var flash_t := 0
@@ -628,6 +629,19 @@ func ambient() -> void:
 		AMB.dark = max(AMB.dark, .86)
 	if X:
 		X.weather_amb()
+	# dentro do túnel e debaixo da terra não chove nem venta
+	if indoors():
+		AMB.rain = 0.0
+		AMB.fog = 0.0
+		AMB.wind = 0.0
+
+## o Tomé está debaixo da terra ou dentro do túnel da mina?
+func indoors() -> bool:
+	if L.has("under") and player.y > L.under:
+		return true
+	var tn: Array = L.get("tunnel", [])
+	var px: float = player.x + player.w / 2
+	return tn.size() >= 2 and px > float(tn[0]) and px < float(tn[1])
 
 ## nome do período do dia em que o Tomé está (a fase é uma só, dividida pelas fogueiras grandes)
 const PERIODS := ["Manhã no bosque", "Tarde", "Pântano", "Neve", "Céu", "Noite na mina"]
@@ -793,6 +807,11 @@ func step() -> void:
 	TR.pre()
 	ZN.pre()
 	Spr.pt("s_pre", __m); __m = Time.get_ticks_usec()
+	if player.get("mantleT", 0) > 0:
+		_mantle_step()
+		_camera()
+		_tick_fx()
+		return
 	# encostado numa parede no ar (para deslizar e pular de parede em parede)
 	player.wslide = false
 	if player.wsl > 0:
@@ -948,7 +967,14 @@ func step() -> void:
 			if want != 0:
 				player.face = want
 			if player.slideT:
-				player.vx *= .9 if player.mud else .976
+				var gk: String = ground_kind()
+				# de barriga na neve e na lama: escorrega longe, espirrando
+				var slick: bool = gk == "snow" or (gk == "mud" and not player.mud)
+				player.vx *= .9 if player.mud else (.992 if slick else .976)
+				player.belly = slick
+				if slick and T % 3 == 0:
+					PARTS.append({"x": player.x + player.w / 2 - player.face * 14, "y": player.y + player.h - 4, "vx": -player.face * randf_range(.5, 2.0), "vy": -randf_range(1.0, 2.6), "life": 18,
+						"col": Color(.95, .97, 1, .9) if gk == "snow" else Color(.35, .26, .16, .9)})
 				if T % 4 == 0:
 					fx("fx_dust", player.x + player.w / 2 - player.face * 10, player.y + player.h - 3, 12, .08, -.2)
 				if abs(player.vx) < 1.3:
@@ -1012,6 +1038,9 @@ func step() -> void:
 			maxv = PUFF_FALL
 		if kd("J") and not player.puff and not player.slam and abs(player.vy) < 1.6 and player.get("launchT", 0) <= 0:
 			g *= .55
+		elif player.vy > 1.6 and not player.puff and not player.slam and player.wsl == 0 and player.wall == 0:
+			# a queda pesa um pouco mais que a subida (pulo com peso)
+			g *= 1.08
 		player.vy = clamp(player.vy + g, -34 if player.get("launchT", 0) > 0 else -20, maxv)
 		if player.wall != 0 and not player.onGround and player.vy > 1.5 and kd("R" if player.wall > 0 else "L") and player.wlock == 0:
 			player.vy = min(player.vy, 2.3)
@@ -1068,6 +1097,10 @@ func step() -> void:
 		player.pant -= 1
 		if abs(player.vx) > .4 or not player.onGround:
 			player.pant = 0
+	if player.onGround and abs(player.vx) < .3:
+		player.idleT = player.get("idleT", 0) + 1
+	else:
+		player.idleT = 0
 	# passos: um som a cada pisada (nos quadros em que o pé encosta no chão)
 	if player.onGround and abs(player.vx) > .8 and not player.crouch and not player.swim:
 		var ph: int = int(player.anim * (1.6 if player.run else 1.2)) % 4
@@ -1722,6 +1755,26 @@ func move_x(dx: float) -> void:
 		if player._g == null and player.coyote <= 0 and not player.ladder and player.vy > -1.5 and (player.y + player.h) - s.y <= 10 and (player.y + player.h) - s.y > 0:
 			player.y = s.y - player.h
 			continue
+		# agarra na beirada: o pulo ficou curto, mas as mãos alcançam o topo -> ele sobe
+		var lift: float = (player.y + player.h) - s.y
+		if dx != 0 and player._g == null and player.get("mantleT", 0) == 0 and not player.ladder and not player.vine and not player.swim \
+				and not player.dog and not player.crouch and player.vy > -1.5 and lift > 10 and lift <= 40 and not s.get("crate") \
+				and player.wlock == 0 and player.wsl == 0 and player.lastWall == 0 \
+				and kd("R" if dx > 0 else "L"):
+			var tx: float = s.x + 2 if dx > 0 else s.x + s.w - player.w - 2
+			var ty: float = s.y - player.h
+			if _ledge_free(tx, ty):
+				player.x = s.x - player.w if dx > 0 else s.x + s.w
+				player.mantleT = 16
+				player.mx0 = player.x
+				player.my0 = player.y
+				player.mx1 = tx
+				player.my1 = ty
+				player.vx = 0
+				player.vy = 0
+				player.face = 1 if dx > 0 else -1
+				Audio.play("climb", -8)
+				return
 		if dx > 0:
 			player.x = s.x - player.w
 		elif dx < 0:
@@ -1730,6 +1783,35 @@ func move_x(dx: float) -> void:
 			player.x = s.x - player.w if (player.x + player.w / 2 < s.x + s.w / 2) else s.x + s.w
 		player.vx = 0
 		player.run = 0
+
+## cabe o Tomé em pé em (x, y)? (para subir numa beirada)
+func _ledge_free(x: float, y: float) -> bool:
+	var r := R(x, y - 2, player.w, player.h)
+	for o in blockers():
+		if o.get("oneway"):
+			continue
+		if hit(r, o):
+			return false
+	return true
+
+## subindo na beirada: primeiro o corpo sobe pendurado, depois passa por cima
+func _mantle_step() -> void:
+	player.mantleT -= 1
+	var u: float = 1.0 - player.mantleT / 16.0
+	if u < .6:
+		var k: float = u / .6
+		player.x = player.mx0
+		player.y = lerpf(player.my0, player.my1 - 4, k * k * (3 - 2 * k))
+	else:
+		var k2: float = (u - .6) / .4
+		player.x = lerpf(player.mx0, player.mx1, k2)
+		player.y = player.my1 - 4 * (1.0 - k2)
+	player.vx = 0
+	player.vy = 0
+	if player.mantleT == 0:
+		player.x = player.mx1
+		player.y = player.my1
+		player.vy = 1
 
 func move_y(dy: float) -> void:
 	var prev_feet: float = player.y + player.h

@@ -117,16 +117,16 @@ func __draw_raw() -> void:
 	else:
 		hint_alpha = max(0, hint_alpha - .06)
 	if hint_alpha > 0 and hint_txt != "":
-		# fica à esquerda dos botões do canto direito (mochila, som, fogueira, pausa, cachorro)
-		var rx0 := 16.0
-		var rx1: float = W - 350.0
+		# centralizada logo abaixo da faixa do topo (sem cobrir botões nem os painéis dos lados)
+		var rx0 := 150.0
+		var rx1: float = W - 150.0
 		var cx: float = (rx0 + rx1) / 2.0
 		var mw: float = min(rx1 - rx0 - 30, 560)
 		var hl := _lines(hint_txt, mw, 15)
 		var hw := 0.0
 		for ln in hl:
 			hw = max(hw, Spr.font_i.get_string_size(ln, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x)
-		var hy: float = (100.0 if (X and X.boss_active()) else 92.0) - (1.0 - hint_alpha) * 10.0
+		var hy: float = (100.0 if (X and X.boss_active()) else 58.0) - (1.0 - hint_alpha) * 10.0
 		Spr.rr(cx - hw / 2 - 14, hy, hw + 28, hl.size() * 21 + 12, 9, Color(.04, .03, .02, .55 * hint_alpha))
 		_wrapped(hint_txt, cx, hy + 18, mw, 15, Color(.93, .87, .74, hint_alpha), Spr.font_i)
 	# aviso (flash)
@@ -138,10 +138,8 @@ func __draw_raw() -> void:
 		for ln in lines:
 			bw = max(bw, Spr.font.get_string_size(ln, HORIZONTAL_ALIGNMENT_LEFT, -1, 17).x)
 		bw += 36
-		var by: float = size.y - 150 - bh + (1.0 - clamp(game.flash_t / 10.0, 0, 1)) * 10.0
-		if (game.RD and game.RD.riding) or (game.VH and game.VH.mode == "raft"):
-			# na cavalgada o aviso fica no alto, longe dos obstáculos do chão
-			by = 158
+		# aviso no alto, abaixo da dica: nunca em cima das setas e dos botões de baixo
+		var by: float = (150.0 if hint_alpha > .05 else 104.0) - (1.0 - clamp(game.flash_t / 10.0, 0, 1)) * 10.0
 		Spr.rr(W / 2 - bw / 2, by, bw, bh, 10, Color(.04, .03, .02, .78 * a))
 		var y := by + 30
 		for ln in lines:

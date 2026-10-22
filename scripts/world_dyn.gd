@@ -123,6 +123,7 @@ func __draw_raw() -> void:
 	else:
 		WorldExtras.dog(g, T)
 	var __d__player := Time.get_ticks_usec()
+	_reflection(g)
 	_player(g)
 	_breath(g)
 	Spr.pt("d__player", __d__player)
@@ -395,6 +396,17 @@ func _enemy(e: Dictionary) -> void:
 		"frog":
 			if e.dead:
 				Spr.A("en_frog_dead", 0, 3, .9)
+			elif Spr.tex.has("en_frog2"):
+				# respira (papo inflando), pisca de vez em quando, agacha antes do pulo e estica no ar
+				var jt: int = int(e.get("jt", 0)) % 130
+				var ff: int = (T / 22) % 2
+				if (T + int(e.x)) % 150 < 7:
+					ff = 2
+				if jt >= 86 and jt < 100:
+					ff = 3
+				if e.leap:
+					ff = 4
+				Spr.frame(Spr.tex.en_frog2, ff, 130, 70, 65, 68, 0, 3, .82)
 			else:
 				Spr.A("en_frog_jump" if e.leap else "en_frog", 0, 3, .9 if e.leap else .82 + sin(T * .12) * .02)
 		"fly":
@@ -440,7 +452,11 @@ func _enemy(e: Dictionary) -> void:
 				fr = 5
 			else:
 				fr = [0, 1, 2, 3][(T / 8) % 4]
-			Spr.frame(Spr.tex.javali, fr, 210, 140, 105, 136, 0, 3, .46)
+			if fr < 4 and Spr.tex.has("en_boar"):
+				# andando: 6 quadros novos, pernas alternando
+				Spr.frame(Spr.tex.en_boar, (T / 6 + int(e.x * .1)) % 6, 210, 140, 105, 136, 0, 3, .46)
+			else:
+				Spr.frame(Spr.tex.javali, fr, 210, 140, 105, 136, 0, 3, .46)
 	Spr.restore()
 
 # ---------- cavalo e trilha da cavalgada ----------
@@ -538,6 +554,31 @@ func _rider(g: Game) -> void:
 	WorldNature.horse(RD.hx, RD.hy, g0, run, hst, T)
 	Spr.alpha = 1.0
 
+# ---------- reflexo do Tomé na água ----------
+func _reflection(g: Game) -> void:
+	var p: Dictionary = g.player
+	if p.swim or p.dyingT > 0 or not g.WV or p.get("wpose", "") != "" or (g.VH and g.VH.active()) or (g.RD and g.RD.riding):
+		return
+	var px: float = p.x + p.w / 2
+	var by: float = p.y + p.h
+	for k in g.WV.B:
+		var b: Dictionary = g.WV.B[k]
+		var d: float = b.y - by
+		if px < b.x0 + 10 or px > b.x1 - 10 or d < -2 or d > 150:
+			continue
+		var off := g.ip_off()
+		var wy: float = b.y + off.y
+		Spr.save()
+		var a0: float = Spr.alpha
+		Spr.alpha = a0 * .32 * (1.0 - d / 150.0)
+		# espelha em volta da linha da água, com um tremidinho de onda
+		Spr.translate(off.x + sin(T * .09) * 1.5, wy * 2.0)
+		Spr.scale(1, -1)
+		_player_draw(g)
+		Spr.alpha = a0
+		Spr.restore()
+		return
+
 # ---------- vapor da respiração no frio ----------
 var puffs: Array = []
 func _breath(g: Game) -> void:
@@ -625,6 +666,16 @@ func _player_draw(g: Game) -> void:
 		p.turnT -= 1
 	var pai: Texture2D = Spr.tex.pai
 	var pai2: Texture2D = Spr.tex.pai2
+	# subindo na beirada: braço erguido segurando, corpo inclinado sobre a quina
+	if p.get("mantleT", 0) > 0:
+		var u: float = 1.0 - p.mantleT / 16.0
+		Spr.save()
+		Spr.translate(cx, by)
+		Spr.rotate(p.face * (.25 if u > .5 else .1))
+		Spr.scale(p.face * .48, .48 * (1.0 + .06 * sin(u * PI)))
+		Spr.ci.draw_texture_rect_region(pai, Rect2(-85, -156, 170, 160), Rect2(4 * 170, 0, 170, 160), Color(1, 1, 1, Spr.alpha))
+		Spr.restore()
+		return
 	if p.dyingT > 0:
 		Spr.save()
 		Spr.translate(cx, by - 30)
@@ -725,11 +776,15 @@ func _player_draw(g: Game) -> void:
 		elif abs(p.vx) > .4:
 			key = "run" if p.run and Spr.anim.has("run") else "walk"
 		else:
-			key = "idle"
+			key = _reaction(g, p)
 		if Spr.anim.has(key):
 			var a: Dictionary = Spr.anim[key]
 			var n: int = a.n
 			match key:
+				"shiver":
+					f = (T / 3) % n
+				"lantern":
+					f = (T / 40) % n
 				"walk", "run":
 					f = int(p.anim * (1.6 if p.run else 1.2) * n / 4.0) % n
 				"idle":
@@ -845,6 +900,26 @@ func _scarf(p: Dictionary) -> void:
 	var tip: Vector2 = (pts_top[n] + pts_bot[n]) / 2
 	for k in 3:
 		Spr.ci.draw_line(tip + Vector2(0, (k - 1) * 3), tip + Vector2(-6, (k - 1) * 3.5 + 1), Color(.93, .86, .55, Spr.alpha), 1.5)
+
+## o Tomé parado reage ao mundo: cansado, olhando para cima, protegendo-se da chuva, tremendo de frio
+## ou erguendo a lanterna no escuro
+func _reaction(g: Game, p: Dictionary) -> String:
+	if p.crouch or p.swim or p.get("act", "") != "" and p.actT > 0:
+		return "idle"
+	if p.get("pant", 0) > 0:
+		return "tired"
+	if p.lookT > 0:
+		return "look"
+	var it: int = p.get("idleT", 0)
+	if g.get("bird_near") and it > 10:
+		return "look"
+	if (g.indoors() or g.AMB.dark > .5) and it > 50:
+		return "lantern"
+	if g.AMB.rain > .45 and not g.indoors() and it > 30:
+		return "rain"
+	if g.AMB.get("snow", 0.0) > .3 and it > 90:
+		return "shiver"
+	return "idle"
 
 ## contorno de luz: de dia vem do sol (de cima, atrás), à noite da lanterna (da frente)
 var rim_off := Vector2.ZERO
