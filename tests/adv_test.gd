@@ -109,6 +109,19 @@ func _initialize() -> void:
 		S("ponte", bridge_run(trap_at("bridge", 55220)))
 		S("vivo na ponte", g.lives >= 9)
 	if all or args.has("voo"):
+		# espaço entre os obstáculos do voo: ondas com trechos calmos para aproveitar o céu
+		var xs: Array = g.L.plane.obs.map(func(o): return float(o.x))
+		xs.sort()
+		var mind := 1e9
+		var calm := 0
+		var prev: float = float(g.L.plane.edge)
+		for x in xs:
+			mind = min(mind, x - prev) if prev > float(g.L.plane.edge) else mind
+			if x - prev >= 900:
+				calm += 1
+			prev = x
+		S("obstáculos do voo espaçados (>= 400)", mind >= 400)
+		S("trechos calmos no voo (>= 3)", calm >= 3)
 		put(56960, 190)
 		use()
 		S("decolou", g.VH.mode == "plane")

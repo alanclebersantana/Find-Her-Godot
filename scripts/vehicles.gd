@@ -147,7 +147,7 @@ func _start_raft() -> void:
 	_place_player()
 	g.snap_camera()
 	Audio.play("splash", -4)
-	g.flash_tut("Segure firme!", "Corredeira! PULAR salta pedras, troncos e as quedas-d'água (pule na beirada). ↓ abaixa sob os galhos.", 260)
+	g.flash_tut("Segure firme!", "Corredeira! PULAR salta pedras e troncos boiando (e as quedas, na beirada). ↓ abaixa sob galhos, troncos caídos, pontes e redes.", 260)
 
 ## TRENÓ: descida curtinha na neve; a velocidade cresce, PULAR salta os montes, pedras e troncos
 func _start_sled() -> void:
@@ -368,12 +368,19 @@ func _raft_step() -> void:
 				bad = Game.hit(b, g.R(o.x + 6, oy - 18, 70, 20))
 			"branch":
 				bad = Game.hit(b, g.R(o.x + 4, oy - 104, 90, 18))
+			# obstáculos de abaixar (↓): passam na altura do Tomé em pé; abaixado ele passa por baixo
+			"lowbranch", "trunk", "bridge", "net":
+				var dw: float = DUCK_W.get(o.k, 110)
+				bad = Game.hit(b, g.R(o.x, oy - 96, dw, 53))
 		if bad:
 			o.hit = true
 			_hurt_raft(o.k)
 	_coins(b)
 	if hx >= float(RA.x1) - 70:
 		_finish_raft()
+
+## largura do que se passa abaixado na corredeira
+const DUCK_W := {"lowbranch": 100.0, "trunk": 130.0, "bridge": 170.0, "net": 110.0}
 
 func _hurt_raft(_k: String) -> void:
 	var p: Dictionary = g.player
@@ -488,12 +495,12 @@ func _plane_obs() -> void:
 				# avisa (!), mergulha até a altura em que o avião estava e varre a faixa voando reto
 				match o.st:
 					"wait":
-						if o.x - hx < 700:
+						if o.x - hx < 820:
 							o.st = "warn"
 							o.t = 0
 							o.ty = hy - 26
 					"warn":
-						if o.t > 40:
+						if o.t > 60:
 							o.st = "dive"
 							o.t = 0
 							o.vx = -120.0 / 30.0
@@ -506,7 +513,7 @@ func _plane_obs() -> void:
 							o.t = 0
 							o.y = o.ty
 					"sweep":
-						o.x -= 6.0
+						o.x -= 4.5
 						if o.t > 120:
 							o.st = "gone"
 				if o.st in ["dive", "sweep"] and not o.hit and Game.hit(b, g.R(o.x - 22, o.y - 12, 44, 24)):

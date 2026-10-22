@@ -119,13 +119,21 @@ static func _sled_world(g: Game, VH: Vehicles, T: int) -> void:
 		_sled(float(SL.x1) - 10, gy)
 
 static func _raft(x: float, y: float) -> void:
+	# toras pintadas amarradas (vistas de lado): a madeira comprida e as pontas cortadas
+	_hlog(x - 40, x + 40, y - 9, 16)
 	for k in 5:
-		var lx: float = x - 36 + k * 15
-		Spr.rr(lx, y - 8, 14, 14, 6, Color("#7a5232").lightened(k % 2 * .08))
-		Spr.ring(lx + 7, y - 1, 3, Color("#4e331d"), 1.5)
-	Spr.rect(x - 38, y - 8, 76, 4, Color("#a07040"))
+		Spr.P("logend%d" % (k % 3), x - 32 + k * 16, y + 8, 17)
 	for k in 2:
-		Spr.rect(x - 24 + k * 44, y - 9, 5, 15, Color("#c9a26a"))
+		Spr.rect(x - 24 + k * 44, y - 10, 5, 17, Color("#c9a26a"))
+		Spr.seg(x - 24 + k * 44, y - 10, x - 19 + k * 44, y + 6, Color("#7a5a32"), 1.2)
+
+## tora pintada deitada de xa a xb (centro em y, grossura h)
+static func _hlog(xa: float, xb: float, y: float, h: float) -> void:
+	Spr.save()
+	Spr.translate(xa, y + h / 2)
+	Spr.rotate(-PI / 2)
+	Spr.PR("log", 0, 0, h, xb - xa)
+	Spr.restore()
 
 # ---------- rio ----------
 static func _river(g: Game, VH: Vehicles, T: int) -> void:
@@ -160,9 +168,13 @@ static func _river(g: Game, VH: Vehicles, T: int) -> void:
 			Spr.vgrad(sa, wl + 10, sb - sa, 56, Color("#4f8fb0"), Color("#1d4a66"))
 			Spr.rect(sa, wl + 66, sb - sa, bot - wl, Color("#10283a"))
 			# espuma e correnteza
-			for k in int((sb - sa) / 46) + 1:
-				var fx: float = sa + fposmod(k * 46.0 - T * 5.0, sb - sa + 1)
-				Spr.seg(fx, wl + 6 + (k % 3) * 9, fx + 22, wl + 6 + (k % 3) * 9, Color(.85, .95, 1, .45), 2)
+			# correnteza: fios de espuma curvos de tamanhos diferentes descendo o rio
+			for k in int((sb - sa) / 38) + 1:
+				var fx: float = sa + fposmod(k * 38.0 - T * (4.0 + (k % 3)), sb - sa + 1)
+				var fy: float = wl + 6 + (k % 4) * 8
+				var fl: float = 14 + fmod(k * 7.3, 16.0)
+				var fa: float = .25 + .25 * sin(k * 1.7 + T * .03)
+				Spr.line(PackedVector2Array([Vector2(fx, fy), Vector2(fx + fl * .5, fy - 2), Vector2(fx + fl, fy)]), Color(.85, .95, 1, fa), 2)
 			Spr.line(top, Color(.9, .97, 1, .75), 3)
 		# quedas-d'água
 		for f in RA.get("falls", []):
@@ -175,31 +187,94 @@ static func _river(g: Game, VH: Vehicles, T: int) -> void:
 				Spr.seg(f - 4 + k * 3, yy, f - 2 + k * 3, yy + 8, Color(1, 1, 1, .7), 2)
 			for k in 4:
 				Spr.circle(f + 8 + k * 9, top + 44 + sin(T * .2 + k) * 3, 7 - k, Color(1, 1, 1, .5))
-			Spr.rr(f - 26, top - 30, 20, 34, 6, Color("#5a5a52"))
+			Spr.P("rock2", f - 18, top + 8, 44)
 		# as margens
 		_bank(float(RA.x0), 470, 1.0)
 		_bank(float(RA.x1), 470, -1.0)
 	# obstáculos (os do passeio, ou os do mapa enquanto ninguém está na jangada)
 	var obs: Array = VH.OBS if VH.mode == "raft" else RA.get("obs", [])
 	for o in obs:
-		if o.x < g.cam - 200 or o.x > g.cam + g.W + 200:
+		if o.x < g.cam - 260 or o.x > g.cam + g.W + 260:
 			continue
 		var oy: float = VH.water_y(o.x)
 		match o.k:
 			"rock":
-				Spr.ellipse(o.x + 30, oy + 4, 36, 8, Color(1, 1, 1, .4))
-				Spr.poly(PackedVector2Array([Vector2(o.x + 2, oy + 4), Vector2(o.x + 12, oy - 30), Vector2(o.x + 34, oy - 38), Vector2(o.x + 54, oy - 18), Vector2(o.x + 58, oy + 4)]), Color("#6b6a62"))
-				Spr.poly(PackedVector2Array([Vector2(o.x + 14, oy - 26), Vector2(o.x + 34, oy - 34), Vector2(o.x + 40, oy - 20), Vector2(o.x + 20, oy - 14)]), Color("#837e70"))
+				# pedra pintada saindo da água, com espuma batendo
+				Spr.P("rock1", o.x + 30, oy + 12, 66)
+				Spr.rect(o.x - 6, oy + 3, 74, 10, Color(.31, .56, .69, .85))
+				for k in 3:
+					var fa: float = fposmod(T * .05 + k * .33, 1.0)
+					Spr.ellipse(o.x + 2 - fa * 16, oy + 2, 8 + fa * 10, 3, Color(1, 1, 1, .55 * (1.0 - fa)))
 			"log":
 				var bob: float = sin(T * .1 + o.x) * 2
-				Spr.rr(o.x + 4, oy - 18 + bob, 74, 20, 10, Color("#6b4626"))
-				Spr.rr(o.x + 4, oy - 18 + bob, 74, 7, 5, Color("#8a5e34"))
-				Spr.ellipse(o.x + 76, oy - 8 + bob, 5, 10, Color("#c9a26a"))
+				_hlog(o.x + 4, o.x + 78, oy - 8 + bob, 20)
+				Spr.P("logend0", o.x + 79, oy + 2 + bob, 20)
+				Spr.ellipse(o.x + 40, oy + 3, 42, 4, Color(1, 1, 1, .35))
 			"branch":
-				Spr.rect(o.x + 90, oy - 220, 18, 240, Color("#4e331d"))
-				Spr.rr(o.x - 4, oy - 108, 112, 16, 7, Color("#5a3d22"))
+				pass
+			"lowbranch":
+				# árvore morta inclinada da margem, com um galho grosso baixo por cima do rio
+				Spr.save()
+				Spr.translate(o.x + 175, oy + 30)
+				Spr.rotate(-.3)
+				Spr.img(Spr.tex.tronco, -24, -330, 48, 340)
+				Spr.restore()
+				# galho grosso descendo da árvore até a altura do Tomé
+				Spr.save()
+				Spr.translate(o.x + 134, oy - 106)
+				Spr.rotate(-.3)
+				Spr.PR("log", -160, -12, 166, 24, Color(.82, .78, .74))
+				Spr.restore()
+				# galhinhos secos pendurados até a altura do Tomé
 				for k in 5:
-					Spr.ellipse(o.x + 8 + k * 20, oy - 112 + (k % 2) * 6, 14, 8, Color("#4f7a34"), k)
+					var tx: float = o.x + 6 + k * 22
+					var ty: float = oy - 80 + k * 6
+					Spr.seg(tx, ty - 8, tx - 6, ty + 30 - k * 4, Color("#3e2a18"), 2.5)
+					Spr.seg(tx - 4, ty + 10, tx + 6, ty + 24 - k * 3, Color("#3e2a18"), 1.6)
+			"trunk":
+				# tronco caído atravessado sobre o rio, com musgo e fios pendurados
+				Spr.P("rock0", o.x - 30, oy + 10, 58)
+				Spr.P("rock2", o.x + 166, oy + 10, 54)
+				Spr.rect(o.x - 64, oy + 3, 260, 8, Color(.31, .56, .69, .85))
+				Spr.seg(o.x - 30, oy - 46, o.x - 34, oy - 2, Color("#4e331d"), 6)
+				Spr.seg(o.x + 160, oy - 46, o.x + 168, oy - 2, Color("#4e331d"), 6)
+				_hlog(o.x - 40, o.x + 170, oy - 64, 36)
+				Spr.P("logend1", o.x + 170, oy - 44, 36)
+				for k in 7:
+					var mx: float = o.x - 24 + k * 30
+					Spr.ellipse(mx, oy - 82, 14, 5, Color("#4f7a34"))
+					if k % 2 == 0:
+						Spr.seg(mx, oy - 48, mx + sin(T * .05 + k) * 3, oy - 34 - (k % 3) * 4, Color(.3, .45, .2, .8), 1.5)
+			"bridge":
+				# ponte velha e baixa: tábuas sobre dois postes, corrimão de corda
+				for px in [o.x - 24.0, o.x + 182.0]:
+					Spr.PR("stake", px - 7, oy - 120, 14, 140, Color(.85, .8, .75))
+				Spr.rr(o.x - 34, oy - 66, 236, 20, 4, Color("#6b4626"))
+				Spr.rr(o.x - 34, oy - 66, 236, 6, 3, Color("#8a5e34"))
+				var pk: float = o.x - 30
+				while pk < o.x + 198:
+					Spr.seg(pk, oy - 64, pk, oy - 47, Color("#3e2a18"), 1.5)
+					pk += 18 + fmod(pk * .37, 6.0)
+				var rail := PackedVector2Array()
+				for k in 13:
+					var u: float = k / 12.0
+					rail.push_back(Vector2(lerpf(o.x - 24, o.x + 182, u), oy - 112 + sin(u * PI) * 16))
+				Spr.line(rail, Color("#7a5a32"), 3)
+				Spr.line(rail, Color("#c9a26a"), 1.4)
+			"net":
+				# rede de pesca esticada entre dois postes, boias de cortiça embaixo
+				var sw: float = sin(T * .05 + o.x) * 3
+				for px in [o.x - 14.0, o.x + 124.0]:
+					Spr.PR("stake", px - 7, oy - 160, 14, 180, Color(.85, .8, .75))
+				Spr.seg(o.x - 14, oy - 136, o.x + 124, oy - 136, Color("#c9a26a"), 2.5)
+				var xa: float = o.x - 8
+				while xa <= o.x + 118:
+					Spr.seg(xa, oy - 134, xa + 14 + sw, oy - 46, Color(.85, .8, .65, .65), 1.2)
+					Spr.seg(xa + 14, oy - 134, xa + sw, oy - 46, Color(.85, .8, .65, .65), 1.2)
+					xa += 14
+				Spr.seg(o.x - 10 + sw, oy - 46, o.x + 120 + sw, oy - 46, Color("#c9a26a"), 2)
+				for k in 6:
+					Spr.ellipse(o.x - 2 + k * 22 + sw, oy - 45, 6, 4, Color("#e08a3a"))
 	# a jangada parada no cais
 	if VH.mode != "raft":
 		var rx: float = VH.RA.px
@@ -315,6 +390,19 @@ static func _runway(g: Game, VH: Vehicles, T: int) -> void:
 		_valley(a, b, float(g.L.bottom), T)
 	# os obstáculos do céu
 	if VH.mode == "plane":
+		# aviso de longe: plaquinha na borda da tela na altura do que vem aí
+		for o in VH.OBS:
+			var ahead: float = o.x - (g.cam + g.W)
+			if ahead > -40 and ahead < 1000 and not o.hit and o.get("st", "") != "gone":
+				var wy: float = o.y + (o.h * .5 if o.k == "cloud" else (20.0 if o.k == "flock" else 0.0))
+				if o.k == "hawk" and o.has("ty"):
+					wy = o.ty
+				var wa: float = clamp(1.0 - ahead / 1000.0, .35, 1.0)
+				var wx: float = g.cam + g.W - 34
+				Spr.circle(wx, wy, 17, Color(0, 0, 0, .35 * wa))
+				Spr.ring(wx, wy, 17, Color(1, .35, .2, wa), 3)
+				Spr.text("!", wx, wy + 9, 24, Color(1, .4, .25, wa), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_title, 4, Color(0, 0, 0, .7 * wa))
+				Spr.poly(PackedVector2Array([Vector2(wx + 20, wy - 7), Vector2(wx + 30, wy), Vector2(wx + 20, wy + 7)]), Color(1, .4, .25, wa))
 		for o in VH.OBS:
 			if o.x < g.cam - 200 or o.x > g.cam + g.W + 300:
 				continue

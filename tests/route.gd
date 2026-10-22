@@ -524,14 +524,15 @@ func ride_raft():
 				d["J"] = true
 		for o in VH.OBS:
 			var dx: float = o.x - VH.hx
-			if dx < -140 or dx > 220:
+			if dx < -240 or dx > 220:
 				continue
 			if o.k in ["rock", "log"] and dx < 70 and dx > 26 and VH.hy >= wl - 1:
 				press("J")
 				d["J"] = true
-			if o.k == "branch" and dx < 130:
+			var dw: float = g.VH.DUCK_W.get(o.k, 0.0)
+			if dw > 0 and dx < 120 and dx > -(dw + 36):
 				d["S"] = true
-			if dx > -40 or o.k == "branch":
+			if dx > -40:
 				break
 		frame(d)
 	return "não terminou x=%d" % int(VH.hx)
