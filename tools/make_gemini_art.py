@@ -33,9 +33,14 @@ def sheet(frames, cw, ch, place):
 
 # ---------- cavalo: galope (4), pulo, parado ----------
 h = cut('cavalo')
-order = [1, 0, 4, 3, 5, 6]       # galope esticado, recolhido, apoio, recolhido 2, pulo, parado
+# galope novo em 6 quadros (galope.jpg, 2 colunas x 3 linhas, na ordem de leitura) + pulo e parado do cavalo.jpg
+gl = cut('galope')
 sc = .5
-frames = [h[i].resize((int(h[i].width * sc), int(h[i].height * sc)), Image.LANCZOS) for i in order]
+def rs(im, k):
+    return im.resize((int(im.width * k), int(im.height * k)), Image.LANCZOS)
+# o galope novo foi desenhado maior: iguala a altura média ao cavalo antigo
+hk = np.mean([h[i].width for i in [1, 0, 4, 3]]) / np.mean([im.width for im in gl])
+frames = [rs(im, sc * hk) for im in gl] + [rs(h[i], sc * 1.12) for i in [5, 6]]
 CW, CH = 240, 170
 SX, BOT = 112, 166
 seats = []

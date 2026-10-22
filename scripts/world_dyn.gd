@@ -703,7 +703,7 @@ func _player_draw(g: Game) -> void:
 			n = "pai_throw1" if p.actT > 14 else "pai_throw2"
 		elif p.pushT > 0 and p.onGround:
 			n = ["pai_push1", "pai_push2", "pai_push3"][(T / 10) % 3]
-		elif p.run and p.onGround and abs(p.vx) > 3:
+		elif p.run and p.onGround and abs(p.vx) > 3 and not Spr.anim.has("run"):
 			n = "pai_run1" if int(p.anim * 1.6) % 2 else "pai_run2"
 		if n != "":
 			if p.onGround:
@@ -743,11 +743,20 @@ func _player_draw(g: Game) -> void:
 			var sz: float = a.s
 			var k2 := 78.0 / sz
 			Spr.ellipse(cx, by + 1, 16, 4, Color(0, 0, 0, .25 if p.onGround else .12))
-			Spr.save()
-			Spr.translate(cx, by)
-			Spr.scale(p.face * k2, k2)
-			Spr.ci.draw_texture_rect_region(a.tex, Rect2(-sz / 2, -sz, sz, sz), Rect2(f * sz, 0, sz, sz), Color(1, 1, 1, Spr.alpha))
-			Spr.restore()
+			var rim3 := _rim(g, p)
+			var sq3: float = p.squash
+			for pass3 in (2 if rim3.a > 0 else 1):
+				var rp: bool = pass3 == 0 and rim3.a > 0
+				Spr.save()
+				Spr.translate(cx + (rim_off.x if rp else 0.0), by + (rim_off.y if rp else 0.0))
+				if key == "run":
+					Spr.rotate(p.face * .04)
+				Spr.scale(p.face * k2 * (1 + sq3 * .2), k2 * (1 - sq3 * .25))
+				if rp:
+					Spr.ci.draw_texture_rect_region(Spr.sil(a.tex), Rect2(-sz / 2, -sz, sz, sz), Rect2(f * sz, 0, sz, sz), Color(rim3.r, rim3.g, rim3.b, rim3.a * Spr.alpha))
+				else:
+					Spr.ci.draw_texture_rect_region(a.tex, Rect2(-sz / 2, -sz, sz, sz), Rect2(f * sz, 0, sz, sz), Color(1, 1, 1, Spr.alpha))
+				Spr.restore()
 			_armor(p, cx, by)
 			return
 	# folhas de sprites antigas (parado, andar, pulo, planar, mergulho)

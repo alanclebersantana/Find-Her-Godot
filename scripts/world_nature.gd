@@ -286,11 +286,12 @@ static func _hm() -> Dictionary:
 
 ## quadro do cavalo: 0-3 galope, 4 pulo, 5 parado
 static func horse_frame(g: float, run: float, st: String) -> int:
+	# galope em 6 quadros (0-5), pulo (6) e parado (7)
 	if st == "jump":
-		return 4
+		return 6
 	if run <= .05:
-		return 5
-	return int(floor(g * 4.0)) % 4
+		return 7
+	return int(floor(g * 6.0)) % 6
 
 ## altura da sela acima do chão (negativa), para pôr o Tomé montado
 static func horse_seat(fr: int) -> float:
