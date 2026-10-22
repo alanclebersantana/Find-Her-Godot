@@ -46,8 +46,21 @@ func put(x: float, y: float) -> void:
 	g.snap_camera()
 	P = g.player
 
+var posf: FileAccess
+
 func hide_ui() -> void:
 	main.hud_layer.visible = false
+	## posição do Tomé na tela (0..1) por quadro, para o corte que acompanha o personagem
+	if posf == null:
+		var seg: String = OS.get_cmdline_user_args()[0]
+		posf = FileAccess.open("/tmp/vid/hi/%s.pos" % seg, FileAccess.WRITE)
+	if posf and g and g.camera:
+		var vs: Vector2 = main.get_viewport().get_visible_rect().size
+		var z: float = g.camera.zoom.x
+		var c: Vector2 = g.camera.position
+		var u: float = (g.player.x + 12 - c.x) * z / vs.x
+		var v: float = (g.player.y + 20 - c.y) * z / vs.y
+		posf.store_line("%d %.4f %.4f" % [Engine.get_process_frames(), u, v])
 
 ## roda n quadros do vídeo; keys(i) devolve as teclas apertadas no quadro i
 func run(n: int, keys: Callable) -> void:
