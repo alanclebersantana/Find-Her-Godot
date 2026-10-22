@@ -9,6 +9,8 @@ class_name Vehicles
 
 var g
 var RA := {}            # dados da jangada (L.raft)
+var SL := {}            # dados do trenó (L.sled)
+var sled_done := false
 var PL := {}            # dados do biplano (L.plane)
 var mode := ""          # "" | "raft" | "plane"
 var hx := 0.0
@@ -34,6 +36,8 @@ func load_level() -> void:
 	raft_done = false
 	plane_done = false
 	RA = g.L.get("raft", {}).duplicate(true)
+	SL = g.L.get("sled", {}).duplicate(true)
+	sled_done = false
 	PL = g.L.get("plane", {}).duplicate(true)
 	RAFT_SOL = {}
 	if not RA.is_empty():
@@ -92,7 +96,16 @@ func near_plane() -> bool:
 	var p: Dictionary = g.player
 	return abs(p.x + p.w / 2 - PL.px) < 150 and abs(p.y + p.h - PL.y) < 70 and not p.get("dog")
 
+func near_sled() -> bool:
+	if SL.is_empty() or sled_done or mode != "":
+		return false
+	var p: Dictionary = g.player
+	return abs(p.x + p.w / 2 - float(SL.x)) < 90 and abs(p.y + p.h - float(SL.y)) < 50 and not p.get("dog")
+
 func use() -> bool:
+	if near_sled():
+		_start_sled()
+		return true
 	if near_raft():
 		g.want_comic("jangada")
 		_start_raft()
@@ -136,6 +149,108 @@ func _start_raft() -> void:
 	Audio.play("splash", -4)
 	g.flash_tut("Segure firme!", "Corredeira! PULAR salta pedras, troncos e as quedas-d'água (pule na beirada). ↓ abaixa sob os galhos.", 260)
 
+## TRENÓ: descida curtinha na neve; a velocidade cresce, PULAR salta os montes, pedras e troncos
+func _start_sled() -> void:
+	mode = "sled"
+	_common_start()
+	OBS = []
+	for o in SL.get("obs", []):
+		var d: Dictionary = o.duplicate()
+		d.hit = false
+		OBS.append(d)
+	hx = float(SL.x)
+	hy = float(SL.y)
+	spd = 2.0
+	_place_player()
+	g.snap_camera()
+	Audio.play("slide")
+	g.flash_tut("Trenó!", "Descendo o morro de trenó! PULAR salta os montes de neve, as pedras e os troncos.", 220)
+
+func _sled_step() -> void:
+	if stumble > 0:
+		stumble -= 1
+		spd = move_toward(spd, 2.5, .4)
+	else:
+		spd = move_toward(spd, float(SL.spd), .12)
+	var gy: float = float(SL.y)
+	var on_ground: bool = hy >= gy - 1
+	if g.pressed("J"):
+		jbuf = 9
+	elif jbuf > 0:
+		jbuf -= 1
+	if jbuf > 0 and on_ground and stumble < 20:
+		jbuf = 0
+		vy = -8.6
+		Audio.play("jump", -4)
+	vy += .5 if (vy < 0 and g.kd("J")) else .7
+	hy += vy
+	hx += spd
+	if hy >= gy:
+		if vy > 4:
+			g.burst(hx, gy, 10, Color(.95, .97, 1))
+			Audio.step("snow", -8)
+		hy = gy
+		vy = 0.0
+	# neve espirrando atrás e linhas de velocidade
+	if hy >= gy - 1 and g.T % 2 == 0:
+		g.PARTS.append({"x": hx - 30, "y": gy - 4, "vx": -spd * .3 - randf() * 1.5, "vy": -randf_range(1.0, 2.8), "life": 20, "col": Color(.97, .98, 1, .95)})
+	var b := box()
+	for o in OBS:
+		if o.hit or o.x + 80 < hx - 60 or o.x > hx + 60:
+			continue
+		var bad := false
+		match o.k:
+			"mound":
+				bad = Game.hit(b, g.R(o.x - 26, gy - 22, 52, 22))
+			"rock":
+				bad = Game.hit(b, g.R(o.x - 20, gy - 24, 40, 24))
+			"log":
+				bad = Game.hit(b, g.R(o.x - 34, gy - 20, 68, 20))
+		if bad:
+			o.hit = true
+			_hurt_sled()
+	_coins(b)
+	if hx >= float(SL.x1):
+		_finish_sled()
+
+func _hurt_sled() -> void:
+	var p: Dictionary = g.player
+	stumble = 36
+	spd = 2.0
+	vy = -5.0
+	g.shake = 6
+	g.hit_stop = 4
+	Audio.play("hurt")
+	Audio.vib(60)
+	g.burst(hx + 20, hy - 20, 14, Color(.95, .97, 1))
+	if p.iframe > 0:
+		return
+	p.iframe = 50
+	p.hp -= 1
+	if p.hp <= 0:
+		tries += 1
+		g.iris_t = 30
+		g.flash("O trenó capotou! De novo — PULAR para saltar.", 200)
+		_start_sled()
+
+func _finish_sled() -> void:
+	var p: Dictionary = g.player
+	mode = ""
+	sled_done = true
+	p.x = float(SL.x1) + 6
+	p.y = float(SL.y) - p.h - 2
+	p.vx = 3.0
+	p.vy = -5.0
+	p.onGround = false
+	p.hp = max(p.hp, 1)
+	if g.X.DOG.get("st", "") == "ride":
+		g.X.DOG.st = "follow"
+		g.X.DOG.x = p.x - 40
+		g.X.DOG.y = float(SL.y)
+	g.burst(p.x, float(SL.y) - 10, 24, Color(.97, .98, 1))
+	Audio.play("splash", -10)
+	g.flash("Que descida! O trenó parou no monte de neve.", 180)
+
 func _start_plane() -> void:
 	mode = "plane"
 	_common_start()
@@ -164,12 +279,15 @@ func _place_player() -> void:
 	if mode == "raft":
 		p.x = hx - p.w / 2
 		p.y = hy - 8 - p.h + (12 if duck else 0)
+	elif mode == "sled":
+		p.x = hx - p.w / 2
+		p.y = hy - 10 - p.h
 	else:
 		p.x = hx - p.w / 2 - 10
 		p.y = hy - 40 - p.h
 	p.vx = spd
 	p.vy = vy
-	p.onGround = mode == "raft" and hy >= water_y(hx) - 1
+	p.onGround = (mode == "raft" and hy >= water_y(hx) - 1) or (mode == "sled" and hy >= float(SL.y) - 1)
 	p.face = 1
 
 # ======================================================================
@@ -179,6 +297,8 @@ func step() -> void:
 	g.T += 1
 	if mode == "raft":
 		_raft_step()
+	elif mode == "sled":
+		_sled_step()
 	elif mode == "plane":
 		_plane_step()
 	var p: Dictionary = g.player
@@ -188,6 +308,8 @@ func step() -> void:
 		_place_player()
 
 func box() -> Dictionary:
+	if mode == "sled":
+		return g.R(hx - 28, hy - 46, 56, 46)
 	if mode == "raft":
 		var top: float = hy - (34 if duck else 50)
 		return g.R(hx - 30, top, 60, hy - top)
@@ -451,10 +573,11 @@ func _coins(b: Dictionary) -> void:
 			g.gain_coin(c.x, c.y)
 
 func save_data() -> Dictionary:
-	return {"raft": raft_done, "plane": plane_done, "ppx": PL.get("px", 0.0), "ppy": PL.get("py", 0.0)}
+	return {"raft": raft_done, "plane": plane_done, "sled": sled_done, "ppx": PL.get("px", 0.0), "ppy": PL.get("py", 0.0)}
 
 func restore(d: Dictionary) -> void:
 	raft_done = d.get("raft", false)
+	sled_done = d.get("sled", false)
 	plane_done = d.get("plane", false)
 	if raft_done and not RA.is_empty():
 		RA.px = float(RA.x1) - 90

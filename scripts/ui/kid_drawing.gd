@@ -5,6 +5,8 @@ extends Control
 var kind := 0
 var specs := {}
 var locked := false
+## revelação (0..1): menos que 1 deixa parte do papel em branco, com a ponta do lápis desenhando
+var reveal := 1.0
 var rng := RandomNumberGenerator.new()
 
 func _init() -> void:
@@ -106,6 +108,20 @@ func _draw() -> void:
 			var t2 := TAU * i / 24.0
 			hp.push_back(Vector2(hx + 11 * pow(sin(t2), 3), hy - (9 * cos(t2) - 3.5 * cos(2 * t2) - 1.4 * cos(3 * t2) - .7 * cos(4 * t2))))
 		draw_colored_polygon(hp, Color("#e0463a"))
+	elif kind == 4:
+		# bônus: soltando pipa no morro
+		_fill_scr(Rect2(0, 0, w, h * .62), Color("#7ec8f0"))
+		_fill_scr(Rect2(0, h * .62, w, h * .38), Color("#59a83c"))
+		_circle_scr(Vector2(w * .12, h * .18), 14, Color("#f2cc2e"))
+		var kx := w * .72
+		var ky := h * .2
+		var kite := PackedVector2Array([Vector2(kx, ky - 22), Vector2(kx + 16, ky), Vector2(kx, ky + 24), Vector2(kx - 16, ky), Vector2(kx, ky - 22)])
+		draw_colored_polygon(kite, Color("#e0463a"))
+		_scribble(kite, Color("#3a2a1a"), 2)
+		_scribble(PackedVector2Array([Vector2(kx, ky + 24), Vector2(kx - 10, ky + 40), Vector2(kx + 4, ky + 54), Vector2(kx - 8, ky + 70)]), Color("#3a2a1a"), 2)
+		_person(w * .32, h * .84, 1.15, Color("#7a4a2a"), Color("#3f8a2a"))
+		_person(w * .44, h * .84, .8, Color("#e86aa0"), Color(0, 0, 0, 0))
+		_scribble(PackedVector2Array([Vector2(w * .46, h * .6), Vector2(kx, ky + 24)]), Color("#3a2a1a"), 1.5)
 	else:
 		var col := func(c: String) -> Color:
 			return GameData.PEN_COL[c] if specs.has(c) else Color("#f6efdc")
@@ -118,5 +134,26 @@ func _draw() -> void:
 		_scribble(roof, Color("#3a2a1a"), 2)
 		_person(w * .58, h * .78, 1.1, col.call("roxo"), Color(0, 0, 0, 0))
 		_person(w * .68, h * .78, .8, col.call("vermelho"), Color(0, 0, 0, 0))
-	var cap: String = ["\"Eu e o papai\"", "\"A lanterna do papai\"", "\"Papai e eu\"", "\"Eu e o Pipoca\""][kind]
+	if reveal < 1.0:
+		# papel ainda em branco nas faixas que o lápis não passou (de cima para baixo, em zigue-zague)
+		var rows := 7
+		var rh: float = h / rows
+		var done: float = reveal * rows
+		for r in rows:
+			var y0: float = r * rh
+			var fr: float = clamp(done - r, 0.0, 1.0)
+			var ltr: bool = r % 2 == 0
+			var cov: float = w * (1.0 - fr)
+			if cov <= 0:
+				continue
+			var rx: float = (w - cov) if ltr else 0.0
+			draw_rect(Rect2(rx, y0, cov, rh + 1), Color("#f6efdc"))
+			if fr > 0 and fr < 1:
+				var px: float = (w * fr) if ltr else (w * (1.0 - fr))
+				var py: float = y0 + rh * .5
+				# lápis de cor desenhando
+				draw_line(Vector2(px, py), Vector2(px + 26, py - 34), Color("#e0463a"), 7)
+				draw_line(Vector2(px + 20, py - 26), Vector2(px + 26, py - 34), Color("#f3d29a"), 7)
+				draw_circle(Vector2(px, py), 2.5, Color("#3a2a1a"))
+	var cap: String = ["\"Eu e o papai\"", "\"A lanterna do papai\"", "\"Papai e eu\"", "\"Eu e o Pipoca\"", "\"A nossa pipa\""][kind]
 	draw_string(Spr.font_i, Vector2(8, h - 6), cap + " — Isis", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#3a2a1a"))

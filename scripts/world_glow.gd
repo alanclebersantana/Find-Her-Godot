@@ -189,6 +189,37 @@ func __draw_raw() -> void:
 			var my: float = ly + sin(ang * 1.3) * rad * .6 - 10
 			var a: float = clamp(1.0 - rad / 110.0, 0, 1) * (.4 + .3 * sin(T * .07 + k))
 			Spr.circle(mx, my, 1.2, Color(1, .92, .7, a))
+	# lembranças escondidas: pedra rachada atrás de uma moita; quebrada, mostra a lembrança brilhando
+	if g.X:
+		for r in g.X.RELICS:
+			if r.x < x0 - 80 or r.x > x1 + 80:
+				continue
+			if not r.broken:
+				Spr.ellipse(r.x, r.y + 1, 26, 5, Color(0, 0, 0, .3))
+				Spr.AB("o_rocks", r.x - 30, r.y - 44, 60, 48)
+				Spr.seg(r.x - 6, r.y - 34, r.x + 2, r.y - 20, Color(.1, .08, .06, .9), 2)
+				Spr.seg(r.x + 2, r.y - 20, r.x - 4, r.y - 8, Color(.1, .08, .06, .9), 2)
+				Spr.seg(r.x + 2, r.y - 20, r.x + 12, r.y - 14, Color(.1, .08, .06, .9), 1.6)
+				if (T + int(r.x)) % 160 < 10:
+					Spr.glow(r.x + 2, r.y - 22, 12, Color(1, .9, .6, .6))
+			elif not r.got:
+				var by: float = r.y - 20 + sin(T * .08) * 3
+				Spr.glow(r.x, by, 34, Color(1, .85, .55, .5))
+				Spr.circle(r.x, by, 8, Color("#f0c060"))
+				Spr.ring(r.x, by, 8, Color("#8a5a20"), 2)
+				Spr.circle(r.x - 2, by - 2, 2.5, Color(1, 1, 1, .7))
+			# moita na frente (fica transparente quando o Tomé chega perto)
+			var near_r: bool = abs(g.player.x + g.player.w / 2 - r.x) < 70 and abs(g.player.y + g.player.h - r.y) < 80
+			Spr.AB("o_bush", r.x - 70 + 24, r.y - 74, 110, 76, .3 if near_r else 1.0)
+	# enchente tóxica subindo na gruta
+	if g.EV and not g.EV.FL.is_empty() and g.EV.FL.st in ["warn", "rise", "fall"]:
+		var F: Dictionary = g.EV.FL
+		var fa: float = max(float(F.x0), x0)
+		var fb: float = min(float(F.x1), x1)
+		if fb > fa:
+			_water(g, fa, fb, F.level, float(F.y0) + 20 - F.level, Color(.42, .86, .16, .9), Color(.08, .26, .04, .97), T, true, 0.0, "flood", float(F.x0), float(F.x1))
+			if F.st == "warn" and T % 6 < 3:
+				Spr.text("⚠", g.player.x + g.player.w / 2, g.player.y - 30, 30, Color(.7, 1, .3), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 5, Color(0, 0, 0, .8))
 	# janelas acesas das casas da vila: a luz de dentro tremula como lamparina
 	for d in g.L.get("decor", []):
 		if not d.k in ["house1", "house2"] or d.x < x0 - 200 or d.x > x1 + 200:

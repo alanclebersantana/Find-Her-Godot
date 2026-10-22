@@ -53,6 +53,10 @@ func _ready() -> void:
 	game.game_over.connect(_on_over)
 	game.level_won.connect(_on_results)
 	game.rest_reached.connect(_on_rest)
+	game.drawing_found.connect(func(i: int):
+		var dr := preload("res://scripts/ui/drawing_reveal.gd").new()
+		dr.kind = [0, 1, 3][clamp(i, 0, 2)]
+		hud_layer.add_child(dr))
 	glow_layer = CanvasLayer.new()
 	glow_layer.layer = 1
 	glow_layer.follow_viewport_enabled = true
@@ -284,7 +288,7 @@ func _process(_d: float) -> void:
 			song = "bagre"
 		if game.K and game.K.bear_on():
 			song = "urso"
-		if game.VH and game.VH.mode == "raft":
+		if game.VH and (game.VH.mode == "raft" or game.VH.mode == "sled"):
 			song = "jangada"
 		elif game.VH and game.VH.mode == "plane":
 			song = "voo"
@@ -715,12 +719,7 @@ func show_title() -> void:
 	_show_hud(false)
 	Audio.set_song("tema")
 	var vb := _overlay(.35)
-	var img := TextureRect.new()
-	img.texture = load("res://assets/ui/cena1.jpg")
-	img.set_anchors_preset(Control.PRESET_FULL_RECT)
-	img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	img.modulate = Color(.55, .5, .45)
+	var img := preload("res://scripts/ui/title_scene.gd").new()
 	panel.add_child(img)
 	panel.move_child(img, 0)
 	vb.add_child(_label("ENCONTRE-A", 68, Color("#f2d28a"), Spr.font_title))
@@ -1281,10 +1280,27 @@ func show_map(from_pause: bool, from_bag: bool = false) -> void:
 func show_gallery() -> void:
 	var vb := _overlay(.92)
 	vb.add_child(_label("GALERIA DA ISIS", 30, GOLD, Spr.font_title))
+	# conquistas: o melhor de cada período e o que já foi encontrado
+	var cs: Array = Save.getv("conq", "stars", [0, 0, 0, 0, 0, 0])
+	var crow := HBoxContainer.new()
+	crow.alignment = BoxContainer.ALIGNMENT_CENTER
+	crow.add_theme_constant_override("separation", 14)
+	for i in cs.size():
+		var col := VBoxContainer.new()
+		col.add_child(_label(game.PERIODS[i].split(" ")[0], 12, Color("#cdbfa6")))
+		col.add_child(_label(("★".repeat(int(cs[i])) + "☆".repeat(3 - int(cs[i]))) if int(cs[i]) > 0 else "— — —", 16, Color("#ffd76a")))
+		crow.add_child(col)
+	vb.add_child(crow)
+	var bt2: int = int(Save.getv("conq", "time", 0))
+	vb.add_child(_label("Reis vencidos %d/4 · Segredos %d · Lápis especiais %d/6 · Lápis dourado %s · Melhor tempo %s" % [
+		int(Save.getv("conq", "kings", 0)), int(Save.getv("conq", "secrets", 0)), int(Save.getv("conq", "specs", 0)),
+		"✓" if Save.getv("conq", "gold", false) else "—", ("%d:%02d" % [bt2 / 60, bt2 % 60]) if bt2 > 0 else "—"], 13, Color(.85, .8, .7), Spr.font_i))
 	vb.add_child(_label("Os desenhos que você encontrou pelo caminho.", 14, Color(.85, .8, .7), Spr.font_i))
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 14)
+	var row := GridContainer.new()
+	row.columns = 3
+	row.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	row.add_theme_constant_override("h_separation", 14)
+	row.add_theme_constant_override("v_separation", 10)
 	vb.add_child(row)
 	var KD := preload("res://scripts/ui/kid_drawing.gd")
 	for i in 3:
@@ -1293,6 +1309,11 @@ func show_gallery() -> void:
 		d.locked = not Save.getv("gallery", "d%d" % i, false)
 		d.custom_minimum_size = Vector2(196, 128)
 		row.add_child(d)
+	var bon = KD.new()
+	bon.kind = 4
+	bon.locked = not Save.getv("gallery", "bonus", false)
+	bon.custom_minimum_size = Vector2(196, 128)
+	row.add_child(bon)
 	var fin = Save.getv("gallery", "final", null)
 	if fin == null:
 		var d3 = KD.new()
@@ -1383,6 +1404,41 @@ func _on_results() -> void:
 	for t in ["⏱ Tempo  %d:%02d" % [secs / 60, secs % 60], "✏ Lápis  %d/%d" % [pen, pt], "Lápis especiais  %d/6" % ns, "Desenhos  %d/%d" % [dr, game.DRWS.size()], "Pistas  %d/6" % nc, gold_txt, sec_txt]:
 		grid.add_child(_label(t, 15, INK))
 	vb.add_child(grid)
+	# estrelas por período (guarda o melhor de cada um para a galeria de conquistas)
+	var ps: Array = game.period_stars()
+	var prow := HBoxContainer.new()
+	prow.alignment = BoxContainer.ALIGNMENT_CENTER
+	prow.add_theme_constant_override("separation", 16)
+	var best: Array = Save.getv("conq", "stars", [0, 0, 0, 0, 0, 0])
+	for i in ps.size():
+		best[i] = max(int(best[i]), int(ps[i]))
+		var col := VBoxContainer.new()
+		col.add_child(_label(game.PERIODS[i].split(" ")[0], 12, Color("#cdbfa6")))
+		col.add_child(_label("★".repeat(ps[i]) + "☆".repeat(3 - ps[i]), 18, Color("#ffd76a")))
+		prow.add_child(col)
+	vb.add_child(prow)
+	Save.setv("conq", "stars", best)
+	var kings := 0
+	if game.X.BOSS.get("done", false):
+		kings += 1
+	for kk in [game.K.HAWK, game.K.BEAR, game.K.FISH]:
+		if not kk.is_empty() and kk.get("done", false):
+			kings += 1
+	Save.setv("conq", "kings", max(int(Save.getv("conq", "kings", 0)), kings))
+	Save.setv("conq", "secrets", max(int(Save.getv("conq", "secrets", 0)), game.X.found.size()))
+	Save.setv("conq", "specs", max(int(Save.getv("conq", "specs", 0)), ns))
+	Save.setv("conq", "gold", Save.getv("conq", "gold", false) or game.X.GOLD.get("got", false))
+	var bt: int = int(Save.getv("conq", "time", 0))
+	if bt == 0 or secs < bt:
+		Save.setv("conq", "time", secs)
+	if game.X.found.size() >= game.X.SECRETS.size() and game.X.SECRETS.size() > 0:
+		# todos os segredos: cena bônus (o desenho da pipa)
+		Save.setv("gallery", "bonus", true)
+		vb.add_child(_label("Todos os segredos! Cena bônus desbloqueada:", 15, Color("#ffd76a"), Spr.font_b))
+		var bd = preload("res://scripts/ui/kid_drawing.gd").new()
+		bd.kind = 4
+		bd.custom_minimum_size = Vector2(240, 150)
+		vb.add_child(bd)
 	var story := "Agora eu sei: foi Ademar Vargas, o gerente que roubava a mina. Ele levou a Isis para se vingar. Vou atrás dele — mina adentro." if nc == 6 else "Ele fugiu para a mina. Ainda faltam pistas para ter certeza de quem é... (%d/6)" % nc
 	vb.add_child(_label(story, 16, Color("#e8dcc0"), Spr.font_i, 640))
 	vb.add_child(_label("As próximas fases chegam em breve.", 13, Color(.75, .7, .6)))

@@ -91,6 +91,7 @@ func __draw_raw() -> void:
 		else:
 			WS.branch(so)
 		Spr.restore()
+	_levers(g)
 	for v in g.VINES:
 		if v.x + v.len < cx0 or v.x - v.len > cx1:
 			continue
@@ -577,6 +578,47 @@ func _rider(g: Game) -> void:
 		Spr.restore()
 	WorldNature.horse(RD.hx, RD.hy, g0, run, hst, T)
 	Spr.alpha = 1.0
+
+# ---------- alavancas, contrapesos e portão de ferro da mina ----------
+func _levers(g: Game) -> void:
+	if not g.EV or g.EV.LV.is_empty():
+		return
+	var LV: Dictionary = g.EV.LV
+	var G: Dictionary = g.EV.GATE
+	if G.x < g.cam - 300 or G.x > g.cam + g.W + 300:
+		return
+	var y: float = float(LV.y)
+	# portão de grades subindo
+	var gx: float = G.x
+	var gy: float = G.y
+	Spr.rect(gx - 6, 372, G.w + 12, 10, Color("#3a3632"))
+	for k in 4:
+		var bx: float = gx + 2 + k * (G.w - 4) / 3.0
+		Spr.rect(bx - 2, gy, 4, G.h, Color("#5a5650"))
+		Spr.rect(bx - 1, gy, 1.5, G.h, Color(1, 1, 1, .15))
+	for k in 3:
+		Spr.rect(gx - 2, gy + 14 + k * 38, G.w + 4, 5, Color("#4a4642"))
+	for k in 4:
+		Spr.poly(PackedVector2Array([Vector2(gx + 2 + k * (G.w - 4) / 3.0 - 3, gy + G.h), Vector2(gx + 2 + k * (G.w - 4) / 3.0, gy + G.h + 8), Vector2(gx + 2 + k * (G.w - 4) / 3.0 + 3, gy + G.h)]), Color("#5a5650"))
+	# polia no teto e corrente até o portão
+	Spr.circle(gx + G.w / 2, 392, 9, Color("#4a4642"))
+	Spr.ring(gx + G.w / 2, 392, 9, Color("#2a2622"), 2)
+	for lv in LV.list:
+		var lx: float = float(lv.x)
+		var a: float = lv.a
+		# base e alavanca (para cima = solta; para baixo = puxada)
+		Spr.rr(lx - 10, y - 14, 20, 14, 4, Color("#4a4642"))
+		var ang: float = lerpf(-.9, .9, a)
+		var tip := Vector2(lx, y - 10) + Vector2(sin(ang), -cos(ang)) * 34
+		Spr.seg(lx, y - 10, tip.x, tip.y, Color("#6b4a2a"), 5)
+		Spr.circle(tip.x, tip.y, 6, Color("#c03a2a") if not lv.down else Color("#3a9a3a"))
+		# contrapeso descendo do teto, com a corrente
+		var wy: float = lerpf(390, 452, a)
+		Spr.seg(lx, 380, lx, wy - 12, Color("#5a5650"), 2)
+		Spr.rr(lx - 13, wy - 12, 26, 22, 4, Color("#6a645c"))
+		Spr.rr(lx - 10, wy - 9, 20, 5, 2, Color(1, 1, 1, .15))
+		if not lv.down and abs(g.player.x + g.player.w / 2 - lx) < 50 and (T / 20) % 2 == 0:
+			Spr.text("✦", lx, y - 60, 18, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3)
 
 # ---------- reflexo do Tomé na água ----------
 func _reflection(g: Game) -> void:

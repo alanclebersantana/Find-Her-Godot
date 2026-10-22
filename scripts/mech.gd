@@ -208,6 +208,13 @@ func _swing_hits() -> void:
 			else:
 				g.kill_enemy(e, "hit")
 	g.PR.swing_hits(hb)
+	for r in g.X.RELICS:
+		if not r.broken and Game.hit(hb, g.R(r.x - 26, r.y - 46, 52, 46)):
+			r.broken = true
+			Audio.play("stomp")
+			g.shake = max(g.shake, 6)
+			g.fx("fx_pieces", r.x, r.y - 20, 20, .35, -.4)
+			g.burst(r.x, r.y - 20, 18, Color("#9a8a7a"))
 	g.TR.swing_hits(hb)
 	g.K.swing_hits(hb)
 	var X = g.X

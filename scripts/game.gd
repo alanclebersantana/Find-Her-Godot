@@ -8,6 +8,7 @@ signal results_ready
 signal game_over
 signal level_won
 signal rest_reached(n: int)
+signal drawing_found(i: int)
 
 # ---------- física (mesmos números da versão HTML) ----------
 const GRAV := .62
@@ -71,6 +72,7 @@ var NT: Nature
 var K: Kings
 var RD: Ride
 var VH: Vehicles
+var EV: Events
 var WV: Waves
 var RESTED := {}        # fogueiras grandes já descansadas
 var player: Dictionary = {}
@@ -263,6 +265,8 @@ func load_level(i: int) -> void:
 	RD.load_level()
 	VH = Vehicles.new(self)
 	VH.load_level()
+	EV = Events.new(self)
+	EV.load_level()
 	WV = Waves.new(self)
 	WV.load_level()
 	RESTED = {}
@@ -341,7 +345,7 @@ func _p1_load() -> void:
 	_comic_triggers()
 	lantern_lit = not L.has("lanternOutX")
 	look_y = 0
-	STATS = {"pen": 0, "penTotal": L.get("coins", []).size()}
+	STATS = {"pen": 0, "penTotal": L.get("coins", []).size(), "pdeath": [0, 0, 0, 0, 0, 0]}
 
 func _reset_player(x: float, y: float) -> void:
 	player = make_body(x, y)
@@ -650,6 +654,33 @@ func indoors() -> bool:
 	var tn: Array = L.get("tunnel", [])
 	var px: float = player.x + player.w / 2
 	return tn.size() >= 2 and px > float(tn[0]) and px < float(tn[1])
+
+## estrelas de cada período (1 por terminar, +1 com 80% dos lápis do trecho, +1 sem cair nenhuma vez)
+func period_stars() -> Array:
+	var bounds: Array = [-1e9]
+	for c in CHK:
+		if c.has("rest"):
+			bounds.append(float(c.x))
+	bounds.sort()
+	bounds.append(1e9)
+	var out: Array = []
+	for i in PERIODS.size():
+		var a: float = bounds[min(i, bounds.size() - 2)]
+		var b: float = bounds[min(i + 1, bounds.size() - 1)]
+		var tot := 0
+		var got := 0
+		for c in COINS:
+			if c.x >= a and c.x < b:
+				tot += 1
+				if c.got:
+					got += 1
+		var st := 1
+		if tot == 0 or got >= tot * .8:
+			st += 1
+		if STATS.get("pdeath", [0, 0, 0, 0, 0, 0])[i] == 0:
+			st += 1
+		out.append(st)
+	return out
 
 ## nome do período do dia em que o Tomé está (a fase é uma só, dividida pelas fogueiras grandes)
 const PERIODS := ["Manhã no bosque", "Tarde", "Pântano", "Neve", "Céu", "Noite na mina"]
@@ -1170,6 +1201,7 @@ func step() -> void:
 			Save.setv("gallery", "d%d" % int(d.i), true)
 			flash(d.txt, 280)
 			burst(d.x, d.y, 24, Color("#f6efdc"))
+			drawing_found.emit(int(d.i))
 			Audio.play("clue")
 			Audio.vib(50)
 	# molas (cogumelo)
@@ -1229,6 +1261,7 @@ func step() -> void:
 			burst(c.x, c.y, 14, Color("#bfe3ff"))
 	_auto_safe()
 	_plat_dips()
+	EV.step()
 	# fogueiras
 	for k in CHK.size():
 		var c: Dictionary = CHK[k]
@@ -1359,6 +1392,8 @@ func _camera() -> void:
 		tx = VH.hx - W * .3
 		if VH.mode == "raft":
 			ty = VH.water_y(VH.hx) - H * .64
+		elif VH.mode == "sled":
+			ty = float(VH.SL.y) - H * .62
 		else:
 			ty = VH.hy - H * .5
 		var cb1 := cam_bounds()
@@ -2720,6 +2755,8 @@ func die(msg: String) -> void:
 		M.dog_hurt()
 		return
 	lives -= 1
+	if STATS.has("pdeath"):
+		STATS.pdeath[clamp(period_index(), 0, 5)] += 1
 	shake = 14
 	burst(player.x + player.w / 2, player.y + player.h / 2, 22, Color("#cc5555"))
 	Audio.play("die")
@@ -2755,6 +2792,7 @@ func respawn() -> void:
 	X.boss_reset()
 	TR.reset_on_respawn()
 	K.reset_on_respawn()
+	EV.on_respawn()
 	X.breath = Extras.BREATH
 	snap_camera()
 	flash(msg + " Vidas: %d" % lives)
@@ -2777,7 +2815,7 @@ func save_checkpoint(k: int) -> void:
 	Save.save_run({"level": level_idx, "chk": k, "lives": lives, "inv": INV.duplicate(), "items": got_items, "locks": locks,
 		"clues": CLUEGOT.keys(), "specs": SPECGOT.keys(), "drawn": DRAWN.keys(), "coins": coins_got, "coin_life": coin_life,
 		"pen": STATS.pen, "lit": lantern_lit, "fires": CHK.filter(func(c): return c.on).map(func(c): return CHK.find(c)), "time": time_left, "x": X.save_data(), "m": M.save_data(), "tr": TR.save_data(),
-		"nt": NT.save_data(), "k": K.save_data(), "rd": RD.save_data(), "vh": VH.save_data(), "rested": RESTED.keys()})
+		"nt": NT.save_data(), "k": K.save_data(), "rd": RD.save_data(), "vh": VH.save_data(), "ev": EV.save_data(), "rested": RESTED.keys()})
 
 func restore_run(d: Dictionary) -> void:
 	## Continua do ponto salvo: refaz a fase no estado da fogueira
@@ -2822,6 +2860,7 @@ func restore_run(d: Dictionary) -> void:
 	K.restore(d.get("k", {}))
 	RD.restore(d.get("rd", {}))
 	VH.restore(d.get("vh", {}))
+	EV.restore(d.get("ev", {}))
 	for r in d.get("rested", []):
 		RESTED[int(r)] = 1
 	var k: int = int(d.get("chk", -1))

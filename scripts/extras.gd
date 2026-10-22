@@ -13,6 +13,7 @@ var MIRRORS: Array = []
 var CRYSTALS: Array = []
 var GHOST: Array = []
 var SECRETS: Array = []
+var RELICS: Array = []
 var GOLD := {}
 var WATER: Array = []
 var CHALK: Array = []
@@ -81,6 +82,14 @@ func load_level() -> void:
 		var o: Dictionary = s.duplicate()
 		o.a = 1.0
 		SECRETS.append(o)
+	# lembranças da Isis escondidas em pedras rachadas (quebram com a picareta), atrás de uma moita
+	RELICS = []
+	for r in L.get("relics", []):
+		var ro: Dictionary = r.duplicate()
+		ro.broken = false
+		ro.got = false
+		RELICS.append(ro)
+		SECRETS.append({"id": ro.id, "x": ro.x, "y": ro.y, "w": 0, "h": 0, "a": 0.0, "relic": true})
 	GOLD = {}
 	if L.has("gold"):
 		GOLD = {"x": L.gold.x, "y": L.gold.y, "got": false}
@@ -250,7 +259,7 @@ func post() -> void:
 			g.keys.Ap = false
 			g.M.dog_action()
 	elif g.keys.get("Ap", false):
-		if g.RD.use() or g.VH.use() or _use_dog() or _use_toca() or _use_crack() or _use_mirror():
+		if g.RD.use() or g.VH.use() or g.EV.use() or _use_dog() or _use_toca() or _use_crack() or _use_mirror():
 			g.keys.Ap = false
 			focus_block = true
 	if not g.kd("A"):
@@ -275,7 +284,17 @@ func post() -> void:
 		gp.on = lit(c.x, c.y, 175.0)
 		gp.a = move_toward(gp.a, 1.0 if gp.on else 0.0, .08)
 	# salas secretas
+	for r in RELICS:
+		if r.broken and not r.got and Game.hit(p, g.R(r.x - 18, r.y - 40, 36, 40)):
+			r.got = true
+			found[r.id] = true
+			Audio.play("special")
+			Audio.vib(60)
+			g.burst(r.x, r.y - 20, 22, Color("#ffd76a"))
+			g.flash(r.txt + " (%d/%d segredos)" % [found.size(), SECRETS.size()], 320)
 	for s in SECRETS:
+		if s.get("relic"):
+			continue
 		var inside: bool = pcx > s.x and pcx < s.x + s.w and p.y + p.h > s.y and p.y < s.y + s.h
 		if inside and not found.has(s.id):
 			found[s.id] = true
@@ -713,7 +732,7 @@ func _critters() -> void:
 	# vaga-lumes perto da câmera (tarde, pântano e noite, fora das cavernas)
 	var want := 0
 	var song: String = g.AMB.get("song", "manha")
-	var under: bool = g.L.has("under") and p.y > g.L.under
+	var under: bool = g.indoors()
 	if not under and song in ["tarde", "chuva", "noite"]:
 		want = 18
 	while FIRE.size() < want:
@@ -794,6 +813,10 @@ func restore(d: Dictionary) -> void:
 		for s in SECRETS:
 			if s.id == id:
 				s.a = 0.0
+		for r in RELICS:
+			if r.id == id:
+				r.broken = true
+				r.got = true
 	if d.get("gold", false) and not GOLD.is_empty():
 		GOLD.got = true
 	if d.get("boss", false):

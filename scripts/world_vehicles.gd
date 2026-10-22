@@ -14,6 +14,8 @@ static func draw(g: Game, T: int) -> void:
 		_river(g, VH, T)
 	if not VH.PL.is_empty():
 		_runway(g, VH, T)
+	if not VH.SL.is_empty():
+		_sled_world(g, VH, T)
 
 ## o veículo com o Tomé (no lugar do desenho normal do Tomé)
 static func rider(g: Game, T: int) -> void:
@@ -46,10 +48,75 @@ static func rider(g: Game, T: int) -> void:
 			Spr.restore()
 		_raft(0, 0)
 		Spr.restore()
+	elif VH.mode == "sled":
+		var rot2: float = -.06 + clamp(VH.vy * .02, -.12, .12)
+		if VH.stumble > 0:
+			rot2 += sin(T * .8) * .12
+		Spr.save()
+		Spr.translate(VH.hx, VH.hy)
+		Spr.rotate(rot2)
+		_sled(0, 0)
+		Spr.A("pai_crouch", -2, -10, .56)
+		if g.X.DOG.get("st", "") == "ride":
+			Spr.save()
+			Spr.translate(-26, -10)
+			Spr.scale(.26, .26)
+			Spr.A("dog0", 0, 0, 1)
+			Spr.restore()
+		Spr.restore()
+		# linhas de velocidade
+		for k in 4:
+			var ly: float = VH.hy - 14 - k * 11
+			Spr.seg(VH.hx - 40 - k * 6, ly, VH.hx - 40 - VH.spd * 6 - k * 6, ly, Color(1, 1, 1, .45), 2)
 	elif VH.mode == "plane":
 		dog_on_board = g.X.DOG.get("st", "") == "ride"
 		_plane_fly(VH.hx, VH.hy, VH.tilt, T, VH.phase == "taxi" or VH.phase == "land")
 	Spr.alpha = 1.0
+
+## trenó de madeira com esquis curvos
+static func _sled(x: float, y: float) -> void:
+	Spr.ellipse(x, y + 1, 34, 4, Color(0, 0, 0, .2))
+	var run := PackedVector2Array()
+	for i in 9:
+		var u := i / 8.0
+		run.push_back(Vector2(x - 32 + u * 64, y - 2 - (pow(max(0.0, u - .8) / .2, 2) * 12)))
+	Spr.line(run, Color("#5a3a20"), 4)
+	Spr.rr(x - 30, y - 16, 58, 9, 4, Color("#8a5a2e"))
+	Spr.rr(x - 28, y - 15, 54, 3, 2, Color(1, 1, 1, .15))
+	for k in 3:
+		Spr.seg(x - 20 + k * 20, y - 8, x - 20 + k * 20, y - 2, Color("#5a3a20"), 3)
+	Spr.seg(x + 26, y - 16, x + 34, y - 26, Color("#c9a26a"), 2)
+
+## o que fica pelo caminho do trenó e o trenó parado no alto
+static func _sled_world(g: Game, VH: Vehicles, T: int) -> void:
+	var SL: Dictionary = VH.SL
+	if SL.is_empty() or float(SL.x1) < g.cam - 200 or float(SL.x) > g.cam + g.W + 200:
+		return
+	var gy: float = float(SL.y)
+	var obs: Array = VH.OBS if VH.mode == "sled" else SL.get("obs", [])
+	for o in obs:
+		match o.k:
+			"mound":
+				Spr.ellipse(o.x, gy - 6, 30, 14, Color(.82, .88, .97))
+				Spr.ellipse(o.x - 3, gy - 9, 25, 11, Color(.97, .98, 1))
+			"rock":
+				Spr.AB("o_rocks", o.x - 26, gy - 34, 52, 38)
+				Spr.ellipse(o.x, gy - 30, 18, 5, Color(.97, .98, 1))
+			"log":
+				Spr.rr(o.x - 36, gy - 20, 72, 20, 10, Color("#6b4626"))
+				Spr.rr(o.x - 36, gy - 20, 72, 7, 5, Color("#8a5e34"))
+				Spr.ellipse(o.x + 34, gy - 10, 5, 10, Color("#c9a26a"))
+				Spr.ellipse(o.x, gy - 21, 30, 4, Color(.97, .98, 1))
+	# monte de neve no fim (onde o trenó para)
+	Spr.ellipse(float(SL.x1) + 30, gy - 8, 46, 20, Color(.82, .88, .97))
+	Spr.ellipse(float(SL.x1) + 26, gy - 12, 40, 16, Color(.97, .98, 1))
+	if VH.mode != "sled" and not VH.sled_done:
+		_sled(float(SL.x), gy)
+		var p: Dictionary = g.player
+		if abs(p.x + p.w / 2 - float(SL.x)) < 120 and (T / 20) % 2 == 0:
+			Spr.text("✦ TRENÓ", float(SL.x), gy - 60 + sin(T * .15) * 3, 16, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
+	elif VH.sled_done and VH.mode != "sled":
+		_sled(float(SL.x1) - 10, gy)
 
 static func _raft(x: float, y: float) -> void:
 	for k in 5:

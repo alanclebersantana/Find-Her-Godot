@@ -110,6 +110,44 @@ func _initialize() -> void:
 		S("sem ser atropelado", P.hp == 5)
 		S("sai do buraco", jump_to(74540))
 		S("barricada quebrada", walk_to(74900))
+	if all or args.has("enchente"):
+		g.load_level(0)
+		for e in g.EN:
+			e.dead = 99
+		g.INV.append("engrenagem")
+		put(13110, 900)
+		S("chegou na escada", climb_to("U", func(): return g.EV.FL.st != "idle", 120))
+		S("enchente começou", g.EV.FL.st in ["warn", "rise"])
+		S("subiu antes da água", climb_to("U", func(): return P.ladder == null and P.onGround and P.y < 500, 500))
+		S("vivo na enchente", g.lives >= 9)
+	if all or args.has("alavancas"):
+		put(70910, 500)
+		S("portão fechado", g.EV.GATE.lift < 1)
+		walk_to(70925)
+		use()
+		walk_to(70985)
+		use()
+		S("portão abriu", until({}, func(): return g.EV.GATE.lift >= g.EV.GATE.h - 8, 200))
+		S("passa o portão", walk_to(71070))
+	if all or args.has("treno"):
+		put(51420, 500)
+		walk_to(51440)
+		use()
+		S("subiu no trenó", g.VH.mode == "sled")
+		var ok_sled = "timeout"
+		for i in 600:
+			if g.VH.mode == "":
+				ok_sled = true
+				break
+			var nx := 99999.0
+			for o in g.VH.OBS:
+				if not o.hit and o.x > g.VH.hx and o.x - g.VH.hx < nx:
+					nx = o.x - g.VH.hx
+			if nx < 105 and g.VH.hy >= 499 and g.VH.vy == 0:
+				press("J")
+			frame({"J": true} if g.VH.vy < 0 else {})
+		S("desceu de trenó", ok_sled)
+		S("trenó sem batidas", P.hp == 5)
 	for l in log_lines:
 		print(l)
 	print("FALHAS: ", fails)

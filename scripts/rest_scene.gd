@@ -59,8 +59,20 @@ func _draw() -> void:
 	Spr.glow(fx, fy - 30, 180 * fl, Color(1, .75, .35, .45))
 	# chão
 	Spr.ellipse(fx - 40, fy + 6, 300, 28, Color(.18, .1, .05))
-	# o Tomé se aquecendo (de lado para o fogo)
-	Spr.frame(Spr.tex.pai, 0, 170, 160, 85, 156, fx - 130, fy + 4, .8, false)
+	# tronco de assento, o Tomé sentado esquentando as mãos e o Pipoca deitado ao lado
+	Spr.rr(fx - 210, fy - 14, 120, 24, 12, Color("#5a3a20"))
+	Spr.rr(fx - 206, fy - 12, 112, 8, 5, Color("#7a5232"))
+	Spr.A("pai_crouch", fx - 150, fy - 6, 1.55)
+	# luz quente da fogueira batendo no Tomé
+	Spr.glow(fx - 120, fy - 50, 70 + sin(t * .2) * 4, Color(1, .6, .25, .22))
+	# Pipoca deitado, respirando devagar, de olhos fechados
+	Spr.save()
+	Spr.translate(fx - 265, fy + 8)
+	Spr.rotate(.08)
+	Spr.scale(.8, .8 * (.5 + sin(t * .04) * .015))
+	Spr.A("dog0", 0, 0, 1.0)
+	Spr.restore()
+	Spr.text("z", fx - 250 + sin(t * .03) * 4, fy - 70 - fmod(t * .3, 30.0), 18, Color(1, .95, .8, .6), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_i)
 	# a fogueira grande
 	Spr.A("o_fire_on", fx, fy + 4, 1.6)
 	for i in 6:
@@ -73,9 +85,19 @@ func _draw() -> void:
 		Spr.rotate(-.18 + i * .16)
 		Spr.A("drawing", 0, 0, 1.0)
 		Spr.restore()
-	# moldura da lembrança
+	# a fumaça sobe da fogueira e forma a moldura da lembrança
 	var r := Rect2(memory.position, memory.size)
 	var a: float = clamp((t - 20) / 70.0, 0.0, 1.0)
+	for i in 14:
+		var u2: float = fmod(t * .004 + i / 14.0, 1.0)
+		var sx: float = lerpf(fx, r.position.x + r.size.x / 2 + sin(i * 1.7) * r.size.x * .4, u2) + sin(t * .02 + i) * 20
+		var sy: float = lerpf(fy - 60, r.position.y + r.size.y + 10, u2)
+		Spr.circle(sx, sy, 14 + u2 * 30, Color(.8, .75, .7, .07 * (1.0 - abs(u2 - .5) * 2.0)))
+	for i in 16:
+		var ang: float = TAU * i / 16.0 + t * .003
+		var ex: float = r.position.x + r.size.x / 2 + cos(ang) * (r.size.x * .55 + sin(t * .02 + i) * 8)
+		var ey: float = r.position.y + r.size.y / 2 + sin(ang) * (r.size.y * .62 + sin(t * .03 + i) * 6)
+		Spr.circle(ex, ey, 26, Color(.75, .7, .66, .1 * a))
 	Spr.rr(r.position.x - 10, r.position.y - 10, r.size.x + 20, r.size.y + 20, 22, Color(.92, .8, .58, .16 * a))
 	Spr.glow(r.position.x + r.size.x / 2, r.position.y + r.size.y / 2, r.size.x * .7, Color(1, .85, .6, .1 * a))
 

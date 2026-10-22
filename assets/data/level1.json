@@ -7225,5 +7225,75 @@
     "n": 5
    }
   ]
+ },
+ "relics": [
+  {
+   "id": "r1",
+   "x": 21100,
+   "y": 500,
+   "txt": "Uma fita de cabelo da Isis, escondida na pedra! Ela usou no aniversário de 6 anos."
+  },
+  {
+   "id": "r2",
+   "x": 38590,
+   "y": 500,
+   "txt": "O apito de madeira que fiz para a Isis... ela deixou aqui para eu achar."
+  },
+  {
+   "id": "r3",
+   "x": 63400,
+   "y": 500,
+   "txt": "Uma foto nossa soltando pipa no morro. A Isis guardou no bolso."
+  }
+ ],
+ "flood": {
+  "x0": 12560,
+  "x1": 13480,
+  "y0": 960,
+  "ytop": 520,
+  "spd": 2.2,
+  "item": "engrenagem",
+  "trig": [
+   13040,
+   13180,
+   700
+  ]
+ },
+ "levers": {
+  "y": 500,
+  "list": [
+   {
+    "x": 70925
+   },
+   {
+    "x": 70985
+   }
+  ],
+  "gate": {
+   "x": 71045,
+   "y": 380,
+   "w": 22,
+   "h": 120
+  }
+ },
+ "sled": {
+  "x": 51440,
+  "x1": 52470,
+  "y": 500,
+  "spd": 8.5,
+  "obs": [
+   {
+    "k": "mound",
+    "x": 51720
+   },
+   {
+    "k": "rock",
+    "x": 52030
+   },
+   {
+    "k": "log",
+    "x": 52330
+   }
+  ]
  }
 }
