@@ -54,6 +54,11 @@ def single(name,a,bg,txt):
     im=bg_img(R+bg,.6,8).convert('RGBA'); panel(im,R+'assets/comic/%s.jpg'%a,W/2,330,480,-2); caption(im,txt,660); im.convert('RGB').save('/tmp/vid/cards/%s.png'%name)
 single('c_frio','neve','assets/bg/neve.jpg','Brrr! Que frio... aguenta firme, Isis!')
 single('c_mina','mina','assets/bg/noite.jpg','Escuro demais... ainda bem que eu trouxe a lanterna.')
+# quadrinhos curtos (um quadro), na ordem em que aparecem no jogo
+single('q_javali','javali_a','assets/bg/tarde.jpg','JAVALI-REI: o terror do bosque!')
+single('q_jangada','jangada','assets/bg/pantano.jpg','Segura firme, Tomé... que correnteza!')
+single('q_aviao','aviao_b','assets/bg/neve.jpg','Um biplano! Daqui eu chego rapidinho na mina!')
+single('q_bola','bola_b','assets/bg/noite.jpg','Uma pedra gigante! Corre!')
 # final
 im=bg_img(R+'assets/bg/noite.jpg',.55,4).convert('RGBA'); d=ImageDraw.Draw(im)
 text_c(d,(W/2,215),'ENCONTRE-A',font('Cinzel-Bold',110),(242,210,138),6,(30,15,5))
@@ -63,7 +68,7 @@ text_c(d,(W/2,520),'Em breve: EPISÓDIO 2 · As Profundezas da Mina',font('Lora-
 text_c(d,(W/2,600),'Para Android',font('Lora-Italic',26),(220,210,190))
 im.convert('RGB').save('/tmp/vid/cards/final.png')
 # legendas dos trechos de jogo (faixa transparente)
-caps={'manha':'Manhã: flores-catapulta e casas na árvore','copas':'Saltos pelas copas das árvores','regias':'Pântano: pule nas vitórias-régias','cipos2':'Balance nos cipós sobre a água tóxica','jangada':'Desça a corredeira de jangada','bolaneve':'Neve: empurre bolas de neve gigantes','cavalo':'Cavalgada pela trilha nevada','urso':'Desvie das patadas do Urso-Rei','vento':'Suba a montanha contra o vento','ponte':'Corra! A ponte está se soltando','voo':'Voe de biplano sobre o vale','cogumelos':'Noite: o bosque dos cogumelos gigantes','pedra':'Fuja da pedra gigante na mina','pedra2':'Abaixe no buraco... e deixe passar!'}
+caps={'manha':'Manhã: flores-catapulta e casas na árvore','copas':'Saltos pelas copas das árvores','regias':'Pântano: pule nas vitórias-régias','cipos2':'Balance nos cipós sobre a água tóxica','jangada':'Desça a corredeira de jangada','bolaneve':'Neve: empurre bolas de neve gigantes','cavalo':'Cavalgada pela trilha nevada','urso':'Desvie das patadas do Urso-Rei','vento':'Suba a montanha contra o vento','ponte':'Corra! A ponte está se soltando','voo':'Voe de biplano sobre o vale','cogumelos':'Noite: o bosque dos cogumelos gigantes','javali':'Fuja da investida do Javali-Rei','colmeia':'Cuidado com a colmeia!','gaviao':'O Gavião-Rei mergulha do céu','bagre':'Mergulhe e enfrente o Bagre-Rei','gelo':'Pingentes de gelo caindo','pedra':'Fuja da pedra gigante na mina','pedra2':'Abaixe no buraco... e deixe passar!'}
 for k,t in caps.items():
     im=Image.new('RGBA',(W,H),(0,0,0,0)); d=ImageDraw.Draw(im)
     f=font('Lora-Italic',30); w=d.textlength(t,font=f)+56
