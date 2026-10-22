@@ -163,17 +163,7 @@ static func solids(g: Game, T: int) -> void:
 				Spr.PR("gate_iron", s.x - 6, s.y - 14, s.w + 12, s.h + 14)
 				Spr.PR("wb3", s.x - 10, s.y + s.h - 8, s.w + 20, 14, Color(.85, .82, .78))
 			"bossgate":
-				# toras empilhadas e amarradas no tronco (casca, musgo e a ponta cortada com anéis)
-				for i in 5:
-					var yy: float = s.y + s.h - 28 - i * 42
-					var lx: float = s.x - 34 + (i % 2) * 10 + WorldExtras.h(s.x + i, 7) * 6
-					var lw: float = 88 + WorldExtras.h(s.x - i, 8) * 12
-					Spr.ellipse(lx + lw * .55, yy + 34, lw * .45, 4, Color(0, 0, 0, .25))
-					Spr.PR("log", lx, yy, lw, 34)
-				# cordas prendendo o feixe no tronco
-				for k in 2:
-					var rx: float = s.x + 18 + k * 30
-					Spr.PV("rope", rx - 5, s.y + s.h - 210, 10, 205)
+				WorldKings.gate(s, T)
 			"bosslog":
 				_log(s.x, s.y)
 			"dogdoor":

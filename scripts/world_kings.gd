@@ -16,6 +16,7 @@ static func draw(g: Game, T: int) -> void:
 		return
 	_hawk(g, K, T)
 	_bear(g, K, T)
+	sinking(g, T)
 
 ## o bagre é desenhado na camada de cima (depois da água), para não sumir no fundo escuro
 static func draw_fish(g: Game, T: int) -> void:
@@ -116,13 +117,72 @@ static func _fish(g: Game, K: Kings, T: int) -> void:
 		Spr.text("!", f.x, f.y - 100, 32, Color("#ff6a4a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 5)
 
 ## portões de pedra das arenas
-static func gate(s: Dictionary, T: int) -> void:
-	var y: float = s.y
-	while y < s.y + s.h:
-		var hh: float = min(46.0, s.y + s.h - y)
-		Spr.rr(s.x - 8, y, s.w + 16, hh - 2, 10, Color("#5e5a52"))
-		Spr.rect(s.x - 4, y + 4, s.w + 8, 6, Color(1, 1, 1, .1))
-		y += 44
+static func _hh(x: float, k: int) -> float:
+	var v := sin(x * 12.9898 + k * 78.233) * 43758.5453
+	return v - floor(v)
+
+## muro de pedra pintada que fecha a arena do chefe: sobe do chão fileira por fileira levantando
+## poeira, com a base enterrada num monte de terra/neve; quando o chefe perde, afunda de novo
+static func gate(s: Dictionary, T: int, sink: float = -1.0) -> void:
+	if not s.has("rt0"):
+		s.rt0 = T
+	var rise: float = clamp((T - int(s.rt0)) / 34.0, 0, 1) if sink < 0 else 1.0 - sink
+	var bot: float = s.y + s.h
+	var vis_top: float = bot - s.h * rise
+	var cx: float = s.x + s.w * .5
+	var wx: float = s.x - 14
+	var ww: float = s.w + 28
+	var yy: float = bot - 4
+	var row := 0
+	var snow: bool = s.y + s.h <= 520 and s.x > 32000 and s.x < 56000
+	while yy > s.y + 2:
+		var bh: float = 28.0 + _hh(s.x + row, 33) * 16.0
+		var top: float = max(s.y, yy - bh)
+		if top >= vis_top - 2:
+			var u: float = clamp((bot - yy) / max(1.0, s.h), 0, 1)
+			Spr.rr(wx - 3, top - 2, ww + 6, yy - top + 4, 10, Color(.16, .12, .09, .95))
+			var x: float = wx
+			var i := 0
+			while x < wx + ww - 8:
+				var bw: float = (yy - top) * (1.0 + _hh(s.x + row * 13 + i, 34) * .7)
+				if wx + ww - (x + bw) < 14:
+					bw = wx + ww - x
+				var m: float = .95 - u * .12 + (_hh(s.x + row * 3 + i, 36) - .5) * .12
+				var col := Color(m, m * .97, m * .93) if not snow else Color(m * .92, m * .96, m * 1.06)
+				Spr.PR("wb%d" % int(_hh(s.x + row * 5 + i * 11, 37) * 6), x - 3, top - 3, bw + 6, yy - top + 6, col, _hh(s.x + i + row, 38) > .5)
+				x += bw
+				i += 1
+			# neve no alto de cada pedra de cima
+			if snow and top < vis_top + bh:
+				Spr.rr(wx - 2, top - 5, ww + 4, 9, 5, Color(.96, .98, 1))
+		yy -= bh
+		row += 1
+	# poeira subindo enquanto o muro sobe ou afunda
+	if (rise > 0 and rise < 1) and T % 2 == 0:
+		for k in 2:
+			Spr.circle(cx + randf_range(-ww * .7, ww * .7), bot - randf() * 16, 5 + randf() * 8, Color(.75, .68, .58, .45) if not snow else Color(.95, .97, 1, .7))
+	# base enterrada: monte de terra (ou neve) cobrindo o pé do muro
+	var mc := Color("#5a4028") if not snow else Color(.93, .96, 1)
+	Spr.ellipse(cx, bot + 2, ww * .85, 13, mc)
+	Spr.ellipse(cx - 6, bot - 2, ww * .55, 8, mc.lightened(.12))
+	for k in 3:
+		Spr.P("peb%d" % k, cx - ww * .6 + k * ww * .55, bot + 6, 14, k == 1)
+
+## muros que afundam depois da luta
+static func sinking(g: Game, T: int) -> void:
+	var K = g.K
+	if K == null:
+		return
+	var keep: Array = []
+	for s in K.SINK:
+		var u: float = (T - int(s.st0)) / 40.0
+		if u < 1.0:
+			keep.append(s)
+			if s.x > g.cam - 100 and s.x < g.cam + g.W + 100:
+				gate(s, T, u)
+				if T % 2 == 0:
+					Spr.circle(s.x + s.w * .5 + randf_range(-30, 30), s.y + s.h - randf() * 14, 6 + randf() * 8, Color(.8, .74, .64, .5))
+	K.SINK = keep
 
 ## Urso-Pardo-Rei (arte em assets/sprites/urso.png: 0-1 andando, 2 em pé, 3 patada, 4 tonto, 5 derrotado)
 static func _bear(g: Game, K: Kings, T: int) -> void:

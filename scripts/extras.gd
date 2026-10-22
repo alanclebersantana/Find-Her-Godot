@@ -599,6 +599,8 @@ func _gate_on(on: bool) -> void:
 	for s in g.SOL.duplicate():
 		if s.get("id") == "bossgate":
 			g.SOL.erase(s)
+			if g.K:
+				g.K.sink_gate(s)
 	if on:
 		g.SOL.append({"t": "bossgate", "x": BOSS.x0 - 24, "y": 280, "w": 24, "h": 220, "id": "bossgate"})
 

@@ -44,10 +44,19 @@ func bear_on() -> bool:
 func fish_done() -> bool:
 	return FISH.is_empty() or FISH.done
 
+## muros que estão afundando (o desenho continua um pouco depois de sair dos sólidos)
+var SINK: Array = []
+
+func sink_gate(s: Dictionary) -> void:
+	var c: Dictionary = s.duplicate()
+	c.st0 = g.T
+	SINK.append(c)
+
 func _gate(id: String, on: bool, r: Rect2) -> void:
 	for s in g.SOL.duplicate():
 		if s.get("id") == id:
 			g.SOL.erase(s)
+			sink_gate(s)
 	if on:
 		g.SOL.append({"t": "kinggate", "x": r.position.x, "y": r.position.y, "w": r.size.x, "h": r.size.y, "id": id})
 

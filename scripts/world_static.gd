@@ -856,27 +856,61 @@ func cliff(s: Dictionary) -> void:
 	_cap(s)
 
 func dead_tree(s: Dictionary) -> void:
-	var p := PackedVector2Array([Vector2(s.x, s.y + s.h), Vector2(s.x + 6, s.y + 40), Vector2(s.x - 30, s.y - 10), Vector2(s.x + 10, s.y + 20),
-		Vector2(s.x + 20, s.y - 30), Vector2(s.x + 30, s.y + 20), Vector2(s.x + s.w, s.y + 60), Vector2(s.x + s.w + 10, s.y + s.h)])
-	Spr.poly(p, Color("#5a5048"))
-	var y: float = s.y + 60
-	while y < s.y + s.h:
-		Spr.seg(s.x + 8, y, s.x + s.w - 4, y + 8, Color(0, 0, 0, .3), 2)
-		y += 24
-	y = s.y + 40
-	while y < s.y + s.h:
-		Spr.ellipse(s.x + s.w / 2, y, 14, 5, Color(.47, .59, .35, .6))
-		y += 50
+	# árvore morta com casca pintada, galhos secos e musgo pendurado
+	var t: Texture2D = Spr.tex.tronco
+	var gx: float = s.x + s.w * .5
+	Spr.ci.draw_texture_rect(t, Rect2(s.x - 6, s.y + 10, s.w + 12, s.h - 6), false, Color(.72, .7, .66))
+	# raízes abertas no chão
+	for r in [-1.0, 1.0]:
+		Spr.poly(PackedVector2Array([Vector2(gx + r * 10, s.y + s.h - 40), Vector2(gx + r * (s.w * .5 + 22), s.y + s.h + 2), Vector2(gx + r * 8, s.y + s.h + 2)]), Color("#4e3a2a"))
+	# galhos secos (tora pintada fina)
+	for br in [[-1.0, 40.0, -.7, 70.0], [1.0, 70.0, .55, 60.0], [-1.0, 140.0, -.35, 46.0], [1.0, 10.0, .9, 50.0]]:
+		Spr.save()
+		Spr.translate(gx + br[0] * s.w * .3, s.y + br[1])
+		Spr.rotate(br[2] - PI / 2 * br[0] * 0.0)
+		Spr.rotate(-PI / 2 if br[0] < 0 else PI / 2)
+		Spr.rotate(-br[2] * .6)
+		Spr.PR("log", -5, -br[3], 10, br[3], Color(.7, .66, .6))
+		Spr.restore()
+	# toco quebrado no alto
+	Spr.poly(PackedVector2Array([Vector2(s.x - 6, s.y + 14), Vector2(s.x + 6, s.y - 6), Vector2(s.x + 18, s.y + 10), Vector2(s.x + 30, s.y - 12), Vector2(s.x + s.w + 6, s.y + 14)]), Color("#5e4a38"))
+	# musgo: tufos verdes com brilho e fios pendurados
+	var y: float = s.y + 50
+	var k := 0
+	while y < s.y + s.h - 30:
+		var mx: float = gx + (hh(y, 62) - .5) * s.w * .6
+		Spr.ellipse(mx, y, 11, 6, Color("#3f5e2a"))
+		Spr.ellipse(mx - 2, y - 2, 7, 3, Color("#6b8c3a"))
+		for j in 2:
+			Spr.seg(mx - 4 + j * 7, y + 4, mx - 5 + j * 7, y + 16 + hh(y + j, 63) * 14, Color(.35, .5, .24, .85), 1.5)
+		y += 46 + hh(y, 64) * 30
+		k += 1
 
 func planks(s: Dictionary, dark: bool) -> void:
-	Spr.rect(s.x, s.y, s.w, s.h, Color("#4a3420") if dark else Color("#6b4a2a"))
-	var x: float = s.x + 12
-	while x < s.x + s.w:
-		Spr.seg(x, s.y, x, s.y + s.h, Color(0, 0, 0, .35), 2)
-		x += 12
+	# tábuas de madeira pintada (com veios), cintas de ferro com rebites
+	var a: float = max(s.y, game.cam_y - 200) if game else s.y
+	var b: float = s.y + s.h
+	var n: int = max(1, int(round(s.w / 18.0)))
+	var bw: float = s.w / n
+	for i in n:
+		var c := Color(.62, .55, .5) if dark else Color(.9, .84, .78)
+		c = c * (1.0 + (hh(s.x + i, 61) - .5) * .18)
+		# casca/veio da madeira: a textura do tronco repetida de cima a baixo
+		var tt: Texture2D = Spr.tex.tronco
+		var sh: float = (bw + 2) * tt.get_height() / tt.get_width() * .5
+		var yy2: float = a
+		while yy2 < b:
+			var hh2: float = min(sh, b - yy2)
+			Spr.ci.draw_texture_rect_region(tt, Rect2(s.x + i * bw - 1, yy2, bw + 2, hh2), Rect2(tt.get_width() * .3, 0, tt.get_width() * .4, tt.get_height() * hh2 / sh * .5), Color(c.r, c.g, c.b, 1))
+			yy2 += sh
+		Spr.seg(s.x + i * bw, a, s.x + i * bw, b, Color(.1, .06, .03, .5), 1.5)
 	var y: float = s.y + 30
-	while y < s.y + s.h:
-		Spr.rect(s.x - 2, y, s.w + 4, 8, Color("#5a5a62"))
+	while y < b:
+		if y > a - 10:
+			Spr.rr(s.x - 3, y, s.w + 6, 9, 2, Color("#3c3a40"))
+			Spr.rect(s.x - 3, y + 1, s.w + 6, 2, Color(.75, .75, .8, .35))
+			for k in 3:
+				Spr.circle(s.x + 6 + k * (s.w - 12) / 2.0, y + 4.5, 1.6, Color(.7, .7, .74))
 		y += 90
 
 ## bloco de gelo (as "pedras" da neve): lascado nos cantos, com facetas, brilho e neve fofa por cima
