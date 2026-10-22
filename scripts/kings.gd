@@ -357,8 +357,9 @@ func _bear() -> void:
 				b.waves = []
 				b.x = b.x1 - 420.0
 				b.dir = -1
-				_gate("bearL", true, Rect2(b.x0 - 24, gy - 260, 24, 260))
-				_gate("bearR", true, Rect2(b.x1, gy - 260, 24, 260))
+				# muros altos (até bem acima da tela): não dá para pular nem com pulo duplo
+				_gate("bearL", true, Rect2(b.x0 - 24, gy - 900, 24, 900))
+				_gate("bearR", true, Rect2(b.x1, gy - 900, 24, 900))
 				Audio.play("roar", -4)
 				g.start_cine("urso", (b.x0 + b.x1) / 2.0, gy - 140, 250,
 					[[150, 245, "TOMÉ", "Um urso enorme... e de coroa! Quando ele errar três vezes, é a minha vez.", "tome"]],

@@ -78,6 +78,7 @@ func _start() -> void:
 	var p: Dictionary = g.player
 	H.st = "ride"
 	riding = true
+	endT = -1
 	hx = float(H.ride0)
 	hy = 500.0
 	vy = 0.0
@@ -150,16 +151,45 @@ static func obs_center(o: Dictionary) -> float:
 func takeoff_x(o: Dictionary) -> float:
 	return obs_center(o) - float(H.spd) * (JUMP_V / JUMP_G)
 
+var endT := -1          # cena de desmontar no fim (-1 = ainda cavalgando)
+
 func step() -> void:
 	var p: Dictionary = g.player
 	g.T += 1
+	if endT >= 0:
+		# parado: o Pipoca desce, o Tomé passa a perna, desce devagar e faz carinho no cavalo
+		endT += 1
+		spd = 0.0
+		if endT == 20 and g.X.DOG.get("st", "") == "ride":
+			g.X.DOG.st = "follow"
+			g.X.DOG.x = hx - 80
+			g.X.DOG.y = 500.0
+			g.X._resync()
+		if endT == 110:
+			g.note("Obrigado, amigo. Pode voltar para casa!")
+		if endT >= 170:
+			_finish()
+			return
+		_place_player()
+		return
 	# galope suave: 8 quadros, a cadência acompanha a velocidade
 	gallop += spd * .042
 	var want: float = float(H.spd)
 	if g.kd("R"):
-		want += .8
+		want += .7
 	elif g.kd("L"):
-		want -= .9
+		want -= .8
+	# chegando no fim: desacelera aos poucos (galope, trote, passo) até parar
+	var stop_x: float = float(H.ride1)
+	if hx > stop_x - 560:
+		want = max(0.0, float(H.spd) * clamp((stop_x - hx) / 560.0, 0.0, 1.0))
+		spd = move_toward(spd, want, .07)
+		if spd < .3 and hy >= 500.0:
+			spd = 0.0
+			endT = 0
+			vy = 0.0
+			duck = false
+			Audio.play("roar", -18)
 	if stumble > 0:
 		stumble -= 1
 		spd = move_toward(spd, 2.0, .3)
@@ -214,8 +244,8 @@ func step() -> void:
 	_place_player()
 	if p.iframe > 0:
 		p.iframe -= 1
-	if hx >= float(H.ride1):
-		_finish()
+	if hx >= float(H.ride1) + 40 and endT < 0:
+		endT = 0
 
 func _hurt(o: Dictionary) -> void:
 	var p: Dictionary = g.player
@@ -248,18 +278,19 @@ func _finish() -> void:
 	H.st = "gone"
 	H.t = 0
 	H.hx = hx
-	p.x = hx + 30
+	endT = -1
+	p.x = hx - 30
 	p.y = 500 - p.h
-	p.vx = 2.0
-	p.vy = -6.0
-	p.onGround = false
+	p.vx = 0.0
+	p.vy = 0.0
+	p.face = 1
+	p.onGround = true
 	p.hp = max(p.hp, 1)
 	if g.X.DOG.get("st", "") == "ride":
 		g.X.DOG.st = "door"
 		g.X.DOG.x = hx - 30
 		g.X.DOG.y = 500.0
-	Audio.play("roar", -14)
-	g.flash("Valeu, amigo! O cavalo voltou para a vila. A trilha da mina começa aqui.", 240)
+	g.flash("O cavalo voltou para a vila. A trilha da mina começa aqui.", 200)
 
 ## o cavalo indo embora depois da cavalgada
 func post() -> void:
@@ -267,8 +298,10 @@ func post() -> void:
 		return
 	H.t += 1
 	if H.st == "gone":
-		H.hx -= 6.0
-		if H.t > 200:
+		# vira e vai embora devagar, pegando velocidade aos poucos
+		if H.t > 20:
+			H.hx -= min(5.0, (H.t - 20) * .08)
+		if H.t > 260:
 			H.st = "away"
 
 func save_data() -> Dictionary:

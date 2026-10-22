@@ -160,7 +160,11 @@ func __draw_raw() -> void:
 		for o in g.TR.T:
 			if o.k == "giant" and o.x > x0 - 200 and o.x < x1 + 200:
 				var gc := Color(o.get("c", "#6a5acd"))
-				Spr.glow(o.x, o.cap + 4, o.w * .7, Color(gc.r, gc.g, gc.b, .22 + .06 * sin(T * .05 + o.x)))
+				if not o.has("to"):
+					gc = gc.darkened(.4)
+				Spr.glow(o.x, o.cap + 4, o.w * .7, Color(gc.r, gc.g, gc.b, (.22 if o.has("to") else .1) + .06 * sin(T * .05 + o.x)))
+				if o.has("to"):
+					WorldTraps.giant_arc(o, T)
 				for d in [[-.3, -.15, .07], [.05, -.22, .08], [.3, -.1, .06]]:
 					Spr.circle(o.x + d[0] * o.w, o.cap + 8 + d[1] * o.w, d[2] * o.w * .6, Color(.85, 1, .95, .35))
 	# no túnel: gotas pingando do teto e poeira dançando na luz da lanterna

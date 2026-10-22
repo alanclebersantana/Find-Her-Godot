@@ -161,7 +161,11 @@ func _initialize() -> void:
 		use()
 		S("embarca de novo", g.VH.mode == "raft")
 	if all or args.has("ceu"):
-		put(52700, 500)
+		g.load_level(0)
+		P = g.player
+		for e in g.EN:
+			e.dead = 99
+		put(52800, 500)
 		S("subida", climb_gusts(55190))
 		S("ponte", bridge_run(trap_at("bridge", 55220)))
 		S("vivo na ponte", g.lives >= 9)
@@ -179,11 +183,92 @@ func _initialize() -> void:
 			prev = x
 		S("obstáculos do voo espaçados (>= 400)", mind >= 400)
 		S("trechos calmos no voo (>= 3)", calm >= 3)
-		put(56960, 190)
-		use()
+		put(56600, 190)
+		g.comic_req = ""
+		var cams: Array = []
+		var boarded = until({"R": true}, func(): return g.VH.mode == "plane", 900)
+		S("chegou no avião: embarca sozinho", boarded)
+		S("chegou no avião: quadrinho", g.comic_req == "aviao" or g.auto_cine)
+		S("embarque: Tomé sobe na cabine", g.VH.phase == "board")
+		var pc: float = g.cam
+		var pcy: float = g.cam_y
+		var jump_cam := 0.0
+		for i in 260:
+			frame()
+			jump_cam = max(jump_cam, abs(g.cam - pc) + abs(g.cam_y - pcy))
+			pc = g.cam
+			pcy = g.cam_y
+			if g.VH.phase == "fly" and i > 200:
+				break
+		S("decolou sozinho (sem botão)", g.VH.phase == "fly")
+		S("câmera sem pulo no embarque/decolagem (< 30)", jump_cam < 30.0)
 		S("decolou", g.VH.mode == "plane")
 		S("voo", fly_plane())
 		S("voo sem batidas", P.hp == 5)
+	if all or args.has("transicoes"):
+		# a câmera não pula ao subir/descer dos veículos (só com a tela fechada, na troca de lugar do trenó)
+		var meas := func(n: int, set: Dictionary) -> float:
+			var mx := 0.0
+			var c0: float = g.cam
+			var c1: float = g.cam_y
+			for i in n:
+				var covered: bool = g.VH.mode == "sled" and (g.VH.sboard == 1 or g.VH.sfin == 1)
+				frame(set)
+				var dj: float = abs(g.cam - c0) + abs(g.cam_y - c1)
+				if not covered and g.iris_t < 29:
+					mx = max(mx, dj)
+				c0 = g.cam
+				c1 = g.cam_y
+			return mx
+		# jangada: pula do barranco direto no rio
+		g.load_level(0)
+		P = g.player
+		for e in g.EN:
+			e.dead = 99
+		put(25000, 500)
+		hold({}, 30)
+		var jr1: float = meas.call(10, {"R": true})
+		press("J")
+		var jr2: float = meas.call(140, {"R": true})
+		S("pulou no rio: caiu na jangada", g.VH.mode == "raft")
+		S("jangada: câmera suave (< 30)", max(jr1, jr2) < 30.0)
+		# fim da jangada: vai devagar até a margem
+		g.VH.hx = float(g.VH.RA.x1) - 600.0
+		for o in g.VH.OBS:
+			o.hit = true
+		hold({}, 20)
+		var sl_end := false
+		var fin_cam: float = meas.call(200, {})
+		for i in 200:
+			if g.VH.mode != "raft":
+				break
+			if g.VH.hx > float(g.VH.RA.x1) - 120 and g.VH.spd < float(g.VH.RA.spd) * .75:
+				sl_end = true
+			frame()
+		S("jangada: desacelera antes da margem", sl_end or g.VH.raft_done)
+		S("jangada: desembarque sem pulo de câmera (< 30)", fin_cam < 30.0)
+		# trenó: senta, escorrega, a tela fecha e abre lá no morro
+		g.load_level(0)
+		P = g.player
+		put(51420, 500)
+		walk_to(51440)
+		use()
+		S("trenó: embarque com animação", g.VH.mode == "sled" and g.VH.sboard > 0)
+		var sc: float = meas.call(80, {})
+		S("trenó: chegou na descida", g.VH.sboard == 0 and g.VH.su > 30)
+		S("trenó: câmera só troca com a tela fechada (< 40)", sc < 40.0)
+		# cavalo: começa e termina sem pulo de câmera
+		g.load_level(0)
+		P = g.player
+		put(39380, 500)
+		for h in g.NT.HOLES:
+			h.filled = true
+		walk_to(39440)
+		use()
+		var hc: float = meas.call(120, {})
+		S("cavalo: câmera suave na partida (< 30)", hc < 30.0)
+		g.load_level(0)
+		P = g.player
 	if all or args.has("cogumelos"):
 		put(64400, 500)
 		walk_to(64470)
@@ -191,12 +276,59 @@ func _initialize() -> void:
 		walk_to(64805)
 		S("saltador 1", bounce_to(64855))
 		S("chapéu alto", P.y + P.h <= 232)
-		S("cogumelo baixo", jump_to(65300))
-		S("saltador 2", bounce_to(65345))
+		S("saltador 2: o gigante laranja lança sozinho", bounce_to(65315))
 		S("chapéu mais alto", P.y + P.h <= 152)
 		S("desce", jump_to(65825))
 		S("fim", jump_to(66010))
 		S("vivo", g.lives >= 9)
+		# sem cogumelinho em cima dos gigantes; todo saltador é um gigante laranja
+		var small_on_top := false
+		for o in g.TR.T:
+			if o.k == "bounce" and o.x > 64000 and o.x < 67000:
+				small_on_top = true
+		S("sem cogumelo pequeno em cima dos gigantes", not small_on_top)
+		# o buraco embaixo dos cogumelos tem água verde de veneno (e os outros buracos da noite também)
+		var all_filled := true
+		for pt in g.L.pits:
+			if float(pt[0]) < 64900:
+				continue
+			var f := false
+			for sw in g.SWAMP:
+				if float(sw.x) <= float(pt[0]) + 1 and float(sw.x) + float(sw.w) >= float(pt[1]) - 1:
+					f = true
+			if not f:
+				all_filled = false
+		S("buracos da noite com água venenosa", all_filled)
+		# cair no buraco: afunda na água verde
+		g.load_level(0)
+		P = g.player
+		for e in g.EN:
+			e.dead = 99
+		put(65000, 300)
+		var drown := false
+		for i in 200:
+			frame()
+			if P.dyingT > 0 and str(P.dieMsg).contains("brejo"):
+				drown = true
+				break
+		S("caiu no buraco: água venenosa mata", drown)
+		# o Pipoca vem junto pelos saltadores
+		g.load_level(0)
+		P = g.player
+		for e in g.EN:
+			e.dead = 99
+		put(64700, 500)
+		g.X.DOG.st = "follow"
+		g.X.DOG.x = 64650.0
+		g.X.DOG.y = 500.0
+		hold({}, 30)
+		walk_to(64805)
+		bounce_to(64855)
+		bounce_to(65315)
+		jump_to(65825)
+		jump_to(66010)
+		hold({}, 240)
+		S("Pipoca acompanha pelos cogumelos", abs(float(g.X.DOG.x) - px()) < 300)
 	if all or args.has("pedra"):
 		put(72700, 500)
 		S("túnel da pedra", walk_to(72850))
@@ -204,8 +336,30 @@ func _initialize() -> void:
 		S("a pedra caiu", until({"R": true}, func(): return bol.st != "idle", 200))
 		S("fuga da pedra", boulder_run(bol))
 		S("sem ser atropelado", P.hp == 5)
-		S("sai do buraco", jump_to(74540))
-		S("barricada quebrada", walk_to(74900))
+		until({"S": true}, func(): return bol.st in ["break", "done"], 600)
+		S("sai do buraco", jump_to(76340))
+		S("barricada quebrada", walk_to(76700))
+	if all or args.has("vargas"):
+		# trecho da pedra gigante ~2x mais comprido
+		var bo: Dictionary = trap_at("boulder", 72700)
+		S("pedra gigante: trecho comprido (>= 3200)", float(bo.end) - float(bo.trig) >= 3200)
+		# perseguição do Vargas: sem óleo, sem pedra rolando, lanterna cheia e sem medidor
+		var vt: float = float(g.L.villain.trig)
+		var oil_in := 0
+		for c in g.OIL:
+			if float(c.x) > vt - 100:
+				oil_in += 1
+		S("perseguição sem potes de óleo", oil_in == 0)
+		var roll_in := false
+		for o in g.TR.T:
+			if o.k == "roll" and float(o.x) > vt - 300:
+				roll_in = true
+		S("perseguição sem pedra rolando", not roll_in)
+		g.FUEL = .2
+		put(vt + 150, 500)
+		hold({"R": true}, 60)
+		S("lanterna cheia na perseguição", g.FUEL >= 1.0)
+		S("medidor escondido na perseguição", g.chase_on())
 	if all or args.has("enchente"):
 		g.load_level(0)
 		for e in g.EN:
@@ -305,10 +459,82 @@ func _initialize() -> void:
 				break
 			frame(d)
 		S("desceu de trenó", ok_sled)
-		S("velocidade cresce na descida (> 7)", top_spd > 7.0)
+		S("velocidade cresce na descida (> 6.5)", top_spd > 6.5)
+		S("velocidade máxima menor (<= 8)", top_spd <= 8.01)
 		S("trenó sem batidas", P.hp == 5 and VH.tries == 0)
+		# obstáculos bem espaçados (dá para pousar de um pulo antes do próximo)
+		var us: Array = []
+		for o in VH.SL.obs:
+			us.append(float(o.u))
+		us.sort()
+		var gap_ok := true
+		for i in us.size() - 1:
+			if us[i + 1] - us[i] < 650:
+				gap_ok = false
+		S("obstáculos do trenó espaçados (>= 650)", gap_ok)
+		# batidas de propósito nas duas primeiras: perde 1 coração cada e segue (sem voltar)
+		g.load_level(0)
+		P = g.player
+		put(51420, 500)
+		walk_to(51440)
+		use()
+		VH = g.VH
+		var back := false
+		var last_u := 0.0
+		var hits := 0
+		ok_sled = "timeout"
+		for i in 3000:
+			if g.VH.mode == "":
+				ok_sled = true
+				break
+			if VH.su < last_u - .5:
+				back = true
+			last_u = VH.su
+			var d := {}
+			var ground: bool = VH.hy >= VH.sled_y(VH.su) - 1
+			var nhit := 0
+			for o in VH.OBS:
+				if o.hit:
+					nhit += 1
+			hits = nhit
+			for o in VH.OBS:
+				var dx: float = o.x - VH.hx
+				if o.hit or dx < -140 or dx > 300:
+					continue
+				if float(o.u) < 1500:
+					break   # bate de propósito nas duas primeiras
+				if o.k in ["rock", "log"] and ground and dx < VH.spd * 9.0 + 10 and dx > 20:
+					press("J")
+				if o.k == "crack" and ground and dx < 40 and dx > -5:
+					press("J")
+				if o.k == "branch" and dx < 110 and dx > -70:
+					d["S"] = true
+				break
+			frame(d)
+		S("batidas: segue descendo sem recomeçar", ok_sled == true and not back)
+		S("batidas: perdeu 2 corações", P.hp == 3 and hits == 2)
+		S("batidas: Tomé vivo no fim", g.lives == 9 and P.dyingT == 0)
+		# batendo em tudo: sem corações, morre e volta para a fogueira; o trenó fica no alto de novo
+		g.load_level(0)
+		P = g.player
+		put(51420, 500)
+		walk_to(51440)
+		use()
+		VH = g.VH
+		var lv0: int = g.lives
+		var died := false
+		for i in 3000:
+			if P.dyingT > 0:
+				died = true
+			if died and P.dyingT == 0:
+				break
+			frame({})
+		hold({}, 40)
+		S("bateu em tudo: morreu", died and g.lives == lv0 - 1)
+		S("bateu em tudo: volta da fogueira", VH.mode == "" and abs(px() - 51320) < 200)
+		S("bateu em tudo: trenó de volta no alto", not VH.sled_done and VH.near_sled() or abs(float(VH.SL.x) - px()) < 300)
 	if all or args.has("urso"):
-		put(50150, 500)
+		put(50250, 500)
 		S("Urso-Rei", bear_fight())
 		S("urso: Tomé vivo", g.lives >= 9)
 		# o galho não é esconderijo: parado nele, o urso sacode a árvore e derruba
@@ -316,12 +542,12 @@ func _initialize() -> void:
 		for e in g.EN:
 			e.dead = 99
 		P = g.player
-		put(50150, 500)
+		put(50250, 500)
 		hold({}, 300)
 		var bb: Dictionary = g.K.BEAR
-		bb.x = 50900.0
+		bb.x = 50950.0
 		bb.st = "walk"
-		put(50345, 310)
+		put(50325, 310)
 		var shook := false
 		for i in 600:
 			frame()
@@ -331,6 +557,35 @@ func _initialize() -> void:
 				break
 		S("urso sacode o galho", shook)
 		S("Tomé caiu do galho", g.player.y + g.player.h > 400)
+		# os muros não dão para pular (do chão, do bloco de gelo, do galho, com pulo duplo)
+		g.load_level(0)
+		for e in g.EN:
+			e.dead = 99
+		P = g.player
+		put(50250, 500)
+		hold({}, 300)
+		var esc := false
+		for side in ["L", "R"]:
+			for start in [50110.0, 50340.0, 50830.0, 51100.0]:
+				put(start, 500)
+				g.K.BEAR.x = 50600.0
+				g.K.BEAR.st = "dizzy"
+				g.K.BEAR.t = 0
+				djump(side)
+				hold({side: true}, 60)
+				if px() < 50060 or px() > 51150:
+					esc = true
+		put(50325, 310)
+		djump("L")
+		hold({"L": true}, 60)
+		if px() < 50060:
+			esc = true
+		put(50825, 310)
+		djump("R")
+		hold({"R": true}, 60)
+		if px() > 51150:
+			esc = true
+		S("não pula os muros da arena", not esc)
 	if all or args.has("cavalo"):
 		put(39380, 500)
 		for h in g.NT.HOLES:
@@ -344,8 +599,39 @@ func _initialize() -> void:
 		for i in range(1, obsd.size()):
 			md = min(md, obsd[i] - obsd[i - 1])
 		S("obstáculos da cavalgada espaçados (>= 600)", md >= 600)
+		S("velocidade do cavalo 5.2", abs(float(g.RD.H.spd) - 5.2) < .01)
 		S("cavalgada", ride())
 		S("cavalgada sem batidas", P.hp == 5 and g.RD.tries == 0)
+		# o fim: o cavalo vai parando, o Tomé desce com calma, faz carinho e o cavalo vai embora trotando
+		g.load_level(0)
+		P = g.player
+		for e in g.EN:
+			e.dead = 99
+		put(39380, 500)
+		for h in g.NT.HOLES:
+			h.filled = true
+		walk_to(39440)
+		use()
+		until({}, func(): return g.RD.riding, 500)
+		for o in g.RD.OBS:
+			o.hit = true
+		g.RD.hx = float(g.RD.H.ride1) - 900.0
+		var max_end := -1
+		var slowed := false
+		var gone_t := 0
+		for i in 900:
+			frame()
+			max_end = max(max_end, g.RD.endT)
+			if g.RD.riding and g.RD.endT < 0 and g.RD.spd < 2.0:
+				slowed = true
+			if not g.RD.riding and g.RD.H.st in ["gone", "away"]:
+				gone_t += 1
+			if g.RD.H.st == "away":
+				break
+		S("fim: cavalo desacelera até parar", slowed)
+		S("fim: cena de desmontar (>= 160 quadros)", max_end >= 160)
+		S("fim: Tomé no chão depois de descer", P.onGround and not g.RD.riding)
+		S("fim: cavalo vai embora devagar", gone_t > 60)
 	if all or args.has("machado"):
 		var ax: Dictionary = g.TR.by_kind("axe")[0]
 		var bad := 0

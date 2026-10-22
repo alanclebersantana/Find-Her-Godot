@@ -207,6 +207,16 @@ func post() -> void:
 				var top: float = o.y - 30
 				if p.vy >= 0 and not p.vine and not p.ladder and o.get("cool", 0) == 0 and abs(pcx - o.x) < 30 and feet >= top - 2 and feet <= top + 26:
 					_launch_from(o, top)
+			"giant":
+				# cogumelo gigante saltador (laranja, com mola): pisou no chapéu, lança para o próximo
+				if o.has("to"):
+					if o.get("cool", 0) > 0:
+						o.cool -= 1
+					o.squash = max(0.0, o.get("squash", 0.0) - .06)
+					var hw: float = o.w * .5 - 6
+					if p.vy >= 0 and not p.vine and not p.ladder and o.get("cool", 0) == 0 and abs(pcx - o.x) < hw and feet >= o.cap - 4 and feet <= o.cap + 18:
+						_launch_from(o, float(o.cap))
+						o.cool = 24
 			"flower":
 				_flower(o, p, pcx, feet)
 			"wind":

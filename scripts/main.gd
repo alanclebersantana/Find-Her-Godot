@@ -160,8 +160,8 @@ func _build_world() -> void:
 	if game.TR:
 		for o in game.TR.T:
 			if o.k == "giant":
-				var gc := Color(o.get("c", "#6a5acd")).lightened(.25)
-				lights.append({"n": _light(gc, 170), "pos": Vector2(o.x, o.cap + 10)})
+				var gc := Color(o.get("c", "#6a5acd")).lightened(.25) if o.has("to") else Color(o.get("c", "#6a5acd")).darkened(.3)
+				lights.append({"n": _light(gc, 170 if o.has("to") else 110), "pos": Vector2(o.x, o.cap + 10)})
 	# facho concentrado da lanterna, cristais e lápis dourado
 	lights.append({"n": _light(Color(1, .9, .65), 200), "beam": true})
 	for c in game.X.CRYSTALS:

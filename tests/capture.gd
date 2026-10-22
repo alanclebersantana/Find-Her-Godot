@@ -213,10 +213,10 @@ func urso() -> void:
 
 func noite() -> void:
 	kill_enemies()
-	put(75700, 500)
+	put(77500, 500)
 	g.lantern_lit = true
 	g.VIL.go = true
-	g.VIL.x = 76080.0
+	g.VIL.x = 77880.0
 	await run(110, func(i): return {"R": true, "Jp": i == 45, "J": i > 45 and i < 58})
 
 # ---------- ajudantes assíncronos (um passo de física por chamada, como o bot da rota) ----------
@@ -718,8 +718,8 @@ func pedra() -> void:
 		else:
 			await fr({"R" if niche > px() else "L": true})
 	await hold({}, 30)
-	await jump_to(74540)
-	await walk_to(74800)
+	await jump_to(76340)
+	await walk_to(76600)
 
 func colmeia() -> void:
 	kill_enemies()

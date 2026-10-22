@@ -64,8 +64,21 @@ static func decor(d: Dictionary) -> void:
 		"snowtree":
 			prop("arvore_neve", d.x, d.y + 4, 300 * s)
 			_roots(d.x, d.y, s)
-		"tracks":
+		"tracks", "paws":
 			pass   # desenhado na camada de cima (tracks), por cima do chão
+		"bearden":
+			# a toca do Urso-Rei: encosta de pedra nevada com a caverna escura (fundo da arena)
+			if Spr.has("p_bearden"):
+				Spr.P("bearden", d.x, d.y + 8, 860 * s, false, 0.0, Color(.82, .85, .92))
+			else:
+				Spr.ellipse(d.x, d.y, 360 * s, 190 * s, Color("#5d6878"))
+				Spr.ellipse(d.x, d.y - 150 * s, 300 * s, 60 * s, Color(.93, .95, 1))
+				Spr.ellipse(d.x, d.y - 10, 90 * s, 110 * s, Color("#141820"))
+		"logpile":
+			Spr.ellipse(d.x, d.y + 2, 70 * s, 7, Color(0, 0, 0, .2))
+			WorldVehicles._hlog(d.x - 64 * s, d.x + 60 * s, d.y - 18 * s, 18 * s)
+			WorldVehicles._hlog(d.x - 40 * s, d.x + 50 * s, d.y - 34 * s, 16 * s)
+			Spr.ellipse(d.x - 6, d.y - 36 * s, 40 * s, 5, Color(.95, .97, 1))
 
 ## linha de cima da arte (o contorno do telhado), a cada 3 px, para a neve assentar certinho
 static var _roofs := {}
@@ -161,6 +174,20 @@ static func tracks(d: Dictionary) -> void:
 		fx += 46
 		n += 1
 
+## pegadas grandes do urso na neve (almofada + 4 dedos), indo e voltando da toca
+static func paws(d: Dictionary) -> void:
+	var w: float = d.get("w", 600)
+	var fx: float = d.x + 10
+	var n := 0
+	var c := Color(.48, .54, .66, .7)
+	while fx < d.x + w:
+		var fy: float = d.y - 2 + (n % 2) * 5
+		Spr.ellipse(fx, fy, 9, 3.4, c)
+		for t in 4:
+			Spr.ellipse(fx - 8 + t * 5.3, fy - 5.5 - abs(t - 1.5) * -.6, 2.4, 1.6, c)
+		fx += 64
+		n += 1
+
 # ---------------------------------------------------------------- dinâmico (world_dyn)
 static func draw(g: Game, T: int) -> void:
 	var NT: Nature = g.NT
@@ -171,6 +198,8 @@ static func draw(g: Game, T: int) -> void:
 	for d in g.L.get("decor", []):
 		if d.k == "tracks" and d.x < x1 and d.x + d.get("w", 800) > x0:
 			tracks(d)
+		elif d.k == "paws" and d.x < x1 and d.x + d.get("w", 600) > x0:
+			paws(d)
 	# corda esticada entre dois postes
 	for b in NT.BARS:
 		if b.x0 > x1 or b.x1 < x0:

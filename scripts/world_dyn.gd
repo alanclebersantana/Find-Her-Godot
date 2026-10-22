@@ -695,6 +695,18 @@ func _ride_world(g: Game) -> void:
 			"gap":
 				# riacho gelado: água escura correndo, placas de gelo e margens de neve com pedras
 				var gw: float = o.w
+				if Spr.has("p_riacho"):
+					# riacho pintado: a água (36% do meio da pintura) cobre o vão
+					var rk: float = (gw + 24.0) / 421.0
+					var aw: float = 680.0 * rk
+					var ah: float = 290.0 * rk
+					var rcx: float = o.x + gw / 2.0
+					Spr.PR("riacho", rcx - aw * .511, 499.0 - 40.0 * rk, aw, ah)
+					# brilhos da correnteza
+					for k in 3:
+						var wx: float = o.x + 8 + fposmod(T * 1.2 + k * 37.0, gw - 16)
+						Spr.seg(wx, 516 + k * 6, wx + 8, 516 + k * 6, Color(.8, .92, 1, .5), 1.5)
+					continue
 				Spr.vgrad(o.x, 470, gw, 30, Color("#5f9cc4"), Color("#24506e"))
 				Spr.vgrad(o.x, 500, gw, 160, Color("#163a52"), Color("#04090f"))
 				Spr.rect(o.x, 470, gw, 3, Color(.85, .95, 1, .8))
@@ -750,6 +762,24 @@ func _rider(g: Game) -> void:
 		Spr.alpha = .55
 	var gt := Spr.opt("ride_gallop")
 	var jt := Spr.opt("ride_jump")
+	var dt := Spr.opt("ride_dis")
+	if RD.endT >= 0:
+		# desmontando (cena curta): o cavalo parado e o Tomé descendo
+		Spr.ellipse(RD.hx, 502, 62, 7, Color(0, 0, 0, .22))
+		var df: int = 0 if RD.endT < 50 else (1 if RD.endT < 95 else 2)
+		if dt:
+			Spr.frame(dt, df, 340, 250, 130, 244, RD.hx, RD.hy + 3, RS)
+		else:
+			var ft := Spr.opt("horse_free")
+			if ft:
+				Spr.frame(ft, 2, 260, 250, 130, 244, RD.hx, RD.hy + 3, RS)
+			var u: float = clamp(RD.endT / 110.0, 0, 1)
+			Spr.save()
+			Spr.translate(lerpf(RD.hx - 6, RD.hx - 30, u), lerpf(RD.hy - 64, RD.hy + 2, u * u))
+			Spr.frame(Spr.tex.pai, 0, 170, 160, 85, 156, 0, 0, .46, false)
+			Spr.restore()
+		Spr.alpha = 1.0
+		return
 	Spr.ellipse(RD.hx, 502, 62 * (1.0 - clamp((500.0 - RD.hy) / 160.0, 0, .6)), 7, Color(0, 0, 0, .22))
 	Spr.save()
 	Spr.translate(RD.hx, RD.hy + 3)

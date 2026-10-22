@@ -74,6 +74,10 @@ func __draw_raw() -> void:
 	elif game.iris_t > 0:
 		var u2: float = 1.0 - game.iris_t / 30.0
 		ir = maxr * u2 * u2
+	elif game.VH and game.VH.mode == "sled" and (game.VH.sboard > 0 and game.VH.sboard < 26 or game.VH.sfin > 0):
+		# fechando antes de trocar de lugar (subindo no trenó / chegando lá embaixo)
+		var u3: float = (game.VH.sboard / 26.0) if game.VH.sboard > 0 else (game.VH.sfin / 30.0)
+		ir = maxr * u3 * u3
 	if ir >= 0 and ir < maxr:
 		var wide: float = maxr * 2.0
 		draw_arc(pc, ir + wide / 2.0, 0, TAU, 72, Color(0, 0, 0), wide, true)

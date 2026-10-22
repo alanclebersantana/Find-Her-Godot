@@ -1406,10 +1406,31 @@ static func damp(cur: float, target: float, vel: float, smooth: float) -> Array:
 	vel = (vel - omega * temp) * e
 	return [target + (change + temp) * e, vel]
 
+## quadros desde que subiu num veículo: a câmera vai trocando de jeito aos poucos (sem pulo)
+var veh_t := 0
+func _vk(k: float) -> float:
+	var u: float = clamp(veh_t / 70.0, 0.0, 1.0)
+	return lerpf(.035, k, u * u)
+
+## põe a câmera direto num lugar (troca de lugar com a tela fechada)
+func set_cam(x: float, y: float) -> void:
+	cam = x
+	cam_y = y
+	prev_cam = x
+	prev_cam_y = y
+	rcam = x
+	rcam_y = y
+	cam_vx = 0.0
+	cam_vy = 0.0
+
 func _camera() -> void:
 	var px: float = player.x + player.w / 2
 	var tx: float
 	var ty: float
+	if (RD and RD.riding) or (VH and VH.active()):
+		veh_t += 1
+	else:
+		veh_t = 0
 	if not CINE.is_empty():
 		tx = CINE.fx - W / 2
 		ty = CINE.fy - H * .55
@@ -1420,9 +1441,9 @@ func _camera() -> void:
 		var cb0 := cam_bounds()
 		tx = clamp(tx, cb0.position.x, max(cb0.position.x, cb0.end.x - W))
 		ty = clamp(ty, cb0.position.y, max(cb0.position.y, cb0.end.y - H))
-		cam = lerpf(cam, tx, .25)
+		cam = lerpf(cam, tx, _vk(.25))
 		cam_vx = 0.0
-		cam_y = lerpf(cam_y, ty, .1)
+		cam_y = lerpf(cam_y, ty, _vk(.1))
 		cam_vy = 0.0
 		cam_focus = 500.0
 		look_x = 0.0
@@ -1432,13 +1453,23 @@ func _camera() -> void:
 		tx = VH.hx - W * .3
 		if VH.mode == "raft":
 			ty = VH.water_y(VH.hx) - H * .64
+		elif VH.mode == "sled" and (VH.sboard > 0 or VH.sfin > 0):
+			# embarcando/chegando: câmera normal, a tela fecha em círculo
+			ty = VH.hy - H * .56
+			cam = lerpf(cam, tx, _vk(.08))
+			cam_y = lerpf(cam_y, ty, _vk(.08))
+			cam_vx = 0.0
+			cam_vy = 0.0
+			cam_focus = player.y
+			look_x = 0.0
+			return
 		elif VH.mode == "sled":
 			# trenó: a câmera olha bem para a frente e acompanha a descida (sem os limites do mapa)
 			tx = VH.hx - W * .26
 			ty = VH.hy * .6 + VH.sled_y(VH.su + 300.0) * .4 - H * .56
-			cam = lerpf(cam, tx, .2)
+			cam = lerpf(cam, tx, _vk(.2))
 			cam_vx = 0.0
-			cam_y = lerpf(cam_y, ty, .12)
+			cam_y = lerpf(cam_y, ty, _vk(.12))
 			cam_vy = 0.0
 			cam_focus = player.y
 			look_x = 0.0
@@ -1448,9 +1479,9 @@ func _camera() -> void:
 		var cb1 := cam_bounds()
 		tx = clamp(tx, cb1.position.x, max(cb1.position.x, cb1.end.x - W))
 		ty = clamp(ty, cb1.position.y, max(cb1.position.y, cb1.end.y - H))
-		cam = lerpf(cam, tx, .25)
+		cam = lerpf(cam, tx, _vk(.25))
 		cam_vx = 0.0
-		cam_y = lerpf(cam_y, ty, .08 if VH.mode == "plane" else .1)
+		cam_y = lerpf(cam_y, ty, _vk(.08 if VH.mode == "plane" else .1))
 		cam_vy = 0.0
 		cam_focus = player.y
 		look_x = 0.0
@@ -2288,6 +2319,7 @@ func _p1_post(pcx: float, _pcy: float) -> void:
 	Spr.pt("p_RD", __qRD)
 	var __qVH := Time.get_ticks_usec()
 	VH.check_river()
+	VH.check_plane()
 	Spr.pt("p_VH", __qVH)
 	WV.step()
 	var __qZN := Time.get_ticks_usec()
@@ -2410,6 +2442,12 @@ func use_lock(l: Dictionary) -> void:
 
 ## óleo da lanterna: frascos pelo caminho escuro (antes de cada queda); a luz cresce aos poucos
 ## e diminui bem devagar enquanto está escuro. Com a lanterna apagada, são potes de vaga-lumes.
+## perseguição final do Vargas (depois do túnel)
+func chase_on() -> bool:
+	if VIL == null or not L.has("villain") or not L.villain.get("chase"):
+		return false
+	return player.x > float(L.villain.trig) - 200.0 and not VIL.get("gone", false)
+
 func _fuel_step() -> void:
 	for c in OIL:
 		var cyy: float = c.ry - 16 if c.ry > 0 else c.y
@@ -2424,6 +2462,11 @@ func _fuel_step() -> void:
 					flash("Óleo para a lanterna: a luz vai crescendo. No escuro ela gasta devagar.")
 				else:
 					flash("Um pote de vaga-lumes! Eles clareiam um pouco o caminho.")
+	if chase_on():
+		# perseguição do Vargas: lanterna cheia o tempo todo (o foco é correr atrás dele)
+		FUEL = 1.0
+		fuel_vis = min(1.0, fuel_vis + .02)
+		return
 	if AMB.dark > .45:
 		FUEL = max(.15, FUEL - 1.0 / 3000.0)
 	# a luz cresce aos poucos (~3 s) e diminui ainda mais devagar
@@ -2840,9 +2883,12 @@ func hurt(d: int, from_x: float) -> void:
 	if player.hp <= 0:
 		die("Sem forças.")
 
+var died_log = null   # testes: guarda onde e por que morreu
 func die(msg: String) -> void:
 	if player.dyingT > 0 or not running:
 		return
+	if died_log != null:
+		died_log.append([int(player.x), int(player.y), msg])
 	if player.get("dog"):
 		M.dog_hurt()
 		return

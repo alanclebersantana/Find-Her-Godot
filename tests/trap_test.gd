@@ -154,11 +154,12 @@ func _initialize() -> void:
 	frame()
 	say("voltou ao Tomé", not g.M.ctrl, why)
 
-	# 10) pedra rolando
-	put(75700, 500)
-	for i in 40:
+	# 10) pedra rolando (bola de neve da descida)
+	var rl: Dictionary = g.TR.by_kind("roll")[0]
+	put(float(rl.trig) - 120.0, 500)
+	for i in 60:
 		frame({"R": true})
 	var P = g.player
-	say("pedra começou a rolar", g.TR.T[11].st == "go", g.TR.T[11].st + " x=%d y=%d vx=%.1f gr=%s dy=%d warp=%s ctrl=%s" % [P.x, P.y, P.vx, P.onGround, P.dyingT, str(P.warp), g.M.ctrl])
+	say("pedra começou a rolar", rl.st == "go", rl.st + " x=%d y=%d" % [P.x, P.y])
 	print("FALHAS: %d" % fails)
 	quit()

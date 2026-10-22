@@ -99,6 +99,12 @@ func water_y(x: float) -> float:
 			y += 40.0
 	return y
 
+## chegou do lado do avião: abre o quadrinho (só na primeira vez) e, depois do toque, embarca sozinho
+func check_plane() -> void:
+	if near_plane() and g.player.onGround and g.player.dyingT == 0:
+		g.want_comic("aviao")
+		_start_plane()
+
 ## caiu no rio sem estar na jangada: a correnteza leva
 func check_river() -> void:
 	if RA.is_empty() or mode == "raft":
@@ -108,7 +114,7 @@ func check_river() -> void:
 	# pulou do barranco para o rio: a jangada desliza até onde ele vai cair (sempre cai em cima dela)
 	if not raft_done and not RAFT_SOL.is_empty() and p.dyingT == 0 and not p.get("dog"):
 		var zone_a: float = float(RA.x0)
-		var zone_b: float = float(RA.x0) + 700.0
+		var zone_b: float = float(RA.x0) + 440.0
 		if not p.onGround and pcx0 > zone_a - 10 and pcx0 < zone_b and p.vy > -3.0:
 			var tx: float = clamp(pcx0 + p.vx * 6.0, zone_a + 46.0, zone_b - 50.0)
 			RA.px = move_toward(RA.px, tx, 18.0)
@@ -195,17 +201,16 @@ func _start_raft() -> void:
 		var d: Dictionary = o.duplicate()
 		d.hit = false
 		OBS.append(d)
-	hx = float(RA.x)
+	hx = max(float(RA.x), float(RA.get("px", RA.x)))
 	hy = water_y(hx)
-	spd = 1.0
+	spd = .6
 	_place_player()
-	g.snap_camera()
 	Audio.play("splash", -4)
 	g.flash_tut("Segure firme!", "Corredeira! PULAR salta pedras e troncos boiando (e as quedas, na beirada). ↓ abaixa sob galhos, troncos caídos, pontes e redes.", 260)
 
 ## TRENÓ: descida comprida num morro de neve (trilha própria, longe do mapa). A velocidade segue a
 ## descida; PULAR salta pedras, troncos e rachaduras; ↓ abaixa sob galhos; ← freia; → inclina e acelera.
-## Batida: perde um coração e volta um pouco antes.
+## Batida: perde um coração e segue descendo (sem coração nenhum: volta para a fogueira).
 var su := 0.0          # posição na trilha
 var sdv := 0.0         # quanto o chão desce por quadro (para decolar das rampas)
 var sang := 0.0        # inclinação do trenó
@@ -213,6 +218,9 @@ var crashT := 0
 var srest := 0.0       # onde recomeça depois de bater
 var lean := false
 var brake := false
+var sboard := 0        # embarcando no trenó: empurra, senta e escorrega (a tela fecha e abre lá no morro)
+var sfin := 0          # chegou no monte de neve: a tela fecha antes de voltar para o mapa
+const SBOARD := 40
 
 func sled_y(u: float) -> float:
 	var pts: Array = SL.get("pts", [])
@@ -239,9 +247,24 @@ func _start_sled() -> void:
 		d.hit = false
 		d.x = sled_tx0() + float(d.u)
 		OBS.append(d)
-	_sled_place(40.0, 3.0)
 	srest = 40.0
+	sboard = SBOARD
+	sfin = 0
+	su = 0.0
+	hx = float(SL.x)
+	hy = float(SL.y)
+	spd = 0.0
+	vy = 0.0
+	sang = 0.0
+	crashT = 0
+	_place_player()
+	Audio.play("slide", -6)
+
+func _sled_go() -> void:
+	_sled_place(40.0, 3.0)
 	g.snap_camera()
+	g.set_cam(hx - g.W * .26, hy * .6 + sled_y(su + 300.0) * .4 - g.H * .56)
+	g.iris_t = 30
 	Audio.play("slide")
 	g.flash_tut("Trenó!", "Descendo o morro! PULAR salta pedras, troncos e rachaduras. ↓ abaixa sob galhos. ← freia, → acelera.", 240)
 
@@ -259,18 +282,28 @@ func _sled_place(u: float, v: float) -> void:
 
 func _sled_step() -> void:
 	var p: Dictionary = g.player
-	if crashT > 0:
-		# capotou: rola na neve um instante e volta um pouco antes do obstáculo
-		crashT -= 1
-		su += spd
-		spd = move_toward(spd, 0.0, .15)
-		hy = min(hy + vy, sled_y(su))
-		vy += .5
-		hx = sled_tx0() + su
-		if crashT == 0:
-			_sled_place(srest, 5.5)
-			g.iris_t = 20
+	if sboard > 0:
+		# senta no trenó e começa a escorregar devagar; a tela fecha e abre já na descida
+		sboard -= 1
+		if sboard < SBOARD - 12:
+			spd = move_toward(spd, 2.4, .1)
+		hx += spd
+		hy = float(SL.y)
+		if sboard == 0:
+			_sled_go()
 		return
+	if sfin > 0:
+		sfin -= 1
+		if sfin == 0:
+			_finish_sled()
+		return
+	if crashT > 0:
+		# bateu: o trenó balança um pouco, mas segue descendo
+		crashT -= 1
+	# o que foi atingido: pedra quebra, tora sai rolando, galho cai
+	for o in OBS:
+		if o.hit and o.get("ft", -1) >= 0 and o.ft < 90:
+			o.ft += 1
 	var gy: float = sled_y(su)
 	var on_ground: bool = hy >= gy - 1.0
 	lean = g.kd("R")
@@ -283,7 +316,7 @@ func _sled_step() -> void:
 			spd += .045
 		if brake:
 			spd -= .11
-		spd = clamp(spd, 2.2 if su < float(SL.get("len", 4650)) - 200 else 0.0, 10.0)
+		spd = clamp(spd, 2.2 if su < float(SL.get("len", 4650)) - 200 else 0.0, 8.0)
 	if g.pressed("J"):
 		jbuf = 9
 	elif jbuf > 0:
@@ -353,43 +386,50 @@ func _sled_step() -> void:
 		if bad:
 			o.hit = true
 			_hurt_sled(o)
-			return
 	_coins(b)
 	if su >= float(SL.get("len", 4650)) - 200:
 		# freia sozinho no fim e para no monte de neve
 		spd = move_toward(spd, 0.0, .18)
 		if spd <= .3:
-			_finish_sled()
+			sfin = 30
 
 func _hurt_sled(o: Dictionary = {}) -> void:
 	var p: Dictionary = g.player
-	crashT = 44
-	vy = -4.0
+	o.ft = 0
+	crashT = 30
 	g.shake = 7
-	g.hit_stop = 5
+	g.hit_stop = 4
 	Audio.play("hurt")
 	Audio.vib(70)
 	g.burst(hx + 10, hy - 20, 20, Color(.97, .98, 1))
-	# recomeça logo depois do obstáculo anterior (trecho livre até o que bateu)
-	srest = 40.0
-	for ob in OBS:
-		if float(ob.u) < float(o.get("u", su)) - 1.0 and ob.k != "bump":
-			srest = max(srest, float(ob.u) + float(ob.get("w", 0)) + 110.0)
+	match o.get("k", ""):
+		"rock":
+			# a pedra se parte em pedaços
+			spd *= .6
+			vy = -3.5
+			Audio.play("stomp", -4)
+			for k in 10:
+				g.PARTS.append({"x": o.x, "y": sled_y(float(o.u)) - 14, "vx": randf_range(-1.0, 5.0), "vy": randf_range(-6.0, -2.0), "life": 40, "col": Color("#7d7a74")})
+		"log":
+			# a tora sai rolando morro abaixo, na frente
+			spd *= .65
+			vy = -3.0
+		"crack":
+			# caiu na rachadura e sai pulando do outro lado
+			spd *= .7
+			vy = -7.5
+			hy -= 2
+		"branch":
+			# bateu a cabeça no galho: o galho quebra e cai
+			spd *= .7
+			Audio.play("stomp", -4)
 	if p.iframe > 0:
 		return
 	p.iframe = 70
 	p.hp -= 1
 	if p.hp <= 0:
 		tries += 1
-		g.flash("O trenó capotou de vez! Vamos de novo do alto — PULAR salta, ↓ abaixa, ← freia.", 220)
-		p.hp = Game.MAXHP
-		for ob in OBS:
-			ob.hit = false
-		srest = 40.0
-	else:
-		for ob in OBS:
-			if float(ob.u) > srest:
-				ob.hit = false
+		g.die("O trenó capotou! Volta da fogueira — PULAR salta, ↓ abaixa, ← freia.")
 
 func _finish_sled() -> void:
 	var p: Dictionary = g.player
@@ -407,9 +447,14 @@ func _finish_sled() -> void:
 		g.X.DOG.y = float(SL.y)
 	g.burst(p.x, float(SL.y) - 10, 24, Color(.97, .98, 1))
 	Audio.play("splash", -10)
-	g.iris_t = 24
+	g.iris_t = 30
 	g.snap_camera()
 	g.flash("Que descida! O trenó parou no monte de neve, lá embaixo do morro.", 180)
+
+var pb := 0              # avião: quadros do embarque
+var bx0 := 0.0
+var by0 := 0.0
+const PBOARD := 70
 
 func _start_plane() -> void:
 	mode = "plane"
@@ -426,12 +471,13 @@ func _start_plane() -> void:
 	hx = float(PL.x)
 	hy = float(PL.y)
 	spd = 0.0
-	phase = "taxi"
+	phase = "board"
+	pb = 0
+	var p: Dictionary = g.player
+	bx0 = p.x + p.w / 2
+	by0 = p.y + p.h
 	tilt = 0.0
 	_place_player()
-	g.snap_camera()
-	Audio.play("roar", -10)
-	g.flash_tut("Decolar!", "O avião vai decolar! No ar: ↑ sobe, ↓ desce. Desvie dos pássaros e das nuvens de tempestade.", 260)
 
 ## o Tomé acompanha o veículo (para câmera, lápis e o resto do jogo)
 func _place_player() -> void:
@@ -481,7 +527,14 @@ func _raft_step() -> void:
 		stumble -= 1
 		spd = move_toward(spd, 2.0, .4)
 	else:
-		spd = move_toward(spd, float(RA.spd), .08)
+		# chegando na margem do fim: a jangada vai perdendo a velocidade até encostar
+		# (só depois do último obstáculo, para os pulos continuarem com a mesma velocidade)
+		var last_o: float = 0.0
+		for o in OBS:
+			last_o = max(last_o, float(o.x))
+		var slow0: float = max(last_o + 140.0, float(RA.x1) - 70.0 - 420.0)
+		var want_s: float = float(RA.spd) * clamp(1.0 - (hx - slow0) / max(60.0, float(RA.x1) - 70.0 - slow0) * .7, .3, 1.0)
+		spd = move_toward(spd, want_s, .08 if want_s >= spd else .12)
 	var wl: float = water_y(hx)
 	var on_water: bool = hy >= wl - 1
 	if g.pressed("J"):
@@ -593,8 +646,18 @@ func _finish_raft() -> void:
 func _plane_step() -> void:
 	var p: Dictionary = g.player
 	match phase:
+		"board":
+			# o Tomé sobe na cabine, o motor pega e o avião começa a andar
+			pb += 1
+			if pb == 30:
+				Audio.play("roar", -10)
+			if pb > 34 and g.T % 4 == 0:
+				g.fx("fx_dust", hx - 60, hy - 4, 14, .14, -.2)
+			if pb >= PBOARD:
+				phase = "taxi"
+				g.flash_tut("Decolar!", "No ar: ↑ sobe, ↓ desce. Desvie dos pássaros e das nuvens de tempestade.", 220)
 		"taxi":
-			spd = min(spd + .1, float(PL.spd))
+			spd = min(spd + .06, float(PL.spd))
 			hx += spd
 			hy = float(PL.y)
 			if g.T % 3 == 0:

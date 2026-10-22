@@ -676,12 +676,24 @@ static func _box(x: float, y: float, w: float, h: float) -> void:
 	Spr.ci.draw_rect(Rect2(x, y, w, h), OUT, false, 2.0)
 
 # ---------- cogumelo gigante ----------
+## altura da arte do saltador para a largura w (proporção da pintura)
+static func _salt_h(w: float) -> float:
+	var r: Array = Spr.AR["p_saltador0"]
+	return w * r[3] / r[2]
+
 static func _giant(o: Dictionary, T: int) -> void:
 	var x: float = o.x
 	var base: float = o.y
 	var top: float = o.cap
 	var w: float = o.w
 	var c: Color = Color(o.get("c", "#6a5acd"))
+	var bouncy: bool = o.has("to")
+	if bouncy and Spr.has("p_saltador0"):
+		_giant_spring(o, T)
+		return
+	if not bouncy:
+		# os gigantes comuns ficam apagados: só os laranjas com mola chamam atenção
+		c = c.darkened(.35)
 	var sw: float = 16.0 + w * .08
 	# caule: levemente curvo, com fibras, anel debaixo do chapéu; nos buracos ele nasce
 	# de um bulbo com raízes e some numa névoa escura (não desce reto e liso)
@@ -744,6 +756,78 @@ static func _giant(o: Dictionary, T: int) -> void:
 	for d in [[-.3, -.15, .07], [.05, -.22, .08], [.3, -.1, .06], [-.08, -.06, .05], [.18, -.04, .04]]:
 		Spr.circle(x + d[0] * w, top + 8 + d[1] * w, d[2] * w, Color(1, 1, 1, .55))
 	Spr.line(cap, OUT, 2)
+
+## cogumelo gigante saltador: chapéu laranja com pintas amarelas, mola no caule, brilho, setas
+## e o arco a lápis mostrando para onde ele lança
+static func _giant_spring(o: Dictionary, T: int) -> void:
+	var x: float = o.x
+	var base: float = o.y
+	var cap: float = o.cap
+	var aw: float = o.w * 1.12
+	var ah: float = _salt_h(aw)
+	var sq: float = o.get("squash", 0.0)
+	var atop: float = cap - ah * .05
+	var abot: float = min(atop + ah, base + 4.0)
+	# caule de baixo (nos cogumelos altos) até onde começa a mola
+	if base > abot + 4:
+		var sw: float = 14.0
+		Spr.poly(PackedVector2Array([Vector2(x - sw, abot - 4), Vector2(x + sw, abot - 4), Vector2(x + sw * 1.3, base), Vector2(x - sw * 1.3, base)]), Color("#e2d4b8"))
+		Spr.poly(PackedVector2Array([Vector2(x + 2, abot - 4), Vector2(x + sw, abot - 4), Vector2(x + sw * 1.3, base), Vector2(x + 4, base)]), Color("#bfae8e"))
+		Spr.line(PackedVector2Array([Vector2(x - sw, abot - 4), Vector2(x - sw * 1.3, base)]), Color(.25, .18, .12, .55), 1.6)
+		Spr.line(PackedVector2Array([Vector2(x + sw, abot - 4), Vector2(x + sw * 1.3, base)]), Color(.25, .18, .12, .55), 1.6)
+		if base > 560:
+			var fy: float = max(abot + 40, 560.0)
+			Spr.vgrad(x - 30, fy, 60, base - fy + 4, Color(.04, .05, .1, 0), Color(.04, .05, .1, 1))
+	else:
+		Spr.ellipse(x, base + 1, aw * .32, 5, Color(0, 0, 0, .3))
+	# brilho pulsando em volta do chapéu
+	Spr.glow(x, cap + 10, aw * .75, Color(1, .6, .2, .22 + .08 * sin(T * .1 + x)))
+	# amassa quando lança (troca para a pose achatada) e volta esticando
+	if sq > .35 and Spr.has("p_saltador1"):
+		Spr.P("saltador1", x, abot, aw)
+	else:
+		var st: float = 1.0 + sin(T * .12 + x) * .015 - sq * .2
+		Spr.save()
+		Spr.translate(x, abot)
+		Spr.scale(1.0 + sq * .12, st)
+		Spr.P("saltador0", 0, 0, aw)
+		Spr.restore()
+	# setinhas subindo em cima do chapéu ("pule aqui!")
+	for k in 2:
+		var u: float = fposmod(T * .02 + k * .5, 1.0)
+		var ay: float = atop - 14 - u * 34
+		var al: float = sin(u * PI) * .9
+		Spr.line(PackedVector2Array([Vector2(x - 11, ay + 8), Vector2(x, ay), Vector2(x + 11, ay + 8)]), Color(1, .92, .4, al), 4)
+
+## arco a lápis até o próximo cogumelo (desenhado na camada de brilho: aparece no escuro da noite)
+static func giant_arc(o: Dictionary, T: int) -> void:
+	var x: float = o.x
+	var cap: float = o.cap
+	var to = o.get("to")
+	if to is Array:
+		var tx: float = float(to[0])
+		var ty: float = float(to[1])
+		var dx: float = tx - x
+		var dy: float = ty - cap
+		var nn: float = clamp(abs(dx) / 4.4, 30.0, 72.0) * float(o.get("arc", 1.0))
+		nn = max(nn, sqrt(2.0 * (max(0.0, -dy) + 60.0) / Game.GRAV) * 1.15)
+		var vy0: float = (dy - Game.GRAV * nn * (nn + 1) / 2.0) / nn
+		# pontinhos de lápis ao longo do caminho (correndo devagar, mostrando a direção)
+		var i: float = 3.0 + fposmod(T * .12, 4.0)
+		while i <= nn:
+			var fx: float = x + dx / nn * i
+			var fy: float = cap + vy0 * i + Game.GRAV * i * (i + 1) / 2.0
+			var a: float = .95 - .4 * i / nn
+			Spr.circle(fx, fy - 22, 4.6, Color(.2, .15, .1, a * .5))
+			Spr.circle(fx, fy - 22, 3.4, Color(1, .95, .75, a))
+			i += 4.0
+		# setinha no fim, apontando para o próximo cogumelo
+		var ex: float = x + dx / nn * (nn - 3.0)
+		var ey: float = cap + vy0 * (nn - 3.0) + Game.GRAV * (nn - 3.0) * (nn - 2.0) / 2.0 - 22
+		var dv := Vector2(dx / nn, vy0 + Game.GRAV * (nn - 3.0)).normalized()
+		var nv := Vector2(-dv.y, dv.x)
+		var tip := Vector2(ex, ey) + dv * 8.0
+		Spr.poly(PackedVector2Array([tip, Vector2(ex, ey) - dv * 4.0 + nv * 7.0, Vector2(ex, ey) - dv * 4.0 - nv * 7.0]), Color(1, .93, .7, .6))
 
 ## bloco de gelo que levou a patada: brilha e treme um instante
 static func _ice_hits(g: Game, T: int) -> void:
