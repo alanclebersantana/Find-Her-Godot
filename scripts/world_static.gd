@@ -80,7 +80,11 @@ func _draw_raw() -> void:
 			continue
 		if WorldNature.is_front(L, d):
 			continue
+		WorldNature.clip_x0 = x0
+		WorldNature.clip_x1 = x1
 		WorldNature.decor(d)
+		WorldNature.clip_x0 = -1e9
+		WorldNature.clip_x1 = 1e9
 	for s in L.solids:
 		var pad := 140.0
 		if s.x + s.get("w", 0) + pad < x0 or s.x - pad > x1:

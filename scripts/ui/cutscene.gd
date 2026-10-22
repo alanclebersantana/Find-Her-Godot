@@ -85,7 +85,13 @@ func _gui_input(e: InputEvent) -> void:
 		accept_event()
 
 func _unhandled_input(e: InputEvent) -> void:
-	if e is InputEventKey and e.pressed and not e.echo:
+	if e is InputEventJoypadButton and e.pressed:
+		if e.button_index == JOY_BUTTON_START:
+			_end()
+		else:
+			_tap()
+		get_viewport().set_input_as_handled()
+	elif e is InputEventKey and e.pressed and not e.echo:
 		if e.keycode == KEY_ESCAPE:
 			_end()
 		else:
@@ -151,7 +157,7 @@ func _draw() -> void:
 	if n >= full.length() and leaving < 0:
 		# aviso bem visível, piscando devagar, até o toque
 		var a: float = .78 + .22 * sin(t * 4.0)
-		var msg := "▸ toque para continuar"
+		var msg := "▸ aperte um botão" if Save.getv("opt", "stick", "") == "gamepad" else "▸ toque para continuar"
 		var mw: float = Spr.font_b.get_string_size(msg, HORIZONTAL_ALIGNMENT_LEFT, -1, 17).x
 		draw_string_outline(Spr.font_b, Vector2(W - mw - 24, H - 10), msg, HORIZONTAL_ALIGNMENT_LEFT, -1, 17, 4, Color(0, 0, 0, .9))
 		draw_string(Spr.font_b, Vector2(W - mw - 24, H - 10), msg, HORIZONTAL_ALIGNMENT_LEFT, -1, 17, Color(1, .88, .55, a))

@@ -64,7 +64,7 @@ func _gui_input(e: InputEvent) -> void:
 		accept_event()
 
 func _unhandled_input(e: InputEvent) -> void:
-	if e is InputEventKey and e.pressed and not e.echo and t > .35 and leaving < 0:
+	if ((e is InputEventKey and not e.echo) or e is InputEventJoypadButton) and e.pressed and t > .35 and leaving < 0:
 		leaving = 0.0
 		get_viewport().set_input_as_handled()
 
@@ -131,5 +131,5 @@ func _draw() -> void:
 		draw_rect(Rect2(W / 2 - bw / 2, by, bw, 40), Color(.1, .07, .04, ca), false, 2.5)
 		Spr.text(txt, W / 2, by + 27, fs, Color(.16, .1, .05, ca), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_i)
 	if t > .8 and leaving < 0:
-		Spr.text("toque para continuar ▸", W - 20, H - 16, 14, Color(1, .9, .7, .55 + .3 * sin(t * 4)), HORIZONTAL_ALIGNMENT_RIGHT, Spr.font_b)
+		Spr.text(("aperte um botão ▸" if Save.getv("opt", "stick", "") == "gamepad" else "toque para continuar ▸"), W - 20, H - 16, 14, Color(1, .9, .7, .55 + .3 * sin(t * 4)), HORIZONTAL_ALIGNMENT_RIGHT, Spr.font_b)
 	Spr.alpha = 1.0

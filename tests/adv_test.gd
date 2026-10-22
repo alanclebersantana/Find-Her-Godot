@@ -609,18 +609,22 @@ func _initialize() -> void:
 				var dx: float = o.x - VH.hx
 				if o.hit or o.k == "bump" or dx < -140 or dx > 300:
 					continue
-				if o.k in ["rock", "log"] and ground and dx < VH.spd * 9.0 + 10 and dx > 20:
+				if o.k in ["rock", "log"] and ground and dx < VH.spd * 9.0 + 24 and dx > 30:
 					press("J")
 				if o.k == "crack" and ground and dx < 40 and dx > -5:
 					press("J")
-				if o.k == "branch" and dx < 110 and dx > -70:
+				if o.k == "branch" and dx < 110 and dx > -100:
 					d["S"] = true
 				break
 			frame(d)
 		S("desceu de trenó", ok_sled)
 		S("velocidade cresce na descida (> 6.5)", top_spd > 6.5)
 		S("velocidade máxima menor (<= 8)", top_spd <= 8.01)
-		S("trenó sem batidas", P.hp == 5 and VH.tries == 0)
+		var hitk := []
+		for o in VH.OBS:
+			if o.hit:
+				hitk.append(o.k + "@" + str(o.u))
+		S("trenó sem batidas " + str(hitk), P.hp == 5 and VH.tries == 0)
 		# obstáculos bem espaçados (dá para pousar de um pulo antes do próximo)
 		var us: Array = []
 		for o in VH.SL.obs:
@@ -660,13 +664,13 @@ func _initialize() -> void:
 				var dx: float = o.x - VH.hx
 				if o.hit or dx < -140 or dx > 300:
 					continue
-				if float(o.u) < 1500:
+				if float(o.u) < 2000:
 					break   # bate de propósito nas duas primeiras
-				if o.k in ["rock", "log"] and ground and dx < VH.spd * 9.0 + 10 and dx > 20:
+				if o.k in ["rock", "log"] and ground and dx < VH.spd * 9.0 + 24 and dx > 30:
 					press("J")
 				if o.k == "crack" and ground and dx < 40 and dx > -5:
 					press("J")
-				if o.k == "branch" and dx < 110 and dx > -70:
+				if o.k == "branch" and dx < 110 and dx > -100:
 					d["S"] = true
 				break
 			frame(d)

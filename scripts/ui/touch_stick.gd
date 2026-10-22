@@ -53,7 +53,7 @@ func _in_zone(p: Vector2) -> bool:
 	return p.x < vs.x * .46 and p.y > vs.y * .3
 
 func _input(e: InputEvent) -> void:
-	if not is_visible_in_tree():
+	if mode == "gamepad" or not is_visible_in_tree():
 		return
 	if e is InputEventScreenTouch:
 		var p := _to_local(e.position)
@@ -124,6 +124,8 @@ func _process(_d: float) -> void:
 	queue_redraw()
 
 func _draw() -> void:
+	if mode == "gamepad":
+		return
 	var r := radius * ui_scale
 	var al := opacity
 	if mode == "dpad":

@@ -347,7 +347,7 @@ func _cine(W: float, H: float) -> void:
 			yy += 21
 		if wt:
 			var pa: float = .78 + .22 * sin(game.T * .12)
-			Spr.text("▸ toque para continuar", bx + bw - 14, by + 78, 15, Color(1, .88, .6, pa), HORIZONTAL_ALIGNMENT_RIGHT, Spr.font_b, 3, Color(0, 0, 0, .8))
+			Spr.text(("▸ aperte um botão" if Save.getv("opt", "stick", "") == "gamepad" else "▸ toque para continuar"), bx + bw - 14, by + 78, 15, Color(1, .88, .6, pa), HORIZONTAL_ALIGNMENT_RIGHT, Spr.font_b, 3, Color(0, 0, 0, .8))
 	Spr.text("PULAR CENA ▸", W - 20, H - 22, 15, Color(1, .9, .7, .7 * a), HORIZONTAL_ALIGNMENT_RIGHT, Spr.font_b)
 
 func _portrait(n: String, cx: float, cy: float, h: float, al: float) -> void:

@@ -5,6 +5,9 @@ class_name WorldNature
 ## água gelada, esquilos, corvos, piranhas, e o cavalo.
 
 const INK := Color("#2a1a0e")
+## faixa do pedaço de cenário que está desenhando (peças largas se cortam nela)
+static var clip_x0 := -1e9
+static var clip_x1 := 1e9
 
 # ---------------------------------------------------------------- cenário fixo (world_static)
 static func decor(d: Dictionary) -> void:
@@ -69,7 +72,18 @@ static func decor(d: Dictionary) -> void:
 		"bearden":
 			# a toca do Urso-Rei: encosta de pedra nevada com a caverna escura (fundo da arena)
 			if Spr.has("p_bearden"):
-				Spr.P("bearden", d.x, d.y + 8, 860 * s, false, 0.0, Color(.82, .85, .92))
+				# cada pedaço do cenário desenha só a sua faixa (senão o pedaço seguinte cobre os blocos de gelo)
+				var r: Array = Spr.AR["p_bearden"]
+				var w: float = 860 * s
+				var hgt: float = w * r[3] / r[2]
+				var left: float = d.x - w / 2
+				var va: float = max(left, clip_x0)
+				var vb: float = min(left + w, clip_x1)
+				if vb > va:
+					var t: Texture2D = Spr.atlas_tex(r)
+					var su: float = (va - left) / w
+					var sv: float = (vb - left) / w
+					Spr.ci.draw_texture_rect_region(t, Rect2(va, d.y + 8 - hgt, vb - va, hgt), Rect2(r[0] + r[2] * su, r[1], r[2] * (sv - su), r[3]), Color(.82, .85, .92, Spr.alpha))
 			else:
 				Spr.ellipse(d.x, d.y, 360 * s, 190 * s, Color("#5d6878"))
 				Spr.ellipse(d.x, d.y - 150 * s, 300 * s, 60 * s, Color(.93, .95, 1))

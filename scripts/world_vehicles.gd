@@ -318,16 +318,6 @@ static func _river(g: Game, VH: Vehicles, T: int) -> void:
 				Spr.seg(o.x - 10 + sw, oy - 46, o.x + 120 + sw, oy - 46, Color("#c9a26a"), 2)
 				for k in 6:
 					Spr.ellipse(o.x - 2 + k * 22 + sw, oy - 45, 6, 4, Color("#e08a3a"))
-	# plaquinhas boiando antes de cada obstáculo: seta para cima (pular) ou para baixo (abaixar)
-	if VH.mode == "raft" or not VH.raft_done:
-		for o in obs:
-			var sx: float = o.x - 230.0
-			if sx < g.cam - 80 or sx > g.cam + g.W + 80 or o.get("hit", false):
-				continue
-			var up: bool = o.k in ["rock", "log"]
-			if o.k == "branch":
-				continue
-			_float_sign(sx, VH.water_y(sx), up, T)
 	# cerca na margem do fim (depois da corredeira não dá para voltar para a água)
 	if VH.raft_done:
 		var fx: float = float(RA.x1) - 4.0
@@ -629,6 +619,12 @@ static func _sled_track(g: Game, VH: Vehicles, T: int) -> void:
 				fall = fall * fall * .25
 			if not hb or o.ft < 40:
 				_snow_branch(o.x, oy - 58 + fall, T, hb)
+				if not hb:
+					# setinhas laranja descendo embaixo do galho: abaixe!
+					for k in 2:
+						var u2: float = fposmod(T * .025 + k * .5, 1.0)
+						var ay2: float = oy - 44 + u2 * 26
+						Spr.line(PackedVector2Array([Vector2(o.x - 12, ay2 - 11), Vector2(o.x + 5, ay2), Vector2(o.x + 22, ay2 - 11)]), Color(1, .5, .05, sin(u2 * PI)), 7)
 	# corpo do morro: neve branca em cima, azulada para baixo
 	var pts := PackedVector2Array()
 	var cols := PackedColorArray()
@@ -668,6 +664,21 @@ static func _sled_track(g: Game, VH: Vehicles, T: int) -> void:
 			continue
 		var oy: float = VH.sled_y(float(o.u))
 		var ft: int = o.get("ft", -1) if o.hit else -1
+		# destaque forte no meio da neve branca: sombra escura + brilho colorido pulsando
+		# (verde = pular, laranja = abaixar, as mesmas cores das placas)
+		if not o.hit and o.k != "bump":
+			var pul: float = .5 + .5 * sin(T * .15 + o.x)
+			if o.k == "branch":
+				Spr.glow(o.x + 5, oy - 62, 92, Color(1, .45, .05, .4 + .25 * pul))
+			else:
+				Spr.ellipse(o.x + (float(o.get("w", 0)) * .5), oy + 4, 46, 9, Color(.1, .12, .2, .35))
+				Spr.glow(o.x + (float(o.get("w", 0)) * .5), oy - 18, 62, Color(.2, 1, .3, .22 + .18 * pul))
+				# setinhas verdes subindo em cima do obstáculo
+				for k in 2:
+					var u: float = fposmod(T * .025 + k * .5, 1.0)
+					var ay: float = oy - 50 - u * 40
+					var ax: float = o.x + float(o.get("w", 0)) * .5
+					Spr.line(PackedVector2Array([Vector2(ax - 12, ay + 9), Vector2(ax, ay), Vector2(ax + 12, ay + 9)]), Color(.25, .95, .35, sin(u * PI) * .95), 5)
 		match o.k:
 			"rock":
 				if ft >= 0:

@@ -33,6 +33,11 @@ var bag_sel := ""
 var theme_ui: Theme
 var light_tex: Texture2D
 var last_joy_ms := -9999
+# navegação de menus pelo controle (gamepad): moldura dourada no botão escolhido
+var joy_idx := 0
+var joy_sig := ""
+var joy_ring: Panel
+var joy_ax := {}
 var last_touch_ms := -9999   # último toque na tela (o gesto de "voltar" da borda vem junto com toques)
 const KEYMAP := {
 	KEY_LEFT: "L", KEY_A: "L", KEY_RIGHT: "R", KEY_D: "R", KEY_UP: "U", KEY_W: "U", KEY_DOWN: "S", KEY_S: "S",
@@ -257,6 +262,7 @@ func _update_lights() -> void:
 
 var _slow_t := 0.0
 func _process(_d: float) -> void:
+	_joy_ring_update()
 	# qualidade automática: se o celular passar uns segundos abaixo de 45 quadros, desliga os enfeites
 	if state == S.PLAY and game.running and not game.low_fx:
 		if Engine.get_frames_per_second() < 45:
@@ -458,6 +464,9 @@ func _input(e: InputEvent) -> void:
 			_set_key(KEYMAP[e.keycode], e.pressed)
 	elif e is InputEventJoypadButton:
 		last_joy_ms = Time.get_ticks_msec()
+		if _joy_menu_button(e):
+			get_viewport().set_input_as_handled()
+			return
 		var m := {JOY_BUTTON_A: "J", JOY_BUTTON_X: "A", JOY_BUTTON_B: "P", JOY_BUTTON_DPAD_LEFT: "L", JOY_BUTTON_DPAD_RIGHT: "R", JOY_BUTTON_DPAD_UP: "U", JOY_BUTTON_DPAD_DOWN: "S", JOY_BUTTON_BACK: "B", JOY_BUTTON_RIGHT_SHOULDER: "G", JOY_BUTTON_LEFT_SHOULDER: "D"}
 		if e.button_index == JOY_BUTTON_Y and e.pressed:
 			if state == S.PLAY:
@@ -469,6 +478,9 @@ func _input(e: InputEvent) -> void:
 		elif m.has(e.button_index):
 			_set_key(m[e.button_index], e.pressed)
 	elif e is InputEventJoypadMotion:
+		if _joy_menu_axis(e):
+			get_viewport().set_input_as_handled()
+			return
 		if e.axis == JOY_AXIS_LEFT_X:
 			_set_key("L", e.axis_value < -.3)
 			_set_key("R", e.axis_value > .3)
@@ -476,6 +488,148 @@ func _input(e: InputEvent) -> void:
 		elif e.axis == JOY_AXIS_LEFT_Y:
 			_set_key("U", e.axis_value < -.55)
 			_set_key("S", e.axis_value > .55)
+
+# ---------- menus pelo controle ----------
+func _joy_collect(n: Node, out: Array) -> void:
+	for ch in n.get_children():
+		if ch is BaseButton and ch.is_visible_in_tree() and not ch.disabled and ch.mouse_filter != Control.MOUSE_FILTER_IGNORE:
+			out.append(ch)
+		_joy_collect(ch, out)
+
+func _joy_buttons() -> Array:
+	var out: Array = []
+	if panel != null and is_instance_valid(panel) and panel.is_inside_tree():
+		_joy_collect(panel, out)
+	return out
+
+func _joy_signature(bs: Array) -> String:
+	var s := str(bs.size())
+	for b in bs:
+		s += "|" + (b.text if b is Button else "")
+	return s
+
+## escolhe o botão inicial quando um painel novo aparece (mantém a posição se é o mesmo painel refeito)
+func _joy_sync(bs: Array) -> void:
+	var sig := _joy_signature(bs)
+	if sig != joy_sig:
+		joy_sig = sig
+		joy_idx = 0
+		if state == S.BAG and bag_sel != "":
+			var k := game.INV.find(bag_sel)
+			if k >= 0 and k < bs.size():
+				joy_idx = k
+	joy_idx = clampi(joy_idx, 0, max(bs.size() - 1, 0))
+
+func _joy_press(b: BaseButton) -> void:
+	b.pressed.emit()
+
+## anda para o botão mais próximo na direção pedida (funciona em linhas, colunas e grades)
+func _joy_move(bs: Array, d: Vector2) -> void:
+	if bs.size() < 2:
+		return
+	var c: Vector2 = bs[joy_idx].get_global_rect().get_center()
+	var best := -1
+	var bsc := INF
+	for i in bs.size():
+		if i == joy_idx:
+			continue
+		var v: Vector2 = bs[i].get_global_rect().get_center() - c
+		var along := v.dot(d)
+		if along < 6:
+			continue
+		var side: float = abs(v.dot(Vector2(-d.y, d.x)))
+		var sc := along + side * 2.5
+		if sc < bsc:
+			bsc = sc
+			best = i
+	if best < 0:
+		# sem vizinho naquele lado: segue a ordem (dá a volta)
+		best = (joy_idx + (1 if d.x + d.y > 0 else -1) + bs.size()) % bs.size()
+	joy_idx = best
+
+## botão do controle com um painel aberto: direcional escolhe, A confirma, B volta.
+## Tela com um único botão (CONTINUAR, FECHAR, ENTRAR...) confirma com qualquer botão.
+func _joy_menu_button(e: InputEventJoypadButton) -> bool:
+	# fala de personagem na tela: qualquer botão avança (Start continua sendo a pausa)
+	if state == S.PLAY and not game.CINE.is_empty() and e.button_index != JOY_BUTTON_START:
+		if e.pressed:
+			game.keys["Jp"] = true
+		return true
+	if panel == null or not is_instance_valid(panel) or state == S.PLAY:
+		return false
+	if e.button_index in [JOY_BUTTON_START, JOY_BUTTON_Y] and state in [S.PAUSE, S.BAG]:
+		return false   # Start fecha a pausa, Y fecha a mochila (tratados abaixo)
+	if not e.pressed:
+		return true
+	var bs := _joy_buttons()
+	if bs.is_empty():
+		if panel.has_meta("ok"):
+			panel.get_meta("ok").call()
+		return true
+	_joy_sync(bs)
+	if bs.size() == 1:
+		_joy_press(bs[0])
+		return true
+	match e.button_index:
+		JOY_BUTTON_DPAD_LEFT: _joy_move(bs, Vector2.LEFT)
+		JOY_BUTTON_DPAD_RIGHT: _joy_move(bs, Vector2.RIGHT)
+		JOY_BUTTON_DPAD_UP: _joy_move(bs, Vector2.UP)
+		JOY_BUTTON_DPAD_DOWN: _joy_move(bs, Vector2.DOWN)
+		JOY_BUTTON_B, JOY_BUTTON_BACK:
+			if state in [S.BAG, S.PAUSE, S.CLUE]:
+				close_panel()
+			elif panel.has_meta("back"):
+				panel.get_meta("back").call()
+		_:
+			_joy_press(bs[joy_idx])
+	return true
+
+func _joy_menu_axis(e: InputEventJoypadMotion) -> bool:
+	if panel == null or not is_instance_valid(panel) or state == S.PLAY:
+		return false
+	if e.axis != JOY_AXIS_LEFT_X and e.axis != JOY_AXIS_LEFT_Y:
+		return true
+	var was: int = joy_ax.get(e.axis, 0)
+	var now := 0
+	if e.axis_value > .6:
+		now = 1
+	elif e.axis_value < -.6:
+		now = -1
+	joy_ax[e.axis] = now
+	if now != 0 and now != was:
+		var bs := _joy_buttons()
+		if bs.size() > 1:
+			_joy_sync(bs)
+			_joy_move(bs, Vector2(now, 0) if e.axis == JOY_AXIS_LEFT_X else Vector2(0, now))
+	return true
+
+func _joy_ring_update() -> void:
+	if joy_ring == null:
+		var cl := CanvasLayer.new()
+		cl.layer = 120
+		add_child(cl)
+		joy_ring = Panel.new()
+		joy_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var sb := StyleBoxFlat.new()
+		sb.draw_center = false
+		sb.set_border_width_all(4)
+		sb.border_color = Color("#ffd75a")
+		sb.set_corner_radius_all(10)
+		sb.shadow_color = Color(1, .8, .2, .45)
+		sb.shadow_size = 8
+		joy_ring.add_theme_stylebox_override("panel", sb)
+		cl.add_child(joy_ring)
+	var show := false
+	if last_joy_ms > last_touch_ms and state != S.PLAY:
+		var bs := _joy_buttons()
+		if bs.size() > 1:
+			_joy_sync(bs)
+			var r: Rect2 = bs[joy_idx].get_global_rect().grow(5)
+			joy_ring.position = r.position
+			joy_ring.size = r.size
+			joy_ring.modulate.a = .75 + .25 * sin(Time.get_ticks_msec() / 160.0)
+			show = true
+	joy_ring.visible = show
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
@@ -858,7 +1012,7 @@ func show_options(from_pause: bool) -> void:
 				show_options(from_pause))
 			hb.add_child(b)
 		grid.add_child(hb)
-	opt_row.call("Controle", "stick", [["Analógico", "analog"], ["Direcional", "dpad"]], "analog")
+	opt_row.call("Controle", "stick", [["Analógico", "analog"], ["Direcional", "dpad"], ["Gamepad", "gamepad"]], "analog")
 	opt_row.call("Tamanho dos botões", "btn_size", [["Pequeno", "P"], ["Médio", "M"], ["Grande", "G"]], "M")
 	opt_row.call("Transparência", "btn_alpha", [["Clara", "clara"], ["Média", "media"], ["Forte", "forte"]], "media")
 	opt_row.call("Mão", "left", [["Destro", false], ["Canhoto", true]], false)
@@ -1193,6 +1347,10 @@ func _render_bag(msg: String) -> void:
 			m = "Toque num objeto e depois em outro para combinar."
 		elif game.INV.size() == 1:
 			m = game.item_msg(game.INV[0])
+	if Save.getv("opt", "stick", "") == "gamepad":
+		# no controle: o direcional escolhe e o A confirma; o X usa
+		m = m.replace("Toque num objeto e depois em outro", "Escolha um objeto com o direcional e aperte A; depois outro")
+		m = m.replace("Toque em ", "Escolha ").replace("toque em ", "escolha ").replace("toque no botão da manivela", "aperte X para girar a manivela").replace("toque no botão ✔", "aperte X para usar").replace("toque em ✔", "aperte X")
 	vb.add_child(_label(m, 16, Color("#e8d8b0"), Spr.font_i, 680))
 	vb.add_child(_label("LÁPIS ESPECIAIS", 13, Color("#b8a888")))
 	var pens := HBoxContainer.new()
