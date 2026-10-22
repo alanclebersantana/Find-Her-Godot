@@ -21,7 +21,7 @@ var dog_btn: TextureButton
 var tex_dog: Texture2D = preload("res://assets/ui/btn_dog.png")
 var bag_btn: TextureButton
 var tex_golpe: Texture2D = preload("res://assets/ui/btn_golpe.png")
-var tex_harpoon: Texture2D = preload("res://assets/ui/btn_golpe.png")
+var tex_harpoon: Texture2D = preload("res://assets/ui/btn_harpoon.png")
 var hint_btn: TextureButton
 var tex_tome: Texture2D = preload("res://assets/ui/btn_tome.png")
 var panel: Control = null
