@@ -625,7 +625,7 @@ func ambient() -> void:
 		AMB.wind = 0.0
 		AMB.song = ZN.zone.get("song", "manha")
 		return
-	var px: float = player.x + player.w / 2
+	var px: float = amb_x()
 	var i := 0
 	while i + 1 < S.size() and S[i + 1].x <= px:
 		i += 1
@@ -720,7 +720,7 @@ func use_available() -> bool:
 ## nome do período do dia em que o Tomé está (a fase é uma só, dividida pelas fogueiras grandes)
 const PERIODS := ["Manhã no bosque", "Tarde", "Pântano", "Neve", "Céu", "Noite na mina"]
 func period_index() -> int:
-	var px: float = player.x + player.w / 2
+	var px: float = amb_x()
 	var n := 0
 	for c in CHK:
 		if c.has("rest") and px > c.x + 30:
@@ -730,7 +730,7 @@ func period_index() -> int:
 ## o nome no topo acompanha o cenário (a fogueira grande marca o fim de cada período)
 const PERIOD_OF := {"manha": 0, "tarde": 1, "chuva": 2, "rio": 2, "neve": 3, "ceu": 4, "noite": 5, "perseguicao": 5, "tunel": 5}
 func period_label() -> String:
-	var px: float = player.x + player.w / 2
+	var px: float = amb_x()
 	var i: int = period_index()
 	var S: Array = L.get("sections", [])
 	for sc in S:
@@ -741,11 +741,17 @@ func period_label() -> String:
 			i = PERIOD_OF.get(k, i)
 	return "%d/%d · %s" % [i + 1, PERIODS.size(), PERIODS[min(i, PERIODS.size() - 1)]]
 
+## posição usada para clima e cenário (no trenó, a trilha fica longe do mapa: vale a do morro)
+func amb_x() -> float:
+	if VH and VH.mode == "sled":
+		return float(VH.SL.x)
+	return player.x + player.w / 2
+
 func section_weights() -> Dictionary:
 	## peso de cada cenário de fundo conforme a posição (para o fundo trocar suavemente)
 	var S: Array = L.get("sections", [])
 	var map := {"manha": "bosque", "tarde": "tarde", "chuva": "pantano", "noite": "noite", "tunel": "noite", "perseguicao": "noite"}
-	var px: float = player.x + player.w / 2
+	var px: float = amb_x()
 	var out := {}
 	if S.is_empty():
 		return {"bosque": 1.0}
@@ -1427,7 +1433,16 @@ func _camera() -> void:
 		if VH.mode == "raft":
 			ty = VH.water_y(VH.hx) - H * .64
 		elif VH.mode == "sled":
-			ty = float(VH.SL.y) - H * .62
+			# trenó: a câmera olha bem para a frente e acompanha a descida (sem os limites do mapa)
+			tx = VH.hx - W * .26
+			ty = VH.hy * .6 + VH.sled_y(VH.su + 300.0) * .4 - H * .56
+			cam = lerpf(cam, tx, .2)
+			cam_vx = 0.0
+			cam_y = lerpf(cam_y, ty, .12)
+			cam_vy = 0.0
+			cam_focus = player.y
+			look_x = 0.0
+			return
 		else:
 			ty = VH.hy - H * .5
 		var cb1 := cam_bounds()

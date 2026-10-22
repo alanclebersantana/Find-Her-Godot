@@ -22,7 +22,8 @@ func __draw_raw() -> void:
 	Spr.begin(self)
 	var w := game.W + 4
 	var ox := -game.rcam * PX
-	var oy: float = -(game.rcam_y - game.L.top) * PX
+	# acima do topo do mapa (descida do trenó) o céu fica parado em cima, sem faixa preta
+	var oy: float = min(0.0, -(game.rcam_y - game.L.top) * PX)
 	var bh: float = game.H + max(0.0, (game.L.bottom - game.L.top) - game.H) * PX
 	var ws := game.section_weights()
 	var first := true

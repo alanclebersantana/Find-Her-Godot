@@ -218,6 +218,9 @@ func _initialize() -> void:
 							e.stun = 9999
 							e.dir = -1
 							break
+				elif k.begins_with("sled:"):
+					g.VH._start_sled()
+					g.VH._sled_place(float(k.substr(5)), 6.0)
 				elif k == "en":
 					for e in g.EN:
 						e.dead = 0

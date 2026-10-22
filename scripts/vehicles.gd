@@ -149,7 +149,33 @@ func _start_raft() -> void:
 	Audio.play("splash", -4)
 	g.flash_tut("Segure firme!", "Corredeira! PULAR salta pedras e troncos boiando (e as quedas, na beirada). ↓ abaixa sob galhos, troncos caídos, pontes e redes.", 260)
 
-## TRENÓ: descida curtinha na neve; a velocidade cresce, PULAR salta os montes, pedras e troncos
+## TRENÓ: descida comprida num morro de neve (trilha própria, longe do mapa). A velocidade segue a
+## descida; PULAR salta pedras, troncos e rachaduras; ↓ abaixa sob galhos; ← freia; → inclina e acelera.
+## Batida: perde um coração e volta um pouco antes.
+var su := 0.0          # posição na trilha
+var sdv := 0.0         # quanto o chão desce por quadro (para decolar das rampas)
+var sang := 0.0        # inclinação do trenó
+var crashT := 0
+var srest := 0.0       # onde recomeça depois de bater
+var lean := false
+var brake := false
+
+func sled_y(u: float) -> float:
+	var pts: Array = SL.get("pts", [])
+	for i in pts.size() - 1:
+		var a: Array = pts[i]
+		var b: Array = pts[i + 1]
+		if u >= a[0] and u <= b[0]:
+			var t: float = (u - float(a[0])) / (float(b[0]) - float(a[0]))
+			t = (1.0 - cos(t * PI)) * .5
+			return lerpf(float(a[1]), float(b[1]), t)
+	if pts.is_empty():
+		return float(SL.y)
+	return float(pts[-1][1]) if u > float(pts[-1][0]) else float(pts[0][1])
+
+func sled_tx0() -> float:
+	return float(SL.get("tx0", 82000))
+
 func _start_sled() -> void:
 	mode = "sled"
 	_common_start()
@@ -157,81 +183,159 @@ func _start_sled() -> void:
 	for o in SL.get("obs", []):
 		var d: Dictionary = o.duplicate()
 		d.hit = false
+		d.x = sled_tx0() + float(d.u)
 		OBS.append(d)
-	hx = float(SL.x)
-	hy = float(SL.y)
-	spd = 2.0
-	_place_player()
+	_sled_place(40.0, 3.0)
+	srest = 40.0
 	g.snap_camera()
 	Audio.play("slide")
-	g.flash_tut("Trenó!", "Descendo o morro de trenó! PULAR salta os montes de neve, as pedras e os troncos.", 220)
+	g.flash_tut("Trenó!", "Descendo o morro! PULAR salta pedras, troncos e rachaduras. ↓ abaixa sob galhos. ← freia, → acelera.", 240)
+
+func _sled_place(u: float, v: float) -> void:
+	su = u
+	hx = sled_tx0() + su
+	hy = sled_y(su)
+	vy = 0.0
+	spd = v
+	sdv = 0.0
+	sang = 0.0
+	crashT = 0
+	duck = false
+	_place_player()
 
 func _sled_step() -> void:
-	if stumble > 0:
-		stumble -= 1
-		spd = move_toward(spd, 2.5, .4)
-	else:
-		spd = move_toward(spd, float(SL.spd), .12)
-	var gy: float = float(SL.y)
-	var on_ground: bool = hy >= gy - 1
+	var p: Dictionary = g.player
+	if crashT > 0:
+		# capotou: rola na neve um instante e volta um pouco antes do obstáculo
+		crashT -= 1
+		su += spd
+		spd = move_toward(spd, 0.0, .15)
+		hy = min(hy + vy, sled_y(su))
+		vy += .5
+		hx = sled_tx0() + su
+		if crashT == 0:
+			_sled_place(srest, 5.5)
+			g.iris_t = 20
+		return
+	var gy: float = sled_y(su)
+	var on_ground: bool = hy >= gy - 1.0
+	lean = g.kd("R")
+	brake = g.kd("L")
+	# a velocidade acompanha a descida (e as subidinhas seguram)
+	var slope: float = (sled_y(su + 4.0) - sled_y(su - 4.0)) / 8.0
+	if on_ground:
+		spd += .3 * sin(atan(slope)) - .004 * spd
+		if lean:
+			spd += .045
+		if brake:
+			spd -= .11
+		spd = clamp(spd, 2.2 if su < float(SL.get("len", 4650)) - 200 else 0.0, 10.0)
 	if g.pressed("J"):
 		jbuf = 9
 	elif jbuf > 0:
 		jbuf -= 1
-	if jbuf > 0 and on_ground and stumble < 20:
+	if jbuf > 0 and on_ground:
 		jbuf = 0
-		vy = -8.6
-		Audio.play("jump", -4)
-	vy += .5 if (vy < 0 and g.kd("J")) else .7
-	hy += vy
-	hx += spd
-	if hy >= gy:
-		if vy > 4:
-			g.burst(hx, gy, 10, Color(.95, .97, 1))
-			Audio.step("snow", -8)
-		hy = gy
-		vy = 0.0
-	# neve espirrando atrás e linhas de velocidade
-	if hy >= gy - 1 and g.T % 2 == 0:
-		g.PARTS.append({"x": hx - 30, "y": gy - 4, "vx": -spd * .3 - randf() * 1.5, "vy": -randf_range(1.0, 2.8), "life": 20, "col": Color(.97, .98, 1, .95)})
+		vy = sdv - 8.2
+		on_ground = false
+		Audio.play("jump", -6)
+		g.burst(hx - 20, hy, 8, Color(.97, .98, 1))
+	duck = g.kd("S") and on_ground
+	var nu: float = su + spd
+	var ngy: float = sled_y(nu)
+	if on_ground:
+		var dv: float = ngy - gy
+		# o chão "some" embaixo (fim de rampa): decola com a velocidade de subida que tinha
+		if dv - sdv > .9 and sdv < 0:
+			vy = sdv
+			hy = gy
+			on_ground = false
+		else:
+			sdv = dv
+			hy = ngy
+			vy = 0.0
+	if not on_ground:
+		vy += .45
+		hy += vy
+		if hy >= ngy:
+			if vy > 5:
+				g.burst(hx, ngy, 14, Color(.97, .98, 1))
+				Audio.step("snow", -6)
+				g.shake = max(g.shake, 3)
+			hy = ngy
+			vy = 0.0
+			sdv = ngy - gy
+	su = nu
+	hx = sled_tx0() + su
+	var want: float = atan(sdv / max(spd, .1)) if hy >= ngy - 1 else atan(vy / max(spd, .1)) * .7
+	sang = lerpf(sang, want, .25)
+	# neve espirrando dos esquis
+	if hy >= ngy - 1 and g.T % 2 == 0:
+		for k in 2:
+			g.PARTS.append({"x": hx - 28, "y": hy - 2, "vx": -spd * .35 - randf() * 1.5, "vy": -randf_range(1.0, 3.0) - spd * .1, "life": 22, "col": Color(.97, .98, 1, .95)})
+	if brake and hy >= ngy - 1 and g.T % 3 == 0:
+		g.PARTS.append({"x": hx + 20, "y": hy - 3, "vx": spd * .2, "vy": -2.0, "life": 18, "col": Color(.9, .95, 1, .9)})
+	# obstáculos
 	var b := box()
 	for o in OBS:
-		if o.hit or o.x + 80 < hx - 60 or o.x > hx + 60:
+		if o.hit or o.x + 120 < hx - 80 or o.x - 60 > hx + 80:
 			continue
+		var oy: float = sled_y(float(o.u))
 		var bad := false
 		match o.k:
-			"mound":
-				bad = Game.hit(b, g.R(o.x - 26, gy - 22, 52, 22))
 			"rock":
-				bad = Game.hit(b, g.R(o.x - 20, gy - 24, 40, 24))
+				bad = Game.hit(b, g.R(o.x - 18, oy - 26, 36, 26))
 			"log":
-				bad = Game.hit(b, g.R(o.x - 34, gy - 20, 68, 20))
+				bad = Game.hit(b, g.R(o.x - 30, oy - 20, 60, 20))
+			"branch":
+				bad = Game.hit(b, g.R(o.x - 40, oy - 72, 90, 26))
+			"crack":
+				bad = hy >= sled_y(su) - 1 and hx > o.x + 14 and hx < o.x + float(o.w) - 14
+			"bump":
+				if hy >= sled_y(su) - 1 and abs(hx - o.x) < 6 and spd > 4:
+					vy = -3.5
+					hy -= 2
+					g.shake = max(g.shake, 2)
 		if bad:
 			o.hit = true
-			_hurt_sled()
+			_hurt_sled(o)
+			return
 	_coins(b)
-	if hx >= float(SL.x1):
-		_finish_sled()
+	if su >= float(SL.get("len", 4650)) - 200:
+		# freia sozinho no fim e para no monte de neve
+		spd = move_toward(spd, 0.0, .18)
+		if spd <= .3:
+			_finish_sled()
 
-func _hurt_sled() -> void:
+func _hurt_sled(o: Dictionary = {}) -> void:
 	var p: Dictionary = g.player
-	stumble = 36
-	spd = 2.0
-	vy = -5.0
-	g.shake = 6
-	g.hit_stop = 4
+	crashT = 44
+	vy = -4.0
+	g.shake = 7
+	g.hit_stop = 5
 	Audio.play("hurt")
-	Audio.vib(60)
-	g.burst(hx + 20, hy - 20, 14, Color(.95, .97, 1))
+	Audio.vib(70)
+	g.burst(hx + 10, hy - 20, 20, Color(.97, .98, 1))
+	# recomeça logo depois do obstáculo anterior (trecho livre até o que bateu)
+	srest = 40.0
+	for ob in OBS:
+		if float(ob.u) < float(o.get("u", su)) - 1.0 and ob.k != "bump":
+			srest = max(srest, float(ob.u) + float(ob.get("w", 0)) + 110.0)
 	if p.iframe > 0:
 		return
-	p.iframe = 50
+	p.iframe = 70
 	p.hp -= 1
 	if p.hp <= 0:
 		tries += 1
-		g.iris_t = 30
-		g.flash("O trenó capotou! De novo — PULAR para saltar.", 200)
-		_start_sled()
+		g.flash("O trenó capotou de vez! Vamos de novo do alto — PULAR salta, ↓ abaixa, ← freia.", 220)
+		p.hp = Game.MAXHP
+		for ob in OBS:
+			ob.hit = false
+		srest = 40.0
+	else:
+		for ob in OBS:
+			if float(ob.u) > srest:
+				ob.hit = false
 
 func _finish_sled() -> void:
 	var p: Dictionary = g.player
@@ -249,7 +353,9 @@ func _finish_sled() -> void:
 		g.X.DOG.y = float(SL.y)
 	g.burst(p.x, float(SL.y) - 10, 24, Color(.97, .98, 1))
 	Audio.play("splash", -10)
-	g.flash("Que descida! O trenó parou no monte de neve.", 180)
+	g.iris_t = 24
+	g.snap_camera()
+	g.flash("Que descida! O trenó parou no monte de neve, lá embaixo do morro.", 180)
 
 func _start_plane() -> void:
 	mode = "plane"
@@ -287,7 +393,7 @@ func _place_player() -> void:
 		p.y = hy - 40 - p.h
 	p.vx = spd
 	p.vy = vy
-	p.onGround = (mode == "raft" and hy >= water_y(hx) - 1) or (mode == "sled" and hy >= float(SL.y) - 1)
+	p.onGround = (mode == "raft" and hy >= water_y(hx) - 1) or (mode == "sled" and hy >= sled_y(su) - 1)
 	p.face = 1
 
 # ======================================================================
@@ -309,7 +415,8 @@ func step() -> void:
 
 func box() -> Dictionary:
 	if mode == "sled":
-		return g.R(hx - 28, hy - 46, 56, 46)
+		var st: float = hy - (30 if duck else 52)
+		return g.R(hx - 28, st, 56, hy - st)
 	if mode == "raft":
 		var top: float = hy - (34 if duck else 50)
 		return g.R(hx - 30, top, 60, hy - top)

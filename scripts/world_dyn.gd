@@ -640,12 +640,6 @@ func _enemy(e: Dictionary) -> void:
 # ---------- cavalo e trilha da cavalgada ----------
 const RS := .58   # escala das folhas da cavalgada (quadros 260x250, chão em 244)
 
-static func _rtex(n: String) -> Texture2D:
-	if not Spr.tex.has(n):
-		var pth := "res://assets/sprites/%s.png" % n
-		Spr.tex[n] = load(pth) if ResourceLoader.exists(pth) else null
-	return Spr.tex[n]
-
 func _ride_world(g: Game) -> void:
 	var RD: Ride = g.RD
 	if RD == null or RD.H.is_empty():
@@ -714,7 +708,7 @@ func _ride_world(g: Game) -> void:
 	var H: Dictionary = RD.H
 	if RD.riding:
 		return
-	var ft := _rtex("horse_free")
+	var ft := Spr.opt("horse_free")
 	match H.st:
 		"trapped", "free":
 			var fr := 1
@@ -737,8 +731,8 @@ func _rider(g: Game) -> void:
 	var p: Dictionary = g.player
 	if p.iframe > 0 and (T / 4) % 2 == 0:
 		Spr.alpha = .55
-	var gt := _rtex("ride_gallop")
-	var jt := _rtex("ride_jump")
+	var gt := Spr.opt("ride_gallop")
+	var jt := Spr.opt("ride_jump")
 	Spr.ellipse(RD.hx, 502, 62 * (1.0 - clamp((500.0 - RD.hy) / 160.0, 0, .6)), 7, Color(0, 0, 0, .22))
 	Spr.save()
 	Spr.translate(RD.hx, RD.hy + 3)

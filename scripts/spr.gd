@@ -115,6 +115,13 @@ func _ready() -> void:
 	font_b = load("res://assets/fonts/Lora-Bold.woff2")
 	font_title = load("res://assets/fonts/Cinzel-Bold.woff2")
 
+## folha opcional em assets/sprites/<n>.png (carrega na primeira vez; null se não existir)
+func opt(n: String) -> Texture2D:
+	if not tex.has(n):
+		var pth := "res://assets/sprites/%s.png" % n
+		tex[n] = load(pth) if ResourceLoader.exists(pth) else null
+	return tex[n]
+
 func atlas_tex(r) -> Texture2D:
 	if r[6] >= 3:
 		return tex["paint%d" % (r[6] - 2)]

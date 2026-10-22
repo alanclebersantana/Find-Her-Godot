@@ -57,7 +57,7 @@ func __draw_raw() -> void:
 			draw_texture_rect(Spr.glow_tex, Rect2(cx, vs.y * .25 + hh(i * 1.0, 8) * vs.y * .3, cw, vs.y * .8), false, Color(0, .02, .08, .13))
 	# silhuetas só na borda de baixo: capim e samambaias, translúcidos e "desfocados" (várias cópias suaves)
 	# na neve não: o capim claro parecia cristais de gelo dentro da terra
-	if not under and snow <= .05:
+	if not under and snow <= .05 and not (g.VH and g.VH.mode == "sled"):
 		var step := 300.0
 		var i0 := int(floor(cam / step)) - 2
 		var i1 := int(floor((cam + vs.x) / step)) + 2

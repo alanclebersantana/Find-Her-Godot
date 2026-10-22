@@ -220,20 +220,33 @@ func _initialize() -> void:
 		walk_to(51440)
 		use()
 		S("subiu no trenó", g.VH.mode == "sled")
+		var VH = g.VH
+		S("descida comprida (>= 4000)", float(VH.SL.len) >= 4000)
 		var ok_sled = "timeout"
-		for i in 600:
+		var top_spd := 0.0
+		for i in 3000:
 			if g.VH.mode == "":
 				ok_sled = true
 				break
-			var nx := 99999.0
-			for o in g.VH.OBS:
-				if not o.hit and o.x > g.VH.hx and o.x - g.VH.hx < nx:
-					nx = o.x - g.VH.hx
-			if nx < 105 and g.VH.hy >= 499 and g.VH.vy == 0:
-				press("J")
-			frame({"J": true} if g.VH.vy < 0 else {})
+			top_spd = max(top_spd, VH.spd)
+			var d := {}
+			var gy: float = VH.sled_y(VH.su)
+			var ground: bool = VH.hy >= gy - 1
+			for o in VH.OBS:
+				var dx: float = o.x - VH.hx
+				if o.hit or o.k == "bump" or dx < -140 or dx > 300:
+					continue
+				if o.k in ["rock", "log"] and ground and dx < VH.spd * 9.0 + 10 and dx > 20:
+					press("J")
+				if o.k == "crack" and ground and dx < 40 and dx > -5:
+					press("J")
+				if o.k == "branch" and dx < 110 and dx > -70:
+					d["S"] = true
+				break
+			frame(d)
 		S("desceu de trenó", ok_sled)
-		S("trenó sem batidas", P.hp == 5)
+		S("velocidade cresce na descida (> 7)", top_spd > 7.0)
+		S("trenó sem batidas", P.hp == 5 and VH.tries == 0)
 	if all or args.has("cavalo"):
 		put(39380, 500)
 		for h in g.NT.HOLES:
