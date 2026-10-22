@@ -11,7 +11,9 @@ var lost_heart := -1
 var lost_t := 0.0
 var hint_cur := ""
 var hint_show := 0.0
-const HINT_FRAMES := 480.0
+const HINT_FRAMES := 240.0
+var hint_seen := {}
+var last_hp2 := -1
 var tex_face: Texture2D = preload("res://assets/ui/btn_tome.png")
 var mobile: bool = OS.has_feature("mobile") or DisplayServer.is_touchscreen_available()
 var ICON := {}
@@ -23,7 +25,7 @@ func _ready() -> void:
 
 ## a dica sumiu mas o lugar ainda tem dica: o pergaminho pode trazê-la de volta
 func can_replay() -> bool:
-	return hint_cur != "" and hint_show >= HINT_FRAMES and hint_alpha <= 0.01
+	return hint_cur != "" and hint_alpha <= 0.01
 
 func show_hint_again() -> void:
 	hint_show = 0.0
@@ -161,20 +163,26 @@ func __draw_raw() -> void:
 		Spr.rr(240 + o + k * 8, 14, 6, 26, 2, Color("#ffd76a"))
 	# placa do canto (madeira e pergaminho): tempo, desenhos achados e o período do dia,
 	# tudo junto e pequeno, ao lado da pausa — o alto da tela fica livre para o cenário
-	var s: int = max(0, int(ceil(game.time_left / 60.0)))
-	var low := s <= 20
 	var nd := 0
 	for d in game.DRWS:
 		if d.got:
 			nd += 1
-	var px0: float = W - 64 - 196
-	_plaque(px0, 8, 196, 50)
-	Spr.A("hud_clock", px0 + 20, 25, .34)
-	var tc := (Color("#c0281a") if game.T % 30 < 15 else Color("#7a2a10")) if low else Color("#3a2410")
-	Spr.text("%d:%02d" % [s / 60, s % 60], px0 + 34, 31, 17, tc, HORIZONTAL_ALIGNMENT_LEFT, Spr.font_b)
-	Spr.A("hud_paper", px0 + 124, 24, .3)
-	Spr.text("%d/%d" % [nd, game.DRWS.size()], px0 + 140, 31, 16, Color("#8a5a10") if nd == game.DRWS.size() else Color("#3a2410"), HORIZONTAL_ALIGNMENT_LEFT, Spr.font_b)
-	Spr.text(game.period_label(), px0 + 98, 50, 12, Color("#5a3a1c"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_i)
+	var px0: float = W - 64 - 176
+	_plaque(px0, 8, 176, 50)
+	Spr.A("hud_paper", px0 + 60, 24, .3)
+	Spr.text("%d/%d" % [nd, game.DRWS.size()], px0 + 78, 31, 16, Color("#8a5a10") if nd == game.DRWS.size() else Color("#3a2410"), HORIZONTAL_ALIGNMENT_LEFT, Spr.font_b)
+	Spr.text(game.period_label(), px0 + 88, 50, 12, Color("#5a3a1c"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_i)
+	# óleo da lanterna: medidor pequeno só no escuro
+	if game.AMB.dark > .45 and not (game.M and game.M.ctrl):
+		var fv: float = game.fuel_vis
+		_plaque(8, 54, 132, 30)
+		Spr.A("hud_lantern_full" if game.lantern_lit else "hud_lantern_empty", 26, 69, .34)
+		Spr.rr(42, 63, 86, 10, 5, Color(.2, .12, .06, .85))
+		var fc: Color = Color("#ffc24a") if game.lantern_lit else Color("#b6f06a")
+		if fv < .3:
+			fc = fc.lerp(Color("#e0563a"), .5 + .5 * sin(game.T * .15))
+		Spr.rr(42, 63, max(8.0, 86 * fv), 10, 5, fc)
+		Spr.rr(44, 64, max(4.0, 82 * fv), 3, 2, Color(1, 1, 1, .35))
 	# controlando o Pipoca
 	if game.M and game.M.ctrl:
 		_box(8, 54, 228, 30)
@@ -201,33 +209,50 @@ func __draw_raw() -> void:
 	# dica do lugar: pergaminho com o rostinho do Tomé; aparece, fica uns segundos e some sozinha
 	# (o pergaminho pequeno no alto traz a dica de volta)
 	var h := game.hint_text() if game.running else ""
+	var boss: bool = (X and X.boss_active()) or (game.K and game.K.active())
 	if h != hint_cur:
 		hint_cur = h
-		hint_show = 0.0
+		# dica já vista não volta sozinha (fica no pergaminho pequeno para rever)
+		hint_show = HINT_FRAMES if hint_seen.has(h) else 0.0
 	if h != "":
 		hint_show += 1.0
-	var vis: bool = h != "" and hint_show < HINT_FRAMES
+		if hint_show >= (180.0 if boss else HINT_FRAMES) - 1:
+			hint_seen[h] = true
+	# levou dano: a dica sai na hora para não atrapalhar
+	if last_hp2 >= 0 and p.hp < last_hp2:
+		hint_show = max(hint_show, HINT_FRAMES)
+	last_hp2 = p.hp
+	var limit: float = 180.0 if boss else HINT_FRAMES
+	var vis: bool = h != "" and hint_show < limit
 	if vis:
 		hint_txt = h
-		hint_alpha = min(1, hint_alpha + .08)
+		hint_alpha = min(1, hint_alpha + .1)
 	else:
-		hint_alpha = max(0, hint_alpha - .05)
+		hint_alpha = max(0, hint_alpha - .08)
 	if hint_alpha > 0 and hint_txt != "":
-		var mw: float = min(W - 360, 520)
-		var hl := _rlines(_icons(hint_txt), mw, 15)
+		var fs: int = 13 if boss else 14
+		var mw: float = 330.0 if boss else min(W - 380, 460)
+		var hl := _rlines(_icons(hint_txt), mw, fs)
 		var hw := 0.0
 		for ln in hl:
-			hw = max(hw, _rwidth(ln, 15))
-		var bw2: float = hw + 84
-		var cx: float = W / 2
-		var hy: float = (100.0 if (X and X.boss_active()) else 62.0) - (1.0 - hint_alpha) * 10.0
-		var bh2: float = max(52.0, hl.size() * 21 + 18)
-		_plaque(cx - bw2 / 2, hy, bw2, bh2, hint_alpha)
-		Spr.ci.draw_texture_rect(tex_face, Rect2(cx - bw2 / 2 + 8, hy + bh2 / 2 - 21, 42, 42), false, Color(1, 1, 1, hint_alpha))
-		var yy2: float = hy + 22 + (bh2 - 18 - hl.size() * 21) / 2.0
+			hw = max(hw, _rwidth(ln, fs))
+		var bw2: float = hw + 70
+		var bh2: float = max(44.0, hl.size() * (fs + 6) + 16)
+		# nas lutas vai para o canto de cima, embaixo do painel dos corações
+		var bx2: float = 8.0 if boss else W / 2 - bw2 / 2
+		var hy: float = (58.0 if boss else 62.0) - (1.0 - hint_alpha) * 8.0
+		# Tomé (ou o chefe) passando por baixo: o pergaminho fica quase transparente
+		var a2: float = hint_alpha
+		var z: float = game.camera.zoom.x if game.camera else 1.0
+		var ps := Vector2((p.x + p.w / 2 - game.rcam) * z, (p.y - game.rcam_y) * z)
+		if ps.x > bx2 - 30 and ps.x < bx2 + bw2 + 30 and ps.y < hy + bh2 + 60:
+			a2 *= .25
+		_plaque(bx2, hy, bw2, bh2, a2)
+		Spr.ci.draw_texture_rect(tex_face, Rect2(bx2 + 7, hy + bh2 / 2 - 17, 34, 34), false, Color(1, 1, 1, a2))
+		var yy2: float = hy + 18 + (bh2 - 14 - hl.size() * (fs + 6)) / 2.0
 		for ln in hl:
-			_rdraw(ln, cx + 26, yy2, 15, Color(.24, .14, .06, hint_alpha), Spr.font_i)
-			yy2 += 21
+			_rdraw(ln, bx2 + 44 + (bw2 - 50) / 2, yy2, fs, Color(.24, .14, .06, a2), Spr.font_i)
+			yy2 += fs + 6
 	# aviso (flash)
 	if game.flash_t > 0 and game.flash_msg != "":
 		var a: float = clamp(game.flash_t / 40.0, 0, 1)

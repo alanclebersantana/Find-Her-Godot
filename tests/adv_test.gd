@@ -37,14 +37,28 @@ func _initialize() -> void:
 		put(2525, 500)
 		S("espinhos da manhã", cross_spikes(trap_at("spikes", 2560), 2700))
 		S("sem dano (espinhos)", P.hp == 5)
-		put(6950, -20)
-		S("cortou a teia", cut_web(trap_at("web", 7340)))
-		S("passou da teia", walk_to(7500))
 		put(9800, 500)
-		S("tronco-pêndulo", cross_swing(trap_at("swing", 10010), 10160))
+		S("tronco-pêndulo", cross_swing(trap_at("swing", 10010), 10290))
 		S("sem dano (tronco)", P.hp == 5)
+		for hx in [2440.0, 15450.0, 22850.0]:
+			put(hx - 70, 500)
+			hold({}, 10)
+			S("em pé toca a colmeia %d" % int(hx), g.hit(P, g.R(hx - 22, 0, 44, 2000)) == false and (P.y < 474))
+			S("abaixado passa sob a colmeia %d" % int(hx), crawl(hx + 60))
+			S("colmeia %d quieta" % int(hx), trap_at("hive", hx).st == "idle")
+			put(hx - 70, 500)
+			hold({}, 10)
+			walk_to(hx + 60)
+			S("andando em pé acorda a colmeia %d" % int(hx), trap_at("hive", hx).st == "angry")
+			var hv0: Dictionary = trap_at("hive", hx)
+			hv0.st = "idle"
+			hv0.cool = 0
+			hv0.sx = hv0.x
+			hv0.sy = hv0.y - 20
+			P.hp = 5
+			P.iframe = 0
 		put(15370, 500)
-		S("sob a colmeia", walk_to(15530))
+		S("sob a colmeia", crawl(15530))
 		S("colmeia quieta", trap_at("hive", 15450).st == "idle")
 		# cutucou a colmeia: só mergulhando no lago o enxame desiste
 		var hv: Dictionary = trap_at("hive", 15450)
@@ -207,6 +221,20 @@ func _initialize() -> void:
 			frame({"J": true} if g.VH.vy < 0 else {})
 		S("desceu de trenó", ok_sled)
 		S("trenó sem batidas", P.hp == 5)
+	if all or args.has("pingentes"):
+		var ic: Dictionary = trap_at("icicle", 37450)
+		put(37300, 868)
+		S("pingente pronto", ic.st == "idle" and ic.grow >= 1.0)
+		put(37452, 868)
+		S("pingente tremendo", until({}, func(): return ic.st == "shake", 60))
+		var t0: int = g.T
+		S("treme ~1 s antes de cair", until({}, func(): return ic.st == "fall", 120) and g.T - t0 >= 50)
+		S("cai e acerta quem fica parado", until({}, func(): return ic.st == "broken", 120) and P.hp == 4)
+		S("volta a crescer", until({}, func(): return ic.st == "shake" or (ic.st == "idle" and ic.grow >= 1.0), 400))
+		var ic2: Dictionary = trap_at("icicle", 37080)
+		put(36950, 868)
+		S("pingente 2 tremendo", until({"R": true}, func(): return ic2.st == "shake", 120))
+		S("dá tempo de fugir", walk_to(36960) and until({}, func(): return ic2.st == "broken", 200) and P.hp == 5)
 	for l in log_lines:
 		print(l)
 	print("FALHAS: ", fails)

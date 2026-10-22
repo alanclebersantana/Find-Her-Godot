@@ -53,7 +53,7 @@ static func draw(g: Game, T: int) -> void:
 				"manha", "tarde":
 					k = ["bird", "butterfly", "rabbit"][int(hh(i, 3) * 3)]
 				"chuva":
-					k = "frog" if hh(i, 4) < .6 else "bird"
+					k = "bird"
 				"noite", "perseguicao":
 					k = "owl"
 				"neve", "tema":
@@ -76,6 +76,9 @@ static func draw(g: Game, T: int) -> void:
 				_frog(g, c, px, py, T)
 			"owl":
 				_owl(c, T, i)
+
+## cor dos bichinhos do cenário: um pouco mais clara e suave
+const SOFT := Color(1.08, 1.08, 1.1, .92)
 
 static func _respawn(c: Dictionary) -> void:
 	c.x = c.x0
@@ -115,10 +118,10 @@ static func _bird(g: Game, c: Dictionary, px: float, py: float, T: int) -> void:
 	Spr.save()
 	Spr.translate(c.x, c.y)
 	if fly:
-		Spr.P("bird_fly", 0, 4 + sin(T * .8) * 2, 24, c.f < 0)
+		Spr.P("bird_fly", 0, 4 + sin(T * .8) * 2, 22, c.f < 0, 0.0, SOFT)
 	else:
 		Spr.rotate(peck * .12 * c.f)
-		Spr.P("bird_sit", 0, 1, 18, c.f < 0)
+		Spr.P("bird_sit", 0, 1, 17, c.f < 0, 0.0, SOFT)
 	Spr.restore()
 
 ## borboleta: voa em volta de um ponto, batendo as asas
@@ -157,7 +160,7 @@ static func _rabbit(c: Dictionary, px: float, py: float, T: int) -> void:
 		n = "rab_jump" if hop > 5 else "rab_land"
 	elif int(c.t / 70) % 3 == 1:
 		n = "rab_alert"
-	Spr.P(n, c.x, c.y + 1 - hop, 34 if c.st == "run" else 24, c.f < 0)
+	Spr.P(n, c.x, c.y + 1 - hop, 30 if c.st == "run" else 22, c.f < 0, 0.0, SOFT)
 
 ## sapinho do brejo: coaxa (papo inflando) e pula na água quando o Tomé chega
 static func _frog(g: Game, c: Dictionary, px: float, py: float, T: int) -> void:
@@ -211,7 +214,8 @@ static func _toucans(g: Game, T: int) -> void:
 				continue
 			var perch = null
 			for so in g.SOL:
-				if str(so.get("t", "")) == "branch" and so.x + so.w > i * 900 and so.x < i * 900 + 900:
+				# tucano só lá no alto (galhos altos), longe do caminho do Tomé
+				if str(so.get("t", "")) == "branch" and so.y < 300 and so.x + so.w > i * 900 and so.x < i * 900 + 900:
 					perch = so
 					break
 			var gy: float = _ground_y(g, cx)
@@ -225,7 +229,7 @@ static func _toucans(g: Game, T: int) -> void:
 				t.perch = perch
 			else:
 				t.px = cx
-				t.py = gy - 300
+				t.py = gy - 380
 			TU[i] = t
 		var u: Dictionary = TU[i]
 		if u.k == "":
@@ -299,5 +303,6 @@ static func _toucans(g: Game, T: int) -> void:
 				n = "tuc_sit2" if cyc > 330 and cyc < 370 else ("tuc_sit1" if cyc > 200 and cyc < 230 else "tuc_sit0")
 				if cyc == 260:
 					u.f = -u.f
-		var w: float = 46.0 if u.st == "sit" else 54.0
-		Spr.P(n, u.x, u.y + (0.0 if u.st == "sit" else 20.0), w, u.f < 0)
+		# bichos do cenário: menores e de cor suave (os inimigos são grandes, fortes e com contorno vermelho)
+		var w: float = 36.0 if u.st == "sit" else 42.0
+		Spr.P(n, u.x, u.y + (0.0 if u.st == "sit" else 16.0), w, u.f < 0, 0.0, SOFT)

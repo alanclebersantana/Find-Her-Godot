@@ -89,6 +89,9 @@ func __draw_raw() -> void:
 				Spr.A("hourglass", c.x, c.ry, .48)
 			else:
 				Spr.A("hourglass", c.x, c.y + 16 + sin(T * .08 + c.x) * 3, .48)
+	for c in g.OIL:
+		if not c.got:
+			_oil(c, T, g.lantern_lit)
 	for d in g.DRWS:
 		if not d.got and not d.get("hidden"):
 			Spr.glow(d.x, d.y, 34, Color(1, .94, .78, .45))
@@ -258,25 +261,24 @@ func __draw_raw() -> void:
 ## beirada do buraco que aparece até no escuro: contorno claro seguindo a terra que desmorona e
 ## pedrinhas soltas caindo da borda
 func _pit_rim(e: float, y: float, dir: float, k: float) -> void:
-	var pts := PackedVector2Array()
-	for i in 9:
-		var u := i / 8.0
-		# vem pelo chão, faz a curva da beirada e desce pela parede irregular
-		var px: float
-		var py: float
-		if u < .45:
-			px = e - dir * (30.0 - u / .45 * 30.0)
-			py = y
-		else:
-			var v: float = (u - .45) / .55
-			px = e + dir * (sin(v * 1.6) * 16 + 3 * sin(v * 9.0 + e))
-			py = y + v * v * 46
-		pts.push_back(Vector2(px, py))
-	Spr.line(pts, Color(.95, .9, .75, .8 * k), 3)
-	Spr.line(pts, Color(.75, .68, .55, .3 * k), 7)
+	# beira do buraco: musgo e cogumelinhos que brilham sozinhos (dá para ver a borda mesmo no
+	# escuro), vaga-lumes em volta e, lá no fundo, uma claridade fraca dando noção da altura
+	var dark: float = clamp(game.AMB.dark, 0, 1)
+	var a: float = clamp(dark * 1.4, .25, 1.0)
+	var t := float(game.T)
+	Spr.ellipse(e - dir * 16, y + 1, 18, 3, Color(.45, 1, .75, .35 * a))
+	Spr.glow(e - dir * 14, y - 4, 26, Color(.4, .95, 1, .22 * a + .05 * sin(t * .05 + e)))
+	Spr.P("mush1", e - dir * 9, y + 2, 13, dir < 0, 0.0, Color(.75, 1.3, 1.5, a))
+	Spr.P("mush3", e - dir * 26, y + 2, 17, dir > 0, 0.0, Color(.75, 1.25, 1.45, a))
 	for i in 3:
-		var fy: float = fmod(game.T * (.6 + i * .2) + i * 40.0, 120.0)
-		Spr.circle(e + dir * (10 + i * 5), y + 14 + fy, 2.2, Color(.7, .62, .5, .45 * k * (1.0 - fy / 120.0)))
+		var ph: float = t * .03 + i * 2.1 + e
+		var fx: float = e + dir * (6 + 14 * sin(ph))
+		var fy: float = y - 20 + 12 * cos(ph * 1.3)
+		var tw: float = .5 + .5 * sin(t * .2 + i)
+		Spr.glow(fx, fy, 7, Color(1, 1, .5, .45 * a * tw))
+		Spr.circle(fx, fy, 1.4, Color(1, 1, .7, .9 * a * tw))
+	# claridade fraca no fundo
+	Spr.glow(e + dir * 50, y + 150, 60, Color(.35, .6, .9, .07 * a))
 
 ## Objeto pousado no chão (com sombra e brilho suave); se não houver chão perto, flutua.
 func _ground_obj(n: String, o: Dictionary, sc: float, glow: Color, flat: bool) -> float:
@@ -579,3 +581,26 @@ func _bank(e: float, y: float, dir: float, toxic: bool, T: int, depth: float, so
 		Spr.ellipse(lx, ly, 14, 4, Color("#4f8a3a"))
 		Spr.poly(PackedVector2Array([Vector2(lx, ly), Vector2(lx + 12, ly - 2), Vector2(lx + 12, ly + 2)]), Color(.2, .35, .4, .8))
 		Spr.circle(lx - 4, ly - 2, 2.5, Color(1, .8, .9))
+
+## frasco de óleo (lanterna acesa) ou pote de vaga-lumes (lanterna apagada), pousado no chão
+func _oil(c: Dictionary, T: int, lit: bool) -> void:
+	var by: float = c.ry if c.ry > 0 else c.y + 16
+	var pul: float = .6 + sin(T * .09 + c.x) * .25
+	if lit:
+		Spr.glow(c.x, by - 16, 34, Color(1, .78, .35, .45 * pul))
+		Spr.ellipse(c.x, by - 1, 10, 3, Color(0, 0, 0, .3))
+		Spr.A("it_oleo", c.x, by - 15, .5)
+	else:
+		Spr.glow(c.x, by - 14, 36, Color(.7, 1, .4, .5 * pul))
+		Spr.ellipse(c.x, by - 1, 10, 3, Color(0, 0, 0, .3))
+		# pote de vidro com tampa de pano e vaga-lumes dentro
+		Spr.rr(c.x - 9, by - 26, 18, 25, 5, Color(.75, .9, .85, .28))
+		Spr.rect(c.x - 7, by - 30, 14, 5, Color(.55, .38, .22, 1))
+		Spr.seg(c.x - 8, by - 26, c.x + 8, by - 26, Color(.35, .22, .12, 1), 1.6)
+		for k in 5:
+			var fx: float = c.x + sin(T * .05 + k * 2.1) * 6
+			var fy: float = by - 13 + cos(T * .043 + k * 1.7) * 8
+			Spr.circle(fx, fy, 1.6, Color(.9, 1, .5, .6 + .4 * sin(T * .2 + k)))
+		Spr.ring(c.x, by - 13, 11, Color(.85, 1, .9, .35), 1.2)
+	if T % 16 == 0:
+		game.PARTS.append({"x": c.x + (randf() - .5) * 14, "y": by - 22, "vx": 0, "vy": -.4, "life": 26, "col": Color(1, .85, .45) if lit else Color(.8, 1, .5)})

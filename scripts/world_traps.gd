@@ -36,6 +36,7 @@ static func draw(g: Game, T: int) -> void:
 			"bridge": _bridge(o, T)
 			"boulder": _boulder(g, o, T)
 			"giant": _giant(o, T)
+			"icicle": _icicle(g, o, T)
 	_bobs(g, T)
 	_ice_hits(g, T)
 	_tunnel_ceiling(g, T)
@@ -190,34 +191,60 @@ static func _roll(o: Dictionary) -> void:
 static func _axe(TR: Traps, o: Dictionary, T: int) -> void:
 	var b := TR.axe_blade(o)
 	var a: float = o.get("ang", 0.0)
-	# rastro do movimento
-	for k in 3:
-		var a2: float = a - sign(cos(TAU * (T + o.get("ph", 0)) / float(o.per))) * (k + 1) * .07
-		var p2 := Vector2(o.x + sin(a2) * o.len, o.y + cos(a2) * o.len)
-		Spr.circle(p2.x, p2.y, 16 - k * 3, Color(1, 1, 1, .06))
+	var w: float = TAU / float(o.per)
+	var th: float = w * (T + o.get("ph", 0))
+	var dirv: float = cos(th)
+	# rastro em arco: a ponta da lâmina nos quadros anteriores (mais forte quando está rápido)
+	var spd: float = abs(dirv)
+	var trail := PackedVector2Array()
+	for k in 10:
+		var a2: float = o.amp * sin(th - w * k * 1.6)
+		trail.push_back(Vector2(o.x + sin(a2) * (o.len + 18), o.y + cos(a2) * (o.len + 18)))
+	for k in range(trail.size() - 1):
+		Spr.seg(trail[k].x, trail[k].y, trail[k + 1].x, trail[k + 1].y, Color(1, 1, 1, .22 * spd * (1.0 - k / 10.0)), 10.0 - k * .8)
+	# forca de madeira pintada (troncos)
 	if o.has("frame"):
 		var fx: float = o.frame
-		Spr.rect(fx - 7, o.y - 16, 14, 216, WOOD_D)
-		Spr.rect(fx - 7, o.y - 16, 4, 216, WOOD)
-		Spr.rr(fx - 10, o.y - 18, o.x - fx + 22, 12, 3, WOOD)
-		Spr.seg(fx, o.y + 30, fx + 34, o.y - 8, WOOD_D, 6)
-	Spr.seg(o.x, o.y, b.x, b.y, Color("#5a4632"), 5)
-	Spr.circle(o.x, o.y, 8, Color("#3a3026"))
-	Spr.circle(o.x, o.y, 3, STEEL)
+		Spr.PR("log", fx - 9, o.y - 18, 18, 520 - o.y, Color(.85, .8, .75), false)
+		_beam_log(fx - 12, o.x + 16, o.y - 16, 16)
+		Spr.seg(fx + 2, o.y + 36, fx + 38, o.y - 8, Color("#4a3220"), 7)
+		Spr.seg(fx + 2, o.y + 36, fx + 38, o.y - 8, Color("#7a5634"), 3)
+		Spr.circle(fx, o.y - 10, 4, STEEL)
+	# haste de ferro e eixo
+	Spr.seg(o.x, o.y, b.x, b.y, Color("#3a3026"), 7)
+	Spr.seg(o.x, o.y, b.x, b.y, Color("#6a5a48"), 3)
+	Spr.circle(o.x, o.y, 9, Color("#2a221c"))
+	Spr.circle(o.x, o.y, 4, STEEL)
 	Spr.save()
 	Spr.translate(b.x, b.y)
 	Spr.rotate(-a)
-	# lâmina em meia-lua
+	# lâmina em meia-lua com fio brilhante e manchas de ferrugem
 	var bl := PackedVector2Array()
-	for i in 11:
-		var t: float = -1.2 + 2.4 * i / 10.0
+	for i in 13:
+		var t: float = -1.2 + 2.4 * i / 12.0
 		bl.push_back(Vector2(sin(t) * 30, cos(t) * 16 + 4))
-	for i in range(10, -1, -1):
-		var t2: float = -1.2 + 2.4 * i / 10.0
+	for i in range(12, -1, -1):
+		var t2: float = -1.2 + 2.4 * i / 12.0
 		bl.push_back(Vector2(sin(t2) * 20, cos(t2) * 6 - 2))
-	Spr.poly(bl, STEEL)
-	Spr.line(bl, STEEL_D, 2)
-	Spr.rect(-5, -14, 10, 14, WOOD_D)
+	Spr.poly(bl, Color("#8a949e"))
+	var edge := PackedVector2Array()
+	for i in 13:
+		var t3: float = -1.2 + 2.4 * i / 12.0
+		edge.push_back(Vector2(sin(t3) * 29, cos(t3) * 15 + 3))
+	Spr.line(edge, Color(.92, .96, 1, .9), 2.5)
+	Spr.ellipse(-9, 6, 6, 3, Color(.55, .32, .18, .45))
+	Spr.ellipse(10, 9, 4, 2, Color(.55, .32, .18, .4))
+	Spr.line(bl, Color("#2a3038"), 2)
+	Spr.rr(-6, -16, 12, 16, 3, Color("#4a3220"))
+	Spr.rect(-6, -10, 12, 3, STEEL)
+	Spr.restore()
+
+## viga de tronco pintado deitada (de xa até xb, com altura h)
+static func _beam_log(xa: float, xb: float, y: float, h: float) -> void:
+	Spr.save()
+	Spr.translate(xa, y + h)
+	Spr.rotate(-PI / 2)
+	Spr.PR("log", 0, 0, h, xb - xa, Color(.9, .85, .8), false)
 	Spr.restore()
 
 # ---------- galho que quebra ----------
@@ -369,19 +396,40 @@ static func plant(e: Dictionary, T: int) -> void:
 	Spr.line(bot, OUT, 1.5)
 	Spr.restore()
 
-static func _icicle(o: Dictionary, T: int) -> void:
+static func _icicle(g: Game, o: Dictionary, T: int) -> void:
+	var ln: float = o.get("len", 46)
+	var fl: float = o.get("floor", o.y + 300)
+	var w: float = ln * .55
+	# base de gelo presa no teto (fica mesmo quando o pingente cai, e de onde ele volta a crescer)
+	Spr.ellipse(o.x, o.y + 2, w * .75, 7, Color("#9cc4e4"))
+	Spr.ellipse(o.x, o.y, w * .7, 5, Color("#d8eeff"))
 	if o.st == "broken":
+		# pingente novo nascendo: um toquinho que vai aparecendo
+		var gr: float = clamp(o.t / 150.0, 0, 1)
+		if gr > .05:
+			Spr.PR("icicle", o.x - w * .5 * gr, o.y, w * gr, ln * gr * .35)
 		return
-	var ln: float = o.get("len", 46) * (o.grow if o.st == "idle" else 1.0)
-	var sx: float = sin(T * 1.7) * 2.0 if o.st == "shake" else 0.0
+	var gk: float = o.grow if o.st == "idle" else 1.0
+	var sx: float = sin(T * 1.9) * 2.5 if o.st == "shake" else 0.0
 	var y: float = o.y + o.fy
-	var w: float = 24.0
-	var pts := PackedVector2Array([Vector2(o.x - w / 2 + sx, y), Vector2(o.x + w / 2 + sx, y), Vector2(o.x + sx, y + ln)])
-	Spr.poly(pts, Color(.82, .94, 1, .96))
-	Spr.ci.draw_polyline(pts + PackedVector2Array([pts[0]]), Color(.35, .55, .75), 2, true)
-	Spr.seg(o.x - 3 + sx, y + 3, o.x - 1 + sx, y + ln * .7, Color(1, 1, 1, .8), 2)
-	if o.st == "shake" and (T / 4) % 2 == 0:
-		Spr.seg(o.x - 12, y - 2, o.x + 12, y - 2, Color(1, 1, 1, .7), 2)
+	# sombra no chão: cresce enquanto ele treme e cai (mostra onde vai acertar)
+	if o.st in ["shake", "fall"]:
+		var sk: float = clamp(o.t / 60.0, 0, 1) if o.st == "shake" else clamp((y + ln - o.y) / (fl - o.y), 0, 1) * .5 + .5
+		Spr.ellipse(o.x, fl + 1, 10 + 16 * sk, 4, Color(0, .05, .15, .25 + .3 * sk))
+	# brilho frio em volta: é perigo, diferente dos pingentes do teto
+	Spr.glow(o.x, y + ln * gk * .45, 26, Color(.6, .85, 1, .18 + (.2 if o.st == "shake" else 0.0)))
+	if o.st == "fall":
+		# rastro brilhante da queda
+		for k in 4:
+			Spr.seg(o.x - 3 + k * 2, y - 8 - k * 10, o.x - 3 + k * 2, y - 30 - k * 14, Color(.85, .95, 1, .35 - k * .07), 2)
+	Spr.PR("icicle", o.x - w * .5 * gk + sx, y, w * gk, ln * gk)
+	if o.st == "shake":
+		# rachando: estalos brancos na base e lasquinhas caindo
+		if (T / 4) % 2 == 0:
+			Spr.seg(o.x - w * .4, y + 3, o.x - 2, y + 7, Color(1, 1, 1, .8), 1.5)
+			Spr.seg(o.x + 2, y + 6, o.x + w * .4, y + 2, Color(1, 1, 1, .8), 1.5)
+		if T % 6 == 0:
+			g.PARTS.append({"x": o.x + randf_range(-w * .4, w * .4), "y": y + 6, "vx": randf_range(-.4, .4), "vy": 1.5, "life": 24, "col": Color(.85, .95, 1, .9)})
 
 ## por cima do Tomé: a superfície da areia movediça (esconde as pernas que afundaram)
 static func draw_front(g: Game, T: int) -> void:
@@ -395,27 +443,32 @@ static func draw_front(g: Game, T: int) -> void:
 # ---------- tronco-pêndulo ----------
 static func _swing(TR: Traps, o: Dictionary, T: int) -> void:
 	var e := TR.swing_end(o)
-	# galho grosso da árvore de onde ele pende
-	Spr.rr(o.x - 80, o.y - 14, 160, 22, 8, WOOD_D)
-	Spr.rr(o.x - 80, o.y - 14, 160, 8, 4, WOOD)
-	Spr.ring(o.x - 80, o.y - 3, 10, OUT, 2)
-	# rastro
-	var dv: float = TR.swing_dir(o)
-	for k in 3:
-		Spr.rr(e.x - 44 - dv * (k + 1) * 12, e.y - 12, 88, 24, 10, Color(1, 1, 1, .05))
-	# cordas
+	# galho grosso da árvore de onde ele pende (tronco pintado)
+	_beam_log(o.x - 84, o.x + 84, o.y - 14, 22)
+	# rastro em arco do tronco
+	var w: float = TAU / float(o.per)
+	var th: float = w * (T + o.get("ph", 0))
+	var spd: float = abs(cos(th))
+	for k in range(1, 7):
+		var a2: float = o.amp * sin(th - w * k * 2.0)
+		var q := Vector2(o.x + sin(a2) * o.len, o.y + cos(a2) * o.len)
+		Spr.rr(q.x - 44, q.y - 12, 88, 24, 11, Color(1, 1, 1, .07 * spd * (1.0 - k / 7.0)))
+	# cordas trançadas
 	for sx in [-30.0, 30.0]:
-		Spr.seg(o.x + sx, o.y, e.x + sx, e.y - 8, Color("#c9a26a"), 3)
-		Spr.circle(o.x + sx, o.y, 4, Color("#7a5a32"))
-	# o tronco (sempre deitado)
-	Spr.rr(e.x - 46, e.y - 13, 92, 26, 12, Color("#6b4626"))
-	Spr.rr(e.x - 46, e.y - 13, 92, 9, 6, Color("#8a5e34"))
-	for k in 3:
-		Spr.seg(e.x - 30 + k * 26, e.y - 6, e.x - 18 + k * 26, e.y + 4, Color("#4e331d"), 2)
-	Spr.ellipse(e.x + 44, e.y, 6, 12, Color("#c9a26a"))
-	Spr.ring(e.x + 44, e.y, 4, Color("#8a6a42"), 1.5)
-	Spr.rect(e.x - 26, e.y - 14, 6, 28, Color("#c9a26a"))
-	Spr.rect(e.x + 22, e.y - 14, 6, 28, Color("#c9a26a"))
+		Spr.seg(o.x + sx, o.y, e.x + sx, e.y - 8, Color("#7a5a32"), 4)
+		Spr.seg(o.x + sx, o.y, e.x + sx, e.y - 8, Color("#d4ae74"), 2)
+		Spr.circle(o.x + sx, o.y, 5, Color("#5a4026"))
+	# o tronco pintado (sempre deitado), com as pontas cortadas
+	Spr.save()
+	Spr.translate(e.x - 46, e.y + 13)
+	Spr.rotate(-PI / 2)
+	Spr.PR("log", 0, 0, 26, 92)
+	Spr.restore()
+	Spr.P("logend0", e.x + 44, e.y + 13, 22)
+	for sx2 in [-26.0, 24.0]:
+		Spr.rect(e.x + sx2, e.y - 14, 5, 28, Color("#b58a52"))
+		Spr.rect(e.x + sx2, e.y - 14, 5, 28, Color(0, 0, 0, .0))
+		Spr.seg(e.x + sx2, e.y - 14, e.x + sx2 + 5, e.y + 14, Color("#7a5a32"), 1.5)
 
 # ---------- colmeia e enxame ----------
 static func _ground_at(g: Game, x: float, y: float) -> float:
@@ -430,15 +483,16 @@ static func _hive(g: Game, o: Dictionary, T: int) -> void:
 	var y: float = o.y
 	var sh: float = sin(T * .9) * 2.0 if o.st == "angry" and o.t < 40 else 0.0
 	# árvore de verdade: tronco no chão à esquerda e um galho comprido por cima do caminho
+	var tx: float = o.get("tx", x - 72)
+	var tw: float = o.get("tw", 92)
 	if not o.has("gy"):
-		o.gy = _ground_at(g, x - 72, y)
+		o.gy = _ground_at(g, tx, y)
 	var by: float = y - 72
-	var tx: float = x - 72
-	Spr.img(Spr.tex.tronco, tx - 46, by - 150, 92, o.gy - by + 160)
+	Spr.img(Spr.tex.tronco, tx - tw / 2, by - 150, tw, o.gy - by + 160)
 	Spr.img(Spr.tex.galho, tx - 10, by - 22, 200, 50)
 	# cordinha e a colmeia pintada (racha e escorre mel quando o enxame sai)
 	Spr.seg(x, by + 14, x + sh, y - 52, Color("#5a4632"), 2.5)
-	Spr.P("hive_broken" if o.st != "idle" else "hive", x + sh, y + 4, 46)
+	Spr.P("hive_broken" if o.st != "idle" else "hive", x + sh, y + 2, 46)
 	if o.st == "idle":
 		for k in 3:
 			var a: float = T * .07 + k * 2.1
@@ -571,7 +625,7 @@ static func _boulder(g: Game, o: Dictionary, T: int) -> void:
 	if o.st in ["idle", "done"]:
 		if o.st == "done":
 			for k in 6:
-				Spr.ellipse(o.end - 40 + k * 22, o.y - 6 - (k % 2) * 8, 16, 10, Color("#6b6a62"))
+				Spr.P("peb%d" % (k % 3), o.end - 40 + k * 22, o.y + 2, 24 + (k % 2) * 10)
 		return
 	var R: float = o.r
 	var cx: float = o.bx
@@ -580,23 +634,17 @@ static func _boulder(g: Game, o: Dictionary, T: int) -> void:
 		var k2: float = o.t / 30.0
 		for i in 8:
 			var a: float = i * TAU / 8.0
-			Spr.circle(cx + cos(a) * R * k2 * 1.5, cy + sin(a) * R * .6 * k2 + k2 * k2 * 40, R * .35 * (1.0 - k2 * .5), Color("#6b6a62"))
+			var rs: float = R * .7 * (1.0 - k2 * .5)
+			Spr.PR("rock2", cx + cos(a) * R * k2 * 1.5 - rs / 2, cy + sin(a) * R * .6 * k2 + k2 * k2 * 40 - rs / 2, rs, rs)
 		return
 	Spr.ellipse(cx, o.y + 2, R * .95, 7, Color(0, 0, 0, .35))
-	Spr.circle(cx, cy, R, Color("#6e6a5e"))
-	Spr.circle(cx - R * .22, cy - R * .25, R * .62, Color("#837e70"))
-	Spr.circle(cx - R * .35, cy - R * .4, R * .25, Color("#958f80"))
+	# rocha pintada girando (a mesma arte das pedras do jogo), com a luz sempre por cima
 	Spr.save()
 	Spr.translate(cx, cy)
 	Spr.rotate(o.rot)
-	for k in 7:
-		var a3: float = k * .9
-		Spr.seg(cos(a3) * R * .15, sin(a3) * R * .15, cos(a3 + .5) * R * .9, sin(a3 + .5) * R * .9, Color("#4a463e"), 3)
-	for k in 5:
-		var a4: float = k * 1.25 + .4
-		Spr.ellipse(cos(a4) * R * .55, sin(a4) * R * .55, 9, 6, Color("#57534a"), a4)
+	Spr.PR("rock0", -R * 1.08, -R * 1.08, R * 2.16, R * 2.16)
 	Spr.restore()
-	Spr.ring(cx, cy, R, OUT, 3)
+	Spr.glow(cx - R * .3, cy - R * .45, R * .7, Color(1, .95, .85, .08))
 
 ## caixas, carrinho e barricada do trecho da bola (somem quando ela passa)
 static func _bobs(g: Game, T: int) -> void:
@@ -635,10 +683,57 @@ static func _giant(o: Dictionary, T: int) -> void:
 	var w: float = o.w
 	var c: Color = Color(o.get("c", "#6a5acd"))
 	var sw: float = 16.0 + w * .08
-	# caule
-	Spr.poly(PackedVector2Array([Vector2(x - sw * .7, base), Vector2(x - sw * .5, top + 10), Vector2(x + sw * .5, top + 10), Vector2(x + sw * .8, base)]), Color("#e8dcc4"))
-	Spr.poly(PackedVector2Array([Vector2(x + sw * .1, base), Vector2(x + sw * .2, top + 10), Vector2(x + sw * .5, top + 10), Vector2(x + sw * .8, base)]), Color("#cbbd9f"))
-	Spr.ellipse(x, top + 16, sw * .9, 6, Color("#cbbd9f"))
+	# caule: levemente curvo, com fibras, anel debaixo do chapéu; nos buracos ele nasce
+	# de um bulbo com raízes e some numa névoa escura (não desce reto e liso)
+	var deep: bool = base > 560
+	var bend: float = (1.0 if sin(x * .37) > 0 else -1.0) * sw * (.9 + .5 * abs(sin(x * .013)))
+	var L := PackedVector2Array()
+	var Rr := PackedVector2Array()
+	var n := 12
+	for i in n + 1:
+		var t: float = i / float(n)
+		var yy: float = lerpf(top + 10, base, t)
+		var cx: float = x + bend * sin(t * PI)
+		var hw: float = sw * lerpf(.5, .8, t) + (sw * .45 * pow(t, 6.0) if not deep else 0.0)
+		L.push_back(Vector2(cx - hw, yy))
+		Rr.push_back(Vector2(cx + hw, yy))
+	var body := L.duplicate()
+	var rv := Rr.duplicate()
+	rv.reverse()
+	body.append_array(rv)
+	Spr.poly(body, Color("#e2d4b8"))
+	# sombra do lado direito e fibras verticais
+	var sh := PackedVector2Array()
+	for i in n + 1:
+		sh.push_back(L[i].lerp(Rr[i], .62))
+	var rv2 := Rr.duplicate()
+	rv2.reverse()
+	sh.append_array(rv2)
+	Spr.poly(sh, Color("#bfae8e"))
+	for f in 5:
+		var u: float = .18 + f * .16
+		var pts := PackedVector2Array()
+		for i in n + 1:
+			pts.push_back(L[i].lerp(Rr[i], u + sin(i * 1.3 + f) * .02))
+		Spr.line(pts, Color(.45, .36, .25, .22), 1.3)
+	Spr.line(L, Color(.25, .18, .12, .55), 1.6)
+	Spr.line(Rr, Color(.25, .18, .12, .55), 1.6)
+	# anel (saia) logo abaixo do chapéu
+	Spr.ellipse(x + bend * .1, top + 22, sw * .95, 5, Color("#d8c8a6"))
+	Spr.ellipse(x + bend * .1, top + 24, sw * .95, 3, Color(.3, .22, .15, .35))
+	if deep:
+		# some no fundo escuro do buraco com névoa
+		var fy: float = max(top + 60, 560.0)
+		Spr.vgrad(x - sw * 1.6, fy, sw * 3.2, base - fy + 4, Color(.04, .05, .1, 0), Color(.04, .05, .1, 1))
+		for k in 3:
+			var mx: float = x + sin(T * .01 + k * 2.0 + x) * 18
+			Spr.ellipse(mx, fy + 60 + k * 18, sw * 2.2, 10, Color(.55, .65, .85, .1))
+	else:
+		# bulbo com raízes no chão
+		Spr.ellipse(x, base - 3, sw * 1.3, 7, Color("#cbbd9f"))
+		for r in [-1.0, -.4, .5, 1.0]:
+			Spr.seg(x + r * sw * .7, base - 4, x + r * sw * 1.6, base + 3, Color("#8a7458"), 2.2)
+		Spr.ellipse(x, base + 1, sw * 1.5, 4, Color(.2, .3, .12, .6))
 	# chapéu
 	var cap := PackedVector2Array()
 	for i in 21:

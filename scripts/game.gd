@@ -90,6 +90,13 @@ var iris_t := 0
 var flash_msg := ""
 var flash_t := 0
 var lantern_lit := true
+## óleo da lanterna (0..1): cresce ao pegar frascos, gasta devagar no escuro; fuel_vis segue aos poucos
+var FUEL := .55
+var fuel_vis := .55
+var OIL: Array = []
+var oil_seen := false
+## tipos de inimigo já apresentados (dica do primeiro encontro)
+var en_seen := {}
 var look_y := 0.0
 var thunder_t := 200
 var lightning := 0
@@ -208,6 +215,12 @@ func load_level(i: int) -> void:
 		if v.has("aim"):
 			vo.aim = v.aim
 		VINES.append(vo)
+	OIL = []
+	for c in L.get("oil", []):
+		OIL.append({"x": c[0], "y": c[1], "got": false})
+	FUEL = .55
+	fuel_vis = .55
+	oil_seen = false
 	CLK = []
 	for c in L.get("clocks", []):
 		CLK.append({"x": c[0], "y": c[1], "got": false})
@@ -249,6 +262,8 @@ func load_level(i: int) -> void:
 		for o in arr:
 			o.ry = _rest_y(o.x, o.y)
 	for c in CLK:
+		c.ry = _rest_y(c.x, c.y, 110)
+	for c in OIL:
 		c.ry = _rest_y(c.x, c.y, 110)
 	X = Extras.new(self)
 	X.load_level()
@@ -386,8 +401,9 @@ func kd(k: String) -> bool:
 	return keys.get(k, false)
 
 func flash(m: String, t: int = 150) -> void:
+	# avisos curtos: no máximo ~3,5 s (textos longos ganham só um pouquinho a mais)
 	flash_msg = m
-	flash_t = t
+	flash_t = min(t, 150 + min(60, m.length()))
 
 func note(m: String) -> void:
 	if flash_t <= 30:
@@ -687,6 +703,20 @@ func period_stars() -> Array:
 		out.append(st)
 	return out
 
+## o botão da mão (USAR) só aparece quando há algo para usar ou quando o facho da lanterna serve
+func use_available() -> bool:
+	if not running or player.dyingT > 0 or not CINE.is_empty():
+		return false
+	if player.nearL != null or (M and M.is_dog()):
+		return true
+	if RD and RD.near_horse():
+		return true
+	if VH and (VH.near_sled() or VH.near_raft() or VH.near_plane()):
+		return true
+	if EV and EV.near_lever() != null:
+		return true
+	return X.near_use() or X.beam_useful()
+
 ## nome do período do dia em que o Tomé está (a fase é uma só, dividida pelas fogueiras grandes)
 const PERIODS := ["Manhã no bosque", "Tarde", "Pântano", "Neve", "Céu", "Noite na mina"]
 func period_index() -> int:
@@ -838,10 +868,8 @@ func step() -> void:
 			player[k] -= 1
 	if flash_t > 0:
 		flash_t -= 1
+	# sem relógio: o tempo só é contado para o resumo do fim (nunca acaba)
 	time_left -= 1
-	if time_left <= 0:
-		die("O tempo acabou.")
-		return
 	var __m := Time.get_ticks_usec()
 	X.pre_step()
 	if player.dyingT > 0:
@@ -1227,8 +1255,6 @@ func step() -> void:
 	for s in SPR:
 		if s.t > 0:
 			s.t -= 1
-	if pressed("A") and player.nearL == null and not lantern_lit:
-		tip("Aqui não há o que usar. Perto de um obstáculo, ✦ USAR tenta abrir caminho.")
 	if player.y > L.bottom + 60:
 		die("Você caiu.")
 	for pit in L.get("pits", []):
@@ -1265,6 +1291,7 @@ func step() -> void:
 			time_left += 20 * 60
 			flash("Ampulheta: +20 segundos.")
 			burst(c.x, c.y, 14, Color("#bfe3ff"))
+	_fuel_step()
 	_auto_safe()
 	_plat_dips()
 	EV.step()
@@ -2361,6 +2388,30 @@ func use_lock(l: Dictionary) -> void:
 		lantern_lit = true
 		flash("A lanterna brilha forte de novo. Agora dá para entrar no túnel.")
 
+## óleo da lanterna: frascos pelo caminho escuro (antes de cada queda); a luz cresce aos poucos
+## e diminui bem devagar enquanto está escuro. Com a lanterna apagada, são potes de vaga-lumes.
+func _fuel_step() -> void:
+	for c in OIL:
+		var cyy: float = c.ry - 16 if c.ry > 0 else c.y
+		if not c.got and hit(player, R(c.x - 20, cyy - 22, 40, 44)):
+			c.got = true
+			FUEL = min(1.0, FUEL + .42)
+			Audio.play("coin")
+			burst(c.x, cyy, 16, Color("#ffd27a") if lantern_lit else Color("#c8ff8a"))
+			if not oil_seen:
+				oil_seen = true
+				if lantern_lit:
+					flash("Óleo para a lanterna: a luz vai crescendo. No escuro ela gasta devagar.")
+				else:
+					flash("Um pote de vaga-lumes! Eles clareiam um pouco o caminho.")
+	if AMB.dark > .45:
+		FUEL = max(.15, FUEL - 1.0 / 3000.0)
+	# a luz cresce aos poucos (~3 s) e diminui ainda mais devagar
+	if fuel_vis < FUEL:
+		fuel_vis = min(FUEL, fuel_vis + .005)
+	else:
+		fuel_vis = max(FUEL, fuel_vis - .0015)
+
 # ======================================================================
 #  INIMIGOS, DANO E MORTE
 # ======================================================================
@@ -2385,6 +2436,8 @@ func ebox(e: Dictionary) -> Dictionary:
 		if e.get("hid", true) or e.dead:
 			return R(-9999, -9999, 0, 0)
 		return R(e.x - 16, e.y - 40, 32, 40)
+	if e.k == "crow":
+		return R(e.x - 30, e.y - 18, 60, 30)
 	if FLY.has(e.k):
 		return R(e.x - 22, e.y - 8, 44, 22)
 	return R(e.x - 20, e.y - 34, 40, 34)
@@ -2524,6 +2577,13 @@ func _crow(e: Dictionary) -> void:
 			e.dir = -1
 		e.y = e.cy + sin(T * .06 + e.x * .01) * 16
 		if abs(pc.x - e.x) < 230 and pc.y > e.y + 40 and e.t > (160 if e.get("minion") else 90) and player.dyingT == 0:
+			# antes do mergulho ele para no ar batendo as asas e mostra o "!" vermelho
+			e.st = 5
+			e.t = 0
+			e.dir = 1 if pc.x > e.x else -1
+	elif st == 5:
+		e.y += sin(T * .5) * .6 - .25
+		if e.t >= 26:
 			e.st = 1
 			e.t = 0
 			e.sx = e.x
@@ -2826,7 +2886,7 @@ func save_checkpoint(k: int) -> void:
 			coins_got.append(c.ci)
 	Save.save_run({"level": level_idx, "chk": k, "lives": lives, "inv": INV.duplicate(), "items": got_items, "locks": locks,
 		"clues": CLUEGOT.keys(), "specs": SPECGOT.keys(), "drawn": DRAWN.keys(), "coins": coins_got, "coin_life": coin_life,
-		"pen": STATS.pen, "lit": lantern_lit, "fires": CHK.filter(func(c): return c.on).map(func(c): return CHK.find(c)), "time": time_left, "x": X.save_data(), "m": M.save_data(), "tr": TR.save_data(),
+		"pen": STATS.pen, "lit": lantern_lit, "fuel": FUEL, "oil": OIL.filter(func(c): return c.got).map(func(c): return OIL.find(c)), "fires": CHK.filter(func(c): return c.on).map(func(c): return CHK.find(c)), "time": time_left, "x": X.save_data(), "m": M.save_data(), "tr": TR.save_data(),
 		"nt": NT.save_data(), "k": K.save_data(), "rd": RD.save_data(), "vh": VH.save_data(), "ev": EV.save_data(), "sl": SL.save_data(), "rested": RESTED.keys()})
 
 func restore_run(d: Dictionary) -> void:
@@ -2865,6 +2925,11 @@ func restore_run(d: Dictionary) -> void:
 	coin_life = int(d.get("coin_life", 0))
 	STATS.pen = int(d.get("pen", 0))
 	lantern_lit = d.get("lit", lantern_lit)
+	FUEL = float(d.get("fuel", .55))
+	fuel_vis = FUEL
+	for k in d.get("oil", []):
+		if int(k) < OIL.size():
+			OIL[int(k)].got = true
 	X.restore(d.get("x", {}))
 	M.restore(d.get("m", {}))
 	TR.restore(d.get("tr", {}))

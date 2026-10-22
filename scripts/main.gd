@@ -20,6 +20,8 @@ var snd_btn: Button
 var dog_btn: TextureButton
 var tex_dog: Texture2D = preload("res://assets/ui/btn_dog.png")
 var bag_btn: TextureButton
+var tex_golpe: Texture2D = preload("res://assets/ui/btn_golpe.png")
+var tex_harpoon: Texture2D = preload("res://assets/ui/btn_golpe.png")
 var hint_btn: TextureButton
 var tex_tome: Texture2D = preload("res://assets/ui/btn_tome.png")
 var panel: Control = null
@@ -211,7 +213,9 @@ func _update_lights() -> void:
 	# a lanterna balança na mão conforme ele anda (a luz acompanha)
 	var sw: float = sin(game.T * .17) * clamp(abs(p.vx) / 4.0, 0, 1)
 	player_light.position = pc + Vector2(p.face * 6 + sw * 7, -4 + abs(sw) * 3)
-	player_light.texture_scale = (110.0 if out else 230.0) * 2 / 256.0
+	# o raio depende do óleo (ou dos vaga-lumes, com a lanterna apagada) e cresce aos poucos
+	var fv: float = game.fuel_vis
+	player_light.texture_scale = (lerpf(100.0, 185.0, fv) if out else lerpf(150.0, 300.0, fv)) * 2 / 256.0
 	player_light.energy = dark * (1.15 + sin(game.T * .21) * .04) * (.25 + .75 * p.get("wal", 1.0))
 	if cone_light:
 		cone_light.position = player_light.position + Vector2(p.face * 10, 0)
@@ -253,6 +257,18 @@ func _process(_d: float) -> void:
 		if _slow_t > 4.0:
 			game.low_fx = true
 			Save.setv("opt", "lowfx", true)
+	# botão da mão: só quando há algo para usar (ou enquanto está sendo segurado)
+	for tb in touch:
+		if tb.get_meta("k") == "A":
+			var want: bool = top_buttons.visible and (game.use_available() or game.kd("A"))
+			tb.modulate.a = lerpf(tb.modulate.a, .85 if want else 0.0, .25)
+			tb.visible = tb.modulate.a > .03
+		elif tb.get_meta("k") == "G":
+			# na luta do Bagre-Rei a picareta vira arpão
+			var fish: bool = game.K and not game.K.FISH.is_empty() and game.K.FISH.active and not game.K.FISH.done
+			var want_t: Texture2D = tex_harpoon if fish else tex_golpe
+			if tb.texture_normal != want_t:
+				tb.texture_normal = want_t
 	if hint_btn:
 		hint_btn.visible = top_buttons.visible and hud.can_replay()
 		hint_btn.position = Vector2(352, 8)

@@ -206,6 +206,22 @@ func _initialize() -> void:
 							o.st = "go"
 							o.t = 30
 							o.front = x - 140
+				elif k.begins_with("zoo:"):
+					var kk: String = k.substr(4)
+					for e in g.EN:
+						if e.k == kk:
+							e.dead = 0
+							e.x = x + 110
+							e.y = y if not g.FLY.has(kk) else y - 40
+							e.base = e.y
+							e.cy = e.y
+							e.stun = 9999
+							e.dir = -1
+							break
+				elif k == "en":
+					for e in g.EN:
+						e.dead = 0
+						e.iframe = 0
 				elif k == "noen":
 					for e in g.EN:
 						e.dead = 99
@@ -219,6 +235,7 @@ func _initialize() -> void:
 		for i in 4:
 			await process_frame
 		root.get_texture().get_image().save_png("/tmp/fh_shots/s%02d.png" % n)
+		print("CAM ", n, " ", g.cam, " ", g.cam_y)
 		g.keys.clear()
 		n += 1
 	print("SHOTS ", n)

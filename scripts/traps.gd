@@ -226,7 +226,7 @@ func post() -> void:
 				_icicle(o, p, pcx)
 			"axe":
 				var b := axe_blade(o)
-				if p.iframe == 0 and Vector2(pcx, p.y + p.h / 2).distance_to(b) < 30:
+				if p.iframe == 0 and axe_hits(o, p):
 					g.hurt(1, b.x)
 			"snap":
 				_snap(o, p)
@@ -237,7 +237,11 @@ func post() -> void:
 					o.fy = o.get("fy", 0.0) + 7.0
 			"swing":
 				var e := swing_end(o)
-				if p.iframe == 0 and Game.hit(p, g.R(e.x - 44, e.y - 13, 88, 26)):
+				var pe: Vector2 = o.get("pe", e)
+				o.pe = e
+				# a área de dano é o tronco desenhado, varrendo do quadro anterior até o atual
+				var hb: Dictionary = g.R(min(e.x, pe.x) - 46, min(e.y, pe.y) - 13, abs(e.x - pe.x) + 92, abs(e.y - pe.y) + 26)
+				if p.iframe == 0 and Game.hit(p, hb):
 					g.hurt(1, e.x - swing_dir(o) * 60.0)
 			"hive":
 				_hive(o, p, pcx)
@@ -365,6 +369,32 @@ func spike_warn(o: Dictionary) -> bool:
 	var u: int = (g.T + int(o.get("ph", 0))) % per
 	return u > per - 22
 
+## pontos da lâmina em meia-lua (contorno de fora e de dentro) e do cabo, no mundo
+func axe_points(o: Dictionary, a: float) -> PackedVector2Array:
+	var bp := Vector2(o.x + sin(a) * o.len, o.y + cos(a) * o.len)
+	var out := PackedVector2Array()
+	for i in 9:
+		var t: float = -1.2 + 2.4 * i / 8.0
+		out.push_back(bp + Vector2(sin(t) * 30, cos(t) * 16 + 4).rotated(-a))
+		out.push_back(bp + Vector2(sin(t) * 22, cos(t) * 8).rotated(-a))
+	for k in 4:
+		var r: float = o.len * (.55 + k * .12)
+		out.push_back(Vector2(o.x + sin(a) * r, o.y + cos(a) * r))
+	return out
+
+## o machado acerta se qualquer ponto da lâmina (agora ou no meio do caminho desde o quadro
+## anterior) estiver dentro do Tomé
+func axe_hits(o: Dictionary, p: Dictionary) -> bool:
+	var a1: float = o.get("ang", 0.0)
+	var a0: float = o.get("pang", a1)
+	o.pang = a1
+	var box := Rect2(p.x - 2, p.y - 2, p.w + 4, p.h + 4)
+	for a in [a1, (a0 + a1) * .5]:
+		for q in axe_points(o, a):
+			if box.has_point(q):
+				return true
+	return false
+
 func axe_blade(o: Dictionary) -> Vector2:
 	var a: float = o.amp * sin(TAU * (g.T + o.get("ph", 0)) / float(o.per))
 	o.ang = a
@@ -420,7 +450,7 @@ func _icicle(o: Dictionary, p: Dictionary, pcx: float) -> void:
 		"shake":
 			if o.t % 8 == 0:
 				g.PARTS.append({"x": o.x + randf_range(-6, 6), "y": o.y + 4, "vx": 0.0, "vy": 1.0, "life": 20, "col": Color(.85, .95, 1, .9)})
-			if o.t > 42:
+			if o.t > 60:
 				o.st = "fall"
 				o.t = 0
 				o.vy = 0.0
@@ -838,7 +868,7 @@ func _boulder(o: Dictionary, p: Dictionary, pcx: float) -> void:
 				Audio.play("stomp", -2)
 				g.shake = max(g.shake, 10)
 				g.want_comic("bola")
-				g.flash_tut("CORRA!", "Uma pedra gigante! CORRA (toque duas vezes →), pule os obstáculos e se abaixe no buraco do chão lá na frente!", 260)
+				g.flash_tut("Fuja!", "Uma pedra gigante! Fuja para a frente, pule os obstáculos e se abaixe (↓) no buraco do chão lá na frente!", 260)
 		"drop":
 			o.vy += .9
 			o.by += o.vy
@@ -852,7 +882,9 @@ func _boulder(o: Dictionary, p: Dictionary, pcx: float) -> void:
 				g.shake = max(g.shake, 12)
 				g.fx("fx_dust", o.bx, o.y - 8, 24, .3, -.3)
 		"roll":
-			o.vx = move_toward(o.vx, o.vmax, .13)
+			# rola um pouco mais devagar que o passo normal do Tomé (dá para fugir andando, contando
+			# o tempo dos pulos); começa devagar e só depois embala
+			o.vx = move_toward(o.vx, o.vmax, .035)
 			o.bx += o.vx
 			o.rot += o.vx / R
 			if g.T % 5 == 0:
@@ -864,6 +896,7 @@ func _boulder(o: Dictionary, p: Dictionary, pcx: float) -> void:
 			for s in g.SOL.duplicate():
 				if s.get("bob") and o.smash.has(s.get("id", "")) and o.bx + R > s.x + 8:
 					g.SOL.erase(s)
+					o.vx *= .55
 					o.smashed[s.id] = 1
 					Audio.play("stomp", -4)
 					g.shake = max(g.shake, 8)

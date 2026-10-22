@@ -343,17 +343,19 @@ static func squirrel(e: Dictionary, T: int) -> void:
 		fr = 4
 	elif e.get("st", 0) == 1:
 		fr = 3
-	var s := .5
-	Spr.ci.draw_texture_rect_region(Spr.tex.esquilo, Rect2(-65 * s, -108 * s, 130 * s, 110 * s), Rect2(fr * 130, 0, 130, 110), Color(1, 1, 1, Spr.alpha))
+	# maior e de cor forte (inimigo), diferente dos bichinhos do cenário
+	Spr.frame(Spr.tex.esquilo, fr, 130, 110, 65, 108, 0, 0, .6)
 
 static func crow(e: Dictionary, T: int) -> void:
 	if e.dead:
 		Spr.A("crow_dead", 0, 0, .5)
 		return
+	# corvo grande (bem maior que os tucanos do cenário); batendo asas rápido antes do mergulho
+	var fs: int = 3 if e.get("st", 0) == 5 else 5
 	if Spr.tex.has("en_crow2"):
-		Spr.frame(Spr.tex.en_crow2, (T / 5 + int(e.x * .1)) % 4, 170, 130, 85, 65, 0, -6, .5)
+		Spr.frame(Spr.tex.en_crow2, (T / fs + int(e.x * .1)) % 4, 170, 130, 85, 65, 0, -8, .74)
 	else:
-		Spr.A("crow%d" % ((T / 4) % 3), 0, -6, .5)
+		Spr.A("crow%d" % ((T / 4) % 3), 0, -8, .74)
 
 static func piranha(e: Dictionary, T: int) -> void:
 	WorldExtras._pc("piranha%d" % (1 if (not e.dead and (T / 10) % 3 == 0) else 0), 0, 0, 46)

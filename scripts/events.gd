@@ -38,6 +38,7 @@ func load_level() -> void:
 func step() -> void:
 	_flood_step()
 	_lever_step()
+	_gate_bump()
 
 func _flood_step() -> void:
 	if FL.is_empty() or FL.done:
@@ -96,6 +97,23 @@ func _lever_step() -> void:
 		g.blockers_dirty()
 		if g.T % 8 == 0:
 			Audio.play("door", -14)
+
+## o Tomé empurrando o portão fechado: diz quantas alavancas faltam (não parece defeito)
+var bumpT := 0
+func _gate_bump() -> void:
+	if LV.is_empty() or GATE.lift >= GATE.h - 8:
+		return
+	if bumpT > 0:
+		bumpT -= 1
+		return
+	var p: Dictionary = g.player
+	if p.x + p.w >= GATE.x - 3 and p.x + p.w <= GATE.x + 6 and g.kd("R") and p.onGround:
+		var n := 0
+		for o in LV.list:
+			if not o.down:
+				n += 1
+		g.flash("Está preso... falta puxar %d alavanca%s." % [n, "s" if n > 1 else ""], 140)
+		bumpT = 200
 
 func near_lever():
 	if LV.is_empty():

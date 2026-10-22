@@ -269,7 +269,7 @@ func squirrel(e: Dictionary) -> void:
 		1:
 			# prepara (agacha) e dá o bote na direção do Tomé
 			e.y = e.base
-			if e.t > 16:
+			if e.t > 28:
 				e.st = 2
 				e.t = 0
 		2:

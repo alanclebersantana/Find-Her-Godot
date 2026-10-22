@@ -69,6 +69,7 @@ func _ready() -> void:
 	# peças extras desenhadas à parte (atlas 2 = extra.png)
 	tex["extra"] = load("res://assets/sprites/extra.png")
 	tex["pad_S"] = load("res://assets/ui/pad_S.png")
+	tex["btn_use"] = load("res://assets/ui/btn_use.png")
 	AR["it_picareta"] = [17, 12, 102, 110, 51, 55, 2]
 	# artes novas opcionais (assets/sprites/novos/<nome>.png, quadros quadrados lado a lado)
 	for k in NOVOS:
@@ -142,6 +143,9 @@ func P(n: String, cx: float, by: float, w: float, flip: bool = false, lean: floa
 	var v0: float = r[1] / ts.y
 	var v1: float = (r[1] + r[3]) / ts.y
 	var col := Color(c.r, c.g, c.b, c.a * alpha)
+	if sil_c.a > 0:
+		t = sil(t)
+		col = Color(sil_c.r, sil_c.g, sil_c.b, sil_c.a * alpha * c.a)
 	var pts := PackedVector2Array([Vector2(cx - w / 2 + lean, by - h), Vector2(cx + w / 2 + lean, by - h), Vector2(cx + w / 2, by), Vector2(cx - w / 2, by)])
 	var uvs := PackedVector2Array([Vector2(u0, v0), Vector2(u1, v0), Vector2(u1, v1), Vector2(u0, v1)])
 	ci.draw_polygon(pts, PackedColorArray([col, col, col, col]), uvs, t)
@@ -152,8 +156,12 @@ func PR(n: String, x: float, y: float, w: float, h: float, c: Color = Color.WHIT
 	if r == null:
 		return
 	var col := Color(c.r, c.g, c.b, c.a * alpha)
+	var st: Texture2D = atlas_tex(r)
+	if sil_c.a > 0:
+		st = sil(st)
+		col = Color(sil_c.r, sil_c.g, sil_c.b, sil_c.a * alpha * c.a)
 	if flip:
-		var t := atlas_tex(r)
+		var t := st
 		var ts := t.get_size()
 		var u0: float = r[0] / ts.x
 		var u1: float = (r[0] + r[2]) / ts.x
@@ -162,7 +170,7 @@ func PR(n: String, x: float, y: float, w: float, h: float, c: Color = Color.WHIT
 		ci.draw_polygon(PackedVector2Array([Vector2(x, y), Vector2(x + w, y), Vector2(x + w, y + h), Vector2(x, y + h)]),
 			PackedColorArray([col, col, col, col]), PackedVector2Array([Vector2(u1, v0), Vector2(u0, v0), Vector2(u0, v1), Vector2(u1, v1)]), t)
 	else:
-		ci.draw_texture_rect_region(atlas_tex(r), Rect2(x, y, w, h), Rect2(r[0], r[1], r[2], r[3]), col)
+		ci.draw_texture_rect_region(st, Rect2(x, y, w, h), Rect2(r[0], r[1], r[2], r[3]), col)
 
 ## só uma fatia horizontal (u0..u1, de 0 a 1) da peça pintada, esticada em (x, y, w, h)
 func PRs(n: String, x: float, y: float, w: float, h: float, u0: float, u1: float, c: Color = Color.WHITE) -> void:
@@ -244,6 +252,11 @@ var _sil := {}
 func sil(t: Texture2D) -> Texture2D:
 	var id := t.get_instance_id()
 	if not _sil.has(id):
+		# silhueta pronta (tools/make_sil.py), senão calcula aqui
+		var sp: String = t.resource_path.get_basename() + "_sil.png" if t.resource_path != "" else ""
+		if sp != "" and ResourceLoader.exists(sp):
+			_sil[id] = load(sp)
+			return _sil[id]
 		var im: Image = t.get_image()
 		if im.is_compressed():
 			im.decompress()

@@ -1136,13 +1136,6 @@
    "h": 140
   },
   {
-   "t": "beam",
-   "x": 71080,
-   "y": 380,
-   "w": 80,
-   "h": 96
-  },
-  {
    "t": "plat",
    "x": 71375,
    "y": 470,
@@ -1703,7 +1696,7 @@
   },
   {
    "t": "pgate",
-   "x": 10200,
+   "x": 10330,
    "y": -420,
    "w": 22,
    "h": 920,
@@ -2516,7 +2509,7 @@
   },
   {
    "t": "break",
-   "x": 64300,
+   "x": 64520,
    "y": 462,
    "item": "heart"
   },
@@ -2731,15 +2724,6 @@
    "r": [
     9090,
     9440
-   ]
-  },
-  {
-   "k": "frog",
-   "x": 2450,
-   "y": 500,
-   "r": [
-    2390,
-    2510
    ]
   },
   {
@@ -5413,9 +5397,7 @@
   [
    74100,
    390
-  ]
- ],
- "clocks": [
+  ],
   [
    4070,
    140
@@ -5457,6 +5439,7 @@
    30
   ]
  ],
+ "clocks": [],
  "door": {
   "x": 78285,
   "y": 410
@@ -5489,6 +5472,10 @@
    500
   ],
   [
+   13370,
+   500
+  ],
+  [
    14580,
    500,
    "rest",
@@ -5507,6 +5494,10 @@
    500
   ],
   [
+   22830,
+   500
+  ],
+  [
    25010,
    500
   ],
@@ -5521,7 +5512,15 @@
    500
   ],
   [
+   39420,
+   500
+  ],
+  [
    49860,
+   500
+  ],
+  [
+   51380,
    500
   ],
   [
@@ -5578,64 +5577,6 @@
  },
  "hints": [
   {
-   "a": 2750,
-   "b": 2900,
-   "t": "Cogumelo saltador: pule em cima — ele te lança direto para o próximo!",
-   "yl": 480
-  },
-  {
-   "a": 3700,
-   "b": 3820,
-   "t": "Flor-catapulta: fique parado em cima — ela encolhe e te arremessa lá no alto.",
-   "yl": 480
-  },
-  {
-   "a": 4640,
-   "b": 4740,
-   "t": "↑ + GOLPE arremessa a picareta: ela crava no tronco e vira um degrau. GOLPE de novo a chama de volta.",
-   "yl": 480
-  },
-  {
-   "a": 4150,
-   "b": 4330,
-   "t": "Espinhos! Eles sobem e descem no ritmo — melhor não cair do cipó.",
-   "yg": 420
-  },
-  {
-   "a": 64100,
-   "b": 64180,
-   "t": "Machado-pêndulo! Espere ele passar e atravesse logo atrás dele."
-  },
-  {
-   "a": 70225,
-   "b": 70300,
-   "t": "Uma rede de caçador fecha o caminho. Troque para o PIPOCA e mande roer a corda (✦) no poste.",
-   "trap": 9
-  },
-  {
-   "a": 70340,
-   "b": 70480,
-   "t": "Preso numa armadilha de caçador! Troque para o PIPOCA e mande roer a corda (✦) no poste.",
-   "trap": 10,
-   "trapst": "shut"
-  },
-  {
-   "a": 2950,
-   "b": 3150,
-   "t": "GOLPE (botão da picareta / tecla G): derruba bichos e quebra caixas e rochas. Segure o botão para se defender com a lanterna."
-  },
-  {
-   "a": 3190,
-   "b": 3555,
-   "t": "O portão só abre com peso na placa. Empurre a caixa grande até cair no buraco da placa."
-  },
-  {
-   "a": 5750,
-   "b": 5850,
-   "yl": 140,
-   "t": "Portão alto com portinhola de cachorro. Troque para o Pipoca (botão do cachorro / Q), passe pela portinhola e pare na placa."
-  },
-  {
    "a": 0,
    "b": 600,
    "t": "← → andar · PULAR (Z/espaço) · segure PULAR depois do salto duplo para planar"
@@ -5644,229 +5585,6 @@
    "a": 600,
    "b": 860,
    "t": "Tronco caído: segure ↓ para se ABAIXAR e passe por baixo. Correndo + ↓ = deslizar!"
-  },
-  {
-   "a": 2550,
-   "b": 2950,
-   "t": "Escada: ↑ sobe, ↓ desce. Lá em cima tem algo útil.",
-   "yg": 200
-  },
-  {
-   "a": 4120,
-   "b": 4350,
-   "t": "Agarre o cipó no ar. ←/→ embala (empurre no sentido do balanço), ↑/↓ sobe e desce, PULAR solta.",
-   "yl": 260
-  },
-  {
-   "a": 4430,
-   "b": 4990,
-   "yg": 800,
-   "t": "Esconderijo! Para sair, volte até a escada e aperte ↑."
-  },
-  {
-   "a": 4500,
-   "b": 4700,
-   "t": "Chão rachado! Pule e, no ar, aperte ↓ para dar um MERGULHO e quebrar. Depois desça pela escada (↓).",
-   "yg": 400
-  },
-  {
-   "a": 5350,
-   "b": 5550,
-   "lock": 0
-  },
-  {
-   "a": 11870,
-   "b": 12200,
-   "t": "Pântano! A água funda puxa você para baixo. As vitórias-régias afundam se você ficar parado."
-  },
-  {
-   "a": 12850,
-   "b": 13110,
-   "t": "Lama deixa você lento. Um poço com escada desce para uma gruta.",
-   "yg": 400
-  },
-  {
-   "a": 14740,
-   "b": 14830,
-   "yg": 400,
-   "lock": 1
-  },
-  {
-   "a": 14560,
-   "b": 14830,
-   "t": "Rede de cipó: ↑ ↓ ← → para escalar."
-  },
-  {
-   "a": 69380,
-   "b": 69500,
-   "t": "A tempestade apagou a lanterna! Procure óleo e um pavio."
-  },
-  {
-   "a": 69540,
-   "b": 69630,
-   "t": "A porta do galpão está trancada... mas tem uma portinhola de cachorro! Troque para o Pipoca (botão do cachorro / tecla Q)."
-  },
-  {
-   "a": 70480,
-   "b": 70560,
-   "t": "Cogumelo brilhante: pule nele e, lá no alto, dê o pulo duplo!"
-  },
-  {
-   "a": 70660,
-   "b": 70800,
-   "lock": 2
-  },
-  {
-   "a": 75520,
-   "b": 76000,
-   "t": "É ele! Corra atrás do carrinho: pule os buracos e abaixe-se sob as vigas (↘ desliza)."
-  },
-  {
-   "a": 76940,
-   "b": 77080,
-   "t": "Um carrinho parado no caminho: pule por cima!"
-  },
-  {
-   "a": 77100,
-   "b": 77220,
-   "t": "A ponte de madeira caiu: pule de tábua em tábua."
-  },
-  {
-   "a": 4750,
-   "b": 5550,
-   "boss": 1,
-   "t": "Fique no chão para o Javali-Rei investir e pule para um galho: ele bate a cabeça na árvore ou no barranco. 4 batidas!"
-  },
-  {
-   "a": 5640,
-   "b": 5820,
-   "yl": 140,
-   "dogtied": 1,
-   "t": "Um cachorro amarrado e assustado! Chegue perto e toque ✦ USAR para soltá-lo."
-  },
-  {
-   "a": 5900,
-   "b": 6030,
-   "yl": 140,
-   "toca": 1,
-   "t": "Uma toca pequena demais para o Tomé. Com o Pipoca junto, toque ✦ USAR aqui."
-  },
-  {
-   "a": 5550,
-   "b": 5710,
-   "yl": 140,
-   "crack": "rock1",
-   "t": "Rocha rachada no caminho: dê um GOLPE com a picareta (botão da picareta / tecla G)."
-  },
-  {
-   "a": 69940,
-   "b": 70090,
-   "yl": 520,
-   "crack": "slab",
-   "t": "Uma laje rachada com um X de giz da Isis... Uma picareta quebraria isso (✦ USAR)."
-  },
-  {
-   "a": 12850,
-   "b": 13050,
-   "yg": 860,
-   "t": "Água! PULAR dá braçadas, ↓ mergulha. Fique de olho no fôlego."
-  },
-  {
-   "a": 4440,
-   "b": 4550,
-   "yg": 860,
-   "t": "A Isis desenhou uma seta apontando para a parede... será que dá para passar?"
-  },
-  {
-   "a": 6550,
-   "b": 6890,
-   "t": "Fenda estreita: encoste numa parede no ar e aperte PULAR para saltar para a outra. Repita até o topo!",
-   "yl": 480
-  },
-  {
-   "a": 15450,
-   "b": 15710,
-   "t": "Mergulhe e passe por baixo da rocha. As bolhas que sobem do fundo devolvem o fôlego!",
-   "yl": 480
-  },
-  {
-   "a": 18610,
-   "b": 18700,
-   "t": "Lamaçal de sanguessugas: não dá para atravessar planando. Vá de cipó em cipó!",
-   "yl": 480
-  },
-  {
-   "a": 19900,
-   "b": 20110,
-   "t": "Balance no cipó e solte para agarrar a corda. Na corda: ← → anda pendurado, ↓ ou PULAR solta.",
-   "yl": 480
-  },
-  {
-   "a": 22900,
-   "b": 23070,
-   "t": "Lago fundo! Mergulhe: lá embaixo, na prateleira de pedra, tem algo para respirar debaixo d'água.",
-   "yl": 480
-  },
-  {
-   "a": 32810,
-   "b": 33250,
-   "t": "Empurre a bola de neve: ela cresce rolando. Encoste no paredão e use de degrau!",
-   "yl": 480
-  },
-  {
-   "a": 38800,
-   "b": 39040,
-   "t": "Água gelada! O teto de gelo é baixo demais para pular. Empurre a bola de neve para dentro do buraco.",
-   "yl": 480
-  },
-  {
-   "a": 39380,
-   "b": 39560,
-   "t": "Um cavalo preso no arame farpado! Chegue perto e toque ✦ USAR para soltá-lo.",
-   "yl": 480,
-   "horse": 1
-  },
-  {
-   "a": 70900,
-   "b": 71160,
-   "t": "Túnel escorado: abaixe sob as vigas (↓) e passe rápido pelas tábuas podres.",
-   "yl": 520
-  },
-  {
-   "a": 34010,
-   "b": 34310,
-   "t": "Bolas de neve rolando! Pule por cima delas.",
-   "yl": 520
-  },
-  {
-   "a": 35210,
-   "b": 35310,
-   "t": "Gelo fino: passe rápido, ele racha!",
-   "yl": 520
-  },
-  {
-   "a": 35570,
-   "b": 35790,
-   "t": "Outro paredão: role a bola de neve até ele e use de degrau.",
-   "yl": 520
-  },
-  {
-   "a": 17210,
-   "b": 17370,
-   "t": "Vitórias-régias afundam se você ficar parado nelas. Vá pulando!",
-   "yl": 520
-  },
-  {
-   "a": 7940,
-   "b": 8240,
-   "t": "Pelas copas! Lá embaixo é um barranco fundo. Galhos rachados quebram logo: pise e pule.",
-   "yl": 60
-  },
-  {
-   "a": 8700,
-   "b": 8860,
-   "t": "Flor-catapulta: fique parado em cima dela.",
-   "yl": 60
   },
   {
    "a": 1000,
@@ -5887,22 +5605,139 @@
    "yl": 520
   },
   {
-   "a": 66785,
-   "b": 67000,
-   "t": "Um poço da mina! Desça pela escada (↓) e atravesse por baixo da montanha.",
-   "yl": 520
+   "a": 2380,
+   "b": 2470,
+   "t": "Colmeia! Abaixe-se (↓) para passar por baixo. Se o enxame vier, mergulhe na água (↓) para despistar."
   },
   {
-   "a": 36620,
-   "b": 36840,
-   "t": "Caverna de gelo: desça pela escada. Lá embaixo o chão escorrega!",
-   "yl": 520
+   "a": 2470,
+   "b": 2650,
+   "t": "Espinhos! Espere eles descerem e passe rápido."
   },
   {
-   "a": 21200,
-   "b": 21530,
-   "t": "Mais um mergulho! Respire nas bolhas e acerte as piranhas com a picareta (GOLPE).",
-   "yl": 520
+   "a": 2550,
+   "b": 2950,
+   "t": "Escada: ↑ sobe, ↓ desce. Lá em cima tem algo útil.",
+   "yg": 200
+  },
+  {
+   "a": 2750,
+   "b": 2900,
+   "t": "Cogumelo saltador: pule em cima — ele te lança direto para o próximo!",
+   "yl": 480
+  },
+  {
+   "a": 2950,
+   "b": 3150,
+   "t": "GOLPE (botão da picareta / tecla G): derruba bichos e quebra caixas e rochas. Segure o botão para se defender com a lanterna."
+  },
+  {
+   "a": 3190,
+   "b": 3555,
+   "t": "O portão só abre com peso na placa. Empurre a caixa grande até cair no buraco da placa."
+  },
+  {
+   "a": 3700,
+   "b": 3820,
+   "t": "Flor-catapulta: fique parado em cima — ela encolhe e te arremessa lá no alto.",
+   "yl": 480
+  },
+  {
+   "a": 4120,
+   "b": 4350,
+   "t": "Agarre o cipó no ar. ←/→ embala (empurre no sentido do balanço), ↑/↓ sobe e desce, PULAR solta.",
+   "yl": 260
+  },
+  {
+   "a": 4150,
+   "b": 4330,
+   "t": "Espinhos! Eles sobem e descem no ritmo — melhor não cair do cipó.",
+   "yg": 420
+  },
+  {
+   "a": 4430,
+   "b": 4990,
+   "yg": 800,
+   "t": "Esconderijo! Para sair, volte até a escada e aperte ↑."
+  },
+  {
+   "a": 4440,
+   "b": 4550,
+   "yg": 860,
+   "t": "A Isis desenhou uma seta apontando para a parede... será que dá para passar?"
+  },
+  {
+   "a": 4500,
+   "b": 4700,
+   "t": "Chão rachado! Pule e, no ar, aperte ↓ para dar um MERGULHO e quebrar. Depois desça pela escada (↓).",
+   "yg": 400
+  },
+  {
+   "a": 4640,
+   "b": 4740,
+   "t": "↑ + GOLPE arremessa a picareta: ela crava no tronco e vira um degrau. GOLPE de novo a chama de volta.",
+   "yl": 480
+  },
+  {
+   "a": 4750,
+   "b": 5550,
+   "boss": 1,
+   "t": "Fique no chão para o Javali-Rei investir e pule para um galho: ele bate a cabeça na árvore ou no barranco. 4 batidas!"
+  },
+  {
+   "a": 5350,
+   "b": 5550,
+   "lock": 0
+  },
+  {
+   "a": 5550,
+   "b": 5710,
+   "yl": 140,
+   "crack": "rock1",
+   "t": "Rocha rachada no caminho: dê um GOLPE com a picareta (botão da picareta / tecla G)."
+  },
+  {
+   "a": 5640,
+   "b": 5820,
+   "yl": 140,
+   "dogtied": 1,
+   "t": "Um cachorro amarrado e assustado! Chegue perto e toque ✦ USAR para soltá-lo."
+  },
+  {
+   "a": 5750,
+   "b": 5850,
+   "yl": 140,
+   "t": "Portão alto com portinhola de cachorro. Troque para o Pipoca (botão do cachorro / Q), passe pela portinhola e pare na placa."
+  },
+  {
+   "a": 5900,
+   "b": 6030,
+   "yl": 140,
+   "toca": 1,
+   "t": "Uma toca pequena demais para o Tomé. Com o Pipoca junto, toque ✦ USAR aqui."
+  },
+  {
+   "a": 6550,
+   "b": 6890,
+   "t": "Fenda estreita: encoste numa parede no ar e aperte PULAR para saltar para a outra. Repita até o topo!",
+   "yl": 480
+  },
+  {
+   "a": 7940,
+   "b": 8240,
+   "t": "Pelas copas! Lá embaixo é um barranco fundo. Galhos rachados quebram logo: pise e pule.",
+   "yl": 60
+  },
+  {
+   "a": 8700,
+   "b": 8860,
+   "t": "Flor-catapulta: fique parado em cima dela.",
+   "yl": 60
+  },
+  {
+   "a": 9860,
+   "b": 10150,
+   "t": "Tronco balançando! Passe por baixo quando ele estiver lá no alto."
   },
   {
    "a": 10050,
@@ -5923,41 +5758,61 @@
    "yl": 520
   },
   {
+   "a": 11870,
+   "b": 12200,
+   "t": "Pântano! A água funda puxa você para baixo. As vitórias-régias afundam se você ficar parado."
+  },
+  {
+   "a": 12850,
+   "b": 13110,
+   "t": "Lama deixa você lento. Um poço com escada desce para uma gruta.",
+   "yg": 400
+  },
+  {
+   "a": 12850,
+   "b": 13050,
+   "yg": 860,
+   "t": "Água! PULAR dá braçadas, ↓ mergulha. Fique de olho no fôlego."
+  },
+  {
    "a": 13420,
    "b": 14500,
    "t": "Gavião-Rei! Fuja da sombra no chão: se ele errar, as garras ficam presas — acerte com a picareta (GOLPE). O facho da lanterna (segure ✦) deixa ele tonto.",
    "hawk": 1
   },
   {
-   "a": 49900,
-   "b": 50100,
-   "t": "Pegadas enormes na neve... alguma coisa grande vive nesta clareira."
+   "a": 14560,
+   "b": 14830,
+   "t": "Rede de cipó: ↑ ↓ ← → para escalar."
   },
   {
-   "a": 51450,
-   "b": 51900,
-   "t": "Marcas de rodas na neve: o carrinho do Vargas passou por aqui, descendo para a mina!"
+   "a": 14740,
+   "b": 14830,
+   "yg": 400,
+   "lock": 1
   },
   {
-   "a": 2470,
-   "b": 2650,
-   "t": "Espinhos! Espere eles descerem e passe rápido."
+   "a": 15330,
+   "b": 15520,
+   "t": "Colmeia! Abaixe-se (↓) para passar por baixo. Se o enxame vier, mergulhe na água (↓) para despistar."
   },
   {
-   "a": 7220,
-   "b": 7460,
-   "t": "Teia de aranha! Corte com a picareta (GOLPE) antes de passar.",
-   "yl": 60
+   "a": 15450,
+   "b": 15710,
+   "t": "Mergulhe e passe por baixo da rocha. As bolhas que sobem do fundo devolvem o fôlego!",
+   "yl": 480
   },
   {
-   "a": 9860,
-   "b": 10150,
-   "t": "Tronco balançando! Passe por baixo quando ele estiver lá no alto."
+   "a": 17210,
+   "b": 17370,
+   "t": "Vitórias-régias afundam se você ficar parado nelas. Vá pulando!",
+   "yl": 520
   },
   {
-   "a": 15150,
-   "b": 15560,
-   "t": "Colmeia! Passe por baixo sem pular. Se as abelhas vierem, mergulhe no lago (↓) para despistá-las."
+   "a": 18610,
+   "b": 18700,
+   "t": "Lamaçal de sanguessugas: não dá para atravessar planando. Vá de cipó em cipó!",
+   "yl": 480
   },
   {
    "a": 19640,
@@ -5965,16 +5820,92 @@
    "t": "Areia movediça! Parado você afunda: atravesse pulando."
   },
   {
-   "a": 66980,
-   "b": 67160,
-   "t": "Espinhos no poço! Espere descerem.",
-   "yg": 700
+   "a": 19900,
+   "b": 20110,
+   "t": "Balance no cipó e solte para agarrar a corda. Na corda: ← → anda pendurado, ↓ ou PULAR solta.",
+   "yl": 480
+  },
+  {
+   "a": 21200,
+   "b": 21530,
+   "t": "Mais um mergulho! Respire nas bolhas e acerte as piranhas com a picareta (GOLPE).",
+   "yl": 520
+  },
+  {
+   "a": 22760,
+   "b": 22880,
+   "t": "Colmeia! Abaixe-se (↓) para passar por baixo. Se o enxame vier, mergulhe na água (↓) para despistar."
+  },
+  {
+   "a": 22890,
+   "b": 23070,
+   "t": "Lago fundo! Mergulhe: lá embaixo, na prateleira de pedra, tem algo para respirar debaixo d'água.",
+   "yl": 480
   },
   {
    "a": 24940,
    "b": 25140,
    "t": "Uma jangada! ✦ USAR para subir e descer a corredeira.",
    "raft": 1
+  },
+  {
+   "a": 32810,
+   "b": 33250,
+   "t": "Empurre a bola de neve: ela cresce rolando. Encoste no paredão e use de degrau!",
+   "yl": 480
+  },
+  {
+   "a": 34010,
+   "b": 34310,
+   "t": "Bolas de neve rolando! Pule por cima delas.",
+   "yl": 520
+  },
+  {
+   "a": 35210,
+   "b": 35310,
+   "t": "Gelo fino: passe rápido, ele racha!",
+   "yl": 520
+  },
+  {
+   "a": 35570,
+   "b": 35790,
+   "t": "Outro paredão: role a bola de neve até ele e use de degrau.",
+   "yl": 520
+  },
+  {
+   "a": 36620,
+   "b": 36840,
+   "t": "Caverna de gelo: desça pela escada. Lá embaixo o chão escorrega!",
+   "yl": 520
+  },
+  {
+   "a": 38800,
+   "b": 39040,
+   "t": "Água gelada! O teto de gelo é baixo demais para pular. Empurre a bola de neve para dentro do buraco.",
+   "yl": 480
+  },
+  {
+   "a": 39380,
+   "b": 39560,
+   "t": "Um cavalo preso no arame farpado! Chegue perto e toque ✦ USAR para soltá-lo.",
+   "yl": 480,
+   "horse": 1
+  },
+  {
+   "a": 49900,
+   "b": 50100,
+   "t": "Pegadas enormes na neve... alguma coisa grande vive nesta clareira."
+  },
+  {
+   "a": 50000,
+   "b": 51300,
+   "t": "Desvie das patadas! Na terceira que ele errar, ele fica tonto. Suba no gelo e nos galhos para pular por cima dele.",
+   "yl": 520
+  },
+  {
+   "a": 51450,
+   "b": 51900,
+   "t": "Marcas de rodas na neve: o carrinho do Vargas passou por aqui, descendo para a mina!"
   },
   {
    "a": 52920,
@@ -5996,14 +5927,84 @@
    "yl": 200
   },
   {
+   "a": 63300,
+   "b": 63600,
+   "t": "Gangorra! Dê um MERGULHO na ponta de cá: a pedra voa lá no alto do pinheiro e derruba o que estava preso.",
+   "yl": 520
+  },
+  {
+   "a": 64100,
+   "b": 64180,
+   "t": "Machado-pêndulo! Espere ele passar e atravesse logo atrás dele."
+  },
+  {
    "a": 64535,
    "b": 64905,
    "t": "Cogumelos gigantes! Pule nos chapéus; os cogumelos saltadores te lançam lá para cima."
   },
   {
-   "a": 66485,
-   "b": 66665,
-   "t": "Outra teia! Corte com a picareta (GOLPE)."
+   "a": 66785,
+   "b": 67000,
+   "t": "Um poço da mina! Desça pela escada (↓) e atravesse por baixo da montanha.",
+   "yl": 520
+  },
+  {
+   "a": 66980,
+   "b": 67160,
+   "t": "Espinhos no poço! Espere descerem.",
+   "yg": 700
+  },
+  {
+   "a": 69380,
+   "b": 69500,
+   "t": "A tempestade apagou a lanterna! Procure óleo e um pavio."
+  },
+  {
+   "a": 69540,
+   "b": 69630,
+   "t": "A porta do galpão está trancada... mas tem uma portinhola de cachorro! Troque para o Pipoca (botão do cachorro / tecla Q)."
+  },
+  {
+   "a": 69940,
+   "b": 70090,
+   "yl": 520,
+   "crack": "slab",
+   "t": "Uma laje rachada com um X de giz da Isis... Uma picareta quebraria isso (✦ USAR)."
+  },
+  {
+   "a": 70225,
+   "b": 70300,
+   "t": "Uma rede de caçador fecha o caminho. Troque para o PIPOCA e mande roer a corda (✦) no poste.",
+   "trap": 9
+  },
+  {
+   "a": 70340,
+   "b": 70480,
+   "t": "Preso numa armadilha de caçador! Troque para o PIPOCA e mande roer a corda (✦) no poste.",
+   "trap": 10,
+   "trapst": "shut"
+  },
+  {
+   "a": 70480,
+   "b": 70560,
+   "t": "Cogumelo brilhante: pule nele e, lá no alto, dê o pulo duplo!"
+  },
+  {
+   "a": 70660,
+   "b": 70800,
+   "lock": 2
+  },
+  {
+   "a": 70880,
+   "b": 71100,
+   "t": "O portão de ferro está preso por dois contrapesos. Puxe as 2 alavancas (✦ USAR) para ele subir.",
+   "yl": 520
+  },
+  {
+   "a": 72020,
+   "b": 72280,
+   "t": "Túnel escorado: abaixe sob as vigas (↓) e passe rápido pelas tábuas podres.",
+   "yl": 520
   },
   {
    "a": 72600,
@@ -6016,16 +6017,19 @@
    "t": "O buraco no chão! Entre nele e segure ↓!"
   },
   {
-   "a": 50000,
-   "b": 51300,
-   "t": "Desvie das patadas! Na terceira que ele errar, ele fica tonto. Suba no gelo e nos galhos para pular por cima dele.",
-   "yl": 520
+   "a": 75520,
+   "b": 76000,
+   "t": "É ele! Corra atrás do carrinho: pule os buracos e abaixe-se sob as vigas (↘ desliza)."
   },
   {
-   "a": 63300,
-   "b": 63600,
-   "t": "Gangorra! Dê um MERGULHO na ponta de cá: a pedra voa lá no alto do pinheiro e derruba o que estava preso.",
-   "yl": 520
+   "a": 76940,
+   "b": 77080,
+   "t": "Um carrinho parado no caminho: pule por cima!"
+  },
+  {
+   "a": 77100,
+   "b": 77220,
+   "t": "A ponte de madeira caiu: pule de tábua em tábua."
   }
  ],
  "pits": [
@@ -6250,7 +6254,7 @@
    "gate": "g3"
   },
   {
-   "x": 10320,
+   "x": 10440,
    "y": 500,
    "w": 60,
    "gate": "g4"
@@ -6436,7 +6440,7 @@
   },
   {
    "k": "flower",
-   "x": 2470,
+   "x": 2512,
    "y": 500,
    "to": [
     2750,
@@ -6492,13 +6496,6 @@
    "ph": 30
   },
   {
-   "k": "web",
-   "x": 7340,
-   "y": -150,
-   "w": 76,
-   "h": 130
-  },
-  {
    "k": "swing",
    "x": 10010,
    "y": 300,
@@ -6506,11 +6503,6 @@
    "amp": 0.95,
    "per": 170,
    "ph": 0
-  },
-  {
-   "k": "hive",
-   "x": 15450,
-   "y": 420
   },
   {
    "k": "sand",
@@ -6647,19 +6639,12 @@
    ]
   },
   {
-   "k": "web",
-   "x": 66625,
-   "y": 380,
-   "w": 76,
-   "h": 120
-  },
-  {
    "k": "boulder",
    "x": 72700,
    "y": 500,
    "r": 56,
    "trig": 72890,
-   "vmax": 6.0,
+   "vmax": 3.6,
    "end": 74830,
    "smash": [
     "bo1",
@@ -6672,6 +6657,23 @@
     74410,
     74480
    ]
+  },
+  {
+   "k": "hive",
+   "x": 2440,
+   "y": 474,
+   "tx": 2382,
+   "tw": 70
+  },
+  {
+   "k": "hive",
+   "x": 15450,
+   "y": 474
+  },
+  {
+   "k": "hive",
+   "x": 22850,
+   "y": 474
   }
  ],
  "cattails": [
@@ -7346,5 +7348,79 @@
     "n": 3
    }
   ]
- }
+ },
+ "oil": [
+  [
+   64610,
+   468
+  ],
+  [
+   64805,
+   468
+  ],
+  [
+   65985,
+   468
+  ],
+  [
+   66885,
+   468
+  ],
+  [
+   67785,
+   468
+  ],
+  [
+   68685,
+   468
+  ],
+  [
+   69585,
+   468
+  ],
+  [
+   70485,
+   468
+  ],
+  [
+   71180,
+   468
+  ],
+  [
+   71810,
+   468
+  ],
+  [
+   72710,
+   468
+  ],
+  [
+   73220,
+   468
+  ],
+  [
+   74120,
+   468
+  ],
+  [
+   75020,
+   468
+  ],
+  [
+   75910,
+   468
+  ],
+  [
+   76560,
+   468
+  ],
+  [
+   77040,
+   468
+  ],
+  [
+   77940,
+   468
+  ]
+ ]
 }

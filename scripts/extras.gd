@@ -348,6 +348,40 @@ func crawl_auto(dir: int) -> bool:
 			return true
 	return false
 
+## tem alguma coisa para USAR aqui perto? (o botão da mão só aparece nessa hora)
+func near_use() -> bool:
+	var p: Dictionary = g.player
+	var pcx: float = p.x + p.w / 2
+	var feet: float = p.y + p.h
+	if not DOG.is_empty() and DOG.st == "tied" and abs(pcx - DOG.x) < 70 and abs(feet - DOG.y) < 50:
+		return true
+	for tc in TOCAS:
+		if not tc.done and abs(pcx - tc.x) < 80 and abs(feet - tc.y) < 50:
+			return true
+	for c in CRACKS:
+		if not broken.has(c.id) and c.get("kind") != "slam" and Game.hit(g.R(p.x - 46, p.y - 40, p.w + 92, p.h + 60), c):
+			return true
+	for m in MIRRORS:
+		if not m.get("ceil") and abs(pcx - m.x) < 42 and abs(p.y + p.h / 2 - m.y) < 60:
+			return true
+	return false
+
+## o facho da lanterna serve para alguma coisa aqui? (gavião, coruja, morcego, cristal)
+func beam_useful() -> bool:
+	if not g.lantern_lit:
+		return false
+	var p: Dictionary = g.player
+	var pcx: float = p.x + p.w / 2
+	if g.K and not g.K.HAWK.is_empty() and g.K.HAWK.active and not g.K.HAWK.done:
+		return true
+	for e in g.EN:
+		if not e.dead and e.k in ["owl", "bat"] and abs(e.x - pcx) < 360:
+			return true
+	for c in CRYSTALS:
+		if not c.on and abs(c.x - pcx) < 320:
+			return true
+	return false
+
 # ---------- picareta ----------
 func _use_crack() -> bool:
 	var p: Dictionary = g.player

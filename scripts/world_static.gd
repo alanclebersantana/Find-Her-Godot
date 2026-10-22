@@ -38,8 +38,9 @@ func _draw_raw() -> void:
 		var ca: float = max(float(c.x), x0)
 		var cb: float = min(float(c.x + c.w), x1)
 		if c.get("ice"):
-			# caverna de gelo: azul escuro com pingentes no teto
+			# caverna de gelo: paredes de gelo com textura (placas facetadas, veios e brilho) e pingentes no teto
 			Spr.vgrad(ca, c.y, cb - ca, c.h, Color("#3a5a7a"), Color("#16263a"))
+			_ice_wall(ca, cb, c.y, c.h)
 			var ix: float = c.x + 14
 			while ix < c.x + c.w - 14:
 				if ix >= x0 and ix < x1:
@@ -119,12 +120,20 @@ func _draw_raw() -> void:
 				var tp := PackedVector2Array()
 				var bp := PackedVector2Array()
 				var ix: float = s.x
+				var rr0: float = (s.h + 3) * .5
 				while ix <= s.x + s.w:
-					var u: float = (ix - s.x) / s.w
-					var endk: float = 1.0 - pow(abs(u - .5) * 2.0, 8.0)
-					tp.push_back(Vector2(ix, s.y + 1.5 * sin(ix * .05) + (1.0 - endk) * 5))
-					bp.push_back(Vector2(ix, s.y + s.h + 3 + 2 * sin(ix * .08 + 1.0) - (1.0 - endk) * 5))
-					ix += 10
+					# pontas redondas (meio círculo) nas duas pontas
+					var dd: float = min(ix - s.x, s.x + s.w - ix)
+					var ins: float = 0.0
+					if dd < rr0:
+						ins = rr0 - sqrt(max(0.0, rr0 * rr0 - (rr0 - dd) * (rr0 - dd)))
+					var wv: float = 1.0 if dd > rr0 * 2 else dd / (rr0 * 2)
+					tp.push_back(Vector2(ix, s.y + 1.5 * sin(ix * .05) * wv + ins))
+					bp.push_back(Vector2(ix, s.y + s.h + 3 + 2 * sin(ix * .08 + 1.0) * wv - ins))
+					var nx: float = ix + (3.0 if dd < rr0 * 2 + 10 else 10.0)
+					if ix < s.x + s.w and nx > s.x + s.w:
+						nx = s.x + s.w
+					ix = nx if nx > ix else ix + 10
 				var ip := PackedVector2Array(tp)
 				for i in range(bp.size() - 1, -1, -1):
 					ip.push_back(bp[i])
@@ -288,6 +297,37 @@ func _cave_border(c: Dictionary, ice: bool) -> void:
 			y += 10
 		pts.push_back(Vector2(e - dir, c.y + c.h))
 		Spr.poly(pts, rock)
+
+## fundo da caverna de gelo: placas facetadas de gelo (mais claras em cima), veios, bolhas presas
+func _ice_wall(ca: float, cb: float, y0: float, h: float) -> void:
+	var x: float = floor(ca / 70.0) * 70.0 - 70
+	while x < cb + 70:
+		var k1: float = hh(x, 71)
+		var k2: float = hh(x, 72)
+		var yy: float = y0 + 6
+		var row := 0
+		while yy < y0 + h - 10:
+			var ph: float = 40 + hh(x + row * 13, 73) * 50
+			var ox: float = (k1 - .5) * 20 + (row % 2) * 30
+			var w: float = 64 + k2 * 26
+			var pa := Vector2(x + ox, yy)
+			var pts := PackedVector2Array([pa, pa + Vector2(w * .6, -3), pa + Vector2(w, ph * .35), pa + Vector2(w * .8, ph), pa + Vector2(w * .15, ph + 4), pa + Vector2(-6, ph * .5)])
+			var u: float = (yy - y0) / h
+			var cc := Color(.62, .8, .95, .16 - u * .1).lerp(Color(.3, .5, .7, .1), hh(x + row, 74))
+			Spr.poly(pts, cc)
+			# aresta clara em cima e escura embaixo (cada placa parece ter volume)
+			Spr.seg(pts[0].x, pts[0].y, pts[1].x, pts[1].y, Color(.9, .97, 1, .28 - u * .18), 1.5)
+			Spr.seg(pts[3].x, pts[3].y, pts[4].x, pts[4].y, Color(.08, .15, .26, .3), 1.5)
+			# veio branco atravessando a placa
+			if hh(x + row, 75) > .55:
+				Spr.seg(pa.x + w * .2, pa.y + ph * .2, pa.x + w * .55, pa.y + ph * .75, Color(1, 1, 1, .12), 1.2)
+			# bolhinhas de ar presas no gelo
+			if hh(x + row, 76) > .6:
+				Spr.circle(pa.x + w * .5, pa.y + ph * .5, 2.5, Color(.9, .97, 1, .25))
+				Spr.circle(pa.x + w * .58, pa.y + ph * .4, 1.5, Color(.9, .97, 1, .2))
+			yy += ph - 6
+			row += 1
+		x += 70
 
 ## parede de um buraco: terra desmoronada, entrando no vão com contorno de pedras, escurecendo para baixo
 func _pit_wall(e: float, y0: float, dir: float) -> void:

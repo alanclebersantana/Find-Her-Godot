@@ -27,8 +27,7 @@ func _ready() -> void:
 	for n in NAMES:
 		sfx[n] = load("res://assets/audio/%s.wav" % n)
 	# latido do Pipoca: só uma vez, quando ele acha algo escondido
-	if ResourceLoader.exists("res://assets/audio/bark.wav"):
-		sfx["bark"] = load("res://assets/audio/bark.wav")
+	# o latido do Pipoca foi retirado (ficava repetitivo): "bark" não toca nada
 	for k in STEPS:
 		for v in ["a", "b"]:
 			var sp := "res://assets/audio/step_%s_%s.wav" % [k, v]
@@ -73,9 +72,21 @@ func set_on(v: bool) -> void:
 	Save.setv("opt", "sound", v)
 	_apply()
 
+## sons que se repetem muito: mais baixos e sempre um pouco diferentes (tom variando)
+const TRIM := {"coin": -6.0, "jump": -5.0, "stomp": -3.0, "climb": -5.0, "swing": -4.0, "splash": -3.0, "crate": -3.0, "spring": -3.0, "unlock": -3.0}
+var _last := {}
 func play(n: String, vol_db: float = 0.0, pitch: float = 1.0) -> void:
 	if not sfx.has(n):
 		return
+	# o mesmo som não empilha no mesmo instante (lápis em sequência, passos)
+	var now := Time.get_ticks_msec()
+	if now - int(_last.get(n, -1000)) < 45:
+		return
+	_last[n] = now
+	if TRIM.has(n):
+		vol_db += TRIM[n]
+		if pitch == 1.0:
+			pitch = randf_range(.93, 1.07)
 	for p in players:
 		if not p.playing:
 			p.stream = sfx[n]
@@ -84,13 +95,14 @@ func play(n: String, vol_db: float = 0.0, pitch: float = 1.0) -> void:
 			p.play()
 			return
 	players[0].stream = sfx[n]
+	players[0].volume_db = vol_db
 	players[0].pitch_scale = pitch
 	players[0].play()
 
 ## passo no tipo de chão (grama, terra, neve, madeira, pedra, lama), com variação de tom
 const STEPS := ["grass", "dirt", "snow", "wood", "stone", "mud"]
 var _alt := false
-func step(kind: String, vol_db: float = -16.0) -> void:
+func step(kind: String, vol_db: float = -19.0) -> void:
 	_alt = not _alt
 	play("step_%s_%s" % [kind, "a" if _alt else "b"], vol_db, randf_range(.9, 1.12))
 

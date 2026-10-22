@@ -68,3 +68,6 @@ for i, p in enumerate(pages):
     p.save(os.path.join(ROOT, 'assets', 'sprites', 'paint%d.png' % (i + 1)))
 json.dump(out, open(os.path.join(ROOT, 'assets', 'data', 'paint.json'), 'w'), indent=0)
 print(len(out), 'peças em', len(pages), 'página(s)')
+
+import subprocess, sys
+subprocess.run([sys.executable, os.path.join(ROOT, 'tools', 'make_sil.py')])

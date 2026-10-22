@@ -138,7 +138,24 @@ func __draw_raw() -> void:
 		var hop_u: float = (g.T - st0) / 18.0
 		if hop_u >= 0 and hop_u < 1:
 			Spr.translate(0, -sin(hop_u * PI) * 12)
+		# inimigo: contorno vermelho pulsando (mais forte quando o Tomé está perto) — os bichos
+		# do cenário nunca têm isso
+		if not e.dead and not (e.k == "leech" and e.get("hid", true)) and not (e.k == "mole" and e.get("st", 0) in [0, 1]):
+			var pp: Dictionary = g.player
+			var dn: float = clamp(1.0 - Vector2(pp.x + pp.w / 2 - e.x, pp.y + pp.h / 2 - e.y).length() / 420.0, 0, 1)
+			var pul: float = .5 + .5 * sin(T * .14 + e.x * .01)
+			var oa: float = (.35 + .5 * dn) * (.55 + .45 * pul)
+			Spr.glow(e.x, e.y - 14, 46 + 10 * dn, Color(1, .15, .08, .10 + .12 * dn * pul))
+			Spr.sil_c = Color(1, .12, .06, oa)
+			for d in OUT8:
+				Spr.save()
+				Spr.translate(d.x * 2.6, d.y * 2.6)
+				_enemy(e)
+				Spr.restore()
+			Spr.sil_c = Color(0, 0, 0, 0)
 		_enemy(e)
+		if not e.dead:
+			_enemy_eyes(e)
 		# clarão branco logo que leva o golpe
 		if e.dead > 0 and e.dead <= 5:
 			Spr.sil_c = Color(1, 1, 1, .9 * (1.0 - (e.dead - 1) / 5.0))
@@ -462,15 +479,62 @@ func _enemy_fx_under(g: Game, e: Dictionary, eo: Vector2) -> void:
 			e.seen = true
 			e.startT = g.T
 
-## "!" do susto e estrelinhas girando quando está tonto
+const OUT8 := [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1), Vector2(.7, .7), Vector2(-.7, .7), Vector2(.7, -.7), Vector2(-.7, -.7)]
+## estados em que o bicho começa um ataque (aparece o "!" vermelho antes)
+const ATK := {"crow": [5], "squirrel": [1], "spider": [1], "bat": [1], "owl": [1], "mole": [2]}
+## nomes para a dica do primeiro encontro
+const EN_NAME := {"crow": "Corvo", "bat": "Morcego", "fly": "Mosca", "spider": "Aranha", "squirrel": "Esquilo bravo",
+	"frog": "Sapo", "piranha": "Piranha", "leech": "Sanguessuga", "boar": "Javali", "owl": "Coruja brava", "mole": "Toupeira"}
+## olhos vermelhos brilhando (posição na arte de cada bicho, olhando para a direita)
+const EYES := {"crow": [Vector2(17, -13)], "squirrel": [Vector2(28, -25)], "bat": [Vector2(8, 5), Vector2(13, 5)],
+	"spider": [Vector2(-3, 3), Vector2(3, 3)], "fly": [Vector2(13, 2)], "frog": [Vector2(-5, -38), Vector2(6, -38)], "boar": [Vector2(25, -28)],
+	"piranha": [Vector2(13, -8)]}
+
+func _enemy_eyes(e: Dictionary) -> void:
+	var ey: Array = EYES.get(e.k, [])
+	if ey.is_empty() or (e.k == "bat" and e.get("st", 0) == 0):
+		return
+	var f: float = 1.0 if e.dir > 0 else -1.0
+	var b: float = .75 + .25 * sin(T * .2 + e.x)
+	var oy: float = e.get("eyeY", 0.0)
+	for v in ey:
+		var x: float = e.x + v.x * f
+		var y: float = e.y + v.y + oy
+		Spr.glow(x, y, 9, Color(1, .1, .05, .55 * b))
+		Spr.circle(x, y, 2.4, Color(1, .2, .1, b))
+		Spr.circle(x - .6, y - .6, .9, Color(1, .9, .8, b))
+
+## "!" vermelho (viu o Tomé / vai atacar) e estrelinhas girando quando está tonto
 func _enemy_fx_over(g: Game, e: Dictionary, eo: Vector2, hop_u: float) -> void:
 	if e.dead:
 		return
 	var hx: float = e.x + eo.x
 	var hy: float = e.y + eo.y - (34 if not Game.FLY.has(e.k) else 30)
-	if hop_u >= 0 and hop_u < 1.6:
+	# primeiro encontro com cada tipo de inimigo: dica curta dizendo que ele é perigoso
+	if e.get("seen") and not g.en_seen.has(e.k) and EN_NAME.has(e.k):
+		g.en_seen[e.k] = true
+		g.flash("%s: inimigo (olhos e contorno vermelhos). Pule na cabeça ou use a picareta." % EN_NAME[e.k], 170)
+	var s: int = e.get("st", 0)
+	if s != e.get("pst", 0) and ATK.get(e.k, []).has(s):
+		e.warnT = 34
+	e.pst = s
+	if e.get("charge") and not e.get("pch"):
+		e.warnT = 34
+	e.pch = e.get("charge", false)
+	if e.k == "frog":
+		var jt: int = int(e.get("jt", 0)) % 130
+		var pp: Dictionary = g.player
+		if jt >= 74 and jt < 100 and abs(pp.x - e.x) < 320:
+			e.warnT = max(e.get("warnT", 0), 2)
+	var wt: int = e.get("warnT", 0)
+	if wt > 0:
+		e.warnT = wt - 1
+		var k: float = min(1.0, wt / 8.0)
+		var sc: float = 1.0 + .25 * sin(wt * .5)
+		Spr.text("!", hx, hy - 24, int(28 * sc), Color(1, .2, .12, k), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 5, Color(.25, 0, 0, k * .9))
+	elif hop_u >= 0 and hop_u < 1.6:
 		var a: float = clamp(1.6 - hop_u, 0, 1)
-		Spr.text("!", hx, hy - 22 - sin(min(hop_u, 1.0) * PI) * 12, 26, Color(1, .92, .4, a), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 5, Color(.25, .12, 0, a * .9))
+		Spr.text("!", hx, hy - 22 - sin(min(hop_u, 1.0) * PI) * 12, 26, Color(1, .25, .15, a), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 5, Color(.25, 0, 0, a * .9))
 	if e.get("stun", 0) > 0:
 		dizzy(hx, hy - 8, T)
 
@@ -677,37 +741,58 @@ func _levers(g: Game) -> void:
 	if G.x < g.cam - 300 or G.x > g.cam + g.W + 300:
 		return
 	var y: float = float(LV.y)
-	# portão de grades subindo
+	# portão de ferro forjado subindo entre batentes de pedra, com duas luzinhas (uma por alavanca)
 	var gx: float = G.x
 	var gy: float = G.y
-	Spr.rect(gx - 6, 372, G.w + 12, 10, Color("#3a3632"))
-	for k in 4:
-		var bx: float = gx + 2 + k * (G.w - 4) / 3.0
-		Spr.rect(bx - 2, gy, 4, G.h, Color("#5a5650"))
-		Spr.rect(bx - 1, gy, 1.5, G.h, Color(1, 1, 1, .15))
-	for k in 3:
-		Spr.rect(gx - 2, gy + 14 + k * 38, G.w + 4, 5, Color("#4a4642"))
-	for k in 4:
-		Spr.poly(PackedVector2Array([Vector2(gx + 2 + k * (G.w - 4) / 3.0 - 3, gy + G.h), Vector2(gx + 2 + k * (G.w - 4) / 3.0, gy + G.h + 8), Vector2(gx + 2 + k * (G.w - 4) / 3.0 + 3, gy + G.h)]), Color("#5a5650"))
-	# polia no teto e corrente até o portão
+	var ndown := 0
+	for o in LV.list:
+		if o.down:
+			ndown += 1
+	Spr.PR("wb3", gx - 16, 360, G.w + 32, 24, Color(.75, .72, .7))
+	Spr.PR("gate_iron", gx - 6, gy - 10, G.w + 12, G.h + 10)
+	for k in 2:
+		var lit: bool = k < ndown
+		var lx2: float = gx + G.w / 2 + (k - .5) * 16
+		if lit:
+			Spr.glow(lx2, 372, 14, Color(1, .85, .4, .6))
+		Spr.circle(lx2, 372, 4, Color(1, .85, .4) if lit else Color(.25, .22, .2))
+	# roldana no teto
 	Spr.circle(gx + G.w / 2, 392, 9, Color("#4a4642"))
 	Spr.ring(gx + G.w / 2, 392, 9, Color("#2a2622"), 2)
+	var near_any: bool = false
 	for lv in LV.list:
 		var lx: float = float(lv.x)
 		var a: float = lv.a
-		# base e alavanca (para cima = solta; para baixo = puxada)
-		Spr.rr(lx - 10, y - 14, 20, 14, 4, Color("#4a4642"))
-		var ang: float = lerpf(-.9, .9, a)
-		var tip := Vector2(lx, y - 10) + Vector2(sin(ang), -cos(ang)) * 34
-		Spr.seg(lx, y - 10, tip.x, tip.y, Color("#6b4a2a"), 5)
-		Spr.circle(tip.x, tip.y, 6, Color("#c03a2a") if not lv.down else Color("#3a9a3a"))
-		# contrapeso descendo do teto, com a corrente
 		var wy: float = lerpf(390, 452, a)
-		Spr.seg(lx, 380, lx, wy - 12, Color("#5a5650"), 2)
-		Spr.rr(lx - 13, wy - 12, 26, 22, 4, Color("#6a645c"))
-		Spr.rr(lx - 10, wy - 9, 20, 5, 2, Color(1, 1, 1, .15))
-		if not lv.down and abs(g.player.x + g.player.w / 2 - lx) < 50 and (T / 20) % 2 == 0:
-			Spr.text("✦", lx, y - 60, 18, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3)
+		# corrente da alavanca até o contrapeso e do contrapeso até a roldana do portão
+		_chain(Vector2(lx, wy - 12), Vector2(lx, 384))
+		_chain(Vector2(lx, 384), Vector2(gx + G.w / 2 - 8, 388))
+		# contrapeso de pedra com argola
+		Spr.PR("wb2", lx - 15, wy - 14, 30, 26, Color(.7, .7, .74))
+		Spr.ring(lx, wy - 14, 4, Color("#5f5a55"), 2)
+		# alavanca pintada na base de pedra (gira de cima para baixo ao puxar)
+		Spr.save()
+		Spr.translate(lx, y)
+		Spr.rotate(lerpf(-.35, .9, a))
+		Spr.P("lever", 0, 2, 40)
+		Spr.restore()
+		var near: bool = not lv.down and abs(g.player.x + g.player.w / 2 - lx) < 60
+		if near:
+			near_any = true
+			Spr.glow(lx, y - 26, 30, Color(1, .85, .45, .25 + .15 * sin(T * .15)))
+			Spr.ci.draw_texture_rect(Spr.tex.btn_use if Spr.tex.has("btn_use") else Spr.tex.pad_S, Rect2(lx - 15, y - 82 + sin(T * .12) * 3, 30, 30), false, Color(1, 1, 1, .95))
+			Spr.text("PUXAR", lx, y - 40 + sin(T * .12) * 3, 13, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3)
+
+## corrente de elos de ferro entre dois pontos
+func _chain(a: Vector2, b: Vector2) -> void:
+	var L2: float = a.distance_to(b)
+	var n: int = max(1, int(L2 / 7.0))
+	for i in n:
+		var p: Vector2 = a.lerp(b, (i + .5) / n)
+		if i % 2 == 0:
+			Spr.ellipse(p.x, p.y, 3.2, 2.2, Color("#5f5a55"), atan2(b.y - a.y, b.x - a.x))
+		else:
+			Spr.ellipse(p.x, p.y, 2.4, 1.2, Color("#3a3632"), atan2(b.y - a.y, b.x - a.x))
 
 # ---------- reflexo do Tomé na água ----------
 func _reflection(g: Game) -> void:
