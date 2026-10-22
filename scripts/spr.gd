@@ -187,6 +187,14 @@ func PRs(n: String, x: float, y: float, w: float, h: float, u0: float, u1: float
 	var col := Color(c.r, c.g, c.b, c.a * alpha)
 	ci.draw_texture_rect_region(atlas_tex(r), Rect2(x, y, w, h), Rect2(r[0] + r[2] * u0, r[1], r[2] * (u1 - u0), r[3]), col)
 
+## só uma faixa de linhas (v0..v1, de 0 em cima a 1 embaixo) da peça pintada, em (x, y, w, h)
+func PB(n: String, x: float, y: float, w: float, h: float, v0: float, v1: float, c: Color = Color.WHITE) -> void:
+	var r = AR.get("p_" + n)
+	if r == null:
+		return
+	var col := Color(c.r, c.g, c.b, c.a * alpha)
+	ci.draw_texture_rect_region(atlas_tex(r), Rect2(x, y, w, h), Rect2(r[0], r[1] + r[3] * v0, r[2], r[3] * (v1 - v0)), col)
+
 ## peça pintada repetida na vertical (escada, corda, cipó): largura w, de y até y+h
 func PV(n: String, x: float, y: float, w: float, h: float, c: Color = Color.WHITE) -> void:
 	var r = AR.get("p_" + n)

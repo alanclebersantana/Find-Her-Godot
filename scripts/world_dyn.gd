@@ -88,6 +88,7 @@ func __draw_raw() -> void:
 	var __d_Props_draw := Time.get_ticks_usec()
 	WorldProps.draw(g, T)
 	Spr.pt("d_Props_draw", __d_Props_draw)
+	WorldLake.back(g, T)
 	var __d_Traps_draw := Time.get_ticks_usec()
 	WorldTraps.draw(g, T)
 	Spr.pt("d_Traps_draw", __d_Traps_draw)

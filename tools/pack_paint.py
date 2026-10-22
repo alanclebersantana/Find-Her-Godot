@@ -13,7 +13,7 @@ MAXS = [
     ('crate', 128), ('log', 260), ('ladder', 150), ('rope', 150), ('vine', 150), ('gate', 260),
     ('stake', 150), ('lever', 128), ('seesaw_plank', 300), ('seesaw_rock', 120),
     ('tuc', 128), ('goose', 72), ('rab', 96), ('bfly', 48), ('frog', 72), ('owl', 96), ('bird', 64),
-    ('spider', 120), ('logend', 110), ('hive', 130), ('bee', 40), ('web', 200), ('sign', 120), ('apple', 48), ('icicle', 90), ('bat', 110), ('fly', 72), ('leech', 96), ('piranha', 110),
+    ('spider', 120), ('logend', 110), ('hive', 130), ('bee', 40), ('web', 200), ('sign', 120), ('apple', 48), ('icicle', 90), ('alga', 170), ('bat', 110), ('fly', 72), ('leech', 96), ('piranha', 110),
 ]
 PAGE = 2048
 PAD = 2

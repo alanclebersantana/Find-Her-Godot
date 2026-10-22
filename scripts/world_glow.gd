@@ -327,6 +327,7 @@ func _extras(g: Game, T: int) -> void:
 		# tinge de leve: o Tomé e os peixes continuam bem visíveis debaixo d'água
 		_water(g, max(w.x, g.cam - 40), min(w.x + w.w, g.cam + g.W + 40), w.y, w.h, Color(.24, .52, .6, .26), Color(.04, .14, .22, .4), T, false, 0.0, "w%d" % X.WATER.find(w), w.x, w.x + w.w)
 		Spr.rect(w.x, w.y, w.w, w.h, Color(.02, .03, .08, dark * .25))
+	WorldLake.front(g, T)
 	WorldKings.draw_fish(g, T)
 	WorldNature.draw_bogs(g, T)
 	for b in X.BUB:
@@ -482,14 +483,6 @@ func _water(g: Game, a: float, b: float, y: float, depth: float, c0: Color, c1: 
 			Spr.ellipse(rx + sin(T * .1 + k) * 3, y + 6 + k * 7, 14 - k * 2.5, 2, Color(1, .85, .5, al * (1.0 - k * .2)))
 	if not swamp and not key.begins_with("s") and depth > 40:
 		# luz dançando no fundo (cáusticas) e fachos de luz entrando na água
-		var cy0: float = y + depth - 26
-		for k in 3:
-			var cpts := PackedVector2Array()
-			var cx: float = a
-			while cx <= b + .1:
-				cpts.push_back(Vector2(cx, cy0 + k * 8 + sin(cx * (.05 + k * .013) + T * (.05 - k * .012) + k) * 5 + sin(cx * .13 - T * .07) * 2))
-				cx += 10
-			Spr.line(cpts, Color(.85, 1, 1, .12 - k * .03), 2.2 - k * .5)
 		var rk: float = floor(a / 90.0) * 90.0
 		while rk < b:
 			var ra: float = .045 + .03 * sin(T * .02 + rk * .01)
@@ -498,22 +491,6 @@ func _water(g: Game, a: float, b: float, y: float, depth: float, c0: Color, c1: 
 				Spr.ci.draw_polygon(PackedVector2Array([Vector2(r0, y + 6), Vector2(r0 + 20, y + 6), Vector2(r0 + 46, y + min(depth, 160.0)), Vector2(r0 + 18, y + min(depth, 160.0))]),
 					PackedColorArray([Color(1, 1, .9, ra), Color(1, 1, .9, ra), Color(1, 1, .9, 0), Color(1, 1, .9, 0)]))
 			rk += 90
-	# fundo pintado: pedrinhas e algas balançando (água limpa e funda)
-	if not swamp and not key.begins_with("s") and depth > 60:
-		var fx0: float = floor(a / 64.0) * 64.0
-		while fx0 < b:
-			var hv: float = fmod(abs(fx0) * 1.37, 1.0)
-			if fx0 > a + 10 and fx0 < b - 10:
-				var fyb: float = y + depth - 2
-				if hv < .35:
-					Spr.P("peb%d" % int(hv * 8.5), fx0, fyb + 2, 16 + hv * 20, false, 0.0, Color(.55, .7, .78, .85))
-				elif hv < .7:
-					var ah: float = 22 + hv * 30
-					var sw2: float = sin(T * .03 + fx0) * 6
-					for j in 3:
-						var jx2: float = fx0 + (j - 1) * 5
-						Spr.ci.draw_polyline(PackedVector2Array([Vector2(jx2, fyb), Vector2(jx2 + sw2 * .4, fyb - ah * .5), Vector2(jx2 + sw2, fyb - ah * (.8 + j * .1))]), Color(.25, .5, .35, .6), 3, true)
-			fx0 += 64
 	# reflexo do céu: faixas claras e largas logo abaixo da superfície, ondulando devagar
 	if not swamp:
 		for k in 2:
