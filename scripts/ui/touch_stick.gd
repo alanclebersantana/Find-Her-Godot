@@ -123,7 +123,7 @@ func _draw() -> void:
 	var al := opacity
 	if mode == "dpad":
 		var c := _home()
-		draw_circle(c, r * 1.18, Color(.1, .08, .05, .35 * al))
+		draw_circle(c, r * 1.18, Color(.1, .08, .05, .18 * al))
 		var off := {"L": Vector2(-1, 0), "R": Vector2(1, 0), "U": Vector2(0, -1), "S": Vector2(0, 1)}
 		for k in off:
 			var t: Texture2D = tex[k]

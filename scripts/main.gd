@@ -10,8 +10,8 @@ var glow_layer: CanvasLayer
 var screen_layer: CanvasLayer
 var hud_layer: CanvasLayer
 var ui_layer: CanvasLayer
-var modulate_node: CanvasModulate
-var player_light: PointLight2D
+var light_map: LightMap
+var player_light: LightMap.Dot
 var lights: Array = []
 var touch: Array = []
 var stick: Control
@@ -19,6 +19,8 @@ var top_buttons: HBoxContainer
 var snd_btn: Button
 var dog_btn: TextureButton
 var tex_dog: Texture2D = preload("res://assets/ui/btn_dog.png")
+var bag_btn: TextureButton
+var hint_btn: TextureButton
 var tex_tome: Texture2D = preload("res://assets/ui/btn_tome.png")
 var panel: Control = null
 var bag_sel := ""
@@ -38,8 +40,8 @@ func _ready() -> void:
 	RenderingServer.set_default_clear_color(Color("#0b0906"))
 	# fluidez: o jogo anda a 60 passos por segundo, o mesmo ritmo da tela (a 44 a imagem tremia);
 	# quem nunca mexeu na velocidade passa para 60 uma vez só
-	if not Save.getv("opt", "tps60", false):
-		Save.setv("opt", "tps60", true)
+	if not Save.getv("opt", "tps60b", false):
+		Save.setv("opt", "tps60b", true)
 		Save.setv("opt", "tps", 60)
 	Engine.physics_ticks_per_second = int(Save.getv("opt", "tps", 60))
 	Engine.max_fps = 0
@@ -57,18 +59,21 @@ func _ready() -> void:
 		var dr := preload("res://scripts/ui/drawing_reveal.gd").new()
 		dr.kind = [0, 1, 3][clamp(i, 0, 2)]
 		hud_layer.add_child(dr))
+	light_map = LightMap.new()
+	light_map.game = game
+	add_child(light_map)
 	glow_layer = CanvasLayer.new()
-	glow_layer.layer = 1
+	glow_layer.layer = 2
 	glow_layer.follow_viewport_enabled = true
 	add_child(glow_layer)
 	screen_layer = CanvasLayer.new()
-	screen_layer.layer = 2
+	screen_layer.layer = 3
 	add_child(screen_layer)
 	hud_layer = CanvasLayer.new()
-	hud_layer.layer = 3
+	hud_layer.layer = 4
 	add_child(hud_layer)
 	ui_layer = CanvasLayer.new()
-	ui_layer.layer = 4
+	ui_layer.layer = 5
 	add_child(ui_layer)
 	var sky := preload("res://scripts/sky_fx.gd").new()
 	sky.game = game
@@ -103,12 +108,10 @@ func _build_world() -> void:
 	for c in glow_layer.get_children():
 		c.queue_free()
 	lights.clear()
+	light_map.clear()
 	var bg := preload("res://scripts/bg.gd").new()
 	bg.game = game
 	bg.z_index = -10
-	var bm := ShaderMaterial.new()
-	bm.shader = preload("res://scripts/blur.gdshader")
-	bg.material = bm
 	game.add_child(bg)
 	var span: int = game.L.spanX
 	var x := 0
@@ -125,8 +128,6 @@ func _build_world() -> void:
 	var gl := preload("res://scripts/world_glow.gd").new()
 	gl.game = game
 	glow_layer.add_child(gl)
-	modulate_node = CanvasModulate.new()
-	game.add_child(modulate_node)
 	# sons posicionados: fogueiras estalando e água correndo
 	for c in game.CHK:
 		Audio.emitter(game, "loop_fogo", Vector2(c.x, c.y - 20), -4.0 if c.has("rest") else -9.0, 700.0)
@@ -150,13 +151,9 @@ func _build_world() -> void:
 	lights.append({"n": _light(Color(1, .8, .5), 150), "pos": Vector2(game.DOOR.x + 30, game.DOOR.y + 20), "door": true})
 	lights.append({"n": _light(Color(1, .85, .55), 100), "vil": true})
 	# cone de luz quente da lanterna, para o lado em que o Tomé olha
-	cone_light = PointLight2D.new()
-	cone_light.texture = _cone_tex()
-	cone_light.color = Color(1, .82, .5)
-	cone_light.energy = 0
+	cone_light = light_map.dot(Color(1, .82, .5), 128, _cone_tex())
 	cone_light.texture_scale = 1.0
 	cone_light.offset = Vector2(150, 0)
-	game.add_child(cone_light)
 	# cogumelos gigantes iluminam em volta com a cor deles
 	if game.TR:
 		for o in game.TR.T:
@@ -170,7 +167,7 @@ func _build_world() -> void:
 	if not game.X.GOLD.is_empty():
 		lights.append({"n": _light(Color(1, .85, .4), 90), "gold": true})
 
-var cone_light: PointLight2D
+var cone_light: LightMap.Dot
 ## textura do cone: claro perto da lanterna, abrindo e sumindo para a frente
 var _cone: Texture2D
 func _cone_tex() -> Texture2D:
@@ -201,19 +198,13 @@ func _make_light_tex() -> void:
 	t.height = 256
 	light_tex = t
 
-func _light(c: Color, r: float) -> PointLight2D:
-	var l := PointLight2D.new()
-	l.texture = light_tex
-	l.color = c
-	l.texture_scale = r * 2 / 256.0
-	l.energy = 0
-	game.add_child(l)
-	return l
+func _light(c: Color, r: float) -> LightMap.Dot:
+	return light_map.dot(c, r, light_tex)
 
 func _update_lights() -> void:
 	var a: float = game.AMB.dark
 	var dark: float = clamp(a, 0, 1)
-	modulate_node.color = Color(1, 1, 1).lerp(Color(.035, .05, .1), dark * .97)
+	light_map.ambient = Color(1, 1, 1).lerp(Color(.035, .05, .1), dark * .97)
 	var p: Dictionary = game.player
 	var pc := Vector2(p.x + p.w / 2, p.y + p.h / 2 + p.get("wdy", 0.0))
 	var out: bool = game.L.has("lanternOutX") and not game.lantern_lit and pc.x > game.L.lanternOutX
@@ -227,7 +218,7 @@ func _update_lights() -> void:
 		cone_light.rotation = 0.0 if p.face > 0 else PI
 		cone_light.energy = 0.0 if out else dark * .9 * (.25 + .75 * p.get("wal", 1.0))
 	for l in lights:
-		var n: PointLight2D = l.n
+		var n: LightMap.Dot = l.n
 		if l.has("chk"):
 			n.position = Vector2(l.chk.x, l.chk.y - 20)
 			n.energy = dark * (1.1 + sin(game.T * .3 + l.chk.x) * .12) if l.chk.on else 0.0
@@ -251,7 +242,22 @@ func _update_lights() -> void:
 			n.position = l.pos
 			n.energy = dark * 1.1
 
+var _slow_t := 0.0
 func _process(_d: float) -> void:
+	# qualidade automática: se o celular passar uns segundos abaixo de 45 quadros, desliga os enfeites
+	if state == S.PLAY and game.running and not game.low_fx:
+		if Engine.get_frames_per_second() < 45:
+			_slow_t += _d
+		else:
+			_slow_t = max(0.0, _slow_t - _d * .5)
+		if _slow_t > 4.0:
+			game.low_fx = true
+			Save.setv("opt", "lowfx", true)
+	if hint_btn:
+		hint_btn.visible = top_buttons.visible and hud.can_replay()
+		hint_btn.position = Vector2(352, 8)
+	if bag_btn:
+		bag_btn.visible = top_buttons.visible
 	if dog_btn and game.X:
 		dog_btn.visible = top_buttons.visible and game.X.dog_free()
 		dog_btn.texture_normal = tex_tome if game.M.ctrl else tex_dog
@@ -535,39 +541,67 @@ func _layout() -> void:
 		b.position = pos + Vector2(off[0], off[1])
 	var so: Array = Save.getv("opt", "pos_stick", [0, 0])
 	stick.offset = Vector2(so[0], so[1])
+	# mochila e Pipoca: empilhados em cima do botão da picareta
+	var gpos := Vector2(vs.x - 100, vs.y - 260)
+	var gsz := 86.0
+	for b in touch:
+		if b.get_meta("k") == "G":
+			gsz = b.scale.x * b.texture_normal.get_width()
+			gpos = b.position
+	var bs := 54.0
+	var bx: float = gpos.x + (gsz - bs) / 2
+	if bag_btn:
+		var ob: Array = Save.getv("opt", "pos_bag", [0, 0])
+		bag_btn.size = Vector2(bs, bs)
+		bag_btn.position = Vector2(bx, gpos.y - 8 - bs) + Vector2(ob[0], ob[1])
+	if dog_btn:
+		var od: Array = Save.getv("opt", "pos_dog", [0, 0])
+		dog_btn.size = Vector2(bs, bs)
+		dog_btn.position = Vector2(bx, gpos.y - 16 - bs * 2) + Vector2(od[0], od[1])
 
 func _make_top_buttons() -> void:
-	# faixa do topo: só mochila e pausa (menores), logo à esquerda do painel com o nome do trecho;
-	# som e "voltar à fogueira" ficam no menu de pausa
+	# no topo só a pausa, no cantinho; mochila e Pipoca ficam empilhados em cima do botão da
+	# picareta (ao alcance do polegar). Som e "voltar à fogueira" ficam no menu de pausa
 	top_buttons = HBoxContainer.new()
 	top_buttons.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	top_buttons.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	top_buttons.offset_left = -262
-	top_buttons.offset_right = -262
+	top_buttons.offset_left = -56
+	top_buttons.offset_right = -8
 	top_buttons.offset_top = 6
 	top_buttons.offset_bottom = 6
-	top_buttons.add_theme_constant_override("separation", 6)
 	hud_layer.add_child(top_buttons)
-	var bag := TextureButton.new()
-	bag.texture_normal = load("res://assets/ui/btn_bag.png")
-	bag.ignore_texture_size = true
-	bag.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
-	bag.custom_minimum_size = Vector2(44, 44)
-	bag.pressed.connect(open_bag)
-	top_buttons.add_child(bag)
-	var pb := _small_btn("II", _toggle_pause)
-	pb.custom_minimum_size = Vector2(44, 44)
+	var pb := TextureButton.new()
+	pb.texture_normal = load("res://assets/ui/btn_pause.png")
+	pb.ignore_texture_size = true
+	pb.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+	pb.custom_minimum_size = Vector2(46, 46)
+	pb.pressed.connect(_toggle_pause)
 	top_buttons.add_child(pb)
+	bag_btn = TextureButton.new()
+	bag_btn.texture_normal = load("res://assets/ui/btn_bag.png")
+	bag_btn.ignore_texture_size = true
+	bag_btn.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+	bag_btn.size = Vector2(54, 54)
+	bag_btn.pressed.connect(open_bag)
+	hud_layer.add_child(bag_btn)
 	dog_btn = TextureButton.new()
 	dog_btn.texture_normal = load("res://assets/ui/btn_dog.png")
 	dog_btn.ignore_texture_size = true
 	dog_btn.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
-	dog_btn.custom_minimum_size = Vector2(46, 46)
+	dog_btn.size = Vector2(54, 54)
 	dog_btn.tooltip_text = "Trocar entre o Tomé e o Pipoca (Q)"
 	dog_btn.pressed.connect(func(): game.keys["Dp"] = true)
 	dog_btn.visible = false
-	top_buttons.add_child(dog_btn)
-	top_buttons.move_child(dog_btn, 0)
+	hud_layer.add_child(dog_btn)
+	# rever a dica do lugar (aparece quando a dica já sumiu)
+	hint_btn = TextureButton.new()
+	hint_btn.texture_normal = load("res://assets/ui/btn_hint.png")
+	hint_btn.ignore_texture_size = true
+	hint_btn.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+	hint_btn.size = Vector2(42, 42)
+	hint_btn.pressed.connect(func(): hud.show_hint_again())
+	hint_btn.visible = false
+	hud_layer.add_child(hint_btn)
 
 func _small_btn(t: String, cb: Callable) -> Button:
 	var b := Button.new()
@@ -719,7 +753,13 @@ func show_title() -> void:
 	_show_hud(false)
 	Audio.set_song("tema")
 	var vb := _overlay(.35)
-	var img := preload("res://scripts/ui/title_scene.gd").new()
+	# a ilustração da Isis desenhando, escurecida atrás do título (como era antes)
+	var img := TextureRect.new()
+	img.texture = load("res://assets/ui/cena1.jpg")
+	img.set_anchors_preset(Control.PRESET_FULL_RECT)
+	img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	img.modulate = Color(.55, .5, .45)
 	panel.add_child(img)
 	panel.move_child(img, 0)
 	vb.add_child(_label("ENCONTRE-A", 68, Color("#f2d28a"), Spr.font_title))
@@ -777,6 +817,8 @@ func show_options(from_pause: bool) -> void:
 					Engine.physics_ticks_per_second = val
 				if key == "sound":
 					Audio.set_on(val)
+				if key == "lowfx":
+					game.low_fx = val
 				apply_controls()
 				show_options(from_pause))
 			hb.add_child(b)
@@ -786,6 +828,7 @@ func show_options(from_pause: bool) -> void:
 	opt_row.call("Transparência", "btn_alpha", [["Clara", "clara"], ["Média", "media"], ["Forte", "forte"]], "media")
 	opt_row.call("Mão", "left", [["Destro", false], ["Canhoto", true]], false)
 	opt_row.call("Velocidade", "tps", [["Calma", 44], ["Média", 52], ["Normal (mais fluido)", 60]], 60)
+	opt_row.call("Efeitos", "lowfx", [["Completos", false], ["Leves (celular lento)", true]], false)
 	opt_row.call("Tutorial (dicas)", "tutorial", [["Ligado", true], ["Desligado", false]], true)
 	opt_row.call("Som", "sound", [["Ligado", true], ["Desligado", false]], true)
 	opt_row.call("Vibração", "vibrate", [["Sim", true], ["Não", false]], true)
@@ -822,7 +865,7 @@ func _edit_controls(from_pause: bool) -> void:
 		panel = null
 		show_options(from_pause))
 	var rst := _button("RESTAURAR", func():
-		for k in ["J", "A", "G", "stick"]:
+		for k in ["J", "A", "G", "stick", "bag", "dog"]:
 			Save.setv("opt", "pos_" + k, [0, 0])
 		_layout())
 	hb.add_child(rst)
@@ -843,6 +886,10 @@ class _CtrlEditor extends Control:
 			var sz: float = b.scale.x * b.texture_normal.get_width()
 			t[b.get_meta("k")] = [b.position + Vector2(sz, sz) / 2, sz / 2, b]
 		t["stick"] = [main.stick._home(), main.stick.radius * main.stick.ui_scale, null]
+		for nb in [["bag", main.bag_btn], ["dog", main.dog_btn]]:
+			var cb: TextureButton = nb[1]
+			if cb:
+				t[nb[0]] = [cb.position + cb.size / 2, cb.size.x / 2, cb]
 		return t
 	func _draw() -> void:
 		draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, .55))
@@ -854,9 +901,8 @@ class _CtrlEditor extends Control:
 			draw_circle(c, r + 6, Color(1, .85, .4, .25 if drag != k else .5))
 			draw_arc(c, r + 6, 0, TAU, 48, Color(1, .9, .6, .9), 3, true)
 			if t[k][2]:
-				var b: TouchScreenButton = t[k][2]
 				var sz: float = r * 2
-				draw_texture_rect(b.texture_normal, Rect2(c - Vector2(r, r), Vector2(sz, sz)), false)
+				draw_texture_rect(t[k][2].texture_normal, Rect2(c - Vector2(r, r), Vector2(sz, sz)), false)
 	func _gui_input(e: InputEvent) -> void:
 		var pos := Vector2.ZERO
 		var down := false
@@ -909,6 +955,7 @@ func start_level(cont: bool) -> void:
 	else:
 		Save.clear_run()
 		game.load_level(0)
+	game.low_fx = bool(Save.getv("opt", "lowfx", false))
 	_build_world()
 	game.running = false
 	if cont:

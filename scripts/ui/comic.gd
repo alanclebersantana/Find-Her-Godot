@@ -20,6 +20,7 @@ const DATA := {
 	"bola": {"img": ["bola_a", "bola_b"], "title": "CORRA, TOMÉ!", "txt": "Que barulho é esse?... Uma pedra gigante! Corre!"},
 	"aviao": {"img": ["aviao_a", "aviao_b"], "title": "UM AVIÃO!", "txt": "Um biplano antigo! Daqui de cima eu chego rapidinho na mina!"},
 	"jangada": {"img": ["jangada"], "txt": "Segura firme, Tomé... essa correnteza é forte!"},
+	"colmeia": {"img": ["colmeia_a", "colmeia_b"], "title": "COLMEIA!", "txt": "Se encostar na colmeia, o enxame vem atrás. Mergulhe na água para despistar as abelhas!"},
 }
 
 var id := ""

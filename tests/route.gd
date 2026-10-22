@@ -22,6 +22,21 @@ func frame(set: Dictionary = {}) -> void:
 func press(k: String) -> void:
 	g.keys[k + "p"] = true
 
+## pula e, no alto do pulo, aperta ↓ (mergulho) e espera bater no chão
+func slam_here() -> void:
+	press("J")
+	frame({"J": true})
+	for i in 40:
+		frame({"J": true})
+		if P.vy > -2:
+			break
+	press("S")
+	frame()
+	for i in 90:
+		frame()
+		if P.onGround or P.ladder != null or P.y > 600:
+			break
+
 func px() -> float:
 	return P.x + P.w / 2
 
@@ -775,9 +790,9 @@ func _initialize() -> void:
 	frame()
 	S("pousa", wait_ground())
 	S("desenho 1", g.DRWS.filter(func(d): return d.got).size() == 1)
-	S("chão rachado", walk_to(4560))
-	use()
-	S("quebrou o chão", g.X.broken.has("chao1"))
+	S("chão rachado", walk_to(4605))
+	slam_here()
+	S("mergulho quebrou o chão", g.X.broken.has("chao1"))
 	walk_to(4610)
 	S("desce a escada do esconderijo", climb_to("S", func(): return P.onGround and P.y > 800, 500))
 	hold({}, 60)

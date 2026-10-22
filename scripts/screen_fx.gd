@@ -58,7 +58,8 @@ func __draw_raw() -> void:
 			if d.x < -20:
 				d.x += vs.x + 40
 			draw_line(Vector2(d.x, d.y), Vector2(d.x + 3, d.y - 14), Color(.78, .84, .9, .45), 1.3)
-	draw_texture_rect(vign, Rect2(Vector2.ZERO, vs), false, Color(1, 1, 1, .32))
+	if not game.low_fx:
+		_vignette(vs)
 	if game.lightning > 0:
 		draw_rect(Rect2(Vector2.ZERO, vs), Color(.9, .94, 1, game.lightning / 14.0))
 	# transição em círculo (íris), como nos desenhos antigos: fecha no Tomé quando ele cai e abre de novo
@@ -78,3 +79,20 @@ func __draw_raw() -> void:
 		draw_arc(pc, ir + wide / 2.0, 0, TAU, 72, Color(0, 0, 0), wide, true)
 		if ir > 2:
 			draw_arc(pc, ir + 2, 0, TAU, 72, Color(.1, .07, .04, .6), 4, true)
+
+## vinheta só nas bordas: um anel de elipses (o centro não é desenhado, sai bem mais barato que
+## uma imagem por cima da tela inteira)
+func _vignette(vs: Vector2) -> void:
+	var c := vs / 2
+	var n := 40
+	var ri := c * .7
+	var ro := c * 1.5
+	var a0 := Color(0, 0, 0, 0)
+	var a1 := Color(0, 0, 0, .32)
+	for i in n:
+		var t0: float = TAU * i / n
+		var t1: float = TAU * (i + 1) / n
+		var d0 := Vector2(cos(t0), sin(t0))
+		var d1 := Vector2(cos(t1), sin(t1))
+		draw_polygon(PackedVector2Array([c + d0 * ri, c + d1 * ri, c + d1 * ro, c + d0 * ro]),
+			PackedColorArray([a0, a0, a1, a1]))

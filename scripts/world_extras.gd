@@ -4,6 +4,7 @@ class_name WorldExtras
 ## capim que balança, pegadas, giz da Isis, rochas rachadas, grades, espelhos, cristais,
 ## plataformas de luz, troncos e o Javali-Rei, e os inimigos novos (morcego, aranha, toupeira).
 
+const WSt = preload("res://scripts/world_static.gd")
 const CHALK := Color(.96, .95, .9, .82)
 
 static func h(x: float, k: int = 0) -> float:
@@ -13,39 +14,30 @@ static func h(x: float, k: int = 0) -> float:
 
 # ---------------------------------------------------------------- capim
 static func grass(g: Game, T: int) -> void:
+	## tufos de grama pintados (mesma arte do cenário): balançam com o vento e abrem quando o Tomé passa
 	var x0: float = g.cam - 40
 	var x1: float = g.cam + g.W + 40
 	var p: Dictionary = g.player
 	var pcx: float = p.x + p.w / 2
-	var song: String = g.AMB.get("song", "manha")
-	var col := Color(.34, .58, .2)
-	if song == "tarde":
-		col = Color(.5, .55, .2)
-	elif song == "chuva":
-		col = Color(.25, .45, .3)
-	elif song in ["noite", "perseguicao", "tunel"]:
-		col = Color(.2, .38, .26)
 	var wind: float = g.AMB.get("wind", 0.0)
 	for s in g.SOL:
-		if s.t != "ground" or s.x > x1 or s.x + s.w < x0:
+		if s.t != "ground" or s.x > x1 or s.x + s.w < x0 or s.get("snow"):
 			continue
-		var xa: float = max(s.x + 6, floor(x0 / 30.0) * 30.0)
-		var xb: float = min(s.x + s.w - 6, x1)
+		var xa: float = max(s.x + 14, floor(x0 / 34.0) * 34.0)
+		var xb: float = min(s.x + s.w - 14, x1)
+		var tc: Color = WSt.tint_at(g, xa)
 		var x: float = xa
 		while x < xb:
 			var r := h(x)
-			if r > .35:
-				var by: float = s.y - 3
+			if r > .3:
+				var by: float = s.y + 1
 				var near: float = clamp(1.0 - abs(x - pcx) / 34.0, 0, 1) if abs(p.y + p.h - s.y) < 40 else 0.0
-				var push: float = sign(x - pcx) * near * 9.0
-				var sway: float = sin(T * (.03 + wind * .05) + x * .03) * (1.5 + wind * 5.0) + wind * 4.0
-				for k in 4:
-					var bx: float = x + k * 3.2 - 5
-					var hh: float = 8 + h(bx, 2) * 9
-					var lean: float = sway + push + (k - 1.5) * 1.6
-					Spr.ci.draw_polyline(PackedVector2Array([Vector2(bx, by), Vector2(bx + lean * .45, by - hh * .55), Vector2(bx + lean, by - hh)]),
-						Color(col.r * (.85 + k * .06), col.g * (.85 + k * .06), col.b, .95), 1.8, false)
-			x += 30
+				var push: float = sign(x - pcx) * near * 8.0
+				var sway: float = sin(T * (.03 + wind * .05) + x * .03) * (1.2 + wind * 4.0) + wind * 3.0
+				var kind: int = int(h(x, 3) * 5)
+				var w: float = [22.0, 30.0, 30.0, 30.0, 28.0][kind] * (.85 + h(x, 4) * .35)
+				Spr.P("grass%d" % kind, x + (h(x, 5) - .5) * 10, by, w, h(x, 6) > .5, sway + push, tc)
+			x += 34
 
 # ---------------------------------------------------------------- passagens baixas
 static func crawl(g: Game, T: int) -> void:
@@ -77,11 +69,27 @@ static func footprints(g: Game) -> void:
 
 # ---------------------------------------------------------------- giz da Isis
 static func _stroke(pts: PackedVector2Array, w: float = 3.0) -> void:
-	Spr.ci.draw_polyline(pts, CHALK, w, true)
-	var o := PackedVector2Array()
-	for q in pts:
-		o.push_back(q + Vector2(.8, .9))
-	Spr.ci.draw_polyline(o, Color(1, 1, 1, .25), 1.2, true)
+	# giz de verdade: vários riscos finos e falhados, com grão (falhas onde o giz não pegou na pedra)
+	for pass_i in 3:
+		var jx: float = (pass_i - 1) * w * .28
+		var jy: float = (1 - pass_i) * w * .2 + (pass_i % 2) * .4
+		for i in pts.size() - 1:
+			var a: Vector2 = pts[i]
+			var b: Vector2 = pts[i + 1]
+			var n: int = max(1, int(a.distance_to(b) / 3.0))
+			for k in n:
+				var u0: float = k / float(n)
+				var u1: float = (k + 1) / float(n)
+				var pa := a.lerp(b, u0)
+				var hv: float = h(pa.x * 3.1 + pa.y * 1.7 + pass_i * 13.0, 5)
+				if hv < .14:
+					continue
+				var al: float = CHALK.a * (.45 + hv * .5) * (1.0 if pass_i == 1 else .55)
+				Spr.ci.draw_line(pa + Vector2(jx, jy), a.lerp(b, u1) + Vector2(jx, jy), Color(CHALK.r, CHALK.g, CHALK.b, al), w * (.55 if pass_i == 1 else .35), true)
+	# pozinho de giz embaixo do traço
+	if pts.size() > 0:
+		var q: Vector2 = pts[pts.size() / 2]
+		Spr.circle(q.x + 2, q.y + 5, 1.2, Color(1, 1, 1, .18))
 
 static func chalk(g: Game, T: int) -> void:
 	for c in g.X.CHALK:
@@ -151,16 +159,21 @@ static func solids(g: Game, T: int) -> void:
 			"crack":
 				_crack(s, T)
 			"bars":
-				for i in 4:
-					Spr.rect(s.x + 2 + i * 5, s.y, 3, s.h, Color(.42, .44, .5))
-				Spr.rect(s.x - 2, s.y, s.w + 4, 8, Color(.3, .3, .35))
-				Spr.rect(s.x - 2, s.y + s.h * .5, s.w + 4, 6, Color(.3, .3, .35))
+				# grade de ferro forjado, com pontas de lança, presa numa soleira de pedra
+				Spr.PR("gate_iron", s.x - 6, s.y - 14, s.w + 12, s.h + 14)
+				Spr.PR("wb3", s.x - 10, s.y + s.h - 8, s.w + 20, 14, Color(.85, .82, .78))
 			"bossgate":
+				# toras empilhadas e amarradas no tronco (casca, musgo e a ponta cortada com anéis)
 				for i in 5:
-					var yy: float = s.y + s.h - 26 - i * 42
-					Spr.rr(s.x - 30 + (i % 2) * 10, yy, 84, 30, 14, Color("#6b4a2a"))
-					Spr.circle(s.x - 18 + (i % 2) * 10, yy + 15, 11, Color("#c9a26a"))
-					Spr.ring(s.x - 18 + (i % 2) * 10, yy + 15, 11, Color("#3a2414"), 2)
+					var yy: float = s.y + s.h - 28 - i * 42
+					var lx: float = s.x - 34 + (i % 2) * 10 + WorldExtras.h(s.x + i, 7) * 6
+					var lw: float = 88 + WorldExtras.h(s.x - i, 8) * 12
+					Spr.ellipse(lx + lw * .55, yy + 34, lw * .45, 4, Color(0, 0, 0, .25))
+					Spr.PR("log", lx, yy, lw, 34)
+				# cordas prendendo o feixe no tronco
+				for k in 2:
+					var rx: float = s.x + 18 + k * 30
+					Spr.PV("rope", rx - 5, s.y + s.h - 210, 10, 205)
 			"bosslog":
 				_log(s.x, s.y)
 			"dogdoor":
@@ -210,30 +223,26 @@ static func solids(g: Game, T: int) -> void:
 
 static func _crack(s: Dictionary, T: int) -> void:
 	var ink := Color(.12, .1, .09)
+	if s.get("kind") == "slam":
+		# chão de terra rachado (a mesma textura do chão), com fendas fundas e um brilho dourado
+		var t: Texture2D = Spr.tex.chao
+		Spr.ci.draw_texture_rect_region(t, Rect2(s.x - 2, s.y - 28, s.w + 4, 58), Rect2(10, 0, s.w + 4, 58), Color(.92, .88, .82))
+		var cxs: float = s.x + s.w / 2
+		Spr.ci.draw_polyline(PackedVector2Array([Vector2(s.x + 4, s.y + 6), Vector2(cxs - 8, s.y + 12), Vector2(cxs, s.y + 4), Vector2(cxs + 9, s.y + 15), Vector2(s.x + s.w - 4, s.y + 8)]), ink, 2.6, true)
+		Spr.ci.draw_polyline(PackedVector2Array([Vector2(cxs, s.y + 4), Vector2(cxs + 2, s.y + 20)]), ink, 2, true)
+		Spr.ci.draw_polyline(PackedVector2Array([Vector2(cxs - 8, s.y + 12), Vector2(cxs - 14, s.y + 22)]), ink, 1.6, true)
+		return
 	if s.get("kind") == "slab":
-		Spr.rect(s.x, s.y, s.w, s.h, Color(.48, .45, .42))
-		Spr.rect(s.x, s.y, s.w, 3, Color(.62, .6, .56))
+		Spr.PR("slab2", s.x - 4, s.y - 3, s.w + 8, s.h + 6, Color(.92, .9, .86))
 		Spr.ci.draw_polyline(PackedVector2Array([Vector2(s.x + 8, s.y + 4), Vector2(s.x + 22, s.y + 12), Vector2(s.x + 30, s.y + 6), Vector2(s.x + 44, s.y + 16), Vector2(s.x + 54, s.y + 9)]), ink, 2, true)
 		return
-	var cx: float = s.x + s.w / 2
-	var cy: float = s.y + s.h / 2
-	var pts := PackedVector2Array()
-	for i in 12:
-		var a := TAU * i / 12.0
-		var r: float = s.w * .5 * (.88 + WorldExtras.h(s.x + i, 3) * .18)
-		pts.push_back(Vector2(cx + cos(a) * r, cy + sin(a) * s.h * .52 * (.9 + WorldExtras.h(s.x - i, 4) * .14)))
-	Spr.poly(pts, Color(.5, .46, .43))
-	Spr.ci.draw_polyline(pts + PackedVector2Array([pts[0]]), ink, 2.5, true)
-	Spr.ellipse(cx - s.w * .14, cy - s.h * .2, s.w * .2, s.h * .12, Color(1, 1, 1, .18))
-	Spr.ci.draw_polyline(PackedVector2Array([Vector2(cx - 4, s.y + 4), Vector2(cx + 4, cy - 6), Vector2(cx - 6, cy + 4), Vector2(cx + 3, s.y + s.h - 6)]), ink, 2.2, true)
-	Spr.ci.draw_polyline(PackedVector2Array([Vector2(cx + 4, cy - 6), Vector2(cx + 16, cy - 2)]), ink, 1.6, true)
+	# rocha pintada rachada, assentada no chão com musgo na base
+	Spr.ellipse(s.x + s.w / 2, s.y + s.h + 2, s.w * .6, 6, Color(0, 0, 0, .28))
+	Spr.PR("rock1", s.x - 8, s.y - 6, s.w + 16, s.h + 10)
 
 static func _log(x: float, y: float) -> void:
-	Spr.rr(x, y, 130, 28, 13, Color("#6b4a2a"))
-	Spr.rect(x + 10, y + 5, 110, 3, Color(1, 1, 1, .1))
-	Spr.ellipse(x + 118, y + 14, 12, 13, Color("#c9a26a"))
-	Spr.ring(x + 118, y + 14, 12, Color("#3a2414"), 2)
-	Spr.ring(x + 118, y + 14, 6, Color(.35, .24, .12, .6), 1.5)
+	Spr.ellipse(x + 65, y + 32, 60, 5, Color(0, 0, 0, .25))
+	Spr.PR("log", x - 4, y - 4, 138, 36, Color.WHITE, true)
 
 # ---------------------------------------------------------------- Javali-Rei
 static func boss(g: Game, T: int) -> void:
@@ -284,74 +293,33 @@ static func boss(g: Game, T: int) -> void:
 		Spr.text("!", b.x + b.dir * 30, b.y - 150, 32, Color("#ff6a4a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 5)
 
 # ---------------------------------------------------------------- inimigos novos (desenhados por código)
+static func _pc(n: String, cx: float, cy: float, w: float) -> void:
+	## peça pintada centrada em (cx, cy)
+	var hgt: float = Spr.PH(n, w)
+	Spr.PR(n, cx - w / 2, cy - hgt / 2, w, hgt)
+
 static func bat(e: Dictionary, T: int) -> void:
-	if not e.dead and e.get("st", 0) == 0 and Spr.novos.has("morcego"):
-		Spr.save()
-		Spr.translate(0, 40)
-		Spr.novo("morcego", 0, 40, false)
-		Spr.restore()
-		return
-	if not e.dead and Spr.novos.has("morcego"):
-		Spr.save()
-		Spr.translate(0, 18)
-		Spr.novo("morcego", 1 + (T / 4) % 4, 44, false)
-		Spr.restore()
-		return
-	var body := Color("#3b2b44")
-	var wing := Color("#55406a")
 	if e.dead:
-		Spr.ellipse(0, 0, 12, 10, body)
+		_pc("bat2", 0, 0, 40)
 		return
 	if e.get("st", 0) == 0:
-		# pendurado, de cabeça para baixo, enrolado nas asas
-		Spr.seg(-4, -2, -4, 4, Color(.2, .15, .1), 2)
-		Spr.seg(4, -2, 4, 4, Color(.2, .15, .1), 2)
-		Spr.ellipse(0, 14, 11, 13, wing)
-		Spr.ellipse(0, 26, 8, 6, body)
-		Spr.poly(PackedVector2Array([Vector2(-7, 30), Vector2(-4, 38), Vector2(-1, 30)]), body)
-		Spr.poly(PackedVector2Array([Vector2(1, 30), Vector2(4, 38), Vector2(7, 30)]), body)
-		Spr.seg(-3, 24, -1, 24, Color(1, .9, .4, .8), 1.5)
-		Spr.seg(1, 24, 3, 24, Color(1, .9, .4, .8), 1.5)
+		# pendurado de cabeça para baixo, dormindo
+		_pc("bat_hang", 0, 18, 24)
 		return
-	var f: float = sin(T * .55 + e.x)
-	for sd in [-1, 1]:
-		var tip := Vector2(sd * 30, -6 - f * 14)
-		var pts := PackedVector2Array([Vector2(sd * 5, -3), Vector2(sd * 16, -12 - f * 8), tip, Vector2(sd * 22, 3 - f * 4), Vector2(sd * 15, 1), Vector2(sd * 9, 6)])
-		Spr.poly(pts, wing)
-		Spr.ci.draw_polyline(pts, Color(.15, .1, .2), 1.5, true)
-	Spr.ellipse(0, 1, 9, 10, body)
-	Spr.poly(PackedVector2Array([Vector2(-7, -6), Vector2(-5, -16), Vector2(-1, -8)]), body)
-	Spr.poly(PackedVector2Array([Vector2(1, -8), Vector2(5, -16), Vector2(7, -6)]), body)
-	Spr.circle(-3, -2, 2.2, Color(1, .88, .35))
-	Spr.circle(3.5, -2, 2.2, Color(1, .88, .35))
-	Spr.poly(PackedVector2Array([Vector2(-2, 4), Vector2(0, 7), Vector2(2, 4)]), Color(1, 1, 1))
+	_pc("bat%d" % [0, 1, 2, 1][(T / 4) % 4], 0, 0, 50)
 
 static func spider(e: Dictionary, T: int) -> void:
-	if Spr.novos.has("aranha"):
-		if not e.dead:
-			Spr.seg(0, e.top - e.y, 0, -8, Color(.9, .9, .9, .55), 1.2)
-		Spr.save()
-		Spr.translate(0, 16)
-		Spr.novo("aranha", (T / 8) % 4 if e.get("st", 0) in [1, 3] else (T / 20) % 2, 36, false)
-		Spr.restore()
-		return
-	var body := Color("#2a2233")
 	if not e.dead:
-		Spr.seg(0, e.top - e.y, 0, -8, Color(.9, .9, .9, .55), 1.2)
-	var lw: float = sin(T * .3) * 3 if e.get("st", 0) in [1, 3] else 0.0
-	for sd in [-1, 1]:
-		for k in 4:
-			var ay: float = -4 + k * 3.5
-			var kx: float = sd * (12 + k * 1.5)
-			var ky: float = ay - 9 + k * 2 + lw * (1 if k % 2 == 0 else -1)
-			Spr.ci.draw_polyline(PackedVector2Array([Vector2(sd * 4, ay), Vector2(kx, ky), Vector2(sd * (17 + k * 2), ay + 9)]), body, 2, true)
-	Spr.ellipse(0, 7, 11, 10, body)
-	Spr.ellipse(0, -4, 7, 6, Color("#3a3045"))
-	Spr.ellipse(-3, 5, 3, 2, Color(.6, .25, .7, .8))
-	Spr.circle(-2.5, -5, 2, Color.WHITE)
-	Spr.circle(2.5, -5, 2, Color.WHITE)
-	Spr.circle(-2.5, -5, 1, Color.BLACK)
-	Spr.circle(2.5, -5, 1, Color.BLACK)
+		Spr.seg(0, e.top - e.y, 0, -8, Color(.92, .92, .92, .6), 1.2)
+	var st: int = e.get("st", 0)
+	if st in [1, 3] and not e.dead:
+		# descendo ou subindo pelo fio: pendurada, balançando de leve
+		Spr.save()
+		Spr.rotate(sin(T * .08 + e.x) * .12)
+		_pc("spider_hang", 0, 10, 30)
+		Spr.restore()
+	else:
+		_pc("spider%d" % ((T / 7) % 3), 0, 6, 42)
 
 static func mole(e: Dictionary, T: int) -> void:
 	var st: int = e.get("st", 0)
@@ -615,9 +583,9 @@ static func mech(g: Game, T: int) -> void:
 		if pl.x + pl.w < c0 or pl.x > c1:
 			continue
 		var dd: float = pl.d * 4
-		Spr.rr(pl.x - 4, pl.y - 2, pl.w + 8, 10, 4, Color(.25, .22, .2))
-		Spr.rr(pl.x, pl.y - 8 + dd, pl.w, 10, 3, Color(.62, .58, .5) if not pl.on else Color(.95, .82, .45))
-		Spr.rect(pl.x + 6, pl.y - 7 + dd, pl.w - 12, 2, Color(1, 1, 1, .25))
+		# placa de pedra entalhada, afundando quando tem peso; a moldura de pedra fica fixa
+		Spr.rr(pl.x - 6, pl.y - 3, pl.w + 12, 11, 5, Color(.16, .13, .1))
+		Spr.PR("plate", pl.x - 2, pl.y - 11 + dd, pl.w + 4, 15, Color(1, 1, 1) if not pl.on else Color(1.25, 1.1, .7))
 		if pl.on:
 			Spr.glow(pl.x + pl.w / 2, pl.y - 4, 30, Color(1, .85, .4, .35))
 	for gt in M.GATES:
@@ -626,23 +594,10 @@ static func mech(g: Game, T: int) -> void:
 		var lift: float = gt.open * (gt.h - 18)
 		var y0: float = gt.y - lift
 		var hh: float = gt.h
-		Spr.rect(gt.x - 8, gt.y - 10, 6, gt.h + 10, Color("#4a3220"))
-		Spr.rect(gt.x + gt.w + 2, gt.y - 10, 6, gt.h + 10, Color("#4a3220"))
-		var by: float = max(y0, gt.y - 6)
-		Spr.save()
-		var col := Color("#9a7040")
-		var ink := Color("#3a2414")
-		var x: float = gt.x - 8
-		while x < gt.x + gt.w + 8:
-			Spr.rect(x - 1, y0, 9, hh + 1, ink)
-			Spr.rect(x, y0, 7, hh, col)
-			Spr.rect(x + 1, y0, 2, hh, Color(1, 1, 1, .12))
-			Spr.poly(PackedVector2Array([Vector2(x - 1, y0), Vector2(x + 3.5, y0 - 10), Vector2(x + 8, y0)]), col)
-			x += 9
-		for yy in [y0 + 16, y0 + hh * .5, y0 + hh - 30]:
-			Spr.rect(gt.x - 12, yy, gt.w + 24, 9, ink)
-			Spr.rect(gt.x - 11, yy + 1, gt.w + 22, 7, Color("#6b4a2a"))
-		Spr.restore()
+		# batentes de madeira dos lados e o portão de tábuas com ferragens subindo entre eles
+		Spr.PR("stake", gt.x - 13, gt.y - 14, 12, gt.h + 22, Color(.8, .76, .72))
+		Spr.PR("stake", gt.x + gt.w + 1, gt.y - 14, 12, gt.h + 22, Color(.8, .76, .72), true)
+		Spr.PR("gate_wood", gt.x - 6, y0 - 4, gt.w + 12, hh + 4)
 		if gt.get("dogpass"):
 			# portinhola para o cachorro, embaixo
 			var fy: float = gt.y + gt.h - 24
@@ -659,11 +614,8 @@ static func mech(g: Game, T: int) -> void:
 		if c.get("snow"):
 			WorldNature.snowball(c, T)
 			continue
-		Spr.rr(c.x, c.y, c.w, c.h, 5, Color("#8a6238"))
-		Spr.rect(c.x + 5, c.y + 5, c.w - 10, c.h - 10, Color("#a57a48"))
-		Spr.seg(c.x + 6, c.y + 6, c.x + c.w - 6, c.y + c.h - 6, Color("#6b4a2a"), 5)
-		Spr.seg(c.x + c.w - 6, c.y + 6, c.x + 6, c.y + c.h - 6, Color("#6b4a2a"), 5)
-		Spr.ci.draw_rect(Rect2(c.x, c.y, c.w, c.h), Color("#3a2414"), false, 3)
+		Spr.ellipse(c.x + c.w / 2, c.y + c.h + 1, c.w * .55, 4, Color(0, 0, 0, .25))
+		Spr.PR("crate", c.x - 2, c.y - 2, c.w + 4, c.h + 4)
 		if g.player.get("pushT", 0) > 0 and Game.hit(g.R(g.player.x - 6, g.player.y, g.player.w + 12, g.player.h), c):
 			Spr.text("⇆", c.x + c.w / 2, c.y - 10, 16, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3)
 	for s in M.CRUMB:
@@ -687,14 +639,13 @@ static func mech(g: Game, T: int) -> void:
 				Spr.save()
 				Spr.translate(px0 + pw / 2, py0 + 8)
 				Spr.rotate((i - 1) * s.fy * .012 + (s.fy * .004 if i == 1 else 0.0))
-				Spr.rr(-pw / 2 + 1, -8, pw - 2, 16, 4, wood)
-				Spr.seg(-pw / 2 + 4, -2, pw / 2 - 4, 2, Color(0, 0, 0, .35 * a), 1.2)
+				Spr.PRs("seesaw_plank", -pw / 2, -9, pw, 18, i / 3.0, (i + 1) / 3.0, Color(.85, .8, .75, a) if not s.get("icy") else Color(.8, .92, 1.1, a))
 				Spr.restore()
 			continue
 		# tábua podre: rachaduras à mostra e um contorno pálido pulsando (dá para ver que é perigosa)
 		var pulse: float = .18 + .12 * sin(T * .08 + s.x)
 		Spr.rr(s.x - 2 + shake, yy - 2, s.w + 4, 20, 8, Color(1, .85, .55, pulse * a))
-		Spr.rr(s.x + shake, yy, s.w, 16, 6, wood)
+		Spr.PR("seesaw_plank", s.x + shake - 2, yy - 1, s.w + 4, 19, Color(.85, .8, .75, a) if not s.get("icy") else Color(.8, .92, 1.1, a))
 		Spr.seg(s.x + 12 + shake, yy + 4, s.x + 30 + shake, yy + 12, Color(0, 0, 0, .45 * a), 1.5)
 		Spr.seg(s.x + s.w - 20 + shake, yy + 3, s.x + s.w - 34 + shake, yy + 13, Color(0, 0, 0, .45 * a), 1.5)
 		Spr.seg(s.x + s.w * .5 + shake, yy + 2, s.x + s.w * .45 + shake, yy + 14, Color(0, 0, 0, .35 * a), 1.2)

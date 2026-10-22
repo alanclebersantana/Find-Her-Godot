@@ -9,12 +9,102 @@ var coin_pop := 0.0
 var last_hp := -1
 var lost_heart := -1
 var lost_t := 0.0
+var hint_cur := ""
+var hint_show := 0.0
+const HINT_FRAMES := 480.0
+var tex_face: Texture2D = preload("res://assets/ui/btn_tome.png")
+var mobile: bool = OS.has_feature("mobile") or DisplayServer.is_touchscreen_available()
+var ICON := {}
+
+func _ready() -> void:
+	var m := {"G": "btn_golpe", "J": "btn_jump", "A": "btn_use", "U": "pad_U", "S": "pad_S", "L": "pad_L", "R": "pad_R", "Q": "btn_dog"}
+	for k in m:
+		ICON[k] = load("res://assets/ui/%s.png" % m[k])
+
+## a dica sumiu mas o lugar ainda tem dica: o pergaminho pode trazê-la de volta
+func can_replay() -> bool:
+	return hint_cur != "" and hint_show >= HINT_FRAMES and hint_alpha <= 0.01
+
+func show_hint_again() -> void:
+	hint_show = 0.0
+
+## no celular, as teclas viram o desenho do próprio botão dentro do texto
+func _icons(t: String) -> String:
+	if not mobile:
+		return t
+	var r := t
+	for pair in [["GOLPE (botão da picareta / tecla G)", "GOLPE [G]"], ["(botão da picareta / tecla G)", "[G]"], ["(botão da picareta)", "[G]"],
+			["(tecla G)", "[G]"], ["PULAR (Z/espaço)", "PULAR [J]"], ["(botão do cachorro / tecla Q)", "[Q]"], ["(botão do cachorro / Q)", "[Q]"],
+			["(botão do cachorro)", "[Q]"], ["✦ USAR", "[A]"], ["✦", "[A]"], ["↑ + GOLPE", "[U] + [G]"], ["← →", "[L] [R]"], ["←/→", "[L] [R]"], ["↑/↓", "[U] [S]"],
+			["↑ ↓ ← →", "[U] [S] [L] [R]"], ["↘", "[R]+[S]"], ["↑", "[U]"], ["↓", "[S]"], ["←", "[L]"], ["→", "[R]"]]:
+		r = r.replace(pair[0], pair[1])
+	# ícone sempre como palavra solta (sem parênteses grudados)
+	for k in ICON:
+		r = r.replace("([%s])" % k, "[%s]" % k).replace("[%s]" % k, " [%s] " % k)
+	while r.find("  ") >= 0:
+		r = r.replace("  ", " ")
+	return r.replace(" ,", ",").replace(" .", ".").replace(" !", "!").strip_edges()
+
+## quebra de linha com ícones: cada linha é uma lista de palavras ("[G]" vira um ícone)
+func _rlines(t: String, maxw: float, fs: int) -> Array:
+	var out: Array = []
+	var cur: Array = []
+	var cw := 0.0
+	var sp: float = Spr.font_i.get_string_size(" ", HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	for wd in t.split(" "):
+		var ww: float = _wwidth(wd, fs)
+		if cw + ww > maxw and not cur.is_empty():
+			out.append(cur)
+			cur = []
+			cw = 0.0
+		cur.append(wd)
+		cw += ww + sp
+	if not cur.is_empty():
+		out.append(cur)
+	return out
+
+func _is_icon(wd: String) -> bool:
+	return wd.length() >= 3 and wd[0] == "[" and wd[2] == "]" and ICON.has(wd[1])
+
+func _wwidth(wd: String, fs: int) -> float:
+	if _is_icon(wd):
+		return fs * 1.7 + Spr.font_i.get_string_size(wd.substr(3), HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	return Spr.font_i.get_string_size(wd, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+
+func _rwidth(ln: Array, fs: int) -> float:
+	var sp: float = Spr.font_i.get_string_size(" ", HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var w := 0.0
+	for wd in ln:
+		w += _wwidth(wd, fs) + sp
+	return w - sp
+
+func _rdraw(ln: Array, cx: float, y: float, fs: int, c: Color, f: Font) -> void:
+	var sp: float = f.get_string_size(" ", HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var x: float = cx - _rwidth(ln, fs) / 2
+	for wd in ln:
+		var ww: float = _wwidth(wd, fs)
+		if _is_icon(wd):
+			var isz: float = fs * 1.6
+			Spr.ci.draw_texture_rect(ICON[wd[1]], Rect2(x, y - fs * 1.15, isz, isz), false, Color(1, 1, 1, c.a))
+			if wd.length() > 3:
+				Spr.text(wd.substr(3), x + fs * 1.7, y, fs, c, HORIZONTAL_ALIGNMENT_LEFT, f)
+		else:
+			Spr.text(wd, x, y, fs, c, HORIZONTAL_ALIGNMENT_LEFT, f)
+		x += ww + sp
 
 func _process(_d: float) -> void:
 	queue_redraw()
 
 func _box(x: float, y: float, w: float, h: float) -> void:
 	Spr.rr(x, y, w, h, 9, Color(.04, .03, .02, .55))
+
+## placa de pergaminho com moldura de madeira (mesmo estilo dos botões)
+func _plaque(x: float, y: float, w: float, h: float, a: float = 1.0) -> void:
+	Spr.rr(x - 1, y + 2, w + 2, h + 2, 11, Color(0, 0, 0, .28 * a))
+	Spr.rr(x, y, w, h, 10, Color(.42, .27, .12, .96 * a))
+	Spr.rr(x + 3, y + 3, w - 6, h - 6, 8, Color(.93, .85, .66, .96 * a))
+	Spr.rr(x + 5, y + 4, w - 10, 6, 3, Color(1, 1, 1, .22 * a))
+	Spr.rr(x + 5, y + h - 9, w - 10, 5, 3, Color(.55, .4, .2, .18 * a))
 
 func _draw() -> void:
 	var __t := Time.get_ticks_usec()
@@ -31,7 +121,7 @@ func __draw_raw() -> void:
 		_cine(W, size.y)
 		return
 	var o := 40.0   # 5 corações: o resto do painel anda para a direita
-	_box(8, 8, 290 + o, 40)
+	_plaque(8, 8, 290 + o, 42)
 	# corações: batem de leve; com pouca vida o último pulsa forte; o que se perde dá um pulinho e some
 	if last_hp >= 0 and p.hp < last_hp:
 		lost_heart = p.hp
@@ -50,7 +140,7 @@ func __draw_raw() -> void:
 		Spr.A("hud_heart_full" if i < p.hp else "hud_heart_empty", 26 + i * 23, 28, hs)
 	if p.armor > 0:
 		Spr.A("hud_shield", 108 + o, 28, .48)
-	Spr.text("× %d" % max(0, game.lives), 122 + o, 34, 16, Color("#e6d4ac"))
+	Spr.text("× %d" % max(0, game.lives), 122 + o, 34, 16, Color("#3a2410"), HORIZONTAL_ALIGNMENT_LEFT, Spr.font_b)
 	# o contador de lápis "pula" a cada lápis pego
 	if last_coins >= 0 and game.coin_life != last_coins:
 		coin_pop = 1.0
@@ -61,31 +151,30 @@ func __draw_raw() -> void:
 	Spr.save()
 	Spr.translate(194 + o, 34)
 	Spr.scale(cp, cp)
-	Spr.text("%d/100" % game.coin_life, 0, 0, 14, Color("#f0cd72").lerp(Color(1, 1, .85), coin_pop))
+	Spr.text("%d/100" % game.coin_life, 0, 0, 14, Color("#6a3a08").lerp(Color("#c07010"), coin_pop), HORIZONTAL_ALIGNMENT_LEFT, Spr.font_b)
 	Spr.restore()
 	var k := 0
 	for c in GameData.PEN_LIST:
-		Spr.rr(240 + o + k * 8, 14, 6, 26, 2, GameData.PEN_COL[c] if game.SPECGOT.has(c) else Color(.35, .31, .25, .6))
+		Spr.rr(240 + o + k * 8, 15, 6, 26, 2, GameData.PEN_COL[c] if game.SPECGOT.has(c) else Color(.55, .45, .32, .45))
 		k += 1
 	if game.X and not game.X.GOLD.is_empty() and game.X.GOLD.got:
 		Spr.rr(240 + o + k * 8, 14, 6, 26, 2, Color("#ffd76a"))
-	# tempo
+	# placa do canto (madeira e pergaminho): tempo, desenhos achados e o período do dia,
+	# tudo junto e pequeno, ao lado da pausa — o alto da tela fica livre para o cenário
 	var s: int = max(0, int(ceil(game.time_left / 60.0)))
 	var low := s <= 20
-	_box(W / 2 - 52, 8, 104, 36)
-	var tc := (Color("#ff7a6a") if game.T % 30 < 15 else Color("#ffd0c0")) if low else Color("#f0e0b8")
-	Spr.text("%d:%02d" % [s / 60, s % 60], W / 2 + 8, 33, 20, tc, HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b if low else Spr.font)
-	Spr.A("hud_clock", W / 2 - 32, 26, .42)
-	# nome e desenhos
-	_box(W - 250, 8, 242, 40)
-	Spr.text(game.period_label(), W - 18, 33, 14, Color("#cdbfa6"), HORIZONTAL_ALIGNMENT_RIGHT, Spr.font_i)
 	var nd := 0
 	for d in game.DRWS:
 		if d.got:
 			nd += 1
-	_box(W - 130, 52, 122, 28)
-	Spr.A("hud_paper", W - 111, 66, .36)
-	Spr.text("desenhos %d/%d" % [nd, game.DRWS.size()], W - 96, 71, 13, Color("#ffd76a") if nd == game.DRWS.size() else Color("#cdbfa6"))
+	var px0: float = W - 64 - 196
+	_plaque(px0, 8, 196, 50)
+	Spr.A("hud_clock", px0 + 20, 25, .34)
+	var tc := (Color("#c0281a") if game.T % 30 < 15 else Color("#7a2a10")) if low else Color("#3a2410")
+	Spr.text("%d:%02d" % [s / 60, s % 60], px0 + 34, 31, 17, tc, HORIZONTAL_ALIGNMENT_LEFT, Spr.font_b)
+	Spr.A("hud_paper", px0 + 124, 24, .3)
+	Spr.text("%d/%d" % [nd, game.DRWS.size()], px0 + 140, 31, 16, Color("#8a5a10") if nd == game.DRWS.size() else Color("#3a2410"), HORIZONTAL_ALIGNMENT_LEFT, Spr.font_b)
+	Spr.text(game.period_label(), px0 + 98, 50, 12, Color("#5a3a1c"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_i)
 	# controlando o Pipoca
 	if game.M and game.M.ctrl:
 		_box(8, 54, 228, 30)
@@ -109,41 +198,51 @@ func __draw_raw() -> void:
 		Spr.text("JAVALI-REI", W / 2, 68, 13, Color("#ffcf9a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_title)
 		Spr.rr(W / 2 - bw / 2, 74, bw, 10, 5, Color(.2, .1, .08, .9))
 		Spr.rr(W / 2 - bw / 2, 74, bw * b.hp / float(b.maxhp), 10, 5, Color("#e0463a"))
-	# dica do lugar
+	# dica do lugar: pergaminho com o rostinho do Tomé; aparece, fica uns segundos e some sozinha
+	# (o pergaminho pequeno no alto traz a dica de volta)
 	var h := game.hint_text() if game.running else ""
+	if h != hint_cur:
+		hint_cur = h
+		hint_show = 0.0
 	if h != "":
+		hint_show += 1.0
+	var vis: bool = h != "" and hint_show < HINT_FRAMES
+	if vis:
 		hint_txt = h
 		hint_alpha = min(1, hint_alpha + .08)
 	else:
-		hint_alpha = max(0, hint_alpha - .06)
+		hint_alpha = max(0, hint_alpha - .05)
 	if hint_alpha > 0 and hint_txt != "":
-		# centralizada logo abaixo da faixa do topo (sem cobrir botões nem os painéis dos lados)
-		var rx0 := 150.0
-		var rx1: float = W - 150.0
-		var cx: float = (rx0 + rx1) / 2.0
-		var mw: float = min(rx1 - rx0 - 30, 560)
-		var hl := _lines(hint_txt, mw, 15)
+		var mw: float = min(W - 360, 520)
+		var hl := _rlines(_icons(hint_txt), mw, 15)
 		var hw := 0.0
 		for ln in hl:
-			hw = max(hw, Spr.font_i.get_string_size(ln, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x)
-		var hy: float = (100.0 if (X and X.boss_active()) else 58.0) - (1.0 - hint_alpha) * 10.0
-		Spr.rr(cx - hw / 2 - 14, hy, hw + 28, hl.size() * 21 + 12, 9, Color(.04, .03, .02, .55 * hint_alpha))
-		_wrapped(hint_txt, cx, hy + 18, mw, 15, Color(.93, .87, .74, hint_alpha), Spr.font_i)
+			hw = max(hw, _rwidth(ln, 15))
+		var bw2: float = hw + 84
+		var cx: float = W / 2
+		var hy: float = (100.0 if (X and X.boss_active()) else 62.0) - (1.0 - hint_alpha) * 10.0
+		var bh2: float = max(52.0, hl.size() * 21 + 18)
+		_plaque(cx - bw2 / 2, hy, bw2, bh2, hint_alpha)
+		Spr.ci.draw_texture_rect(tex_face, Rect2(cx - bw2 / 2 + 8, hy + bh2 / 2 - 21, 42, 42), false, Color(1, 1, 1, hint_alpha))
+		var yy2: float = hy + 22 + (bh2 - 18 - hl.size() * 21) / 2.0
+		for ln in hl:
+			_rdraw(ln, cx + 26, yy2, 15, Color(.24, .14, .06, hint_alpha), Spr.font_i)
+			yy2 += 21
 	# aviso (flash)
 	if game.flash_t > 0 and game.flash_msg != "":
 		var a: float = clamp(game.flash_t / 40.0, 0, 1)
-		var lines := _lines(game.flash_msg, min(W - 80, 760), 17)
+		var lines := _rlines(_icons(game.flash_msg), min(W - 80, 760), 17)
 		var bh := 16 + lines.size() * 23
 		var bw := 0.0
 		for ln in lines:
-			bw = max(bw, Spr.font.get_string_size(ln, HORIZONTAL_ALIGNMENT_LEFT, -1, 17).x)
+			bw = max(bw, _rwidth(ln, 17))
 		bw += 36
 		# aviso no alto, abaixo da dica: nunca em cima das setas e dos botões de baixo
 		var by: float = (150.0 if hint_alpha > .05 else 104.0) - (1.0 - clamp(game.flash_t / 10.0, 0, 1)) * 10.0
 		Spr.rr(W / 2 - bw / 2, by, bw, bh, 10, Color(.04, .03, .02, .78 * a))
 		var y := by + 30
 		for ln in lines:
-			Spr.text(ln, W / 2, y, 17, Color(.96, .9, .78, a), HORIZONTAL_ALIGNMENT_CENTER)
+			_rdraw(ln, W / 2, y, 17, Color(.96, .9, .78, a), Spr.font)
 			y += 23
 
 func _lines(t: String, maxw: float, fs: int) -> Array:
@@ -211,11 +310,8 @@ func _cine(W: float, H: float) -> void:
 			"lia":
 				_portrait("lia_scared", bx + 44, by + 42, 62, k2)
 			_:
-				Spr.save()
-				Spr.translate(bx + 44, by + 96)
-				Spr.ci.draw_texture_rect_region(Spr.tex.pai, Rect2(-50, -95, 100, 123), Rect2(35, 0, 100, 123), Color(1, 1, 1, k2))
-				Spr.restore()
-				Spr.rect(bx + 10, by + 76, 68, 20, Color(.05, .04, .03, .88 * k2))
+				# rosto do Tomé dentro da moldura (antes o corpo vazava para fora da caixa)
+				Spr.ci.draw_texture_rect(tex_face, Rect2(bx + 12, by + 10, 64, 64), false, Color(1, 1, 1, k2))
 		var col: Color = {"VARGAS": Color("#ff9a7a"), "ISIS": Color("#ffb0d0"), "TOMÉ": Color("#ffd27a")}.get(l[2], Color.WHITE)
 		Spr.text(l[2], bx + 92, by + 26, 15, Color(col.r, col.g, col.b, k2), HORIZONTAL_ALIGNMENT_LEFT, Spr.font_title)
 		var shown: int = 9999 if c.get("waiting", false) else int((t - l[0]) * 1.6)

@@ -355,6 +355,9 @@ func _use_crack() -> bool:
 		if broken.has(c.id):
 			continue
 		if Game.hit(g.R(p.x - 46, p.y - 40, p.w + 92, p.h + 60), c):
+			if c.get("kind") == "slam":
+				g.tip("Rachado demais para a picareta... pule e aperte ↓ no ar: o MERGULHO quebra!", 200)
+				return true
 			if g.has_item("picareta"):
 				break_crack(c, true)
 			else:
@@ -683,9 +686,11 @@ func _boss() -> void:
 				g.hurt(1, b.x)
 
 ## o Javali-Rei bateu a cabeça: perde uma vida
-func boss_damage() -> void:
+func boss_damage(from_slam: bool = false) -> void:
 	var b: Dictionary = BOSS
 	b.hp -= 1
+	# batida de cabeça deixa ele tonto: um mergulho perto vale uma batida extra (uma vez por batida)
+	b.bang = not from_slam
 	b.red = 30
 	Audio.play("roar", -10)
 	if b.hp <= 0:

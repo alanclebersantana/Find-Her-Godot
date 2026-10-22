@@ -88,6 +88,15 @@ func _ready() -> void:
 	for n in j.atlas2:
 		var r = j.atlas2[n]
 		AR[n] = [r[0], r[1], r[2], r[3], r[4], r[5], 1]
+	# artes pintadas novas (tools/pack_paint.py): atlas 3, 4...
+	var pj = JSON.parse_string(FileAccess.get_file_as_string("res://assets/data/paint.json"))
+	for n in pj:
+		var r = pj[n]
+		var pg: int = int(r[6])
+		var key := "paint%d" % (pg + 1)
+		if not tex.has(key):
+			tex[key] = load("res://assets/sprites/%s.png" % key)
+		AR["p_" + n] = [r[0], r[1], r[2], r[3], r[4], r[5], 3 + pg]
 	# brilho radial (substitui os gradientes radiais do canvas)
 	var g := Gradient.new()
 	g.set_color(0, Color(1, 1, 1, 1))
@@ -106,12 +115,83 @@ func _ready() -> void:
 	font_title = load("res://assets/fonts/Cinzel-Bold.woff2")
 
 func atlas_tex(r) -> Texture2D:
+	if r[6] >= 3:
+		return tex["paint%d" % (r[6] - 2)]
 	if r[6] == 2:
 		return tex.extra
 	return tex.atlas2 if r[6] == 1 else tex.atlas1
 
 func has(n: String) -> bool:
 	return AR.has(n)
+
+## peça pintada com a base em (cx, by): largura w (altura pela proporção), espelhada se flip,
+## inclinada (topo deslocado em lean px, para grama/flores balançando) e com cor (período do dia)
+func P(n: String, cx: float, by: float, w: float, flip: bool = false, lean: float = 0.0, c: Color = Color.WHITE) -> void:
+	var r = AR.get("p_" + n)
+	if r == null:
+		return
+	var h: float = w * r[3] / r[2]
+	var t := atlas_tex(r)
+	var ts := t.get_size()
+	var u0: float = r[0] / ts.x
+	var u1: float = (r[0] + r[2]) / ts.x
+	if flip:
+		var tmp := u0
+		u0 = u1
+		u1 = tmp
+	var v0: float = r[1] / ts.y
+	var v1: float = (r[1] + r[3]) / ts.y
+	var col := Color(c.r, c.g, c.b, c.a * alpha)
+	var pts := PackedVector2Array([Vector2(cx - w / 2 + lean, by - h), Vector2(cx + w / 2 + lean, by - h), Vector2(cx + w / 2, by), Vector2(cx - w / 2, by)])
+	var uvs := PackedVector2Array([Vector2(u0, v0), Vector2(u1, v0), Vector2(u1, v1), Vector2(u0, v1)])
+	ci.draw_polygon(pts, PackedColorArray([col, col, col, col]), uvs, t)
+
+## peça pintada esticada num retângulo (x, y, w, h)
+func PR(n: String, x: float, y: float, w: float, h: float, c: Color = Color.WHITE, flip: bool = false) -> void:
+	var r = AR.get("p_" + n)
+	if r == null:
+		return
+	var col := Color(c.r, c.g, c.b, c.a * alpha)
+	if flip:
+		var t := atlas_tex(r)
+		var ts := t.get_size()
+		var u0: float = r[0] / ts.x
+		var u1: float = (r[0] + r[2]) / ts.x
+		var v0: float = r[1] / ts.y
+		var v1: float = (r[1] + r[3]) / ts.y
+		ci.draw_polygon(PackedVector2Array([Vector2(x, y), Vector2(x + w, y), Vector2(x + w, y + h), Vector2(x, y + h)]),
+			PackedColorArray([col, col, col, col]), PackedVector2Array([Vector2(u1, v0), Vector2(u0, v0), Vector2(u0, v1), Vector2(u1, v1)]), t)
+	else:
+		ci.draw_texture_rect_region(atlas_tex(r), Rect2(x, y, w, h), Rect2(r[0], r[1], r[2], r[3]), col)
+
+## só uma fatia horizontal (u0..u1, de 0 a 1) da peça pintada, esticada em (x, y, w, h)
+func PRs(n: String, x: float, y: float, w: float, h: float, u0: float, u1: float, c: Color = Color.WHITE) -> void:
+	var r = AR.get("p_" + n)
+	if r == null:
+		return
+	var col := Color(c.r, c.g, c.b, c.a * alpha)
+	ci.draw_texture_rect_region(atlas_tex(r), Rect2(x, y, w, h), Rect2(r[0] + r[2] * u0, r[1], r[2] * (u1 - u0), r[3]), col)
+
+## peça pintada repetida na vertical (escada, corda, cipó): largura w, de y até y+h
+func PV(n: String, x: float, y: float, w: float, h: float, c: Color = Color.WHITE) -> void:
+	var r = AR.get("p_" + n)
+	if r == null:
+		return
+	var th: float = w * r[3] / r[2]
+	var t := atlas_tex(r)
+	var col := Color(c.r, c.g, c.b, c.a * alpha)
+	var yy := y
+	while yy < y + h - .5:
+		var hh: float = min(th, y + h - yy)
+		ci.draw_texture_rect_region(t, Rect2(x, yy, w, hh), Rect2(r[0], r[1], r[2], r[3] * hh / th), col)
+		yy += th - 1
+
+## altura de uma peça pintada desenhada com largura w
+func PH(n: String, w: float) -> float:
+	var r = AR.get("p_" + n)
+	if r == null:
+		return 0.0
+	return w * r[3] / r[2]
 
 # ---------- pilha de transformações ----------
 func begin(c: CanvasItem) -> void:

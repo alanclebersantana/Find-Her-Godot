@@ -252,9 +252,27 @@ static func draw_bogs(g: Game, T: int) -> void:
 	for b in NT.BOGS:
 		if b.x > x1 or b.x + b.w < x0:
 			continue
-		Spr.rect(b.x, b.y + 8, b.w, 132, Color("#2e2414"))
-		Spr.vgrad(b.x, b.y - 6, b.w, 22, Color("#7a6238"), Color("#3e3018"))
-		Spr.rect(b.x, b.y - 6, b.w, 3, Color(.85, .75, .5, .5))
+		# lamaçal: superfície mole ondulando devagar, pontas arredondadas entrando no barranco
+		var top := PackedVector2Array()
+		var xx: float = b.x
+		while xx <= b.x + b.w + .1:
+			var u: float = (xx - b.x) / b.w
+			var endk: float = pow(abs(u - .5) * 2.0, 6.0)
+			top.push_back(Vector2(xx, b.y - 4 + sin(xx * .04 + T * .02) * 2.0 + sin(xx * .11 - T * .03) * 1.2 + endk * 8))
+			xx += 12
+		var body := PackedVector2Array(top)
+		body.push_back(Vector2(b.x + b.w, b.y + 140))
+		body.push_back(Vector2(b.x, b.y + 140))
+		var cols := PackedColorArray()
+		for q in body:
+			cols.push_back(Color("#6a5230").lerp(Color("#2a1e10"), clamp((q.y - b.y + 4) / 60.0, 0, 1)))
+		Spr.ci.draw_polygon(body, cols)
+		Spr.line(top, Color(.85, .74, .5, .45), 2.5)
+		# brilho molhado e manchas mais escuras
+		for k in int(b.w / 70.0):
+			var mx: float = b.x + 30 + fmod(k * 83.0, b.w - 60)
+			Spr.ellipse(mx, b.y + 4, 18 + (k % 3) * 6, 2.2, Color(1, .95, .8, .16))
+			Spr.ellipse(mx + 30, b.y + 16, 26, 4, Color(0, 0, 0, .14))
 		var x: float = b.x + 24
 		var i := 0
 		while x < b.x + b.w - 10:
@@ -338,10 +356,7 @@ static func crow(e: Dictionary, T: int) -> void:
 		Spr.A("crow%d" % ((T / 4) % 3), 0, -6, .5)
 
 static func piranha(e: Dictionary, T: int) -> void:
-	if e.dead:
-		Spr.A("piranha_dead", 0, 0, .48)
-		return
-	Spr.A("piranha%d" % ((T / 6) % 4), 0, 0, .48)
+	WorldExtras._pc("piranha%d" % (1 if (not e.dead and (T / 10) % 3 == 0) else 0), 0, 0, 46)
 
 # ---------------------------------------------------------------- cavalo
 ## cavalo desenhado: corpo, pescoço, cabeça e quatro pernas num galope (g = fase do galope)

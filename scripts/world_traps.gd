@@ -29,9 +29,9 @@ static func draw(g: Game, T: int) -> void:
 			"cage": _cage(o, T)
 			"net": _net(o, T)
 			"swing": _swing(TR, o, T)
-			"hive": _hive(o, T)
+			"hive": _hive(g, o, T)
 			"sand": _sand_back(o, T)
-			"web": _web(o, T)
+			"web": _web(g, o, T)
 			"gust": _gust(TR, o, T)
 			"bridge": _bridge(o, T)
 			"boulder": _boulder(g, o, T)
@@ -82,18 +82,15 @@ static func _flower(g: Game, TR: Traps, o: Dictionary, T: int) -> void:
 	var y: float = o.y
 	var pad: float = o.get("pad", 0.0)
 	var py: float = y - 18 + pad * 12
-	# caule e folhas
-	Spr.line(PackedVector2Array([Vector2(x, y), Vector2(x - 4, y - 8), Vector2(x, py + 6)]), Color("#3f6a2a"), 6)
-	Spr.ellipse(x - 16, y - 6, 14, 5, Color("#5c8d38"), .4)
-	Spr.ellipse(x + 16, y - 5, 14, 5, Color("#5c8d38"), -.4)
-	# pétalas (abrem mais quando dispara)
-	var open: float = 1.0 - max(0.0, pad) * .5
-	for i in 7:
-		var a: float = PI + PI * i / 6.0
-		var r: float = 24.0 * open + 6.0
-		Spr.ellipse(x + cos(a) * r * .8, py + sin(a) * r * .45, 13, 6, Color("#f08cb6"), a)
-	Spr.ellipse(x, py + 1, 27, 6, Color("#e2659a"))
-	Spr.ellipse(x, py - 1, 22, 4, Color("#ffd35c"))
+	# flor-catapulta pintada: aberta em repouso; carregando ela se fecha em botão e afunda
+	var sq: float = max(0.0, pad)
+	if sq > .35:
+		var bw: float = 62.0 - sq * 8
+		Spr.P("cat_bud", x, y + 3, bw, false, 0.0, Color(1, 1, 1))
+	else:
+		var ow: float = 76.0 * (1.0 - sq * .4)
+		var hgt: float = Spr.PH("cat_open", ow) * (1.0 - sq * .5)
+		Spr.PR("cat_open", x - ow / 2, y + 3 - hgt, ow, hgt)
 	# enquanto carrega, mostra o arco de para onde vai
 	if o.st == "load":
 		var tg: Array = o.to
@@ -421,38 +418,41 @@ static func _swing(TR: Traps, o: Dictionary, T: int) -> void:
 	Spr.rect(e.x + 22, e.y - 14, 6, 28, Color("#c9a26a"))
 
 # ---------- colmeia e enxame ----------
-static func _hive(o: Dictionary, T: int) -> void:
+static func _ground_at(g: Game, x: float, y: float) -> float:
+	var best := 99999.0
+	for so in g.SOL:
+		if str(so.get("t", "")) in ["ground", "dirt", "cliff"] and x >= so.x and x <= so.x + so.w and so.y >= y and so.y < best:
+			best = so.y
+	return best if best < 99999.0 else y + 80.0
+
+static func _hive(g: Game, o: Dictionary, T: int) -> void:
 	var x: float = o.x
 	var y: float = o.y
 	var sh: float = sin(T * .9) * 2.0 if o.st == "angry" and o.t < 40 else 0.0
-	# galho e cordinha
-	Spr.rr(x - 70, y - 70, 140, 14, 6, WOOD_D)
-	Spr.seg(x, y - 58, x + sh, y - 50, Color("#5a4632"), 3)
-	# colmeia em gomos
-	for k in 4:
-		var w: float = [20.0, 26.0, 24.0, 16.0][k]
-		Spr.ellipse(x + sh, y - 44 + k * 11, w, 8, Color("#d9a441").darkened(k * .05))
-		Spr.ellipse(x + sh, y - 46 + k * 11, w, 3, Color("#f0c766"))
-	Spr.ellipse(x + sh, y - 6, 6, 5, Color("#3a2410"))
+	# árvore de verdade: tronco no chão à esquerda e um galho comprido por cima do caminho
+	if not o.has("gy"):
+		o.gy = _ground_at(g, x - 72, y)
+	var by: float = y - 72
+	var tx: float = x - 72
+	Spr.img(Spr.tex.tronco, tx - 46, by - 150, 92, o.gy - by + 160)
+	Spr.img(Spr.tex.galho, tx - 10, by - 22, 200, 50)
+	# cordinha e a colmeia pintada (racha e escorre mel quando o enxame sai)
+	Spr.seg(x, by + 14, x + sh, y - 52, Color("#5a4632"), 2.5)
+	Spr.P("hive_broken" if o.st != "idle" else "hive", x + sh, y + 4, 46)
 	if o.st == "idle":
 		for k in 3:
 			var a: float = T * .07 + k * 2.1
 			_bee(x + cos(a) * 30, y - 26 + sin(a * 1.3) * 16, T + k * 7)
 	else:
 		# o enxame: uma nuvem escura zunindo com abelhas em volta
-		Spr.circle(o.sx, o.sy, 30 + sin(T * .3) * 3, Color(.15, .1, 0, .22))
-		for k in 18:
+		Spr.circle(o.sx, o.sy, 30 + sin(T * .3) * 3, Color(.15, .1, 0, .18))
+		for k in 16:
 			var a2: float = T * .23 + k * .9
 			var r: float = 10 + (k % 5) * 6
 			_bee(o.sx + cos(a2) * r, o.sy + sin(a2 * 1.4) * r * .7, T + k * 5)
 
 static func _bee(x: float, y: float, t: int) -> void:
-	Spr.ellipse(x, y, 6.5, 4.6, Color("#f2c230"))
-	Spr.rect(x - 2, y - 4.5, 2.5, 9, Color("#2a1a0e"))
-	Spr.rect(x + 2, y - 4, 2, 8, Color("#2a1a0e"))
-	var wy: float = -4.0 - (3.0 if (t / 2) % 2 == 0 else 0.0)
-	Spr.ellipse(x - 1, y + wy, 4.5, 3, Color(1, 1, 1, .75))
-	Spr.ellipse(x + 3, y + wy, 3.5, 2.5, Color(1, 1, 1, .6))
+	Spr.P("bee", x, y + 5 + (1.0 if (t / 2) % 2 == 0 else 0.0), 13, (t / 9) % 2 == 0)
 
 # ---------- areia movediça ----------
 static func _sand_back(o: Dictionary, T: int) -> void:
@@ -479,44 +479,36 @@ static func _sand_front(o: Dictionary, T: int) -> void:
 	Spr.seg(x, y - 1, x + w, y - 1, Color("#5e4a2a"), 2)
 
 # ---------- teia de aranha ----------
-static func _web(o: Dictionary, T: int) -> void:
+static func _web(g: Game, o: Dictionary, T: int) -> void:
 	var x: float = o.x
 	var y: float = o.y
 	var w: float = o.w
 	var h: float = o.h
-	var cx: float = x + w / 2
-	var cy: float = y + h * .45
 	var c := Color(.94, .94, .97, .8)
+	# a teia fica presa entre dois troncos firmes, um de cada lado
+	if not o.has("gy"):
+		o.gy = _ground_at(g, x + w / 2, y + h - 10)
+	var gy: float = o.gy
+	Spr.img(Spr.tex.tronco, x - 42, y - 60, 52, gy - y + 70)
+	Spr.img(Spr.tex.tronco, x + w - 8, y - 80, 46, gy - y + 90)
 	if o.cut:
-		# fiapos pendurados
+		# fiapos pendurados balançando
 		if o.t < 200:
 			for k in 4:
 				var fx: float = x + 8 + k * (w - 16) / 3.0
 				Spr.seg(fx, y, fx + sin(T * .05 + k) * 4, y + 26 + k % 2 * 10, Color(c.r, c.g, c.b, .5), 1)
 		return
-	# moldura entre os galhos
-	Spr.seg(x, y, x + w, y, Color("#5a4632"), 4)
-	Spr.seg(x, y, x - 4, y + h, Color("#5a4632"), 4)
-	Spr.seg(x + w, y, x + w + 4, y + h, Color("#5a4632"), 4)
-	var spokes := 9
-	for k in spokes:
-		var a: float = TAU * k / spokes
-		Spr.seg(cx, cy, cx + cos(a) * w * .62, cy + sin(a) * h * .62, c, 1.3)
-	for r in 5:
-		var rr: float = (r + 1) / 5.0
-		var ring := PackedVector2Array()
-		for k in spokes + 1:
-			var a2: float = TAU * k / spokes
-			ring.push_back(Vector2(cx + cos(a2) * w * .5 * rr, cy + sin(a2) * h * .5 * rr))
-		Spr.line(ring, c, 1.1)
-	# a aranha descendo no fio
-	var sy: float = y + 10 + (1.0 + sin(T * .03)) * 18
+	# fios de ancoragem até o tronco, a pedra e o chão
+	Spr.seg(x - 8, y - 6, x + 6, y + 8, c, 1.2)
+	Spr.seg(x + w + 8, y + h - 14, x + w - 6, y + h - 22, c, 1.2)
+	Spr.PR("web", x - 4, y - 4, w + 8, h + 8, Color(1, 1, 1, .92))
+	# gotinhas brilhando
+	for k in 3:
+		Spr.circle(x + w * (.3 + k * .2), y + h * (.35 + (k % 2) * .25), 1.6, Color(.85, .95, 1, .5 + .4 * sin(T * .05 + k)))
+	# a aranha pequena no canto, que sobe e desce um pouco
+	var sy: float = y + 10 + (1.0 + sin(T * .03)) * 10
 	Spr.seg(x + w - 14, y, x + w - 14, sy, Color(1, 1, 1, .5), 1)
-	Spr.circle(x + w - 14, sy + 5, 6, Color("#2a1a2e"))
-	for k in 4:
-		Spr.seg(x + w - 14 - 5, sy + 3 + k * 2, x + w - 14 - 11, sy - 1 + k * 4, Color("#2a1a2e"), 1.5)
-		Spr.seg(x + w - 14 + 5, sy + 3 + k * 2, x + w - 14 + 11, sy - 1 + k * 4, Color("#2a1a2e"), 1.5)
-	Spr.circle(x + w - 16, sy + 4, 1.4, Color(1, .3, .3))
+	WorldExtras._pc("spider_hang", x + w - 14, sy + 8, 16)
 
 # ---------- rajadas de vento ----------
 static func _gust(TR: Traps, o: Dictionary, T: int) -> void:

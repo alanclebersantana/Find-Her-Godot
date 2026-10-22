@@ -2062,13 +2062,13 @@
    "w": 60,
    "h": 22,
    "id": "chao1",
-   "kind": "slab",
+   "kind": "slam",
    "ladder": [
     4595,
     500,
     460
    ],
-   "msg": "O chão rachado se abriu! Tem uma escada descendo (↓)."
+   "msg": "O MERGULHO rachou o chão! Tem uma escada descendo (↓)."
   }
  ],
  "swamp": [
@@ -5666,7 +5666,7 @@
   {
    "a": 4500,
    "b": 4700,
-   "t": "Chão rachado! Perto dele, ✦ USAR quebra com a picareta. Depois desça pela escada (↓).",
+   "t": "Chão rachado! Pule e, no ar, aperte ↓ para dar um MERGULHO e quebrar. Depois desça pela escada (↓).",
    "yg": 400
   },
   {
@@ -5883,7 +5883,7 @@
   {
    "a": 2030,
    "b": 2180,
-   "t": "Riacho! Pule e agarre o cipó — ou atravesse nadando.",
+   "t": "Riacho! Pule e agarre o cipó, atravesse nadando — ou suba na estaca e dê um MERGULHO para baixar a ponte.",
    "yl": 520
   },
   {
@@ -5955,9 +5955,9 @@
    "t": "Tronco balançando! Passe por baixo quando ele estiver lá no alto."
   },
   {
-   "a": 11480,
-   "b": 11780,
-   "t": "Colmeia! Passe por baixo sem pular. Se as abelhas vierem, fuja para longe ou para a água."
+   "a": 15150,
+   "b": 15560,
+   "t": "Colmeia! Passe por baixo sem pular. Se as abelhas vierem, mergulhe no lago (↓) para despistá-las."
   },
   {
    "a": 19640,
@@ -6019,6 +6019,12 @@
    "a": 50000,
    "b": 51300,
    "t": "Desvie das patadas! Na terceira que ele errar, ele fica tonto. Suba no gelo e nos galhos para pular por cima dele.",
+   "yl": 520
+  },
+  {
+   "a": 63300,
+   "b": 63600,
+   "t": "Gangorra! Dê um MERGULHO na ponta de cá: a pedra voa lá no alto do pinheiro e derruba o que estava preso.",
    "yl": 520
   }
  ],
@@ -6503,7 +6509,7 @@
   },
   {
    "k": "hive",
-   "x": 11640,
+   "x": 15450,
    "y": 420
   },
   {
@@ -6910,6 +6916,12 @@
    "x": 63280,
    "y": 500,
    "s": 1.1
+  },
+  {
+   "k": "pine",
+   "x": 63690,
+   "y": 500,
+   "s": 1.3
   }
  ],
  "holes": [
@@ -7293,6 +7305,45 @@
    {
     "k": "log",
     "x": 52330
+   }
+  ]
+ },
+ "slam": {
+  "stakes": [
+   {
+    "x": 2040,
+    "y": 500,
+    "bridge": {
+     "x": 2080,
+     "y": 500,
+     "w": 280
+    }
+   }
+  ],
+  "seesaw": [
+   {
+    "x": 63530,
+    "y": 500,
+    "w": 150,
+    "dir": 1,
+    "target": [
+     63680,
+     250
+    ],
+    "items": 5,
+    "heart": 1
+   }
+  ],
+  "fruit": [
+   {
+    "x": 6330,
+    "y": 500,
+    "n": 2
+   },
+   {
+    "x": 66300,
+    "y": 500,
+    "n": 3
    }
   ]
  }

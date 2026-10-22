@@ -5,6 +5,24 @@ const WS = preload("res://scripts/world_static.gd")
 
 var game: Game
 var T := 0
+var pl_node: Node2D
+var front_node: Node2D
+
+class _Sub extends Node2D:
+	var cb: Callable
+	func _draw() -> void:
+		cb.call(self)
+
+func _ready() -> void:
+	pl_node = _Sub.new()
+	pl_node.cb = _draw_player_node
+	var m := ShaderMaterial.new()
+	m.shader = preload("res://scripts/depth.gdshader")
+	pl_node.material = m
+	add_child(pl_node)
+	front_node = _Sub.new()
+	front_node.cb = _draw_front_node
+	add_child(front_node)
 
 func _process(_d: float) -> void:
 	queue_redraw()
@@ -20,6 +38,21 @@ func __draw_raw() -> void:
 	var g := game
 	T = g.T
 	Spr.begin(self)
+	var cx0: float = g.cam - 400
+	var cx1: float = g.cam + g.W + 400
+	# tábuas e galhos (atrás de tudo que se mexe: o Javali-Rei e os bichos passam na frente): afundam um pouquinho e balançam quando o Tomé pisa ou aterrissa
+	for so in g.SOL:
+		var st_: String = str(so.get("t", ""))
+		if (st_ != "plat" and st_ != "branch") or so.x > cx1 or so.x + so.w < cx0:
+			continue
+		var dp: float = so.get("dip", 0.0)
+		Spr.save()
+		Spr.translate(0, dp)
+		if st_ == "plat":
+			WS.plat(so)
+		else:
+			WS.branch(so)
+		Spr.restore()
 	var __d__deco := Time.get_ticks_usec()
 	_deco(g)
 	Spr.pt("d__deco", __d__deco)
@@ -50,6 +83,8 @@ func __draw_raw() -> void:
 	var __d_Extras_mech := Time.get_ticks_usec()
 	WorldExtras.mech(g, T)
 	Spr.pt("d_Extras_mech", __d_Extras_mech)
+	if g.SL:
+		g.SL.draw(T)
 	var __d_Props_draw := Time.get_ticks_usec()
 	WorldProps.draw(g, T)
 	Spr.pt("d_Props_draw", __d_Props_draw)
@@ -76,21 +111,6 @@ func __draw_raw() -> void:
 		var f: int = (T / max(3, int(10 - v.get("spd", 3.3)))) % 2
 		Spr.A("lia_scared", v.x + 44, v.y - 58, .5)
 		Spr.A("vg_cart1" if f else "vg_cart2", v.x, v.y + 2, 1)
-	var cx0: float = g.cam - 400
-	var cx1: float = g.cam + g.W + 400
-	# tábuas e galhos: afundam um pouquinho e balançam quando o Tomé pisa ou aterrissa
-	for so in g.SOL:
-		var st_: String = str(so.get("t", ""))
-		if (st_ != "plat" and st_ != "branch") or so.x > cx1 or so.x + so.w < cx0:
-			continue
-		var dp: float = so.get("dip", 0.0)
-		Spr.save()
-		Spr.translate(0, dp)
-		if st_ == "plat":
-			WS.plat(so)
-		else:
-			WS.branch(so)
-		Spr.restore()
 	_levers(g)
 	for v in g.VINES:
 		if v.x + v.len < cx0 or v.x - v.len > cx1:
@@ -125,6 +145,10 @@ func __draw_raw() -> void:
 			_enemy(e)
 			Spr.sil_c = Color(0, 0, 0, 0)
 		Spr.restore()
+		if e.get("dizzyT", 0) > 0 and not e.dead:
+			e.dizzyT -= 1
+			if e.stun > 0:
+				dizzy(e.x + eo.x, e.y + eo.y - 46, T)
 		_enemy_fx_over(g, e, eo, hop_u)
 	Critters.draw(g, T)
 	var __d_Extras_tocas := Time.get_ticks_usec()
@@ -138,11 +162,54 @@ func __draw_raw() -> void:
 		Spr.restore()
 	else:
 		WorldExtras.dog(g, T)
+	if not g.low_fx:
+		_reflection(g)
+	# o Tomé é desenhado num nó só dele (com o sombreado de volume) e o que fica na frente dele
+	# (capim, faíscas, poeira) num terceiro nó por cima
+	pl_node.queue_redraw()
+	front_node.queue_redraw()
+
+## nó do Tomé: volume com luz do sol (de cima, atrás) ou da lanterna (da frente)
+func _draw_player_node(n: CanvasItem) -> void:
+	var g := game
+	if g == null or not g.L:
+		return
+	Spr.begin(n)
 	var __d__player := Time.get_ticks_usec()
-	_reflection(g)
+	var p: Dictionary = g.player
+	var mat: ShaderMaterial = n.material
+	var dark: float = g.AMB.dark
+	if g.L.has("under") and p.y > g.L.under:
+		dark = 1.0
+	var face: float = 1.0 if p.face > 0 else -1.0
+	if dark > .3:
+		mat.set_shader_parameter("light_uv", Vector2(1.0, -.35).normalized())
+		mat.set_shader_parameter("rim_col", Color(1, .78, .45))
+		mat.set_shader_parameter("rim_amt", .4 * clamp((dark - .3) * 3.0, 0, 1))
+	else:
+		var tw: float = g.section_weights().get("tarde", 0.0)
+		mat.set_shader_parameter("light_uv", Vector2(-.7 * face, -.75).normalized())
+		mat.set_shader_parameter("rim_col", Color(1, .95, .8).lerp(Color(1, .74, .42), tw))
+		mat.set_shader_parameter("rim_amt", .34)
+	mat.set_shader_parameter("shade_amt", .55 if p.swim else .32)
+	# cor do ambiente: mais quente no fim da tarde, mais azulada na neve e à noite
+	var ws: Dictionary = g.section_weights()
+	var env := Color(1, 1, 1)
+	env = env.lerp(Color(1.03, .95, .86), ws.get("tarde", 0.0))
+	env = env.lerp(Color(.94, .97, 1.04), ws.get("neve", 0.0))
+	env = env.lerp(Color(.9, .94, 1.02), ws.get("noite", 0.0))
+	env = env.lerp(Color(.92, .96, .94), ws.get("pantano", 0.0))
+	n.self_modulate = env
 	_player(g)
 	_breath(g)
 	Spr.pt("d__player", __d__player)
+
+## nó da frente: o que passa por cima do Tomé
+func _draw_front_node(n: CanvasItem) -> void:
+	var g := game
+	if g == null or not g.L:
+		return
+	Spr.begin(n)
 	var __d_Traps_draw_front := Time.get_ticks_usec()
 	WorldTraps.draw_front(g, T)
 	Spr.pt("d_Traps_draw_front", __d_Traps_draw_front)
@@ -160,6 +227,11 @@ func __draw_raw() -> void:
 			var ec := Color(1, .85, .4).lerp(Color(1, .35, .1), 1.0 - clamp(p.life / 28.0, 0, 1))
 			Spr.glow(ex, p.y, 7, Color(ec.r, ec.g, ec.b, pa * .5))
 			Spr.circle(ex, p.y, 1.6, Color(ec.r, ec.g, ec.b, pa))
+		elif p.has("ring"):
+			# onda de choque do mergulho: anel de poeira se abrindo rente ao chão
+			var u: float = 1.0 - p.life / 18.0
+			Spr.ci.draw_arc(Vector2(p.x, p.y), p.ring * u, PI, TAU, 28, Color(1, .93, .75, .6 * (1.0 - u)), 3, true)
+			Spr.ellipse(p.x, p.y, p.ring * u, 4, Color(1, .95, .8, .18 * (1.0 - u)))
 		else:
 			Spr.rect(p.x, p.y, 3, 3, Color(c.r, c.g, c.b, pa))
 
@@ -235,26 +307,21 @@ func _climb(g: Game) -> void:
 		if z.x + z.w < g.cam - 200 or z.x > g.cam + g.W + 200:
 			continue
 		if z.kind == "ladder":
-			Spr.strip_v("o_ladder", z.x + z.w / 2 - 18, z.y - 4, 36, z.h + 4)
+			Spr.PV("ladder", z.x + z.w / 2 - 20, z.y - 4, 40, z.h + 4)
 		elif z.kind == "net":
 			Spr.strip_v("o_net", z.x - 3, z.y, z.w + 6, z.h)
 		else:
-			var pts := PackedVector2Array()
-			var y: float = z.y
-			while y < z.y + z.h:
-				pts.push_back(Vector2(z.x + z.w / 2 + sin(y * .05 + T * .04) * 1.5, y))
-				y += 12
-			pts.push_back(Vector2(z.x + z.w / 2, z.y + z.h))
-			Spr.line(pts, Color("#c9a26a"), 4)
-			y = z.y + 8
-			while y < z.y + z.h:
-				Spr.seg(z.x + z.w / 2 - 3, y, z.x + z.w / 2 + 3, y + 4, Color("#8a6a42"), 2)
-				y += 10
+			# corda trançada pintada, balançando de leve
+			Spr.save()
+			Spr.translate(sin(T * .04 + z.x) * 1.5, 0)
+			Spr.PV("rope", z.x + z.w / 2 - 6, z.y, 12, z.h)
+			Spr.restore()
 
 func _locks(g: Game) -> void:
 	for l in g.LOCKS:
 		if l.kind == "hook":
-			Spr.A("o_ringrock", l.ring[0] + 2, l.ring[1] + 34, .85)
+			Spr.ellipse(l.ring[0] - 15, l.ring[1] + 41, 34, 6, Color(0, 0, 0, .28))
+			Spr.P("rock_ring", l.ring[0] - 15, l.ring[1] + 43, 72)
 			if l.done:
 				Spr.A("it_gancho", l.ring[0], l.ring[1] + 4, .32)
 		elif l.kind == "dam":
@@ -271,7 +338,7 @@ func _entrances(g: Game) -> void:
 			var top: float = e.y + e.h - 200
 			var pts := PackedVector2Array([Vector2(cx - 18, top), Vector2(cx + 18, top), Vector2(cx + 46, e.y + e.h), Vector2(cx - 46, e.y + e.h)])
 			Spr.ci.draw_polygon(pts, PackedColorArray([Color(1, .88, .59, .55), Color(1, .88, .59, .55), Color(1, .88, .59, .08), Color(1, .88, .59, .08)]))
-			Spr.strip_v("o_ladder", cx - 17, top, 34, 200)
+			Spr.PV("ladder", cx - 20, top, 40, 200)
 			Spr.text("⬆ SAIR", cx, e.y - 24 + sin(T * .15) * 4, 22, Color(1, .91, .66, .6 + sin(T * .12) * .35), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
 			continue
 		var de: float = abs(p.x + p.w / 2 - (e.x + e.w / 2))
@@ -310,17 +377,31 @@ func _vine(v: Dictionary) -> void:
 		for i in range(1, 7):
 			var u2 := i / 6.0
 			pts.push_back(end + d2 * (v.len - r) * u2 + Vector2(sin(T * .07 + u2 * 3) * 2 * u2, 0))
-	Spr.line(pts, Color("#2f4a1c"), 6)
-	Spr.line(pts, Color("#4f7a2c"), 3.5)
-	for i in range(2, pts.size() - 1, 2):
-		var a: Vector2 = pts[i]
-		var b: Vector2 = pts[i - 1]
-		var t := (a - b).normalized()
-		var side := 1.0 if (i / 2) % 2 == 0 else -1.0
-		var lp: Vector2 = a + Vector2(t.y, -t.x) * side * 6
-		Spr.ellipse(lp.x, lp.y, 7, 3.2, Color("#5c8d38"), atan2(t.y, t.x) + side * .7)
-	Spr.circle(v.x, v.y, 7, Color("#3a5a24"))
-	Spr.circle(v.x, v.y, 3, Color("#5c8d38"))
+	# cipó pintado (folhas e nós da arte) seguindo a curva: um pedaço da textura em cada trecho
+	var r_ = Spr.AR.get("p_vine")
+	if r_ != null:
+		var tex: Texture2D = Spr.atlas_tex(r_)
+		var vw: float = 16.0
+		var th: float = vw * r_[3] / r_[2]
+		var acc := 0.0
+		for i in range(1, pts.size()):
+			var a: Vector2 = pts[i - 1]
+			var b: Vector2 = pts[i]
+			var L2: float = a.distance_to(b)
+			if L2 < .5:
+				continue
+			var v0: float = fmod(acc, th) / th
+			var v1: float = v0 + L2 / th
+			Spr.save()
+			Spr.translate(a.x, a.y)
+			Spr.rotate(atan2(b.y - a.y, b.x - a.x) - PI / 2)
+			var sy0: float = r_[1] + r_[3] * v0
+			var sh_: float = r_[3] * min(1.0 - v0, v1 - v0)
+			Spr.ci.draw_texture_rect_region(tex, Rect2(-vw / 2, 0, vw, L2 + .8), Rect2(r_[0], sy0, r_[2], max(1.0, sh_)), Color(1, 1, 1, Spr.alpha))
+			Spr.restore()
+			acc += L2
+	# o cipó continua subindo até as copas (não fica pendurado no nada)
+	Spr.PV("vine", v.x - 8, v.y - 520, 16, 522)
 
 func _glow_mush(x: float, y: float, t: int) -> void:
 	Spr.glow(x, y - 34, 70, Color(.47, .78, 1, .35))
@@ -352,11 +433,18 @@ func _campfire(c: Dictionary) -> void:
 
 func _crate(c: Dictionary) -> void:
 	var o := (randf() - .5) * 4 if c.shake else 0.0
-	var n: String = {"coin": "crate_coin", "armor": "crate_armor", "heart": "crate_heart"}.get(c.get("item", "coin"), "crate_coin")
-	var r = Spr.AR[n]
+	var it: String = c.get("item", "coin")
 	var w: float = c.w + 6
-	var hh: float = w * r[3] / r[2]
-	Spr.AB(n, c.x - 3 + o, c.y + c.h - hh, w, hh)
+	Spr.ellipse(c.x + c.w / 2, c.y + c.h + 1, w * .5, 4, Color(0, 0, 0, .25))
+	if it == "heart":
+		# coração entalhado brilhando de leve
+		Spr.glow(c.x + c.w / 2 + o, c.y + c.h / 2, c.w * .7, Color(1, .4, .4, .12 + .06 * sin(T * .08)))
+		Spr.PR("crate_heart", c.x - 3 + o, c.y - 3, w, c.h + 6)
+	else:
+		Spr.PR("crate", c.x - 3 + o, c.y - 3, w, c.h + 6, Color(.86, .92, 1.08) if it == "armor" else Color.WHITE)
+		if it == "armor":
+			Spr.circle(c.x + c.w / 2 + o, c.y + c.h / 2, 7, Color(.25, .3, .4, .8))
+			Spr.circle(c.x + c.w / 2 + o, c.y + c.h / 2, 5, Color(.65, .8, 1, .9))
 	if c.get("item") == "heart" and game.player.hp >= Game.MAXHP:
 		Spr.rect(c.x, c.y, c.w, c.h, Color(0, 0, 0, .25))
 
@@ -435,7 +523,7 @@ func _enemy(e: Dictionary) -> void:
 			else:
 				Spr.A("en_frog_jump" if e.leap else "en_frog", 0, 3, .9 if e.leap else .82 + sin(T * .12) * .02)
 		"fly":
-			Spr.A("en_fly_dead" if e.dead else "en_fly%d" % ((T / 3) % 5), 0, 0, .8)
+			WorldExtras._pc("fly%d" % ((T / 2) % 2), 0, 0, 40)
 		"owl":
 			if e.dead:
 				Spr.A("en_owl_dead", 0, 22, .9)
@@ -462,12 +550,13 @@ func _enemy(e: Dictionary) -> void:
 		"leech":
 			Spr.A("en_puddle", 0, 6, .9)
 			if e.dead:
-				Spr.A("en_leech_dead", 0, 2, .8)
+				WorldExtras._pc("leech0", 0, 2, 36)
 			else:
 				var t: int = int(e.get("lt", 0)) % 200
 				if t >= 90:
-					var n := "en_leech3" if (t < 100 or t >= 190) else ("en_leech2" if (t < 110 or t >= 180) else "en_leech1")
-					Spr.A(n, 0, 2 + (sin(T * .2) * 2 if n == "en_leech1" else 0.0), .85)
+					# sai da poça encolhida e se estica para pegar
+					var up: bool = t >= 110 and t < 180
+					WorldExtras._pc("leech1" if not up else "leech0", 0, -6 if up else 0, 34 if not up else 42)
 		_:
 			# javali
 			var fr: int
@@ -998,6 +1087,10 @@ func _reaction(g: Game, p: Dictionary) -> String:
 ## contorno de luz: de dia vem do sol (de cima, atrás), à noite da lanterna (da frente)
 var rim_off := Vector2.ZERO
 func _rim(g: Game, p: Dictionary) -> Color:
+	# o contorno por fora (silhueta clara atrás) deixava o Tomé com cara de papel recortado;
+	# agora a luz e a sombra são feitas por dentro do desenho (scripts/depth.gdshader)
+	if true:
+		return Color(0, 0, 0, 0)
 	if p.swim or p.dyingT > 0 or p.iframe > 40:
 		return Color(0, 0, 0, 0)
 	var dark: float = g.AMB.dark
@@ -1027,8 +1120,14 @@ func _blink(p: Dictionary) -> void:
 
 func _armor(p: Dictionary, cx: float, by: float) -> void:
 	if p.armor > 0:
-		var pts := PackedVector2Array()
-		for i in 25:
-			var a := TAU * i / 24.0
-			pts.push_back(Vector2(cx + cos(a) * 26, by - 30 + sin(a) * 36))
-		Spr.line(pts, Color(.78, .84, .92, .5 + sin(T * .15) * .2), 2)
+		# escudo: um brilho quente e macio que respira, com faíscas douradas girando em volta
+		var pu: float = .5 + .5 * sin(T * .07)
+		Spr.glow(cx, by - 30, 44 + pu * 6, Color(1, .85, .5, .16 + pu * .08))
+		for i in 6:
+			var a: float = T * .045 + TAU * i / 6.0
+			var r2: float = 24 + sin(T * .09 + i) * 3
+			var sx: float = cx + cos(a) * r2
+			var sy: float = by - 30 + sin(a) * r2 * 1.25
+			var tw: float = .5 + .5 * sin(T * .2 + i * 1.7)
+			Spr.glow(sx, sy, 6, Color(1, .9, .55, .35 * tw))
+			Spr.circle(sx, sy, 1.3 + tw * .6, Color(1, .95, .7, .85 * tw))

@@ -56,6 +56,7 @@ func _sky(k: String, al: float, w: float, oy: float) -> void:
 				var cy: float = 26 + hh(i, 4) * H * .1 + oy * .2
 				var ca: float = (.42 if k == "bosque" else .5) * al
 				_cloud(cx, cy, cw, Color(1, 1, 1, ca))
+			_geese(al, w, oy, Color(.72, .74, .8) if k == "neve" else Color(.6, .64, .66))
 		"tarde":
 			# o sol vai baixando: o céu esquenta e escurece aos poucos até o pântano
 			var u: float = clamp((game.player.x - 3350.0) / (14700.0 - 3350.0), 0, 1)
@@ -63,16 +64,48 @@ func _sky(k: String, al: float, w: float, oy: float) -> void:
 		"noite":
 			# halo respirando em volta da lua pintada no fundo (a lua fica em 878,90 na pintura)
 			var t3: Texture2D = Spr.tex["bg_noite"]
-			var sc3: float = GL / t3.get_height()
+			var bh3: float = H + max(0.0, (game.L.bottom - game.L.top) - H) * PX
+			var sc3: float = bh3 / t3.get_height()
 			var tw3: float = t3.get_width() * sc3
-			var x3: float = fposmod(-game.rcam * PX, tw3 - 1) - (tw3 - 1)
+			var x3: float = fposmod(-game.rcam * PX, tw3 * 2) - tw3 * 2
+			var j3 := 0
 			while x3 < w:
-				Spr.glow(x3 + 878 * sc3, oy + 90 * sc3, 90 + sin(t * .02) * 8, Color(.8, .86, 1, .3 * al))
-				x3 += tw3 - 1
+				var mx: float = 878 * sc3 if j3 % 2 == 0 else tw3 - 878 * sc3
+				Spr.glow(x3 + mx, oy + 90 * sc3, 90 + sin(t * .02) * 8, Color(.8, .86, 1, .3 * al))
+				x3 += tw3
+				j3 += 1
 	# névoa de distância na base do fundo
 	var fc: Color = {"bosque": Color(.86, .94, .82), "tarde": Color(1, .78, .5), "pantano": Color(.55, .65, .6),
 		"noite": Color(.2, .25, .45), "neve": Color(.92, .95, 1)}.get(k, Color(.9, .9, .9))
 	Spr.vgrad(0, H * .5, w, H * .5, Color(fc.r, fc.g, fc.b, 0), Color(fc.r, fc.g, fc.b, .32 * al))
+
+## aves migratórias em V cruzando o céu de vez em quando (longe: pequenas e apagadas pela distância)
+func _geese(al: float, w: float, oy: float, tint: Color) -> void:
+	var per := 2600
+	var t: int = game.T + 900
+	var cyc: int = t / per
+	var u: int = t % per
+	var dur := 1100
+	if u > dur or hh(cyc, 9) < .25:
+		return
+	var n: int = 5 + int(hh(cyc, 10) * 5)
+	var dir: float = 1.0 if hh(cyc, 11) > .4 else -1.0
+	var lx: float = -260 + (w + 520) * (u / float(dur))
+	if dir < 0:
+		lx = w - lx
+	var ly: float = 50 + hh(cyc, 12) * game.H * .16 + oy * .15
+	var c := Color(tint.r, tint.g, tint.b, .85 * al)
+	for k in n:
+		var row: int = (k + 1) / 2
+		var side: float = -1.0 if k % 2 == 1 else 1.0
+		if k == 0:
+			side = 0.0
+		var gx: float = lx - dir * row * 24
+		var gy: float = ly + row * 11 * side + sin(game.T * .02 + k) * 2
+		# o líder troca de vez em quando: a formação "respira"
+		gx += sin(game.T * .01 + k * 1.7) * 3
+		var fr: int = ((game.T / 6) + k * 2) % 4
+		Spr.P("goose%d" % [0, 1, 2, 1][fr], gx, gy + 6, 24, dir < 0, 0.0, c)
 
 func _cloud(x: float, y: float, cw: float, c: Color) -> void:
 	# contorno único (sem sobreposição de transparências): bolotas em cima, base reta e arredondada
@@ -125,32 +158,18 @@ func _layer(k: String, ox: float, oy: float, w: float, bh: float, al: float) -> 
 		_layers(k, w, al)
 		return
 	var t: Texture2D = Spr.tex["bg_" + k]
-	if k == "bosque" or k == "neve":
-		var sc := bh / t.get_height()
-		var tw := t.get_width() * sc
-		var x := fposmod(ox, tw - 1) - (tw - 1)
-		while x < w:
+	# a pintura cobre a tela inteira (do topo até embaixo, com o zoom aberto também); as cópias lado a
+	# lado alternam espelhadas, então a emenda entre uma e outra nunca aparece
+	var sc := bh / t.get_height()
+	var tw := t.get_width() * sc
+	var x := fposmod(ox, tw * 2) - tw * 2
+	var i := 0
+	while x < w:
+		if i % 2 == 0:
 			Spr.img(t, x, oy, tw, bh, Rect2(), al)
-			x += tw - 1
-	elif k == "tarde":
-		var bandh := 430.0
-		var sc2 := bandh / t.get_height()
-		var tw2 := t.get_width() * sc2
-		Spr.vgrad(0, oy - 200, w, GL - bandh + 240, Color(.93, .69, .38, al), Color(.96, .81, .55, al))
-		Spr.rect(0, oy + GL - 10, w, bh, Color(.29, .17, .08, al))
-		var x2 := fposmod(ox, tw2 - 1) - (tw2 - 1)
-		while x2 < w:
-			Spr.img(t, x2, oy + GL - bandh + 30, tw2, bandh, Rect2(), al)
-			x2 += tw2 - 1
-		Spr.vgrad(0, oy + GL - bandh + 30, w, 80, Color(.96, .81, .55, al), Color(.96, .81, .55, 0))
-	else:
-		var sc3 := GL / t.get_height()
-		var tw3 := t.get_width() * sc3
-		var base := Color("#0d1020") if k == "noite" else Color("#1c2622")
-		base.a = al
-		Spr.rect(0, oy - 200, w, bh + 400, base)
-		var x3 := fposmod(ox, tw3 - 1) - (tw3 - 1)
-		while x3 < w:
-			Spr.img(t, x3, oy, tw3, GL, Rect2(), al)
-			x3 += tw3 - 1
-		Spr.vgrad(0, oy + GL - 60, w, 60, Color(base.r, base.g, base.b, 0), base)
+		else:
+			var cc := Color(1, 1, 1, Spr.alpha * al)
+			Spr.ci.draw_polygon(PackedVector2Array([Vector2(x, oy), Vector2(x + tw, oy), Vector2(x + tw, oy + bh), Vector2(x, oy + bh)]),
+				PackedColorArray([cc, cc, cc, cc]), PackedVector2Array([Vector2(1, 0), Vector2(0, 0), Vector2(0, 1), Vector2(1, 1)]), t)
+		x += tw
+		i += 1

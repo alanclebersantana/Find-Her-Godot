@@ -43,9 +43,17 @@ func _initialize() -> void:
 		put(9800, 500)
 		S("tronco-pêndulo", cross_swing(trap_at("swing", 10010), 10160))
 		S("sem dano (tronco)", P.hp == 5)
-		put(11560, 500)
-		S("sob a colmeia", walk_to(11800))
-		S("colmeia quieta", trap_at("hive", 11640).st == "idle")
+		put(15370, 500)
+		S("sob a colmeia", walk_to(15530))
+		S("colmeia quieta", trap_at("hive", 15450).st == "idle")
+		# cutucou a colmeia: só mergulhando no lago o enxame desiste
+		var hv: Dictionary = trap_at("hive", 15450)
+		g.TR._hive_wake(hv)
+		S("enxame acordou", hv.st == "angry")
+		S("pula no lago", walk_to(15640))
+		hold({"S": true}, 50)
+		S("mergulhou e despistou", until({"S": true}, func(): return hv.st != "angry", 200))
+		hold({"J": true}, 60)
 		put(19665, 500)
 		S("areia movediça", walk_to(19990))
 		S("vivo na areia", g.lives >= 9)
@@ -54,8 +62,10 @@ func _initialize() -> void:
 		S("parado afunda", g.lives == 8)
 		g.lives = 9
 	if all or args.has("tronco"):
-		put(4560, 500)
+		put(4605, 500)
 		use()
+		S("picareta não quebra (é do mergulho)", not g.X.broken.has("chao1"))
+		slam_here()
 		S("quebrou o chão", g.X.broken.has("chao1"))
 		walk_to(4610)
 		S("desceu", climb_to("S", func(): return P.onGround and P.y > 800, 500))
@@ -129,6 +139,55 @@ func _initialize() -> void:
 		use()
 		S("portão abriu", until({}, func(): return g.EV.GATE.lift >= g.EV.GATE.h - 8, 200))
 		S("passa o portão", walk_to(71070))
+	if all or args.has("mergulho"):
+		# estaca: subir nela e mergulhar baixa a ponte do riacho
+		put(2040, 456)
+		var stk: Dictionary = g.SL.STAKES[0]
+		S("ponte em pé", not g.SOL.has(stk.sol))
+		S("em cima da estaca", P.onGround and P.y + P.h < 470)
+		slam_here()
+		S("estaca cravada", stk.done)
+		hold({}, 120)
+		S("ponte deitou", g.SOL.has(stk.sol))
+		S("atravessa a ponte", walk_to(2380))
+		S("seco (não caiu na água)", not P.swim)
+		# gangorra: mergulho na ponta de cá lança a pedra e caem lápis e uma fruta
+		put(63485, 456)
+		var sw: Dictionary = g.SL.SAWS[0]
+		var c0: int = g.coin_life
+		S("na ponta de cá", P.onGround and P.y + P.h < 470)
+		slam_here()
+		S("gangorra lançou", sw.done)
+		hold({}, 150)
+		S("caiu coisa da árvore", g.SL.DROPS.size() >= 5)
+		for d in g.SL.DROPS:
+			if not d.got:
+				walk_to(d.x)
+		S("pegou os lápis", g.coin_life > c0)
+		# arbusto de frutas: o mergulho perto derruba as frutas; cada uma devolve um coração
+		put(66220, 500)
+		P.hp = 3
+		slam_here()
+		hold({}, 60)
+		S("frutas caíram", g.SL.FRUIT[1].left == 0)
+		walk_to(66330)
+		walk_to(66270)
+		S("comeu fruta (+coração)", P.hp >= 4)
+		# onda de choque: um bicho do chão por perto fica tonto
+		put(34120, 500)
+		var en: Dictionary = {}
+		for e in g.EN:
+			if e.k == "squirrel":
+				en = e
+				break
+		en.dead = 0
+		en.x = 34210.0
+		en.y = 500.0
+		en.base = 500.0
+		en.r = [34230, 34260]
+		slam_here()
+		S("bicho ficou tonto", en.stun > 0)
+		en.dead = 99
 	if all or args.has("treno"):
 		put(51420, 500)
 		walk_to(51440)

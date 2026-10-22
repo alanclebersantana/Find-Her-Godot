@@ -73,6 +73,7 @@ var K: Kings
 var RD: Ride
 var VH: Vehicles
 var EV: Events
+var SL: Slam
 var WV: Waves
 var RESTED := {}        # fogueiras grandes já descansadas
 var player: Dictionary = {}
@@ -117,6 +118,8 @@ var COMIC_TRIG: Array = []
 const COMIC_CINE := {"boss": "javali", "gaviao": "gaviao", "bagre": "bagre", "urso": "urso", "vargas": "vargas", "cao": "pipoca", "cavalo": "cavalo"}   # testes automáticos: falas passam sozinhas
 var max_x := 0.0          # até onde o Tomé já chegou (para o mapa)
 var tps := 60
+## celular com dificuldade: desliga os enfeites menos importantes (reflexo, poeira, fachos de sol)
+var low_fx := false
 var shown_crate := false
 var rng := RandomNumberGenerator.new()
 var camera: Camera2D
@@ -267,6 +270,8 @@ func load_level(i: int) -> void:
 	VH.load_level()
 	EV = Events.new(self)
 	EV.load_level()
+	SL = Slam.new(self)
+	SL.load_level()
 	WV = Waves.new(self)
 	WV.load_level()
 	RESTED = {}
@@ -1125,6 +1130,7 @@ func step() -> void:
 		for e in EN:
 			if not e.dead and hit(r, ebox(e)):
 				kill_enemy(e, "stomp")
+		SL.on_slam(player.x + player.w / 2, player.y + player.h)
 		player.slam = false
 	# correndo, chuta uma pedrinha de vez em quando
 	if player.onGround and player.run and abs(player.vx) > 4 and T % 37 == 0 and not player.swim:
@@ -1262,6 +1268,7 @@ func step() -> void:
 	_auto_safe()
 	_plat_dips()
 	EV.step()
+	SL.step()
 	# fogueiras
 	for k in CHK.size():
 		var c: Dictionary = CHK[k]
@@ -1302,7 +1309,7 @@ func step() -> void:
 		var b := ebox(e)
 		if hit(player, b):
 			var stomp: bool = (player.vy > 1 or player.slam) and (player.y + player.h) - b.y < 22
-			if stomp and e.k == "mole" and e.get("helm") and not e.get("helm_off") and e.get("st", 0) != 5:
+			if stomp and e.k == "mole" and e.get("helm") and not e.get("helm_off") and e.get("st", 0) != 5 and e.stun <= 0:
 				player.vy = STOMP * .8
 				player.cutOk = false
 				Audio.play("unlock", -10)
@@ -1467,6 +1474,10 @@ func _comic_triggers() -> void:
 		if sct.get("bg", "") == "neve":
 			add.call("neve", float(sct.x) + 60)
 			break
+	# colmeia: o quadrinho explica que é preciso mergulhar para despistar as abelhas
+	for tr in L.get("traps", []):
+		if tr.get("k") == "hive":
+			add.call("colmeia", float(tr.x) - 380)
 	# (sem quadrinho da picareta: o Tomé já começa com ela)
 	var dz: Array = L.get("darkZones", [])
 	if not dz.is_empty():
@@ -2737,7 +2748,8 @@ func hurt(d: int, from_x: float) -> void:
 	if player.armor > 0:
 		player.armor -= 1
 		kb.call()
-		burst(player.x + player.w / 2, player.y + player.h / 2, 14, Color("#c8d0dc"))
+		# o brilho do escudo estoura em faíscas douradas
+		burst(player.x + player.w / 2, player.y + player.h / 2, 22, Color("#ffe08a"))
 		flash("A armadura aguentou o golpe!")
 		return
 	player.hp -= d
@@ -2815,7 +2827,7 @@ func save_checkpoint(k: int) -> void:
 	Save.save_run({"level": level_idx, "chk": k, "lives": lives, "inv": INV.duplicate(), "items": got_items, "locks": locks,
 		"clues": CLUEGOT.keys(), "specs": SPECGOT.keys(), "drawn": DRAWN.keys(), "coins": coins_got, "coin_life": coin_life,
 		"pen": STATS.pen, "lit": lantern_lit, "fires": CHK.filter(func(c): return c.on).map(func(c): return CHK.find(c)), "time": time_left, "x": X.save_data(), "m": M.save_data(), "tr": TR.save_data(),
-		"nt": NT.save_data(), "k": K.save_data(), "rd": RD.save_data(), "vh": VH.save_data(), "ev": EV.save_data(), "rested": RESTED.keys()})
+		"nt": NT.save_data(), "k": K.save_data(), "rd": RD.save_data(), "vh": VH.save_data(), "ev": EV.save_data(), "sl": SL.save_data(), "rested": RESTED.keys()})
 
 func restore_run(d: Dictionary) -> void:
 	## Continua do ponto salvo: refaz a fase no estado da fogueira
@@ -2861,6 +2873,7 @@ func restore_run(d: Dictionary) -> void:
 	RD.restore(d.get("rd", {}))
 	VH.restore(d.get("vh", {}))
 	EV.restore(d.get("ev", {}))
+	SL.restore(d.get("sl", {}))
 	for r in d.get("rested", []):
 		RESTED[int(r)] = 1
 	var k: int = int(d.get("chk", -1))

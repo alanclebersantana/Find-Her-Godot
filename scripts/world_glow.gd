@@ -496,12 +496,37 @@ func _water(g: Game, a: float, b: float, y: float, depth: float, c0: Color, c1: 
 				Spr.ci.draw_polygon(PackedVector2Array([Vector2(r0, y + 6), Vector2(r0 + 20, y + 6), Vector2(r0 + 46, y + min(depth, 160.0)), Vector2(r0 + 18, y + min(depth, 160.0))]),
 					PackedColorArray([Color(1, 1, .9, ra), Color(1, 1, .9, ra), Color(1, 1, .9, 0), Color(1, 1, .9, 0)]))
 			rk += 90
-	# margens: barranco arredondado cobrindo a quina, faixa de lama, juncos, pedras molhadas e folhas
+	# fundo pintado: pedrinhas e algas balançando (água limpa e funda)
+	if not swamp and not key.begins_with("s") and depth > 60:
+		var fx0: float = floor(a / 64.0) * 64.0
+		while fx0 < b:
+			var hv: float = fmod(abs(fx0) * 1.37, 1.0)
+			if fx0 > a + 10 and fx0 < b - 10:
+				var fyb: float = y + depth - 2
+				if hv < .35:
+					Spr.P("peb%d" % int(hv * 8.5), fx0, fyb + 2, 16 + hv * 20, false, 0.0, Color(.55, .7, .78, .85))
+				elif hv < .7:
+					var ah: float = 22 + hv * 30
+					var sw2: float = sin(T * .03 + fx0) * 6
+					for j in 3:
+						var jx2: float = fx0 + (j - 1) * 5
+						Spr.ci.draw_polyline(PackedVector2Array([Vector2(jx2, fyb), Vector2(jx2 + sw2 * .4, fyb - ah * .5), Vector2(jx2 + sw2, fyb - ah * (.8 + j * .1))]), Color(.25, .5, .35, .6), 3, true)
+			fx0 += 64
+	# reflexo do céu: faixas claras e largas logo abaixo da superfície, ondulando devagar
+	if not swamp:
+		for k in 2:
+			var rw: float = w * .35
+			var rx2: float = a + fposmod(k * w * .5 + T * .15 * (k + 1), w + rw) - rw * .5
+			Spr.ellipse(clamp(rx2, a + rw * .4, b - rw * .4), y + 7 + k * 6, min(rw, w * .45) * .5, 3, Color(1, 1, 1, .08))
+	# margens: barranco arredondado cobrindo a quina, faixa de lama, juncos, pedras molhadas e folhas;
+	# a lama e a espuma da beira sobem e descem junto com a onda daquele ponto
 	for side in [0, 1]:
 		var ex: float = bx0 if side == 0 else bx1
 		if bx1 - bx0 < 60 or ex < a - 70 or ex > b + 70:
 			continue
-		_bank(ex, y, 1.0 if side == 0 else -1.0, swamp or key.begins_with("s"), T, min(depth, 120.0))
+		var bi: int = clamp(int((clamp(ex, a, b) - top[0].x) / 8.0), 0, top.size() - 1)
+		var soy: float = top[bi].y - y
+		_bank(ex, y, 1.0 if side == 0 else -1.0, swamp or key.begins_with("s"), T, min(depth, 120.0), soy)
 	if swamp:
 		# lentilha-d'água e folhinhas boiando
 		for k in int(w / 55.0):
@@ -517,7 +542,7 @@ func _water(g: Game, a: float, b: float, y: float, depth: float, c0: Color, c1: 
 
 ## margem de um corpo d'água: terra arredondada descendo para dentro da água (sem quina reta),
 ## faixa de lama molhada, pedras brilhando, juncos e uma vitória-régia
-func _bank(e: float, y: float, dir: float, toxic: bool, T: int, depth: float) -> void:
+func _bank(e: float, y: float, dir: float, toxic: bool, T: int, depth: float, soy: float = 0.0) -> void:
 	var earth := Color("#4a3220") if not toxic else Color("#3a3018")
 	var mud := Color("#2e2014") if not toxic else Color("#29301a")
 	var pts := PackedVector2Array([Vector2(e - dir * 4, y - 4)])
@@ -527,13 +552,16 @@ func _bank(e: float, y: float, dir: float, toxic: bool, T: int, depth: float) ->
 		pts.push_back(Vector2(e + dir * (4 + sin(u * PI * .5) * 26 + sin(u * 9.0 + e) * 3), y - 4 + u * depth))
 	pts.push_back(Vector2(e - dir * 4, y + depth))
 	Spr.poly(pts, earth)
-	# faixa de lama molhada na linha da água
-	Spr.ellipse(e + dir * 10, y + 2, 20, 5, mud)
-	Spr.ellipse(e + dir * 6, y, 14, 2, Color(1, 1, 1, .18))
+	# faixa de lama molhada na linha da água (acompanha a onda) e espuma batendo na margem
+	Spr.ellipse(e + dir * 10, y + 2 + soy, 20, 5, mud)
+	Spr.ellipse(e + dir * 6, y + soy, 14, 2, Color(1, 1, 1, .18))
+	var fo: float = .35 + .25 * sin(T * .09 + e)
+	Spr.ellipse(e + dir * 30, y + soy + 1, 12, 2.2, Color(1, 1, 1, fo))
+	Spr.ellipse(e + dir * 42, y + soy + 2, 6, 1.5, Color(1, 1, 1, fo * .7))
 	# pedras molhadas
 	for k in 2:
 		var rx: float = e + dir * (12 + k * 14)
-		var ry: float = y + 4 + k * 3
+		var ry: float = y + 4 + k * 3 + soy * .5
 		Spr.ellipse(rx, ry, 8 - k * 2, 5 - k, Color("#5e5d56"))
 		Spr.ellipse(rx - 2, ry - 2, 3, 1.4, Color(1, 1, 1, .45))
 	# juncos balançando
@@ -547,7 +575,7 @@ func _bank(e: float, y: float, dir: float, toxic: bool, T: int, depth: float) ->
 	# vitória-régia boiando perto da margem
 	if not toxic:
 		var lx: float = e + dir * 52
-		var ly: float = y + 1 + sin(T * .05 + e) * 1.2
+		var ly: float = y + 1 + soy
 		Spr.ellipse(lx, ly, 14, 4, Color("#4f8a3a"))
 		Spr.poly(PackedVector2Array([Vector2(lx, ly), Vector2(lx + 12, ly - 2), Vector2(lx + 12, ly + 2)]), Color(.2, .35, .4, .8))
 		Spr.circle(lx - 4, ly - 2, 2.5, Color(1, .8, .9))

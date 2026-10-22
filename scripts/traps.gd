@@ -434,6 +434,13 @@ func _icicle(o: Dictionary, p: Dictionary, pcx: float) -> void:
 				_shatter(o)
 			elif tip >= o.get("floor", o.y + 300):
 				_shatter(o)
+			else:
+				# pingente derrubado pelo mergulho acerta o bicho que estiver embaixo
+				for e in g.EN:
+					if not e.dead and abs(e.x - o.x) < 22 and tip > e.y - 30 and o.y + o.fy < e.y:
+						g.kill_enemy(e, "stomp")
+						_shatter(o)
+						break
 		"broken":
 			if o.t > 150:
 				o.st = "idle"
@@ -665,7 +672,7 @@ func _hive_wake(o: Dictionary) -> void:
 	o.sy = float(o.y) - 20.0
 	Audio.play("roar", -14)
 	g.shake = max(g.shake, 4)
-	g.flash_tut("Abelhas!", "Abelhas! Fuja para longe ou mergulhe na água.", 160)
+	g.flash_tut("Abelhas!", "Abelhas! Mergulhe na água (↓) para despistar o enxame!", 180)
 
 func _hive(o: Dictionary, p: Dictionary, pcx: float) -> void:
 	if o.cool > 0:
@@ -686,8 +693,10 @@ func _hive(o: Dictionary, p: Dictionary, pcx: float) -> void:
 				Audio.play("climb", -18)
 			if d.length() < 26 and p.iframe == 0 and p.dyingT == 0:
 				g.hurt(1, o.sx)
-			# abelha não entra na água; longe da colmeia ou depois de um tempo, desiste
-			if p.swim or abs(pcx - o.x) > 760 or o.t > 720 or _over_water(pcx, p.y + p.h):
+			# só despista mergulhando de verdade (o Tomé inteiro embaixo d'água); boiando não adianta.
+			# Muito longe da colmeia ou depois de bastante tempo, o enxame também desiste
+			var under: bool = p.swim and p.get("water") != null and p.y > p.water.y + 2
+			if under or abs(pcx - o.x) > 1500 or o.t > 1200:
 				o.st = "home"
 				o.t = 0
 		"home":
