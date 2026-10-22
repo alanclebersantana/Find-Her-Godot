@@ -59,9 +59,10 @@ func _ready() -> void:
 	if not Save.getv("opt", "stick_an1", false):
 		Save.setv("opt", "stick_an1", true)
 		Save.setv("opt", "stick", "analog")
-	# versão de teste: o Episódio 2 já vem liberado (escolha na tela inicial)
-	if int(Save.getv("prog", "eps", 1)) < 2:
-		Save.setv("prog", "eps", 2)
+	# APK de teste (encontre-a-teste.apk): todos os episódios já vêm liberados na tela inicial.
+	# No APK normal, cada episódio só abre depois de terminar o anterior.
+	if OS.has_feature("teste") and int(Save.getv("prog", "eps", 1)) < EPISODES.size():
+		Save.setv("prog", "eps", EPISODES.size())
 	Engine.max_fps = 0
 	_make_theme()
 	_make_light_tex()
@@ -957,6 +958,8 @@ func show_title() -> void:
 	vb.add_child(_label("ENCONTRE-A", 68, Color("#f2d28a"), Spr.font_title))
 	var eps: int = int(Save.getv("prog", "eps", 1))
 	vb.add_child(_label("EPISÓDIO 1 · O BOSQUE" if eps < 2 else "EPISÓDIOS 1 E 2", 22, Color("#e8c98a"), Spr.font_title))
+	if OS.has_feature("teste"):
+		vb.add_child(_label("VERSÃO DE TESTE · todos os episódios liberados", 13, Color("#ffb070"), Spr.font_b))
 	vb.add_child(_label("Levaram a Isis. Siga a trilha dos lápis de cor.", 18, Color("#e8dcc0"), Spr.font_i))
 	var sp := Control.new()
 	sp.custom_minimum_size = Vector2(0, 8)
