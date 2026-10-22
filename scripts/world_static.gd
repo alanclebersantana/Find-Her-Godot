@@ -817,8 +817,16 @@ func _masonry(s: Dictionary, c_hi: Color, c_lo: Color, mortar: Color, y0: float)
 
 ## faixa de chão (grama e terra) no topo de um paredão, com as pontas arredondadas como o chão
 func _cap(s: Dictionary) -> void:
+	# o paredão inteiro é desenhado pelo pedaço onde ele começa: a grama do topo também vai até o fim
+	# (antes ela parava na emenda do pedaço e o Tomé parecia flutuar sobre as pedras)
 	var fake := {"x": s.x - 6, "y": s.y, "w": s.w + 12, "h": 30, "_ol": true, "_or": true, "t": "ground"}
+	var ox0: float = x0
+	var ox1: float = x1
+	x0 = min(x0, s.x - 20)
+	x1 = max(x1, s.x + s.w + 20)
 	ground(fake)
+	x0 = ox0
+	x1 = ox1
 
 func snow_cliff(s: Dictionary) -> void:
 	_masonry(s, Color(.86, .93, 1.06), Color(.42, .5, .66), Color(.24, .28, .38, .95), s.y + 10)

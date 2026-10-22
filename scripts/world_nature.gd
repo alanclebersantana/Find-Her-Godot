@@ -63,6 +63,7 @@ static func decor(d: Dictionary) -> void:
 			snowman(d.x, d.y, s, false)
 		"snowtree":
 			prop("arvore_neve", d.x, d.y + 4, 300 * s)
+			_roots(d.x, d.y, s)
 		"tracks":
 			pass   # desenhado na camada de cima (tracks), por cima do chão
 
@@ -104,6 +105,14 @@ static func prop(n: String, x: float, y: float, h: float, flip: bool = false, a:
 
 static func pine(x: float, y: float, s: float) -> void:
 	prop("pinheiro", x, y + 4, 330 * s)
+	_roots(x, y, s)
+
+## raízes e um montinho de neve na base: a árvore fica plantada no chão (sem parecer flutuar)
+static func _roots(x: float, y: float, s: float) -> void:
+	for r in [-1.0, -.4, .45, 1.0]:
+		Spr.poly(PackedVector2Array([Vector2(x + r * 6 * s, y - 10 * s), Vector2(x + r * 30 * s, y + 3), Vector2(x + r * 6 * s, y + 3)]), Color("#4e331d"))
+	Spr.ellipse(x, y + 1, 34 * s, 6, Color(.95, .97, 1))
+	Spr.ellipse(x - 8 * s, y - 2, 20 * s, 4, Color(1, 1, 1))
 
 static func snowman(x: float, y: float, s: float, hat: bool) -> void:
 	Spr.ellipse(x, y + 2, 40 * s, 8 * s, Color(0, 0, 0, .2))
