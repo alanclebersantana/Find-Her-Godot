@@ -228,6 +228,7 @@ func _draw_front_node(n: CanvasItem) -> void:
 	if g == null or not g.L:
 		return
 	Spr.begin(n)
+	WorldNature.front_decor(g)
 	var __d_Traps_draw_front := Time.get_ticks_usec()
 	WorldTraps.draw_front(g, T)
 	Spr.pt("d_Traps_draw_front", __d_Traps_draw_front)

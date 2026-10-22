@@ -346,6 +346,38 @@ func _initialize() -> void:
 		S("obstáculos da cavalgada espaçados (>= 600)", md >= 600)
 		S("cavalgada", ride())
 		S("cavalgada sem batidas", P.hp == 5 and g.RD.tries == 0)
+	if all or args.has("machado"):
+		var ax: Dictionary = g.TR.by_kind("axe")[0]
+		var bad := 0
+		for k in 8:
+			put(64010, 500)
+			for e in g.EN:
+				e.dead = 99
+			hold({}, k * 16)
+			walk_to(64020)
+			until({}, func(): g.TR.axe_blade(ax); return ax.ang > .35, 300)
+			var hp0: int = P.hp
+			jump_to(64360, true)
+			if P.hp < hp0:
+				bad += 1
+		S("pulos bem feitos sobre a lâmina sem dano (%d batidas)" % bad, bad == 0)
+		put(64200, 500)
+		var hp1: int = P.hp
+		hold({}, 140)
+		S("parado no caminho da lâmina leva dano", P.hp < hp1)
+		# em cima da haste/forca não machuca
+		var pts: PackedVector2Array = g.TR.axe_points(ax, 0.0)
+		S("haste não está na área de dano", pts.size() == 18)
+	if all or args.has("gelo"):
+		put(35200, 500)
+		for e in g.EN:
+			e.dead = 99
+		for o in g.TR.T:
+			if o.k == "roll":
+				o.st = "done"
+		walk_to(35280)
+		S("pula o buraco de gelo aberto", jump_to(35565, true))
+		S("passou vivo", g.lives >= 9 and px() > 35510)
 	if all or args.has("pingentes"):
 		var ic: Dictionary = trap_at("icicle", 37450)
 		put(37300, 868)

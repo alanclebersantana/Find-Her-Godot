@@ -76,6 +76,8 @@ func _draw_raw() -> void:
 	for d in L.get("decor", []):
 		if d.x + 160 < x0 or d.x - 160 > x1:
 			continue
+		if WorldNature.is_front(L, d):
+			continue
 		WorldNature.decor(d)
 	for s in L.solids:
 		var pad := 140.0

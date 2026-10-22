@@ -1207,38 +1207,14 @@
    "t": "dirt",
    "x": 35310,
    "y": 640,
-   "w": 240,
+   "w": 200,
    "h": 460
   },
   {
-   "t": "plat",
-   "x": 35328,
-   "y": 488,
-   "w": 46,
-   "crumble": 1,
-   "icy": 1
-  },
-  {
-   "t": "plat",
-   "x": 35408,
-   "y": 488,
-   "w": 46,
-   "crumble": 1,
-   "icy": 1
-  },
-  {
-   "t": "plat",
-   "x": 35488,
-   "y": 488,
-   "w": 46,
-   "crumble": 1,
-   "icy": 1
-  },
-  {
    "t": "ground",
-   "x": 35550,
+   "x": 35510,
    "y": 500,
-   "w": 410,
+   "w": 450,
    "h": 140,
    "snow": 1
   },
@@ -6066,7 +6042,7 @@
   {
    "a": 35210,
    "b": 35310,
-   "t": "Gelo fino: passe rápido, ele racha!",
+   "t": "Buraco de água gelada! Não pise: pegue impulso e pule por cima (pulo duplo).",
    "yl": 520
   },
   {
@@ -6138,7 +6114,7 @@
   {
    "a": 64100,
    "b": 64180,
-   "t": "Machado-pêndulo! Espere ele passar e atravesse logo atrás dele."
+   "t": "Machado-pêndulo! Pule a lâmina quando ela vier rente ao chão — ou passe quando ela estiver do outro lado."
   },
   {
    "a": 64535,
@@ -6532,9 +6508,9 @@
    "k": "axe",
    "x": 64200,
    "y": 300,
-   "len": 168,
-   "amp": 1.0,
-   "per": 150,
+   "len": 190,
+   "amp": 0.45,
+   "per": 130,
    "ph": 0,
    "frame": 64120
   },
@@ -7124,7 +7100,7 @@
   },
   {
    "x": 35310,
-   "w": 240,
+   "w": 200,
    "y": 500
   }
  ],

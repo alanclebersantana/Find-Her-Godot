@@ -377,9 +377,7 @@ func axe_points(o: Dictionary, a: float) -> PackedVector2Array:
 		var t: float = -1.2 + 2.4 * i / 8.0
 		out.push_back(bp + Vector2(sin(t) * 30, cos(t) * 16 + 4).rotated(-a))
 		out.push_back(bp + Vector2(sin(t) * 22, cos(t) * 8).rotated(-a))
-	for k in 4:
-		var r: float = o.len * (.55 + k * .12)
-		out.push_back(Vector2(o.x + sin(a) * r, o.y + cos(a) * r))
+	# a haste e a forca não machucam: só a lâmina
 	return out
 
 ## o machado acerta se qualquer ponto da lâmina (agora ou no meio do caminho desde o quadro

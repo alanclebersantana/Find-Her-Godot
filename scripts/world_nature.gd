@@ -103,6 +103,29 @@ static func prop(n: String, x: float, y: float, h: float, flip: bool = false, a:
 	else:
 		Spr.ci.draw_texture_rect(t, Rect2(x - w / 2, y - h, w, h), false, Color(1, 1, 1, Spr.alpha * a))
 
+## árvore do cenário plantada no chão de baixo, na frente de um paredão onde o Tomé anda em cima:
+## fica na camada da frente (o Tomé passa por trás dela)
+static func is_front(L: Dictionary, d: Dictionary) -> bool:
+	if d.has("_front"):
+		return d._front
+	var f := false
+	if d.get("k", "") in ["pine", "snowtree", "tree"]:
+		for s in L.solids:
+			if s.get("deco") or not str(s.get("t", "")) in ["cliff", "stone", "dirt", "ground"]:
+				continue
+			if s.x + 10 < d.x and d.x < s.x + s.w - 10 and s.y < d.y - 40 and abs(s.y + s.get("h", 0) - d.y) < 24:
+				f = true
+	d._front = f
+	return f
+
+## árvores da camada da frente (desenhadas depois do Tomé)
+static func front_decor(g: Game) -> void:
+	for d in g.L.get("decor", []):
+		if d.x < g.cam - 300 or d.x > g.cam + g.W + 300:
+			continue
+		if is_front(g.L, d):
+			decor(d)
+
 static func pine(x: float, y: float, s: float) -> void:
 	prop("pinheiro", x, y + 4, 330 * s)
 	_roots(x, y, s)
