@@ -1064,9 +1064,11 @@ func _initialize() -> void:
 	S("cavalgada começou", until({}, func(): return g.RD.riding, 400))
 	S("cavalgada", ride())
 	S("sem tropeço", g.RD.tries == 0)
+	walk_to(49950)
+	S("bloco baixo da clareira", jump_to(50110, true))
 	S("clareira do urso", walk_to(50160))
 	S("Urso-Rei", bear_fight())
-	for bx in [50380.0, 50900.0]:
+	for bx in [50380.0, 50900.0, 51250.0]:
 		if px() < bx:
 			walk_to(bx - 30)
 			jump_to(bx + 110)
