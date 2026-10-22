@@ -139,6 +139,24 @@ static func _spikes(TR: Traps, o: Dictionary, T: int) -> void:
 		sh = sin(T * 1.7) * 1.5
 		if T % 6 == 0:
 			game_dust(x + randf() * w, y)
+	if Spr.has("p_spiketop"):
+		# espetos de ferro pintados saindo pelas frestas da tábua (a tábua fica sempre no chão)
+		var tw: float = w + 12.0
+		var ns: int = max(1, int(round(tw / 110.0)))
+		var sgw: float = tw / ns
+		var rt: Array = Spr.AR["p_spiketop"]
+		var rb: Array = Spr.AR["p_spikebase"]
+		var full: float = 30.0
+		var f: float = clamp(max(h, 0.0) / 26.0, 0.0, 1.0)
+		for i in ns:
+			var sx0: float = x - 6 + i * sgw + sh
+			if f > .02:
+				Spr.PB("spiketop", sx0, y + 1 - full * f, sgw, full * f, 0.0, f)
+			var bh: float = sgw * rb[3] / rb[2]
+			Spr.PR("spikebase", x - 6 + i * sgw, y - 4, sgw, bh)
+		if h > 4:
+			Spr.rr(x - 6, y - 2 - h - 3, w + 12, h + 6, 6, Color(1, .3, .2, .06 + .04 * sin(T * .1)))
+		return
 	Spr.rect(x - 4, y - 4, w + 8, 6, Color("#3a3026"))
 	var n := int(w / 16)
 	for i in n:
@@ -257,10 +275,8 @@ static func _snap(o: Dictionary, T: int) -> void:
 	if o.st == "fall":
 		Spr.rotate(o.fy * .004)
 	var w: float = o.w
-	Spr.rr(-w / 2, -8, w, 15, 6, Color("#6e4a2c"))
-	Spr.rect(-w / 2 + 4, -8, w - 8, 3, Color("#8e6a44"))
-	for k in 3:
-		Spr.seg(-w / 2 + 12 + k * w * .3, -6, -w / 2 + 20 + k * w * .3, 5, Color("#3e2a18"), 1.5)
+	# galho pintado (tora fina com casca)
+	WorldVehicles._hlog(-w / 2, w / 2, -8, 15)
 	# trinca que aparece quando vai quebrar
 	if o.st != "idle":
 		Spr.line(PackedVector2Array([Vector2(-4, -8), Vector2(3, -2), Vector2(-3, 3), Vector2(4, 7)]), Color("#1e140a"), 2.5)
@@ -287,6 +303,10 @@ static func _cage(o: Dictionary, T: int) -> void:
 		Spr.circle(px, py - 36, 4, Color("#c9b48a"))
 	Spr.seg(anchor.x, anchor.y, x + w / 2, top, Color("#c9b48a"), 2.5)
 	Spr.circle(anchor.x, anchor.y, 5, Color("#3a3026"))
+	if Spr.has("p_cage"):
+		# gaiola de ferro pintada (argola em cima presa na corda)
+		Spr.PR("cage", x - 10, top - 30, w + 20, y - top + 34)
+		return
 	# grades
 	Spr.rect(x - 2, top - 6, w + 4, 8, WOOD)
 	Spr.rect(x - 2, y - 6, w + 4, 6, WOOD_D)
@@ -312,6 +332,9 @@ static func _net(o: Dictionary, T: int) -> void:
 		var py: float = o.post[1]
 		Spr.rr(px - 5, py - 46, 10, 48, 3, WOOD_D)
 		Spr.seg(px, py - 36, x + w / 2, o.y - 6, Color("#c9b48a"), 2)
+	if Spr.has("p_net"):
+		Spr.PR("net", x - 10, y - 14, w + 20, h + 14, Color(1, 1, 1, al))
+		return
 	Spr.rect(x - 4, o.y - 8, w + 8, 6, Color(.35, .25, .15, al))
 	for i in 8:
 		var u := i / 7.0
@@ -351,6 +374,26 @@ static func plant(e: Dictionary, T: int) -> void:
 	var sway: float = sin(T * .06 + e.x) * 3.0
 	var hx: float = 18 + lx + sway
 	var hy: float = -48.0 + (16.0 if stun else 0.0)
+	if Spr.has("p_plant"):
+		# planta carnívora pintada: a cabeça avança (bote), abre e fecha esticando a arte
+		var opn: float = .25 + sin(T * .08) * .1
+		if st == 1:
+			opn = 1.0
+		elif st == 2 or stun:
+			opn = 0.0
+		Spr.save()
+		Spr.translate(sway * .5, 0)
+		if stun:
+			Spr.rotate(.25)
+		Spr.translate(lx * .5, 0)
+		Spr.scale(1.0 + lx * .004, 1.0 + opn * .08)
+		Spr.P("plant", 4, 2, 92, true)
+		Spr.restore()
+		if stun:
+			for k in 3:
+				var a2 := T * .15 + TAU * k / 3.0
+				Spr.text("★", hx + cos(a2) * 14, hy - 20 + sin(a2) * 4, 10, Color("#ffe27a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 2)
+		return
 	# folhas na base
 	Spr.ellipse(-16, -4, 16, 6, Color("#3f6a2a"), .5)
 	Spr.ellipse(14, -4, 16, 6, Color("#3f6a2a"), -.5)
@@ -584,10 +627,9 @@ static func _bridge(o: Dictionary, T: int) -> void:
 	var y: float = o.y
 	var x0: float = o.x
 	var x1: float = o.x + o.w
-	# postes nas duas pontas
+	# postes nas duas pontas (estacas pintadas)
 	for px in [x0 - 10, x1 + 4]:
-		Spr.rect(px, y - 60, 8, 76, WOOD_D)
-		Spr.circle(px + 4, y - 60, 5, WOOD)
+		Spr.PR("stake", px - 2, y - 64, 12, 80)
 	# corrimão de corda (some atrás da frente que desabou)
 	var ca: float = max(x0, o.get("front", x0)) if o.st != "idle" else x0
 	if ca < x1:
@@ -612,10 +654,13 @@ static func _bridge(o: Dictionary, T: int) -> void:
 		Spr.translate(pl.x + 20, py + 6)
 		if pl.down:
 			Spr.rotate(pl.fy * .01)
-		Spr.rr(-19, -6, 38, 12, 3, Color("#8a5e34"))
-		Spr.rect(-19, -6, 38, 3, Color("#a87a48"))
-		Spr.seg(-12, -6, -12, 6, Color("#4e331d"), 1.5)
-		Spr.seg(12, -6, 12, 6, Color("#4e331d"), 1.5)
+		if Spr.has("p_plank"):
+			Spr.PR("plank", -21, -7, 42, 14)
+		else:
+			Spr.rr(-19, -6, 38, 12, 3, Color("#8a5e34"))
+			Spr.rect(-19, -6, 38, 3, Color("#a87a48"))
+			Spr.seg(-12, -6, -12, 6, Color("#4e331d"), 1.5)
+			Spr.seg(12, -6, 12, 6, Color("#4e331d"), 1.5)
 		Spr.restore()
 
 # ---------- bola de pedra gigante ----------

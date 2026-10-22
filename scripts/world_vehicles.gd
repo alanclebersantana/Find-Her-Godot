@@ -110,6 +110,10 @@ static func rider(g: Game, T: int) -> void:
 
 ## trenó de madeira com esquis curvos
 static func _sled(x: float, y: float) -> void:
+	if Spr.has("p_sledp"):
+		Spr.ellipse(x, y + 1, 36, 4, Color(0, 0, 0, .2))
+		Spr.P("sledp", x, y + 3, 84)
+		return
 	Spr.ellipse(x, y + 1, 34, 4, Color(0, 0, 0, .2))
 	var run := PackedVector2Array()
 	for i in 9:
@@ -129,8 +133,11 @@ static func _sled_world(g: Game, VH: Vehicles, T: int) -> void:
 		return
 	var gy: float = float(SL.y)
 	# monte de neve no fim (onde o trenó para)
-	Spr.ellipse(float(SL.x1) + 30, gy - 8, 46, 20, Color(.82, .88, .97))
-	Spr.ellipse(float(SL.x1) + 26, gy - 12, 40, 16, Color(.97, .98, 1))
+	if Spr.has("p_snowpile"):
+		Spr.P("snowpile", float(SL.x1) + 30, gy + 6, 120)
+	else:
+		Spr.ellipse(float(SL.x1) + 30, gy - 8, 46, 20, Color(.82, .88, .97))
+		Spr.ellipse(float(SL.x1) + 26, gy - 12, 40, 16, Color(.97, .98, 1))
 	if VH.mode != "sled" and not VH.sled_done:
 		_sled(float(SL.x), gy)
 		var p: Dictionary = g.player
@@ -294,6 +301,15 @@ static func _river(g: Game, VH: Vehicles, T: int) -> void:
 				for px in [o.x - 14.0, o.x + 124.0]:
 					Spr.PR("stake", px - 7, oy - 160, 14, 180, Color(.85, .8, .75))
 				Spr.seg(o.x - 14, oy - 136, o.x + 124, oy - 136, Color("#c9a26a"), 2.5)
+				if Spr.has("p_net"):
+					Spr.save()
+					Spr.translate(o.x + 55, oy - 140)
+					Spr.rotate(sw * .01)
+					Spr.PR("net", -66, 0, 132, 98)
+					Spr.restore()
+					for k in 5:
+						Spr.ellipse(o.x - 2 + k * 28 + sw, oy - 44, 6, 4, Color("#e08a3a"))
+					continue
 				var xa: float = o.x - 8
 				while xa <= o.x + 118:
 					Spr.seg(xa, oy - 134, xa + 14 + sw, oy - 46, Color(.85, .8, .65, .65), 1.2)
@@ -420,8 +436,23 @@ static func _runway(g: Game, VH: Vehicles, T: int) -> void:
 			Spr.rect(fx, y - 1, 26, 2, Color(1, 1, 1, .7))
 			fx += 70
 		# biruta
-		Spr.rect(r0 + 60, y - 90, 4, 90, Color("#6c7680"))
 		var sw: float = sin(T * .05) * .2
+		if Spr.has("p_windsock"):
+			Spr.save()
+			Spr.translate(r0 + 64, y + 2)
+			Spr.rotate(sw * .1)
+			Spr.P("windsock", 14, 0, 70)
+			Spr.restore()
+		else:
+			_windsock_v(r0, y, sw)
+		# placa pintada na beira do precipício
+		Spr.PR("stake", edge - 42, y - 50, 9, 52, Color(.85, .8, .75))
+		Spr.P("sign", edge - 38, y - 34, 70)
+		Spr.text("PERIGO", edge - 40, y - 52, 11, Color("#ffe08a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3, Color(0, 0, 0, .7))
+	_after_runway(g, VH, T)
+
+static func _windsock_v(r0: float, y: float, sw: float) -> void:
+		Spr.rect(r0 + 60, y - 90, 4, 90, Color("#6c7680"))
 		Spr.save()
 		Spr.translate(r0 + 64, y - 88)
 		Spr.rotate(sw)
@@ -429,10 +460,11 @@ static func _runway(g: Game, VH: Vehicles, T: int) -> void:
 		Spr.rect(14, -7, 8, 14, Color(1, 1, 1))
 		Spr.rect(32, -5, 6, 10, Color(1, 1, 1))
 		Spr.restore()
-		# placa na beira do precipício
-		Spr.rect(edge - 40, y - 46, 5, 46, Color("#5a3d22"))
-		Spr.rr(edge - 62, y - 66, 50, 24, 4, Color("#8a5e34"))
-		Spr.text("PERIGO", edge - 37, y - 50, 10, Color("#f0d070"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b)
+
+static func _after_runway(g: Game, VH: Vehicles, T: int) -> void:
+	var PL: Dictionary = VH.PL
+	var y: float = PL.y
+	var edge: float = PL.edge
 	# o vale lá embaixo durante o voo
 	var v0: float = edge
 	var v1: float = PL.get("vend", PL.x1)
@@ -497,6 +529,11 @@ static func _plane_fly(x: float, y: float, tilt: float, T: int, ground: bool) ->
 	Spr.restore()
 
 static func _bird(x: float, y: float, t: int, hit: bool) -> void:
+	if Spr.has("p_birdp0"):
+		# passarinho pintado batendo as asas (voa para a esquerda, contra o avião)
+		var fr: String = "birdp0" if (t / 5) % 2 == 0 else "birdp1"
+		Spr.P(fr, x, y + 9, 34, true, 0.0, Color(1, 1, 1, .45) if hit else Color.WHITE)
+		return
 	var f: float = sin(t * .4) * 7
 	var c := Color("#3a3a46") if not hit else Color(.5, .5, .55, .5)
 	Spr.ellipse(x, y, 9, 5, c)
@@ -506,6 +543,16 @@ static func _bird(x: float, y: float, t: int, hit: bool) -> void:
 	Spr.circle(x + 7, y - 1, 1.2, Color(1, 1, 1))
 
 static func _hawk(x: float, y: float, t: int, dive: bool, sweep: bool = false) -> void:
+	if Spr.has("p_hawkp"):
+		# gavião pintado (garras para a frente); bate as asas esticando a pintura
+		var fl: float = sin(t * (.6 if sweep else .25))
+		Spr.save()
+		Spr.translate(x, y)
+		Spr.rotate(-.35 if dive else fl * .06)
+		Spr.scale(1.0, 1.0 + fl * .08)
+		Spr.P("hawkp", 0, 30, 76)
+		Spr.restore()
+		return
 	var f: float = 0.0 if dive else sin(t * (.6 if sweep else .25)) * 10
 	Spr.save()
 	Spr.translate(x, y)
@@ -526,6 +573,16 @@ static func _cloud(o: Dictionary, T: int) -> void:
 	var w: float = o.w
 	var h: float = o.h
 	var c := Color("#4a4f5e")
+	if Spr.has("p_stormcloud"):
+		Spr.PR("stormcloud", x - w * .08, y - h * .15, w * 1.16, h * 1.2)
+		if (T + int(x)) % 120 < 8:
+			var lx0: float = x + w * .5
+			Spr.line(PackedVector2Array([Vector2(lx0, y + h * .9), Vector2(lx0 - 10, y + h * 1.15), Vector2(lx0 + 4, y + h * 1.2), Vector2(lx0 - 8, y + h * 1.5)]), Color("#fff4a0"), 3)
+		for k in 6:
+			var rx0: float = x + 16 + fmod(k * 41.0, w - 32)
+			var ry0: float = y + h * .9 + fmod(T * 4.0 + k * 13.0, 50.0)
+			Spr.seg(rx0, ry0, rx0 - 3, ry0 + 8, Color(.7, .8, .95, .5), 1.5)
+		return
 	for k in 6:
 		var cx: float = x + w * (.12 + k * .15)
 		var cy: float = y + h * (.45 + sin(k * 1.7) * .15)
@@ -644,16 +701,30 @@ static func _sled_track(g: Game, VH: Vehicles, T: int) -> void:
 				var cc := PackedColorArray()
 				for q in cpts:
 					cc.push_back(Color("#2a4a6e").lerp(Color("#04080f"), clamp((q.y - oy) / 150.0, 0, 1)))
-				Spr.ci.draw_polygon(cpts.slice(0, 5), cc.slice(0, 5))
-				# bordas de gelo rachado
-				Spr.poly(PackedVector2Array([Vector2(o.x - 8, oy - 2), Vector2(o.x + 10, oy), Vector2(o.x + 4, oy + 30), Vector2(o.x - 8, oy + 40)]), Color(.75, .88, 1))
-				var ey: float = VH.sled_y(float(o.u) + w)
-				Spr.poly(PackedVector2Array([Vector2(o.x + w + 8, ey - 2), Vector2(o.x + w - 10, ey), Vector2(o.x + w - 4, ey + 30), Vector2(o.x + w + 8, ey + 40)]), Color(.75, .88, 1))
+				if not Spr.has("p_fenda"):
+					Spr.ci.draw_polygon(cpts.slice(0, 5), cc.slice(0, 5))
+				if Spr.has("p_fenda"):
+					# fenda pintada: paredes de gelo azul com neve nas beiradas e pingentes
+					var fk: float = (w + 4.0) / 174.0
+					var fw: float = 660.0 * fk
+					Spr.PR("fenda", o.x + w / 2.0 - fw * .5, oy - 42.0 * fk, fw, 688.0 * fk)
+				else:
+					# bordas de gelo rachado
+					Spr.poly(PackedVector2Array([Vector2(o.x - 8, oy - 2), Vector2(o.x + 10, oy), Vector2(o.x + 4, oy + 30), Vector2(o.x - 8, oy + 40)]), Color(.75, .88, 1))
+					var ey: float = VH.sled_y(float(o.u) + w)
+					Spr.poly(PackedVector2Array([Vector2(o.x + w + 8, ey - 2), Vector2(o.x + w - 10, ey), Vector2(o.x + w - 4, ey + 30), Vector2(o.x + w + 8, ey + 40)]), Color(.75, .88, 1))
 				# bandeirinha vermelha avisando antes da rachadura
 				var fx: float = o.x - 170
 				var fy: float = VH.sled_y(float(o.u) - 170)
-				Spr.PR("stake", fx - 4, fy - 56, 8, 58, Color(.85, .8, .75))
-				Spr.poly(PackedVector2Array([Vector2(fx + 3, fy - 56), Vector2(fx + 30, fy - 48 + sin(T * .2) * 3), Vector2(fx + 3, fy - 38)]), Color("#e0463a"))
+				if Spr.has("p_flagred"):
+					Spr.save()
+					Spr.translate(fx, fy + 4)
+					Spr.rotate(sin(T * .1) * .03)
+					Spr.P("flagred", 0, 0, 44)
+					Spr.restore()
+				else:
+					Spr.PR("stake", fx - 4, fy - 56, 8, 58, Color(.85, .8, .75))
+					Spr.poly(PackedVector2Array([Vector2(fx + 3, fy - 56), Vector2(fx + 30, fy - 48 + sin(T * .2) * 3), Vector2(fx + 3, fy - 38)]), Color("#e0463a"))
 	# placas antes de cada obstáculo: seta verde para cima (pular) ou laranja para baixo (abaixar)
 	for o in VH.OBS:
 		if o.k == "bump":
@@ -666,8 +737,11 @@ static func _sled_track(g: Game, VH: Vehicles, T: int) -> void:
 	# monte de neve no fim, onde o trenó para
 	var ex: float = t0 + ln - 40
 	var eyy: float = VH.sled_y(ln - 40)
-	Spr.ellipse(ex, eyy - 10, 70, 30, Color(.84, .9, 1))
-	Spr.ellipse(ex - 6, eyy - 16, 60, 24, Color(.98, .99, 1))
+	if Spr.has("p_snowpile"):
+		Spr.P("snowpile", ex, eyy + 8, 170)
+	else:
+		Spr.ellipse(ex, eyy - 10, 70, 30, Color(.84, .9, 1))
+		Spr.ellipse(ex - 6, eyy - 16, 60, 24, Color(.98, .99, 1))
 
 ## placa fincada na neve com a seta do que fazer (trenó)
 static func _ground_sign(x: float, gy: float, up: bool, T: int) -> void:
@@ -676,7 +750,7 @@ static func _ground_sign(x: float, gy: float, up: bool, T: int) -> void:
 	Spr.translate(x, gy + 6)
 	Spr.rotate(sin(T * .04 + x) * .02 - .04)
 	if Spr.has("p_signup"):
-		Spr.P("signup" if up else "signdown", 0, 0, 74)
+		Spr.P("signup" if up else "signdown", 0, 0, 60)
 	else:
 		# placa redonda de madeira com uma seta grande: verde para cima (pular), laranja para baixo (abaixar)
 		Spr.PR("stake", -4, -62, 8, 64, Color(.85, .8, .75))
@@ -695,7 +769,7 @@ static func _ground_sign(x: float, gy: float, up: bool, T: int) -> void:
 ## galho baixo de pinheiro coberto de neve com pingentes (trenó); y = linha do galho
 static func _snow_branch(x: float, y: float, T: int, broken: bool) -> void:
 	if Spr.has("p_galhoneve2"):
-		Spr.P("galhoneve2", x + 10, y + 22, 150)
+		Spr.P("galhoneve2", x + 6, y + 18, 156)
 		return
 	WorldNature.prop("galho_neve", x + 38, y + 96, 130, true)
 	# pingentes de gelo pendurados até a altura da cabeça

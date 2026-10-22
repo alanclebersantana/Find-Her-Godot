@@ -182,8 +182,11 @@ func _initialize() -> void:
 				elif k == "raft":
 					g.VH._start_raft()
 					g.VH.hx = x
+					g.veh_t = 200
 				elif k == "plane":
 					g.VH._start_plane()
+					g.VH.phase = "taxi"
+					g.veh_t = 200
 					g.VH.phase = "fly"
 					g.VH.hx = x
 					g.VH.hy = y
@@ -221,7 +224,10 @@ func _initialize() -> void:
 							break
 				elif k.begins_with("sled:"):
 					g.VH._start_sled()
+					g.VH.sboard = 0
 					g.VH._sled_place(float(k.substr(5)), 6.0)
+					g.veh_t = 200
+					g.set_cam(g.VH.hx - g.W * .26, g.VH.hy * .6 + g.VH.sled_y(g.VH.su + 300.0) * .4 - g.H * .56)
 				elif k == "en":
 					for e in g.EN:
 						e.dead = 0

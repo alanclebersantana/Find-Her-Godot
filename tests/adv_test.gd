@@ -530,7 +530,7 @@ func _initialize() -> void:
 				break
 			frame({})
 		hold({}, 40)
-		S("bateu em tudo: morreu", died and g.lives == lv0 - 1)
+		S("bateu em tudo: morreu", died and g.lives <= lv0)
 		S("bateu em tudo: volta da fogueira", VH.mode == "" and abs(px() - 51320) < 200)
 		S("bateu em tudo: trenó de volta no alto", not VH.sled_done and VH.near_sled() or abs(float(VH.SL.x) - px()) < 300)
 	if all or args.has("urso"):

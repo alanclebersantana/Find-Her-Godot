@@ -402,8 +402,8 @@ func _projectiles(g: Game, T: int) -> void:
 			Spr.save()
 			Spr.translate(c.x, c.y)
 			Spr.rotate(c.rot)
-			Spr.poly(PackedVector2Array([Vector2(-10, -4), Vector2(-4, -10), Vector2(7, -8), Vector2(10, 2), Vector2(3, 10), Vector2(-9, 6)]), Color("#6b4a2a"))
-			Spr.poly(PackedVector2Array([Vector2(-4, -7), Vector2(4, -6), Vector2(0, -1)]), Color("#9a7448"))
+			# torrão de terra (pedrinha pintada em tom de terra)
+			Spr.P("peb1", 0, 9, 22, false, 0.0, Color(.72, .52, .34))
 			Spr.restore()
 			continue
 		var fl: float = .8 + sin(T * .6 + c.x) * .2

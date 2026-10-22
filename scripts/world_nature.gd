@@ -378,8 +378,12 @@ static func solid(s: Dictionary, T: int) -> void:
 				Spr.seg(s.x + 20 + k * 50, s.y + 4, s.x + 34 + k * 50, s.y + 14, Color(.6, .72, .88), 1.5)
 		"snowbank":
 			var pts := PackedVector2Array([Vector2(s.x - 40, s.y + s.h), Vector2(s.x - 20, s.y + 40), Vector2(s.x + 6, s.y), Vector2(s.x + s.w + 10, s.y + 30), Vector2(s.x + s.w + 40, s.y + s.h)])
-			Spr.poly(pts, Color(.93, .95, 1))
-			Spr.ci.draw_polyline(pts, Color(.6, .68, .82), 2, true)
+			if Spr.has("p_snowpile"):
+				# monte de neve pintado (esticado na altura do barranco)
+				Spr.PR("snowpile", s.x - 52, s.y - 14, s.w + 104, s.h + 18)
+			else:
+				Spr.poly(pts, Color(.93, .95, 1))
+				Spr.ci.draw_polyline(pts, Color(.6, .68, .82), 2, true)
 			# arame farpado
 			for k in 3:
 				var yy: float = s.y + 90 + k * 46
