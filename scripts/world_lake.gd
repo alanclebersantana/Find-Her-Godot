@@ -23,9 +23,45 @@ static func _algae(w: Dictionary) -> Array:
 	w._alg = out
 	return out
 
+## quanto a superfície sobe/desce em xx (balanço constante + ondas de mola). Usado pela água e pelo
+## fundo da gruta, para os dois acompanharem exatamente a mesma ondulação
+static func wave_off(g: Game, wb: Dictionary, xx: float, T: int, calm: bool) -> float:
+	var oy: float = sin(xx * .028 + T * .055) * 3.0 + sin(xx * .071 - T * .043) * 1.6 + sin(xx * .16 + T * .1) * .6
+	if calm:
+		oy *= .7
+	if not wb.is_empty():
+		oy += g.WV.height(wb, xx)
+	return oy
+
+## o fundo escuro da gruta logo abaixo da superfície, seguindo as ondas (o resto do fundo é estático
+## e começa abaixo do vale mais fundo das ondas)
+static func _cave_top(g: Game, w: Dictionary, T: int) -> void:
+	var cave_c := Color("#2a5a66")
+	var has_cave := false
+	for c in g.L.get("caves", []):
+		if c.get("wet") and c.x <= w.x + 2 and c.x + c.w >= w.x + w.w - 2:
+			has_cave = true
+	if not has_cave:
+		return
+	var a: float = max(w.x, g.cam - 40)
+	var b: float = min(w.x + w.w, g.cam + g.W + 40)
+	var wb: Dictionary = g.WV.body("w%d" % g.X.WATER.find(w), w.x, w.x + w.w, w.y) if g.WV else {}
+	var pts := PackedVector2Array()
+	var x: float = floor(a / 8.0) * 8.0
+	while x <= b + 8.1:
+		var xx: float = clamp(x, a, b)
+		pts.push_back(Vector2(xx, w.y + wave_off(g, wb, xx, T, false)))
+		x += 8
+	pts.push_back(Vector2(b, w.y + 34))
+	pts.push_back(Vector2(a, w.y + 34))
+	Spr.poly(pts, cave_c)
+
 static func back(g: Game, T: int) -> void:
 	if g.X == null:
 		return
+	for w in g.X.WATER:
+		if w.x <= g.cam + g.W + 60 and w.x + w.w >= g.cam - 60:
+			_cave_top(g, w, T)
 	for w in g.X.WATER:
 		if w.h < 60 or w.x > g.cam + g.W + 60 or w.x + w.w < g.cam - 60:
 			continue

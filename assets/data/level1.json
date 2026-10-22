@@ -149,9 +149,9 @@
    "h": 30
   },
   {
-   "x": 15550,
+   "x": 15610,
    "y": 500,
-   "w": 1500,
+   "w": 1440,
    "h": 330,
    "wet": 1
   },
@@ -945,23 +945,23 @@
   },
   {
    "t": "ground",
-   "x": 15350,
+   "x": 15300,
    "y": 500,
-   "w": 200,
+   "w": 310,
    "h": 140
   },
   {
    "t": "dirt",
-   "x": 15530,
+   "x": 15590,
    "y": 640,
    "w": 20,
    "h": 190
   },
   {
    "t": "dirt",
-   "x": 15550,
+   "x": 15610,
    "y": 830,
-   "w": 1500,
+   "w": 1440,
    "h": 270
   },
   {
@@ -2103,7 +2103,7 @@
   {
    "x": 14880,
    "y": 470,
-   "w": 470,
+   "w": 420,
    "h": 300,
    "id": "canal",
    "y2": 640
@@ -5693,7 +5693,7 @@
    500
   ],
   [
-   21170,
+   21070,
    500
   ],
   [
@@ -5990,13 +5990,13 @@
    "lock": 1
   },
   {
-   "a": 15330,
-   "b": 15520,
+   "a": 15300,
+   "b": 15470,
    "t": "Colmeia! Abaixe-se (↓) para passar por baixo. Se o enxame vier, mergulhe na água (↓) para despistar."
   },
   {
-   "a": 15450,
-   "b": 15710,
+   "a": 15500,
+   "b": 15760,
    "t": "Mergulhe e passe por baixo da rocha. As bolhas que sobem do fundo devolvem o fôlego!",
    "yl": 480
   },
@@ -6024,23 +6024,23 @@
    "yl": 480
   },
   {
-   "a": 21180,
-   "b": 21280,
+   "a": 21060,
+   "b": 21220,
    "t": "Colmeia! Abaixe-se (↓) para passar por baixo. Se o enxame vier, mergulhe na água (↓) para despistar."
   },
   {
-   "a": 21290,
+   "a": 21250,
    "b": 21530,
    "t": "Mais um mergulho! Respire nas bolhas e acerte as piranhas com a picareta (GOLPE).",
    "yl": 520
   },
   {
    "a": 22760,
-   "b": 22880,
+   "b": 22925,
    "t": "Colmeia! Abaixe-se (↓) para passar por baixo. Se o enxame vier, mergulhe na água (↓) para despistar."
   },
   {
-   "a": 22890,
+   "a": 22960,
    "b": 23070,
    "t": "Lago fundo! Mergulhe: lá embaixo, na prateleira de pedra, tem algo para respirar debaixo d'água.",
    "yl": 480
@@ -6304,9 +6304,9 @@
    "h": 172
   },
   {
-   "x": 15550,
+   "x": 15610,
    "y": 515,
-   "w": 1500,
+   "w": 1440,
    "h": 315
   },
   {
@@ -6863,18 +6863,18 @@
   },
   {
    "k": "hive",
-   "x": 21290,
+   "x": 21215,
    "y": 474,
-   "tx": 21228
+   "tx": 21155
   },
   {
    "k": "hive",
-   "x": 15450,
+   "x": 15465,
    "y": 474
   },
   {
    "k": "hive",
-   "x": 22850,
+   "x": 22918,
    "y": 474
   }
  ],
@@ -7261,7 +7261,7 @@
     "x": 25700
    },
    {
-    "k": "lowbranch",
+    "k": "vinebranch",
     "x": 26250
    },
    {
@@ -7269,7 +7269,7 @@
     "x": 26800
    },
    {
-    "k": "trunk",
+    "k": "net",
     "x": 27250
    },
    {
@@ -7285,7 +7285,7 @@
     "x": 29150
    },
    {
-    "k": "net",
+    "k": "vinebranch",
     "x": 29650
    },
    {
@@ -7293,7 +7293,7 @@
     "x": 30700
    },
    {
-    "k": "lowbranch",
+    "k": "net",
     "x": 31150
    },
    {
@@ -7301,7 +7301,7 @@
     "x": 31450
    },
    {
-    "k": "trunk",
+    "k": "vinebranch",
     "x": 31700
    },
    {

@@ -48,8 +48,9 @@ func _draw_raw() -> void:
 					Spr.poly(PackedVector2Array([Vector2(ix - 6, c.y), Vector2(ix, c.y + ln), Vector2(ix + 6, c.y)]), Color(.8, .92, 1, .85))
 				ix += 30
 		elif c.get("wet"):
-			# fundo de lago: azul-esverdeado escuro, com pedras no fundo
-			Spr.vgrad(ca, c.y, cb - ca, c.h, Color("#2a5a66"), Color("#0c1e28"))
+			# fundo de lago: azul-esverdeado escuro, com pedras no fundo. Começa abaixo do vale mais fundo
+			# das ondas (a faixa de cima, que acompanha a ondulação, é desenhada na camada que se mexe)
+			Spr.vgrad(ca, c.y + 30, cb - ca, c.h - 30, Color("#2a5a66"), Color("#0c1e28"))
 			var rx: float = c.x + 30
 			while rx < c.x + c.w - 30:
 				if rx >= x0 and rx < x1:

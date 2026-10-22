@@ -1511,7 +1511,12 @@ func _comic_triggers() -> void:
 		if float(w.get("h", 0)) >= 300:
 			wx = min(wx, float(w.x))
 	if wx < INF:
-		add.call("mergulho", wx - 160)
+		# se há uma colmeia logo antes da água, o quadrinho vem depois de passar por ela
+		var mx: float = wx - 160
+		for tr in L.get("traps", []):
+			if tr.get("k") == "hive" and float(tr.x) < wx and float(tr.x) > wx - 420:
+				mx = max(mx, float(tr.x) + 70)
+		add.call("mergulho", mx)
 	for sct in L.get("sections", []):
 		if sct.get("bg", "") == "neve":
 			add.call("neve", float(sct.x) + 60)
@@ -1519,7 +1524,7 @@ func _comic_triggers() -> void:
 	# colmeia: o quadrinho explica que é preciso mergulhar para despistar as abelhas
 	for tr in L.get("traps", []):
 		if tr.get("k") == "hive":
-			add.call("colmeia", float(tr.x) - 380)
+			add.call("colmeia", float(tr.x) - 130)
 	# (sem quadrinho da picareta: o Tomé já começa com ela)
 	var dz: Array = L.get("darkZones", [])
 	if not dz.is_empty():
@@ -2880,6 +2885,7 @@ func respawn() -> void:
 	TR.reset_on_respawn()
 	K.reset_on_respawn()
 	EV.on_respawn()
+	VH.on_respawn()
 	X.breath = Extras.BREATH
 	snap_camera()
 	flash(msg + " Vidas: %d" % lives)

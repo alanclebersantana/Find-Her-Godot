@@ -41,16 +41,52 @@ func load_level() -> void:
 	PL = g.L.get("plane", {}).duplicate(true)
 	RAFT_SOL = {}
 	if not RA.is_empty():
-		RA.px = float(RA.x)
-		# a jangada parada no cais é um chão de verdade: pular nela também embarca
-		RAFT_SOL = {"t": "raftsol", "x": RA.px - 38.0, "y": water_y(RA.px) - 8.0, "w": 76.0, "h": 12.0, "oneway": 1, "raft": 1}
-		g.SOL.append(RAFT_SOL)
+		_dock_raft()
 	if not PL.is_empty():
 		PL.px = float(PL.x)
 		PL.py = float(PL.y)
 
 func active() -> bool:
 	return mode != ""
+
+## a jangada volta para o cais (chão de verdade: pular nela também embarca)
+func _dock_raft() -> void:
+	RA.px = float(RA.x)
+	if RAFT_SOL.is_empty():
+		RAFT_SOL = {"t": "raftsol", "x": 0.0, "y": 0.0, "w": 76.0, "h": 12.0, "oneway": 1, "raft": 1}
+		g.SOL.append(RAFT_SOL)
+	RAFT_SOL.x = RA.px - 38.0
+	RAFT_SOL.y = water_y(RA.px) - 8.0
+
+## cerca na margem do fim do rio: depois da corredeira não dá para voltar para a água
+func _end_fence() -> void:
+	for s in g.SOL:
+		if s.get("id") == "raftfence":
+			return
+	g.SOL.append({"t": "raftfence", "x": float(RA.x1) - 8.0, "y": -400.0, "w": 16.0, "h": 900.0, "id": "raftfence"})
+
+## voltou da morte (ou da fogueira): passeio interrompido é cancelado e o veículo volta ao ponto de saída
+func on_respawn() -> void:
+	var was: String = mode
+	if mode != "":
+		mode = ""
+		stumble = 0
+		duck = false
+		vy = 0.0
+		crashT = 0
+	if not RA.is_empty():
+		if raft_done:
+			_drop_raft_sol()
+			RA.px = float(RA.x1) - 90
+			_end_fence()
+		else:
+			_dock_raft()
+	if not PL.is_empty() and not plane_done:
+		PL.px = float(PL.x)
+		PL.py = float(PL.y)
+	if was == "sled" or was == "plane" or was == "raft":
+		if g.X.DOG.get("st", "") == "ride":
+			g.X.DOG.st = "follow"
 
 # ======================================================================
 #  ÁGUA DA CORREDEIRA
@@ -68,6 +104,24 @@ func check_river() -> void:
 	if RA.is_empty() or mode == "raft":
 		return
 	var p: Dictionary = g.player
+	var pcx0: float = p.x + p.w / 2
+	# pulou do barranco para o rio: a jangada desliza até onde ele vai cair (sempre cai em cima dela)
+	if not raft_done and not RAFT_SOL.is_empty() and p.dyingT == 0 and not p.get("dog"):
+		var zone_a: float = float(RA.x0)
+		var zone_b: float = float(RA.x0) + 700.0
+		if not p.onGround and pcx0 > zone_a - 10 and pcx0 < zone_b and p.vy > -3.0:
+			var tx: float = clamp(pcx0 + p.vx * 6.0, zone_a + 46.0, zone_b - 50.0)
+			RA.px = move_toward(RA.px, tx, 18.0)
+			RAFT_SOL.x = RA.px - 38.0
+			RAFT_SOL.y = water_y(RA.px) - 8.0
+		# já caiu na água dessa área (andou para fora do barranco, por exemplo): a jangada pega ele
+		if pcx0 > zone_a and pcx0 < zone_b and p.y + p.h > water_y(pcx0) - 10:
+			RA.px = clamp(pcx0, zone_a + 46.0, zone_b - 50.0)
+			p.y = water_y(RA.px) - 8.0 - p.h
+			p.vy = 0.0
+			g.want_comic("jangada")
+			_start_raft()
+			return
 	# pousou em cima da jangada: embarca e a corredeira começa
 	if not RAFT_SOL.is_empty() and p.onGround and p._g == RAFT_SOL and not p.get("dog") and p.dyingT == 0:
 		g.want_comic("jangada")
@@ -476,7 +530,7 @@ func _raft_step() -> void:
 			"branch":
 				bad = Game.hit(b, g.R(o.x + 4, oy - 104, 90, 18))
 			# obstáculos de abaixar (↓): passam na altura do Tomé em pé; abaixado ele passa por baixo
-			"lowbranch", "trunk", "bridge", "net":
+			"lowbranch", "trunk", "bridge", "net", "vinebranch":
 				var dw: float = DUCK_W.get(o.k, 110)
 				bad = Game.hit(b, g.R(o.x, oy - 96, dw, 53))
 		if bad:
@@ -487,7 +541,7 @@ func _raft_step() -> void:
 		_finish_raft()
 
 ## largura do que se passa abaixado na corredeira
-const DUCK_W := {"lowbranch": 100.0, "trunk": 130.0, "bridge": 170.0, "net": 110.0}
+const DUCK_W := {"lowbranch": 100.0, "trunk": 130.0, "bridge": 170.0, "net": 110.0, "vinebranch": 130.0}
 
 func _hurt_raft(_k: String) -> void:
 	var p: Dictionary = g.player
@@ -520,6 +574,7 @@ func _finish_raft() -> void:
 	mode = ""
 	raft_done = true
 	_drop_raft_sol()
+	_end_fence()
 	RA.px = float(RA.x1) - 90
 	p.x = float(RA.x1) + 10
 	p.y = 500 - p.h - 4
@@ -696,6 +751,7 @@ func restore(d: Dictionary) -> void:
 	if raft_done and not RA.is_empty():
 		RA.px = float(RA.x1) - 90
 		_drop_raft_sol()
+		_end_fence()
 	if plane_done and not PL.is_empty():
 		PL.px = d.get("ppx", PL.x1)
 		PL.py = d.get("ppy", PL.land)

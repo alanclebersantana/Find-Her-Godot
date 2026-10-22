@@ -128,7 +128,7 @@ func __draw_raw() -> void:
 		var depth: float = max(30, s.y0 + s.h - s.y)
 		# água tóxica (verde ácido): aqui o Tomé afunda — bem diferente da água azul onde dá para nadar
 		_water(g, a, b5, s.y, depth, Color(.42, .86, .16, .9), Color(.08, .26, .04, .97), T, false, 0.0, "s%d" % g.SWAMP.find(s), s.x, s.x + s.w)
-		Spr.rect(a, s.y - 8, b5 - a, depth + 8, Color(.02, .03, .08, g.AMB.dark * .45))
+		_shade_under(s.y + depth, Color(.02, .03, .08, g.AMB.dark * .45))
 		Spr.rect(a, s.y - 2, b5 - a, 4, Color(.75, 1, .35, .7))
 		# bolhas tóxicas subindo e estourando, e um vapor fraco por cima
 		var bx: float = floor(a / 46.0) * 46.0
@@ -326,7 +326,7 @@ func _extras(g: Game, T: int) -> void:
 			continue
 		# tinge de leve: o Tomé e os peixes continuam bem visíveis debaixo d'água
 		_water(g, max(w.x, g.cam - 40), min(w.x + w.w, g.cam + g.W + 40), w.y, w.h, Color(.24, .52, .6, .26), Color(.04, .14, .22, .4), T, false, 0.0, "w%d" % X.WATER.find(w), w.x, w.x + w.w)
-		Spr.rect(w.x, w.y, w.w, w.h, Color(.02, .03, .08, dark * .25))
+		_shade_under(w.y + w.h, Color(.02, .03, .08, dark * .25))
 	WorldLake.front(g, T)
 	WorldKings.draw_fish(g, T)
 	WorldNature.draw_bogs(g, T)
@@ -414,6 +414,18 @@ func _projectiles(g: Game, T: int) -> void:
 		Spr.restore()
 
 ## água parada com cara de água: degradê pela profundidade, faixas de luz (cáusticas) perto da superfície,
+## a linha de cima (com as ondas) da última água desenhada
+var last_top := PackedVector2Array()
+
+## escurece a água do jeito da superfície (sem faixa reta acima das ondas)
+func _shade_under(bottom: float, c: Color) -> void:
+	if last_top.size() < 2 or c.a <= 0.0:
+		return
+	var pts := last_top.duplicate()
+	pts.push_back(Vector2(last_top[last_top.size() - 1].x, bottom))
+	pts.push_back(Vector2(last_top[0].x, bottom))
+	Spr.poly(pts, c)
+
 ## superfície brilhante com ondinhas, reflexo da lanterna e bolhas / lentilha-d'água
 func _water(g: Game, a: float, b: float, y: float, depth: float, c0: Color, c1: Color, T: int, swamp: bool, ox: float = 0.0, key: String = "", bx0: float = 0.0, bx1: float = 0.0) -> void:
 	var w: float = b - a
@@ -429,14 +441,11 @@ func _water(g: Game, a: float, b: float, y: float, depth: float, c0: Color, c1: 
 	while x2 <= b + 8.1:
 		var xx: float = clamp(x2, a, b)
 		# balanço constante (três ondas cruzando) — a água nunca fica parada
-		var oy: float = sin(xx * .028 + T * .055) * 3.0 + sin(xx * .071 - T * .043) * 1.6 + sin(xx * .16 + T * .1) * .6
-		if swamp or key.begins_with("s"):
-			oy *= .7
-		if not wb.is_empty():
-			oy += g.WV.height(wb, xx)
+		var oy: float = WorldLake.wave_off(g, wb, xx, T, swamp or key.begins_with("s"))
 		top.push_back(Vector2(xx, y + oy))
 		ys.append(oy)
 		x2 += 8
+	last_top = top
 	# corpo d'água: faixa de cima acompanha a onda, o resto em degradê
 	var d1: float = min(depth, 70.0)
 	var band := top.duplicate()

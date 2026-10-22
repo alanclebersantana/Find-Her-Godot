@@ -41,7 +41,18 @@ func _initialize() -> void:
 		put(9800, 500)
 		S("tronco-pêndulo", cross_swing(trap_at("swing", 10010), 10290))
 		S("sem dano (tronco)", P.hp == 5)
-		for hx in [21290.0, 15450.0, 22850.0]:
+		for hx in [21215.0, 15465.0, 22918.0]:
+			# espaço de chão antes (para pousar e abaixar) e depois (para levantar)
+			var ga: float = hx
+			var gb: float = hx
+			for k in 40:
+				for so in g.L.solids:
+					if so.t == "ground" and so.y == 500 and so.x <= ga - 1 and so.x + so.w >= ga - 1:
+						ga = so.x
+					if so.t == "ground" and so.y == 500 and so.x <= gb + 1 and so.x + so.w >= gb + 1:
+						gb = so.x + so.w
+			S("chão antes da colmeia %d >= 140 (%d)" % [int(hx), int(hx - 22 - ga)], hx - 22 - ga >= 140)
+			S("chão depois da colmeia %d >= 110 (%d)" % [int(hx), int(gb - hx - 22)], gb - hx - 22 >= 108)
 			put(hx - 70, 500)
 			hold({}, 10)
 			S("em pé toca a colmeia %d" % int(hx), g.hit(P, g.R(hx - 22, 0, 44, 2000)) == false and (P.y < 474))
@@ -60,12 +71,12 @@ func _initialize() -> void:
 			P.iframe = 0
 		put(15370, 500)
 		S("sob a colmeia", crawl(15530))
-		S("colmeia quieta", trap_at("hive", 15450).st == "idle")
+		S("colmeia quieta", trap_at("hive", 15465).st == "idle")
 		# cutucou a colmeia: só mergulhando no lago o enxame desiste
-		var hv: Dictionary = trap_at("hive", 15450)
+		var hv: Dictionary = trap_at("hive", 15465)
 		g.TR._hive_wake(hv)
 		S("enxame acordou", hv.st == "angry")
-		S("pula no lago", walk_to(15640))
+		S("pula no lago", walk_to(15700))
 		hold({"S": true}, 50)
 		S("mergulhou e despistou", until({"S": true}, func(): return hv.st != "angry", 200))
 		hold({"J": true}, 60)
@@ -104,6 +115,51 @@ func _initialize() -> void:
 		S("subiu na jangada", g.VH.mode == "raft")
 		S("corredeira", ride_raft())
 		S("jangada inteira", g.VH.tries == 0 and P.hp == 5)
+		# não dá para voltar para a água depois do fim (cerca na margem)
+		hold({"L": true}, 120)
+		S("cerca segura na margem final", px() > float(g.VH.RA.x1) - 4 and g.VH.mode == "")
+		var jj := 0
+		for i in 6:
+			press("J")
+			hold({"L": true, "J": true}, 40)
+		S("nem pulando volta para a água", px() > float(g.VH.RA.x1) - 4)
+	if all or args.has("rio"):
+		# pular no rio de vários pontos do barranco: sempre cai na jangada, sem morrer
+		for k in 5:
+			g.load_level(0)
+			for e in g.EN:
+				e.dead = 99
+			put(25010, 500)
+			walk_to(25040 + k * 6)
+			var lv: int = g.lives
+			press("J")
+			hold({"R": true, "J": true}, 8 + k * 6)
+			var ok := false
+			for i in 120:
+				frame({"R": true} if i < 20 + k * 8 else {})
+				if g.VH.mode == "raft":
+					ok = true
+					break
+			S("pulo %d no rio caiu na jangada" % k, ok and g.lives == lv)
+		# morreu no meio da corredeira: volta e a jangada está no cais
+		g.VH.mode = ""
+		g.load_level(0)
+		for e in g.EN:
+			e.dead = 99
+		put(25010, 500)
+		walk_to(25040)
+		use()
+		hold({}, 200)
+		S("no meio da corredeira", g.VH.mode == "raft")
+		g.player.spawnX = 25000
+		g.player.spawnY = 466
+		g.die("teste")
+		hold({}, 200)
+		S("voltou da morte a pé", g.VH.mode == "")
+		S("jangada de volta ao cais", abs(g.VH.RA.px - float(g.VH.RA.x)) < 1 and g.SOL.has(g.VH.RAFT_SOL))
+		walk_to(25040)
+		use()
+		S("embarca de novo", g.VH.mode == "raft")
 	if all or args.has("ceu"):
 		put(52700, 500)
 		S("subida", climb_gusts(55190))

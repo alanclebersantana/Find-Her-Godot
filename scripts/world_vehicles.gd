@@ -220,6 +220,8 @@ static func _river(g: Game, VH: Vehicles, T: int) -> void:
 				Spr.ellipse(o.x + 40, oy + 3, 42, 4, Color(1, 1, 1, .35))
 			"branch":
 				pass
+			"vinebranch":
+				_vinebranch(o.x, oy, T)
 			"lowbranch":
 				# árvore morta inclinada da margem, com um galho grosso baixo por cima do rio
 				Spr.save()
@@ -283,6 +285,24 @@ static func _river(g: Game, VH: Vehicles, T: int) -> void:
 				Spr.seg(o.x - 10 + sw, oy - 46, o.x + 120 + sw, oy - 46, Color("#c9a26a"), 2)
 				for k in 6:
 					Spr.ellipse(o.x - 2 + k * 22 + sw, oy - 45, 6, 4, Color("#e08a3a"))
+	# plaquinhas boiando antes de cada obstáculo: seta para cima (pular) ou para baixo (abaixar)
+	if VH.mode == "raft" or not VH.raft_done:
+		for o in obs:
+			var sx: float = o.x - 230.0
+			if sx < g.cam - 80 or sx > g.cam + g.W + 80 or o.get("hit", false):
+				continue
+			var up: bool = o.k in ["rock", "log"]
+			if o.k == "branch":
+				continue
+			_float_sign(sx, VH.water_y(sx), up, T)
+	# cerca na margem do fim (depois da corredeira não dá para voltar para a água)
+	if VH.raft_done:
+		var fx: float = float(RA.x1) - 4.0
+		if fx > g.cam - 100 and fx < g.cam + g.W + 100:
+			for k in 3:
+				Spr.PR("stake", fx - 6 + k * 20, 446, 12, 58, Color(.85, .8, .75))
+			_hlog(fx - 10, fx + 56, 458, 9)
+			_hlog(fx - 10, fx + 56, 478, 9)
 	# a jangada parada no cais
 	if VH.mode != "raft":
 		var rx: float = VH.RA.px
@@ -586,3 +606,42 @@ static func _sled_track(g: Game, VH: Vehicles, T: int) -> void:
 	var eyy: float = VH.sled_y(ln - 40)
 	Spr.ellipse(ex, eyy - 10, 70, 30, Color(.84, .9, 1))
 	Spr.ellipse(ex - 6, eyy - 16, 60, 24, Color(.98, .99, 1))
+
+## plaquinha de madeira boiando na corredeira com a seta do que fazer
+static func _float_sign(x: float, wy: float, up: bool, T: int) -> void:
+	var bob: float = sin(T * .08 + x) * 2.0
+	Spr.save()
+	Spr.translate(x, wy + 4 + bob)
+	Spr.rotate(sin(T * .05 + x) * .05)
+	Spr.PR("stake", -4, -58, 8, 62, Color(.85, .8, .75))
+	Spr.P("sign", 0, -30, 54)
+	var c := Color("#3f8f3a") if up else Color("#d26a22")
+	var d: float = -1.0 if up else 1.0
+	Spr.poly(PackedVector2Array([Vector2(0, -60 + d * 14), Vector2(-12, -60 - d * 2), Vector2(-5, -60 - d * 2), Vector2(-5, -60 - d * 14), Vector2(5, -60 - d * 14), Vector2(5, -60 - d * 2), Vector2(12, -60 - d * 2)]), c)
+	Spr.line(PackedVector2Array([Vector2(0, -60 + d * 14), Vector2(-12, -60 - d * 2), Vector2(-5, -60 - d * 2), Vector2(-5, -60 - d * 14), Vector2(5, -60 - d * 14), Vector2(5, -60 - d * 2), Vector2(12, -60 - d * 2), Vector2(0, -60 + d * 14)]), Color(.15, .1, .05, .9), 1.5)
+	Spr.ellipse(0, 0, 14, 3, Color(1, 1, 1, .35))
+	Spr.restore()
+
+## galho grosso do pântano por cima do rio, com cipós e barbas de musgo até a altura da cabeça
+static func _vinebranch(x: float, oy: float, T: int) -> void:
+	# ilhota com o tronco da árvore à esquerda
+	Spr.P("mossrock_l", x - 70, oy + 14, 90)
+	Spr.ci.draw_texture_rect(Spr.tex.tronco, Rect2(x - 100, oy - 260, 60, 262), false, Color(.6, .62, .5))
+	if Spr.has("p_galhorio"):
+		var r: Array = Spr.AR["p_galhorio"]
+		var w: float = 230.0
+		var h: float = w * r[3] / r[2]
+		# a ponta dos cipós fica na altura da cabeça do Tomé em pé (oy - 44)
+		Spr.PR("galhorio", x - 70, oy - 44 - h, w, h)
+	else:
+		Spr.save()
+		Spr.translate(x - 80, oy - 112)
+		Spr.rotate(.04)
+		Spr.PR("log", 0, -12, 24, 230, Color(.6, .62, .5))
+		Spr.restore()
+		for k in 9:
+			var vx: float = x - 40 + k * 22
+			var sw: float = sin(T * .04 + k) * 3.0
+			var top: float = oy - 104
+			Spr.line(PackedVector2Array([Vector2(vx, top), Vector2(vx + sw * .5, top + 30), Vector2(vx + sw, oy - 46 - (k % 3) * 4)]), Color("#4f7a34"), 2.5)
+			Spr.ellipse(vx + sw, oy - 48 - (k % 3) * 4, 4, 6, Color("#6b8c3a"))
