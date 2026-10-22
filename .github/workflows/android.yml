@@ -67,6 +67,9 @@ jobs:
       - name: Teste automático (Fase 1 do começo ao fim)
         run: ~/godot/godot --headless --path . -s tests/route.gd
 
+      - name: Teste automático (Episódio 2 do começo ao fim)
+        run: ~/godot/godot --headless --path . -s tests/route2.gd
+
       - name: Teste dos controles de toque (diagonal e analógico)
         run: ~/godot/godot --headless --path . -s tests/touch.gd | tee /tmp/touch.log && grep -q "TOUCH OK" /tmp/touch.log
 

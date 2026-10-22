@@ -4,7 +4,12 @@ Jogo de plataforma 2D em **Godot 4.6** (Android).
 Tomé, um mineiro, segue a trilha de lápis de cor deixada pela filha, Isis, que foi levada por
 Ademar Vargas, o gerente da mina que ele denunciou por roubo.
 
-Esta é a versão Godot da Fase 1, **"O Bosque até a Mina"**, portada da versão HTML com a mesma física e as mesmas mecânicas:
+Episódios: **1 · O Bosque** (`assets/data/level1.json`) e **2 · As Profundezas da Mina**
+(`assets/data/level2.json`, gerado por `tools/gen_level2.py`: boca da mina com elevador e porta de manivela,
+vale do moinho com as pás que levam o Tomé para o alto, telhados da vila com varais e fumaça das chaminés,
+e o carrinho nos trilhos atrás do Vargas). O Episódio 2 é liberado ao terminar o primeiro.
+
+O Episódio 1 foi portado da versão HTML com a mesma física e as mesmas mecânicas:
 - agachar, engatinhar e deslizar;
 - escadas, rede e corda;
 - cipó, pulo duplo e planar;
@@ -57,6 +62,7 @@ Para publicar na Play Store mais tarde, cadastre a chave de assinatura nos *Secr
 
 ```
 godot --headless --path . -s tests/route.gd              # fase inteira, sem inimigos
+godot --headless --path . -s tests/route2.gd             # Episódio 2 inteiro
 godot --headless --path . -s tests/route.gd -- inimigos  # com inimigos (o robô não desvia)
 ```
 

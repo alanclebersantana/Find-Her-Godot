@@ -47,7 +47,7 @@ func _sky(k: String, al: float, w: float, oy: float) -> void:
 	var H: float = game.H
 	var t := float(game.T)
 	match k:
-		"bosque", "neve":
+		"bosque", "neve", "moinho":
 			# nuvens fofas em duas alturas, cada uma no seu passo
 			for i in 5:
 				var sp: float = .05 + hh(i, 1) * .06
@@ -77,7 +77,8 @@ func _sky(k: String, al: float, w: float, oy: float) -> void:
 				j3 += 1
 	# névoa de distância na base do fundo
 	var fc: Color = {"bosque": Color(.86, .94, .82), "tarde": Color(1, .78, .5), "pantano": Color(.55, .65, .6),
-		"noite": Color(.2, .25, .45), "neve": Color(.92, .95, 1)}.get(k, Color(.9, .9, .9))
+		"noite": Color(.2, .25, .45), "neve": Color(.92, .95, 1), "mina": Color(.16, .11, .07), "moinho": Color(1, .82, .6),
+		"vila": Color(.16, .2, .38)}.get(k, Color(.9, .9, .9))
 	Spr.vgrad(0, H * .5, w, H * .5, Color(fc.r, fc.g, fc.b, 0), Color(fc.r, fc.g, fc.b, .32 * al))
 
 ## aves migratórias em V cruzando o céu de vez em quando (longe: pequenas e apagadas pela distância)

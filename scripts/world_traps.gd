@@ -111,6 +111,16 @@ static func _wind(o: Dictionary, T: int) -> void:
 	var y: float = o.y
 	var w: float = o.w
 	var h: float = o.h
+	if o.get("smoke"):
+		# fumaça quente da chaminé subindo (dá para planar em cima dela)
+		Spr.vgrad(x, y, w, h, Color(.8, .8, .85, 0), Color(.8, .8, .85, .08))
+		for k in 9:
+			var u: float = fposmod(T * .006 + k / 9.0, 1.0)
+			var sx: float = x + w / 2 + sin(u * 7.0 + k) * (6 + u * 18)
+			var sy: float = y + h - u * h
+			var r: float = 10 + u * 26
+			Spr.circle(sx, sy, r, Color(.72, .72, .78, .32 * (1.0 - u)))
+		return
 	Spr.vgrad(x, y, w, h, Color(.85, .95, 1, 0), Color(.85, .95, 1, .1))
 	for k in 7:
 		var lx: float = x + w * (k + .5) / 7.0

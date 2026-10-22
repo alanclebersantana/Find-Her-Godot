@@ -572,7 +572,7 @@ func _water(g: Game, a: float, b: float, y: float, depth: float, c0: Color, c1: 
 ## faixa de lama molhada, pedras brilhando, juncos e uma vitória-régia
 func _bank(e: float, y: float, dir: float, toxic: bool, T: int, depth: float, soy: float = 0.0) -> void:
 	# barranco com a textura da terra (raízes e pedrinhas), seguindo a curva e escurecendo para o fundo
-	var t: Texture2D = Spr.tex.chao
+	var t: Texture2D = preload("res://scripts/world_static.gd").gtex(game, e)
 	var ts := t.get_size()
 	var tint := Color(1, 1, 1) if not toxic else Color(.85, .95, .7)
 	var pts := PackedVector2Array([Vector2(e - dir * 4, y - 4)])

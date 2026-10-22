@@ -50,7 +50,7 @@ func _ready() -> void:
 			tex[k] = load(ep)
 	for k in ["pai", "pai2", "javali", "chao", "tronco", "galho", "filha", "pai_climb", "pai_rope_a", "pai_rope_b", "pai_vine_a", "pai_vine_b", "gaviao", "bagre"]:
 		tex[k] = load("res://assets/sprites/%s.png" % k)
-	for k in ["bosque", "tarde", "pantano", "noite", "neve"]:
+	for k in ["bosque", "tarde", "pantano", "noite", "neve", "mina", "moinho", "vila"]:
 		tex["bg_" + k] = load("res://assets/bg/%s.jpg" % k)
 		# cenário em camadas pintadas (opcional): assets/bg/<trecho>/1_ceu.jpg, 2_longe.png, 3_meio.png, 4_perto.png
 		var layers: Array = []
@@ -68,6 +68,10 @@ func _ready() -> void:
 			anim[k] = {"tex": at, "n": max(1, int(round(at.get_width() / float(fh)))), "s": fh}
 	# peças extras desenhadas à parte (atlas 2 = extra.png)
 	tex["extra"] = load("res://assets/sprites/extra.png")
+	for k in ["mina", "vila"]:
+		var gp := "res://assets/sprites/chao_%s.png" % k
+		if ResourceLoader.exists(gp):
+			tex["chao_" + k] = load(gp)
 	tex["pad_S"] = load("res://assets/ui/pad_S.png")
 	tex["btn_use"] = load("res://assets/ui/btn_use.png")
 	AR["it_picareta"] = [17, 12, 102, 110, 51, 55, 2]
@@ -98,6 +102,9 @@ func _ready() -> void:
 		if not tex.has(key):
 			tex[key] = load("res://assets/sprites/%s.png" % key)
 		AR["p_" + n] = [r[0], r[1], r[2], r[3], r[4], r[5], 3 + pg]
+		# ícones pintados de objetos e pistas novos: valem também pelo nome antigo (it_x, cl_7, clb_7)
+		if (n.begins_with("it_") or n.begins_with("cl_") or n.begins_with("clb_")) and not AR.has(n):
+			AR[n] = AR["p_" + n]
 	# brilho radial (substitui os gradientes radiais do canvas)
 	var g := Gradient.new()
 	g.set_color(0, Color(1, 1, 1, 1))

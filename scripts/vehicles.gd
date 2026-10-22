@@ -164,6 +164,8 @@ func near_sled() -> bool:
 
 func use() -> bool:
 	if near_sled():
+		if is_cart():
+			g.want_comic("carrinho")
 		_start_sled()
 		return true
 	if near_raft():
@@ -235,6 +237,10 @@ func sled_y(u: float) -> float:
 		return float(SL.y)
 	return float(pts[-1][1]) if u > float(pts[-1][0]) else float(pts[0][1])
 
+## o mesmo passeio do trenó, nos trilhos da mina (Episódio 2): carrinho em vez de trenó
+func is_cart() -> bool:
+	return str(SL.get("skin", "")) == "cart"
+
 func sled_tx0() -> float:
 	return float(SL.get("tx0", 82000))
 
@@ -266,7 +272,10 @@ func _sled_go() -> void:
 	g.set_cam(hx - g.W * .26, hy * .6 + sled_y(su + 300.0) * .4 - g.H * .56)
 	g.iris_t = 30
 	Audio.play("slide")
-	g.flash_tut("Trenó!", "Descendo o morro! PULAR salta pedras, troncos e rachaduras. ↓ abaixa sob galhos. ← freia, → acelera.", 240)
+	if is_cart():
+		g.flash_tut("Carrinho!", "Nos trilhos! PULAR salta pedras e buracos nos trilhos. ↓ abaixa sob as vigas. ← freia, → acelera.", 240)
+	else:
+		g.flash_tut("Trenó!", "Descendo o morro! PULAR salta pedras, troncos e rachaduras. ↓ abaixa sob galhos. ← freia, → acelera.", 240)
 
 func _sled_place(u: float, v: float) -> void:
 	su = u
@@ -347,7 +356,7 @@ func _sled_step() -> void:
 		if hy >= ngy:
 			if vy > 5:
 				g.burst(hx, ngy, 14, Color(.97, .98, 1))
-				Audio.step("snow", -6)
+				Audio.step("stone" if is_cart() else "snow", -6)
 				g.shake = max(g.shake, 3)
 			hy = ngy
 			vy = 0.0
@@ -356,10 +365,14 @@ func _sled_step() -> void:
 	hx = sled_tx0() + su
 	var want: float = atan(sdv / max(spd, .1)) if hy >= ngy - 1 else atan(vy / max(spd, .1)) * .7
 	sang = lerpf(sang, want, .25)
-	# neve espirrando dos esquis
+	# neve espirrando dos esquis (no carrinho: faíscas das rodas)
 	if hy >= ngy - 1 and g.T % 2 == 0:
 		for k in 2:
-			g.PARTS.append({"x": hx - 28, "y": hy - 2, "vx": -spd * .35 - randf() * 1.5, "vy": -randf_range(1.0, 3.0) - spd * .1, "life": 22, "col": Color(.97, .98, 1, .95)})
+			if is_cart():
+				if spd > 5.5 and randf() < .5:
+					g.PARTS.append({"x": hx - 24 + k * 40, "y": hy - 2, "vx": -spd * .3 - randf() * 2.0, "vy": -randf_range(.5, 2.5), "life": 12, "col": Color(1, .75 + randf() * .2, .3, 1)})
+			else:
+				g.PARTS.append({"x": hx - 28, "y": hy - 2, "vx": -spd * .35 - randf() * 1.5, "vy": -randf_range(1.0, 3.0) - spd * .1, "life": 22, "col": Color(.97, .98, 1, .95)})
 	if brake and hy >= ngy - 1 and g.T % 3 == 0:
 		g.PARTS.append({"x": hx + 20, "y": hy - 3, "vx": spd * .2, "vy": -2.0, "life": 18, "col": Color(.9, .95, 1, .9)})
 	# obstáculos
@@ -429,7 +442,7 @@ func _hurt_sled(o: Dictionary = {}) -> void:
 	p.hp -= 1
 	if p.hp <= 0:
 		tries += 1
-		g.die("O trenó capotou! Volta da fogueira — PULAR salta, ↓ abaixa, ← freia.")
+		g.die("O carrinho descarrilou! PULAR salta, ↓ abaixa, ← freia." if is_cart() else "O trenó capotou! Volta da fogueira — PULAR salta, ↓ abaixa, ← freia.")
 
 func _finish_sled() -> void:
 	var p: Dictionary = g.player
@@ -449,7 +462,10 @@ func _finish_sled() -> void:
 	Audio.play("splash", -10)
 	g.iris_t = 30
 	g.snap_camera()
-	g.flash("Que descida! O trenó parou no monte de neve, lá embaixo do morro.", 180)
+	if is_cart():
+		g.flash(str(SL.get("endMsg", "O carrinho parou no fim dos trilhos.")), 200)
+	else:
+		g.flash("Que descida! O trenó parou no monte de neve, lá embaixo do morro.", 180)
 
 var pb := 0              # avião: quadros do embarque
 var bx0 := 0.0

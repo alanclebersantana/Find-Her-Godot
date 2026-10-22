@@ -124,7 +124,7 @@ func load_level() -> void:
 		o.done = false
 		TOCAS.append(o)
 	var opts := ["limpo", "limpo", "neblina", "garoa", "vento"]
-	weather = opts[randi() % opts.size()]
+	weather = str(L.weather) if L.has("weather") else opts[randi() % opts.size()]
 	weather_msg_t = 40
 
 func weather_text() -> String:

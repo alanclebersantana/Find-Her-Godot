@@ -14,7 +14,8 @@ func _initialize() -> void:
 		root.get_texture().get_image().save_png("/tmp/fh_shots/title.png")
 		quit()
 		return
-	main.start_level(false)
+	var lvl := int(OS.get_environment("LVL")) if OS.get_environment("LVL") != "" else 0
+	main.start_level(false, lvl)
 	await process_frame
 	if main.panel and main.panel.has_meta("ok"):
 		main.panel.get_meta("ok").call()
@@ -41,7 +42,7 @@ func _initialize() -> void:
 		return
 	g.lives = 99
 	g.clue_opened.disconnect(main._on_clue)
-	for cid in ["cipo", "mergulho", "neve", "pipoca", "picareta", "cavalo", "mina", "toxico", "javali", "gaviao", "bagre", "urso", "vargas", "bola", "aviao", "jangada", "colmeia"]:
+	for cid in ["cipo", "mergulho", "neve", "pipoca", "picareta", "cavalo", "mina", "toxico", "javali", "gaviao", "bagre", "urso", "vargas", "bola", "aviao", "jangada", "colmeia", "moinho", "telhados", "carrinho"]:
 		root.get_node("Save").setv("comic", cid, true)
 	for e in g.EN:
 		if e.k != "owl" and e.k != "frog" and e.k != "leech":
@@ -228,6 +229,11 @@ func _initialize() -> void:
 					g.VH._sled_place(float(k.substr(5)), 6.0)
 					g.veh_t = 200
 					g.set_cam(g.VH.hx - g.W * .26, g.VH.hy * .6 + g.VH.sled_y(g.VH.su + 300.0) * .4 - g.H * .56)
+				elif k == "unlock":
+					for l in g.LOCKS:
+						if not l.done:
+							g.INV.append(l.need)
+							g.use_lock(l)
 				elif k == "en":
 					for e in g.EN:
 						e.dead = 0

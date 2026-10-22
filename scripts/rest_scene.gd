@@ -22,7 +22,7 @@ void fragment() {
 """
 
 func setup(period: int, found: int) -> void:
-	n = clamp(period, 1, 5)
+	n = period if period > 10 else clamp(period, 1, 5)
 	drawings = found
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -65,7 +65,17 @@ func _draw() -> void:
 	Spr.A("pai_crouch", fx - 150, fy - 6, 1.55)
 	# luz quente da fogueira batendo no Tomé
 	Spr.glow(fx - 120, fy - 50, 70 + sin(t * .2) * 4, Color(1, .6, .25, .22))
-	# Pipoca deitado, respirando devagar, de olhos fechados
+	# Pipoca deitado, respirando devagar, de olhos fechados (só quando ele está junto)
+	if not show_dog:
+		pass
+	else:
+		_dog(fx, fy)
+	# a fogueira grande
+	Spr.A("o_fire_on", fx, fy + 4, 1.6)
+	_after_fire(fx, fy)
+
+var show_dog := true
+func _dog(fx: float, fy: float) -> void:
 	Spr.save()
 	Spr.translate(fx - 265, fy + 8)
 	Spr.rotate(.08)
@@ -73,8 +83,8 @@ func _draw() -> void:
 	Spr.A("dog0", 0, 0, 1.0)
 	Spr.restore()
 	Spr.text("z", fx - 250 + sin(t * .03) * 4, fy - 70 - fmod(t * .3, 30.0), 18, Color(1, .95, .8, .6), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_i)
-	# a fogueira grande
-	Spr.A("o_fire_on", fx, fy + 4, 1.6)
+
+func _after_fire(fx: float, fy: float) -> void:
 	for i in 6:
 		var u: float = fmod(t * .012 + i / 6.0, 1.0)
 		Spr.circle(fx + sin(i * 2.1 + t * .05) * 30 * u, fy - 40 - u * 220, 3 * (1.0 - u) + .5, Color(1, .7, .3, 1.0 - u))
@@ -117,6 +127,9 @@ class _Memory extends Control:
 			3: _puddles(w, h, t)
 			4: _snowman(w, h, t)
 			5: _kite(w, h, t)
+			11: _bedroom(w, h, t)
+			12: _mill(w, h, t)
+			13: _stars(w, h, t)
 		# bordas esfumaçadas
 		for i in 6:
 			var k: float = i / 6.0
@@ -230,3 +243,71 @@ class _Memory extends Control:
 		Spr.rect(ax - 3, h * .1 - 5, 6, 14, Color(.6, .35, .3))
 		_lia(2, lx, ly, _kid(h))
 		Spr.frame(Spr.tex.pai, 0, 170, 160, 85, 156, w * .24, h * .8, _dad(h), false)
+
+
+	## Episódio 2, lembrança 1: a lanterna acesa na porta do quarto dela
+	func _bedroom(w: float, h: float, t: float) -> void:
+		Spr.vgrad(0, 0, w, h, Color("#2a2440"), Color("#3a3050"))
+		Spr.rect(0, h * .8, w, h * .2, Color("#4a3a2a"))
+		# janela com a lua
+		Spr.rect(w * .12, h * .14, w * .16, h * .3, Color("#1a2a4a"))
+		Spr.circle(w * .2, h * .24, 10, Color(1, .96, .8))
+		Spr.ci.draw_rect(Rect2(w * .12, h * .14, w * .16, h * .3), Color("#6b4a2a"), false, 4)
+		# a caminha com a Isis dormindo
+		Spr.rr(w * .38, h * .62, w * .3, h * .14, 6, Color("#8a5a3a"))
+		Spr.rr(w * .4, h * .58, w * .26, h * .08, 8, Color("#e8a0b0"))
+		Spr.circle(w * .43, h * .58, 9, Color("#f2c9a8"))
+		Spr.circle(w * .43, h * .55, 8, Color("#d0582a"))
+		# a lanterna na porta, a luz respirando
+		var lx: float = w * .84
+		var ly: float = h * .5
+		Spr.glow(lx, ly, 90 + sin(t * .05) * 8, Color(1, .8, .4, .55))
+		Spr.rect(lx - 6, ly - 12, 12, 20, Color("#b08a3a"))
+		Spr.circle(lx, ly - 2, 5, Color(1, .95, .7))
+		Spr.text("z", w * .48 + sin(t * .03) * 3, h * .45 - fmod(t * .3, 20.0), 14, Color(1, 1, 1, .6), HORIZONTAL_ALIGNMENT_CENTER)
+
+	## lembrança 2: o domingo vendo o moinho girar
+	func _mill(w: float, h: float, t: float) -> void:
+		Spr.vgrad(0, 0, w, h * .8, Color("#f4b878"), Color("#f8e2b8"))
+		Spr.ellipse(w * .66, h * 1.0, w * .5, h * .34, Color("#d8b25a"))
+		_ground(w, h, Color("#c8a048"))
+		var mx: float = w * .7
+		var mb: float = h * .74
+		Spr.poly(PackedVector2Array([Vector2(mx - 22, mb), Vector2(mx - 14, mb - 70), Vector2(mx + 14, mb - 70), Vector2(mx + 22, mb)]), Color("#8a5a32"))
+		Spr.poly(PackedVector2Array([Vector2(mx - 18, mb - 70), Vector2(mx, mb - 86), Vector2(mx + 18, mb - 70)]), Color("#6b4224"))
+		for k in 4:
+			var a: float = t * .02 + k * PI / 2
+			Spr.seg(mx, mb - 72, mx + cos(a) * 52, mb - 72 + sin(a) * 52, Color("#5a3a20"), 4)
+			Spr.circle(mx + cos(a) * 40, mb - 72 + sin(a) * 40, 9, Color(.96, .9, .78, .9))
+		Spr.circle(mx, mb - 72, 5, Color("#3a2614"))
+		# os dois sentados vendo
+		Spr.frame(Spr.tex.pai, 0, 170, 160, 85, 156, w * .26, h * .86, _dad(h), false)
+		_lia(0, w * .36, h * .86, _kid(h))
+		var c: int = int(t / 50.0) % 9 + 1
+		Spr.text(str(c), w * .36, h * .3, 16, Color(.45, .25, .15), HORIZONTAL_ALIGNMENT_CENTER)
+
+	## lembrança 3: no telhado do galpão vendo as estrelas
+	func _stars(w: float, h: float, t: float) -> void:
+		Spr.vgrad(0, 0, w, h, Color("#101838"), Color("#2a3a6a"))
+		for i in 34:
+			var sx: float = fmod(i * 83.0, w)
+			var sy: float = fmod(i * 37.0, h * .6)
+			var tw: float = .5 + .5 * sin(t * .06 + i)
+			Spr.circle(sx, sy, 1.2 + tw, Color(1, 1, .9, .5 + .5 * tw))
+		# estrela cadente
+		var u: float = fmod(t * .01, 1.0)
+		if u < .3:
+			var k: float = u / .3
+			Spr.seg(w * (.2 + k * .5), h * (.1 + k * .2), w * (.2 + k * .5) - 30, h * (.1 + k * .2) - 12, Color(1, 1, 1, 1.0 - k), 2)
+		# o telhado do galpão e os dois deitados olhando para cima
+		Spr.poly(PackedVector2Array([Vector2(0, h), Vector2(0, h * .78), Vector2(w * .5, h * .66), Vector2(w, h * .78), Vector2(w, h)]), Color("#5a3a24"))
+		Spr.save()
+		Spr.translate(w * .4, h * .7)
+		Spr.rotate(-1.4)
+		_lia(0, 0, 0, _kid(h))
+		Spr.restore()
+		Spr.save()
+		Spr.translate(w * .58, h * .7)
+		Spr.rotate(-1.45)
+		Spr.frame(Spr.tex.pai, 0, 170, 160, 85, 156, 0, 0, _dad(h), false)
+		Spr.restore()

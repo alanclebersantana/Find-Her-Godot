@@ -952,7 +952,8 @@ func show_title() -> void:
 	panel.add_child(img)
 	panel.move_child(img, 0)
 	vb.add_child(_label("ENCONTRE-A", 68, Color("#f2d28a"), Spr.font_title))
-	vb.add_child(_label("EPISÓDIO 1 · O BOSQUE", 22, Color("#e8c98a"), Spr.font_title))
+	var eps: int = int(Save.getv("prog", "eps", 1))
+	vb.add_child(_label("EPISÓDIO 1 · O BOSQUE" if eps < 2 else "EPISÓDIOS 1 E 2", 22, Color("#e8c98a"), Spr.font_title))
 	vb.add_child(_label("Levaram a Isis. Siga a trilha dos lápis de cor.", 18, Color("#e8dcc0"), Spr.font_i))
 	var sp := Control.new()
 	sp.custom_minimum_size = Vector2(0, 8)
@@ -960,7 +961,10 @@ func show_title() -> void:
 	var run := Save.load_run()
 	if not run.is_empty():
 		vb.add_child(_button("CONTINUAR", func(): start_level(true)))
-	vb.add_child(_button("NOVO JOGO" if not run.is_empty() else "COMEÇAR", func(): start_level(false)))
+	if eps >= 2:
+		vb.add_child(_button("ESCOLHER EPISÓDIO", _choose_episode))
+	else:
+		vb.add_child(_button("NOVO JOGO" if not run.is_empty() else "COMEÇAR", func(): start_level(false)))
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 10)
@@ -973,6 +977,28 @@ func show_title() -> void:
 	vb.add_child(row)
 	vb.add_child(_label("Teclado: ← → andar · ↑ ↓ subir/abaixar · Espaço pular · F usar · M mochila · N mapa", 12, Color(.8, .75, .65, .8)))
 	panel.set_meta("ok", func(): start_level(not run.is_empty()))
+
+## escolher o episódio (aparece depois de terminar o primeiro)
+const EPISODES := [["EPISÓDIO 1 · O BOSQUE", "Do bosque até a boca da mina."], ["EPISÓDIO 2 · AS PROFUNDEZAS DA MINA", "Túneis, o moinho, os telhados da vila e o carrinho nos trilhos."]]
+func _choose_episode() -> void:
+	var vb := _overlay(.9)
+	vb.add_child(_label("ESCOLHA O EPISÓDIO", 30, GOLD, Spr.font_title))
+	var eps: int = int(Save.getv("prog", "eps", 1))
+	for i in min(eps, EPISODES.size()):
+		var lv: int = i
+		var b := Save.best(i)
+		var st: String = "  " + "★".repeat(int(b.get("stars", 0))) if not b.is_empty() else ""
+		vb.add_child(_button(EPISODES[i][0] + st, func():
+			panel.queue_free()
+			panel = null
+			start_level(false, lv)))
+		vb.add_child(_label(EPISODES[i][1], 13, Color(.8, .75, .65), Spr.font_i))
+	var back := func():
+		panel.queue_free()
+		panel = null
+		show_title()
+	vb.add_child(_button("VOLTAR", back))
+	panel.set_meta("back", back)
 
 ## Tela de opções (do início ou da pausa)
 func show_options(from_pause: bool) -> void:
@@ -1132,7 +1158,7 @@ class _CtrlEditor extends Control:
 			Save.cfg.set_value("opt", "pos_" + drag, [cur[0] + d.x, cur[1] + d.y])
 			main._layout()
 
-func start_level(cont: bool) -> void:
+func start_level(cont: bool, lvl: int = 0) -> void:
 	game.CLUEGOT.clear()
 	game.SPECGOT.clear()
 	game.DRAWN.clear()
@@ -1143,14 +1169,18 @@ func start_level(cont: bool) -> void:
 		game.restore_run(run)
 	else:
 		Save.clear_run()
-		game.load_level(0)
+		game.load_level(lvl)
 	game.low_fx = bool(Save.getv("opt", "lowfx", false))
 	_build_world()
 	game.running = false
 	if cont:
 		show_intro(true)
 	else:
-		_ask_tutorial(func(): play_cut("abertura", func(): show_intro(false)))
+		var cut: String = "abertura" if game.level_idx == 0 else "ep2"
+		if game.level_idx > 0 and Save.getv("opt", "tut_asked", false):
+			play_cut(cut, func(): show_intro(false))
+		else:
+			_ask_tutorial(func(): play_cut(cut, func(): show_intro(false)))
 
 ## grande fogueira: fim de um período. Pausa, lembrança da Isis e escolha de seguir ou parar.
 const REST_INFO := {
@@ -1175,9 +1205,13 @@ func _on_rest(n: int) -> void:
 	for d in game.DRWS:
 		if d.got:
 			found += 1
-	sc.setup(n, found)
+	sc.show_dog = game.L.has("dog")
+	sc.setup(n + (10 if game.level_idx == 1 else 0), found)
 	root.add_child(sc)
 	var info: Array = REST_INFO.get(n, REST_INFO[1])
+	var lr: Dictionary = game.L.get("rests", {})
+	if lr.has(str(n)):
+		info = lr[str(n)]
 	var vb := VBoxContainer.new()
 	vb.alignment = BoxContainer.ALIGNMENT_END
 	vb.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -1231,6 +1265,7 @@ func _ask_tutorial(next: Callable) -> void:
 	vb.add_child(_label("Quer ajuda do tutorial? As dicas explicam os controles e os desafios pelo caminho. Dá para mudar depois em OPÇÕES.", 17, Color("#e8dcc0"), Spr.font_i, 620))
 	var pick := func(on: bool):
 		Save.setv("opt", "tutorial", on)
+		Save.setv("opt", "tut_asked", true)
 		panel.queue_free()
 		panel = null
 		next.call()
@@ -1242,9 +1277,10 @@ func show_intro(cont: bool) -> void:
 	state = S.INTRO
 	_show_hud(false)
 	var vb := _overlay(.88)
-	vb.add_child(_label("EPISÓDIO 1", 16, Color("#cdbfa6"), Spr.font_title))
+	vb.add_child(_label("EPISÓDIO %d" % (game.level_idx + 1), 16, Color("#cdbfa6"), Spr.font_title))
 	var img := TextureRect.new()
-	img.texture = load("res://assets/ui/cena1.jpg")
+	var ip: String = game.L.get("introImg", "res://assets/ui/cena1.jpg")
+	img.texture = load(ip) if ResourceLoader.exists(ip) else load("res://assets/ui/cena1.jpg")
 	img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	img.custom_minimum_size = Vector2(520, 190)
@@ -1364,7 +1400,9 @@ func _render_bag(msg: String) -> void:
 	var clues := HBoxContainer.new()
 	clues.alignment = BoxContainer.ALIGNMENT_CENTER
 	clues.add_theme_constant_override("separation", 6)
-	for i in range(1, 7):
+	var cids: Array = game.clue_ids()
+	for ci in cids.size():
+		var i: int = int(cids[ci])
 		var b2 := Button.new()
 		b2.focus_mode = Control.FOCUS_NONE
 		b2.custom_minimum_size = Vector2(98, 76)
@@ -1387,7 +1425,7 @@ func _render_bag(msg: String) -> void:
 			var q := _label("?", 28, Color(.6, .55, .45))
 			q.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			inner2.add_child(q)
-			var ql := _label("Pista %d" % i, 11, Color(.6, .55, .45))
+			var ql := _label("Pista %d" % (ci + 1), 11, Color(.6, .55, .45))
 			ql.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			inner2.add_child(ql)
 			b2.disabled = true
@@ -1420,7 +1458,7 @@ func _bag_tap(id: String) -> void:
 
 # ---------- pista ----------
 func _on_clue(id: int, from_bag: bool = false) -> void:
-	if id == 6 and not from_bag:
+	if id == 6 and not from_bag and game.level_idx == 0:
 		state = S.CUT
 		_clear_keys()
 		play_cut("cracha", func(): _show_clue(6, false))
@@ -1433,7 +1471,7 @@ func _show_clue(id: int, from_bag: bool) -> void:
 	_show_hud(false)
 	var vb := _overlay(.84)
 	vb.add_child(_label("PISTA %d DE 6" % game.CLUEGOT.size() if not from_bag else "CADERNO DE PISTAS", 14, Color("#cdbfa6")))
-	if id == 6:
+	if id == 6 and game.level_idx == 0:
 		vb.add_child(_Badge.new())
 	else:
 		vb.add_child(_atlas_icon("clb_%d" % id, 170))
@@ -1494,13 +1532,17 @@ func play_cut(id: String, after: Callable) -> void:
 		Audio.set_song("vitoria")
 	elif id == "posfinal":
 		Audio.set_song("tunel")
+	elif id in ["ep2", "ep2fim"]:
+		Audio.set_song("tunel")
+	elif id == "isis":
+		Audio.set_song("noite")
 	var c := preload("res://scripts/ui/cutscene.gd").new(id)
 	c.theme = theme_ui
 	ui_layer.add_child(c)
 	c.finished.connect(after)
 
 func _on_level_end() -> void:
-	play_cut("mina", _on_results)
+	play_cut("mina" if game.level_idx == 0 else "ep2fim", _on_results)
 
 # ---------- mapa da fase ----------
 ## from_pause: volta ao menu de pausa; from_bag: volta à mochila; senão volta ao jogo
@@ -1584,7 +1626,7 @@ func show_gallery() -> void:
 	var cl := HBoxContainer.new()
 	cl.alignment = BoxContainer.ALIGNMENT_CENTER
 	cl.add_theme_constant_override("separation", 10)
-	for i in range(1, 7):
+	for i in range(1, 13 if int(Save.getv("prog", "eps", 1)) >= 2 else 7):
 		if Save.getv("gallery", "c%d" % i, false):
 			var ic := _atlas_icon("clb_%d" % i, 64)
 			ic.tooltip_text = GameData.CLUE_INFO[i][0]
@@ -1597,6 +1639,9 @@ func show_gallery() -> void:
 	var best := Save.best(0)
 	if not best.is_empty():
 		vb.add_child(_label("Melhor resultado no Bosque: %s   ·   lápis %d   ·   pistas %d/6" % ["★".repeat(int(best.get("stars", 0))), int(best.get("pen", 0)), int(best.get("clues", 0))], 14, Color("#ffd76a")))
+	var best2 := Save.best(1)
+	if not best2.is_empty():
+		vb.add_child(_label("Melhor resultado na Mina: %s   ·   lápis %d   ·   pistas %d/6" % ["★".repeat(int(best2.get("stars", 0))), int(best2.get("pen", 0)), int(best2.get("clues", 0))], 14, Color("#ffd76a")))
 	var b := HBoxContainer.new()
 	b.alignment = BoxContainer.ALIGNMENT_CENTER
 	b.add_theme_constant_override("separation", 10)
@@ -1632,16 +1677,18 @@ func _on_results() -> void:
 		stars = 2
 	if pen >= pt * .9 and nc == 6 and ns == 6:
 		stars = 3
-	Save.set_best(0, {"stars": stars, "pen": pen, "clues": nc, "specs": ns})
-	var prev: Array = Save.getv("gallery", "final", [])
+	Save.set_best(game.level_idx, {"stars": stars, "pen": pen, "clues": nc, "specs": ns})
+	var gk: String = "final" if game.level_idx == 0 else "final%d" % (game.level_idx + 1)
+	var prev: Array = Save.getv("gallery", gk, [])
 	if game.SPECGOT.size() >= prev.size():
-		Save.setv("gallery", "final", game.SPECGOT.keys())
+		Save.setv("gallery", gk, game.SPECGOT.keys())
 	Save.clear_run()
 	var vb := _overlay(.86)
-	vb.add_child(_label("FIM DO BOSQUE", 14, Color("#cdbfa6")))
+	vb.add_child(_label(game.L.get("endTitle", "FIM DO BOSQUE"), 14, Color("#cdbfa6")))
 	vb.add_child(_label("★".repeat(stars) + "☆".repeat(3 - stars), 40, Color("#ffd76a")))
 	var fd := _FinalDrawing.new()
 	fd.specs = game.SPECGOT.duplicate()
+	fd.ep = game.level_idx + 1
 	vb.add_child(fd)
 	var grid := GridContainer.new()
 	grid.columns = 2
@@ -1649,7 +1696,12 @@ func _on_results() -> void:
 	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	var gold_txt := "Lápis dourado  " + ("✓" if game.X.GOLD.get("got", false) else "—")
 	var sec_txt := "Lugares secretos  %d/%d" % [game.X.found.size(), game.X.SECRETS.size()]
-	for t in ["⏱ Tempo  %d:%02d" % [secs / 60, secs % 60], "✏ Lápis  %d/%d" % [pen, pt], "Lápis especiais  %d/6" % ns, "Desenhos  %d/%d" % [dr, game.DRWS.size()], "Pistas  %d/6" % nc, gold_txt, sec_txt]:
+	var rows := ["⏱ Tempo  %d:%02d" % [secs / 60, secs % 60], "✏ Lápis  %d/%d" % [pen, pt], "Lápis especiais  %d/6" % ns, "Desenhos  %d/%d" % [dr, game.DRWS.size()], "Pistas  %d/6" % nc]
+	if game.L.has("gold"):
+		rows.append(gold_txt)
+	if game.X.SECRETS.size() > 0:
+		rows.append(sec_txt)
+	for t in rows:
 		grid.add_child(_label(t, 15, INK))
 	vb.add_child(grid)
 	# estrelas por período (guarda o melhor de cada um para a galeria de conquistas)
@@ -1657,7 +1709,8 @@ func _on_results() -> void:
 	var prow := HBoxContainer.new()
 	prow.alignment = BoxContainer.ALIGNMENT_CENTER
 	prow.add_theme_constant_override("separation", 16)
-	var best: Array = Save.getv("conq", "stars", [0, 0, 0, 0, 0, 0])
+	var sk: String = "stars" if game.level_idx == 0 else "stars%d" % (game.level_idx + 1)
+	var best: Array = Save.getv("conq", sk, [0, 0, 0, 0, 0, 0])
 	for i in ps.size():
 		best[i] = max(int(best[i]), int(ps[i]))
 		var col := VBoxContainer.new()
@@ -1665,7 +1718,7 @@ func _on_results() -> void:
 		col.add_child(_label("★".repeat(ps[i]) + "☆".repeat(3 - ps[i]), 18, Color("#ffd76a")))
 		prow.add_child(col)
 	vb.add_child(prow)
-	Save.setv("conq", "stars", best)
+	Save.setv("conq", sk, best)
 	var kings := 0
 	if game.X.BOSS.get("done", false):
 		kings += 1
@@ -1687,10 +1740,18 @@ func _on_results() -> void:
 		bd.kind = 4
 		bd.custom_minimum_size = Vector2(240, 150)
 		vb.add_child(bd)
+	var lvl: int = game.level_idx
 	var story := "Agora eu sei: foi Ademar Vargas, o gerente que roubava a mina. Ele levou a Isis para se vingar. Vou atrás dele — mina adentro." if nc == 6 else "Ele fugiu para a mina. Ainda faltam pistas para ter certeza de quem é... (%d/6)" % nc
+	if lvl == 1:
+		story = "O ouro roubado, o livro-caixa, a chave do cofre... Vargas está escondendo a Isis no fundo da mina. Eu vou buscá-la." if nc == 6 else "Ele desceu ainda mais fundo. Ainda faltam pistas... (%d/6)" % nc
 	vb.add_child(_label(story, 16, Color("#e8dcc0"), Spr.font_i, 640))
-	vb.add_child(_label("As próximas fases chegam em breve.", 13, Color(.75, .7, .6)))
-	vb.add_child(_button("CONTINUAR", func(): play_cut("posfinal", show_title)))
+	if lvl == 0:
+		# o Episódio 2 fica liberado e começa logo depois da cena
+		Save.setv("prog", "eps", max(2, int(Save.getv("prog", "eps", 1))))
+		vb.add_child(_button("CONTINUAR", func(): play_cut("posfinal", func(): start_level(false, 1))))
+	else:
+		vb.add_child(_label("O Episódio 3 chega em breve.", 13, Color(.75, .7, .6)))
+		vb.add_child(_button("CONTINUAR", func(): play_cut("isis", show_title)))
 
 class _FinalDrawing extends Control:
 	## O desenho da Isis, colorido com os lápis especiais encontrados
@@ -1700,7 +1761,11 @@ class _FinalDrawing extends Control:
 		size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	func colr(c: String) -> Color:
 		return GameData.PEN_COL[c] if specs.has(c) else Color("#f6efdc")
+	var ep := 1
 	func _draw() -> void:
+		if ep == 2:
+			_draw_mill()
+			return
 		var w := 300.0
 		var h := 170.0
 		var ink := Color("#3a2a1a")
@@ -1727,6 +1792,40 @@ class _FinalDrawing extends Control:
 		var txt := "\"Papai e eu\" — Isis" if specs.size() == 6 else "Faltam cores: %d" % (6 - specs.size())
 		draw_string(Spr.font_i, Vector2(10, h - 8), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, ink)
 
+	## desenho do Episódio 2: o moinho, a montanha da mina e os dois de mãos dadas
+	func _draw_mill() -> void:
+		var w := 300.0
+		var h := 170.0
+		var ink := Color("#3a2a1a")
+		draw_rect(Rect2(-3, -3, w + 6, h + 6), Color("#6b4a2a"))
+		draw_rect(Rect2(0, 0, w, h * .62), colr("azul"))
+		draw_rect(Rect2(0, h * .62, w, h * .38), colr("amarelo"))
+		draw_line(Vector2(0, h * .62), Vector2(w, h * .62), ink, 3)
+		var mt := PackedVector2Array([Vector2(w * .5, h * .62), Vector2(w * .72, h * .14), Vector2(w * .98, h * .62)])
+		draw_colored_polygon(mt, colr("roxo"))
+		draw_polyline(PackedVector2Array([mt[0], mt[1], mt[2]]), ink, 3)
+		draw_rect(Rect2(w * .7, h * .46, 22, 22), Color("#2a2018"))
+		draw_rect(Rect2(w * .7, h * .46, 22, 22), ink, false, 3)
+		var mx := w * .2
+		var tw := PackedVector2Array([Vector2(mx - 16, h * .62), Vector2(mx - 10, h * .3), Vector2(mx + 10, h * .3), Vector2(mx + 16, h * .62)])
+		draw_colored_polygon(tw, colr("laranja"))
+		draw_polyline(PackedVector2Array([tw[0], tw[1], tw[2], tw[3]]), ink, 3)
+		for k in 4:
+			var a: float = .5 + k * PI / 2
+			draw_line(Vector2(mx, h * .3), Vector2(mx + cos(a) * 34, h * .3 + sin(a) * 34), ink, 4)
+		draw_circle(Vector2(mx, h * .3), 5, colr("vermelho"))
+		for f in [[w * .42, 1.3, "verde"], [w * .52, .95, "vermelho"]]:
+			var x: float = f[0]
+			var sc: float = f[1]
+			draw_circle(Vector2(x, h * .6 - 30 * sc), 10 * sc, colr(f[2]))
+			draw_arc(Vector2(x, h * .6 - 30 * sc), 10 * sc, 0, TAU, 24, ink, 3)
+			var b := PackedVector2Array([Vector2(x, h * .6 - 20 * sc), Vector2(x - 14 * sc, h * .6 + 18 * sc), Vector2(x + 14 * sc, h * .6 + 18 * sc)])
+			draw_colored_polygon(b, colr(f[2]))
+			draw_polyline(PackedVector2Array([b[0], b[1], b[2], b[0]]), ink, 3)
+		draw_line(Vector2(w * .42 + 8, h * .6 - 10), Vector2(w * .52 - 8, h * .6 - 6), ink, 3)
+		var txt := "\"O moinho do domingo\" — Isis" if specs.size() == 6 else "Faltam cores: %d" % (6 - specs.size())
+		draw_string(Spr.font_i, Vector2(10, h - 8), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, ink)
+
 # ---------- fim de jogo ----------
 func _on_over() -> void:
 	state = S.OVER
@@ -1740,7 +1839,7 @@ func _on_over() -> void:
 		vb.add_child(_button("VOLTAR À FOGUEIRA", func():
 			start_level(true)
 			game.lives = max(game.lives, 3)))
-	vb.add_child(_button("RECOMEÇAR A FASE", func(): start_level(false)))
+	vb.add_child(_button("RECOMEÇAR A FASE", func(): start_level(false, game.level_idx)))
 	vb.add_child(_button("MENU INICIAL", func():
 		panel.queue_free()
 		panel = null

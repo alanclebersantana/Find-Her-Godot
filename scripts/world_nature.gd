@@ -218,7 +218,7 @@ static func draw(g: Game, T: int) -> void:
 	for b in NT.BARS:
 		if b.x0 > x1 or b.x1 < x0:
 			continue
-		for px in [b.x0 - 14, b.x1 + 6]:
+		for px in ([] if b.get("clothes") else [b.x0 - 14, b.x1 + 6]):
 			Spr.rect(px, b.y - 30, 12, 1150 - b.y, Color("#5a3d22"))
 			Spr.rect(px + 2, b.y - 30, 3, 1150 - b.y, Color(1, 1, 1, .08))
 			Spr.ellipse(px + 6, b.y - 30, 9, 4, Color("#7a5532"))
@@ -235,6 +235,26 @@ static func draw(g: Game, T: int) -> void:
 			pts.push_back(Vector2(xx, yy))
 		Spr.ci.draw_polyline(pts, Color("#3a2414"), 6, true)
 		Spr.ci.draw_polyline(pts, Color("#c9a26a"), 3.5, true)
+		if b.get("clothes"):
+			# varal da vila: roupas penduradas balançando (onde o Tomé segura, elas saem do caminho)
+			var cols := [Color("#c94a3a"), Color("#e8e0c8"), Color("#4a7ab0"), Color("#d8a83a"), Color("#6a9a4a")]
+			for k in range(2, 40, 5):
+				var q: Vector2 = pts[k]
+				if abs(q.x - pcx) < 40:
+					continue
+				var sw: float = sin(g.T * .05 + q.x * .1) * .12
+				var c: Color = cols[int(abs(q.x)) % cols.size()]
+				Spr.save()
+				Spr.translate(q.x, q.y + 1)
+				Spr.rotate(sw)
+				if int(abs(q.x) / 3.0) % 2 == 0:
+					# camisa
+					Spr.poly(PackedVector2Array([Vector2(-12, 0), Vector2(12, 0), Vector2(16, 10), Vector2(10, 10), Vector2(10, 28), Vector2(-10, 28), Vector2(-10, 10), Vector2(-16, 10)]), c)
+				else:
+					# meia ou pano
+					Spr.rect(-6, 0, 12, 22, c)
+				Spr.rect(-2, -2, 4, 4, Color("#8a6a42"))
+				Spr.restore()
 	# buracos de água gelada
 	for h in NT.HOLES:
 		if h.x > x1 or h.x + h.w < x0:

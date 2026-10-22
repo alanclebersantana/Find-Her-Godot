@@ -77,6 +77,7 @@ var VH: Vehicles
 var EV: Events
 var SL: Slam
 var WV: Waves
+var MV: Movers
 var RESTED := {}        # fogueiras grandes já descansadas
 var player: Dictionary = {}
 var keys := {}
@@ -157,6 +158,7 @@ func load_level(i: int) -> void:
 	max_x = 0.0
 	cur_chk = -1
 	L = JSON.parse_string(FileAccess.get_file_as_string("res://assets/data/level%d.json" % (i + 1)))
+	PERIODS = L.get("periods", PERIODS1)
 	SOL = []
 	for s in L.solids:
 		if s.get("deco"):
@@ -291,6 +293,8 @@ func load_level(i: int) -> void:
 	SL.load_level()
 	WV = Waves.new(self)
 	WV.load_level()
+	MV = Movers.new(self)
+	MV.load_level()
 	RESTED = {}
 	_reset_player(L.spawn.x - 12, L.spawn.y - 34)
 	time_left = int(L.get("time", 180)) * 60
@@ -727,12 +731,18 @@ func use_available() -> bool:
 		return true
 	if near_crank() != null:
 		return true
+	if MV and MV.near_use():
+		return true
 	if EV and EV.near_lever() != null:
 		return true
 	return X.near_use() or X.beam_useful()
 
 ## nome do período do dia em que o Tomé está (a fase é uma só, dividida pelas fogueiras grandes)
-const PERIODS := ["Manhã no bosque", "Tarde", "Pântano", "Neve", "Céu", "Noite na mina"]
+const PERIODS1 := ["Manhã no bosque", "Tarde", "Pântano", "Neve", "Céu", "Noite na mina"]
+var PERIODS: Array = PERIODS1
+## pistas da fase (Episódio 1: 1..6; Episódio 2: 7..12)
+func clue_ids() -> Array:
+	return L.get("clueIds", [1, 2, 3, 4, 5, 6]) if L else [1, 2, 3, 4, 5, 6]
 func period_index() -> int:
 	var px: float = amb_x()
 	var n := 0
@@ -752,7 +762,7 @@ func period_label() -> String:
 			var k: String = sc.get("map", sc.get("bg", sc.get("song", "manha")))
 			if sc.get("bg", "") == "neve" and not sc.has("map"):
 				k = "neve"
-			i = PERIOD_OF.get(k, i)
+			i = int(sc.per) if sc.has("per") else PERIOD_OF.get(k, i)
 	return "%d/%d · %s" % [i + 1, PERIODS.size(), PERIODS[min(i, PERIODS.size() - 1)]]
 
 ## posição usada para clima e cenário (no trenó, a trilha fica longe do mapa: vale a do morro)
@@ -891,6 +901,7 @@ func step() -> void:
 	# sem relógio: o tempo só é contado para o resumo do fim (nunca acaba)
 	time_left -= 1
 	var __m := Time.get_ticks_usec()
+	MV.pre()
 	X.pre_step()
 	if player.dyingT > 0:
 		return
@@ -1571,6 +1582,8 @@ func _comic_triggers() -> void:
 		if tr.get("k") == "hive":
 			add.call("colmeia", float(tr.x) - 130)
 	# (sem quadrinho da picareta: o Tomé já começa com ela)
+	for cm in L.get("comics", []):
+		add.call(str(cm.id), float(cm.x))
 	var dz: Array = L.get("darkZones", [])
 	if not dz.is_empty():
 		add.call("mina", float(dz[0].x) + 40)
@@ -2551,6 +2564,14 @@ func use_lock(l: Dictionary) -> void:
 				s.drain = true
 		SOL = SOL.filter(func(s): return s.get("id") != l.gate)
 		flash("A comporta abriu! A água está baixando...")
+	elif l.kind == "mill":
+		# velas novas no moinho: as pás começam a girar (as tábuas das pontas levam o Tomé para cima)
+		flash(l.get("msg", "Velas novas! O vento pegou e as pás começaram a girar."), 200)
+	elif l.kind == "gate":
+		SOL = SOL.filter(func(s): return s.get("id") != l.gate)
+		blockers_dirty()
+		Audio.play("door")
+		flash(l.get("msg", "Abriu!"), 180)
 	elif l.kind == "dark":
 		INV.append("lanterna_acesa")
 		SOL = SOL.filter(func(s): return s.get("id") != l.barrier)
@@ -3071,7 +3092,7 @@ func save_checkpoint(k: int) -> void:
 	Save.save_run({"level": level_idx, "chk": k, "lives": lives, "inv": INV.duplicate(), "items": got_items, "locks": locks,
 		"clues": CLUEGOT.keys(), "specs": SPECGOT.keys(), "drawn": DRAWN.keys(), "coins": coins_got, "coin_life": coin_life,
 		"pen": STATS.pen, "lit": lantern_lit, "fuel": FUEL, "oil": OIL.filter(func(c): return c.got).map(func(c): return OIL.find(c)), "fires": CHK.filter(func(c): return c.on).map(func(c): return CHK.find(c)), "time": time_left, "x": X.save_data(), "m": M.save_data(), "tr": TR.save_data(),
-		"nt": NT.save_data(), "k": K.save_data(), "rd": RD.save_data(), "vh": VH.save_data(), "ev": EV.save_data(), "sl": SL.save_data(), "rested": RESTED.keys(), "cranks": CRANKS.map(func(c): return c.done)})
+		"nt": NT.save_data(), "k": K.save_data(), "rd": RD.save_data(), "vh": VH.save_data(), "ev": EV.save_data(), "sl": SL.save_data(), "rested": RESTED.keys(), "cranks": CRANKS.map(func(c): return c.done), "mv": MV.save_data()})
 
 func restore_run(d: Dictionary) -> void:
 	## Continua do ponto salvo: refaz a fase no estado da fogueira
@@ -3101,6 +3122,7 @@ func restore_run(d: Dictionary) -> void:
 			for s in SWAMP:
 				if s.get("drain"):
 					s.y = s.y2
+	MV.restore(d.get("mv", {}))
 	shake = 0
 	flash_t = 0
 	for c in COINS:

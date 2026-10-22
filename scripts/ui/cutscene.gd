@@ -43,7 +43,23 @@ func _ready() -> void:
 			shots = [
 				{"d": _s_post_rails, "txt": "Lá no fundo da mina, longe de qualquer luz...", "dur": 4.5},
 				{"d": _s_post_pencil, "txt": "...uma mãozinha deixou cair mais um lápis nos trilhos. A Isis ainda está marcando o caminho.", "dur": 6.0},
-				{"d": _s_post_card, "txt": "Episódio 2: As Profundezas da Mina — em breve.", "dur": 4.5},
+				{"d": _s_post_card, "txt": "Episódio 2: As Profundezas da Mina.", "dur": 4.5},
+			]
+		"ep2":
+			shots = [
+				{"d": _pic("cut_ep2_a", true), "txt": "A boca da mina estava escura e o portão, arrombado. Nos trilhos, um lápis vermelho.", "dur": 5.5},
+				{"d": _pic("cut_ep2_b", false), "txt": "— Estou indo, filha. Nem que eu tenha que descer até o fundo da terra.", "dur": 5.0},
+			]
+		"ep2fim":
+			shots = [
+				{"d": _pic("cut_ep2fim", true), "txt": "Os trilhos acabavam numa porta de ferro enorme, com um V gravado. E, no chão, um lápis roxo.", "dur": 6.0},
+			]
+		"isis":
+			shots = [
+				{"d": _pic("cut_isis_a", true), "txt": "Do outro lado daquela porta, a Isis desenhava o pai nas paredes, à luz de uma vela.", "dur": 6.0},
+				{"d": _pic("cut_isis_b", false), "txt": "Toda vez que ninguém olhava, um lápis escorregava por baixo da porta. A trilha não podia acabar.", "dur": 6.0},
+				{"d": _pic("cut_isis_c", true), "txt": "— Pode esconder quanto quiser, menina. — Ele já está vindo, seu Vargas. O meu pai sempre vem.", "dur": 6.5},
+				{"d": _s_post_card3, "txt": "Episódio 3 — em breve.", "dur": 4.0},
 			]
 		"mina":
 			shots = [
@@ -120,6 +136,33 @@ func _end() -> void:
 	done = true
 	finished.emit()
 	queue_free()
+
+## quadro pintado (assets/ui/<n>.jpg) com zoom lento (aproximando ou afastando)
+var _pics := {}
+func _pic(n: String, zin: bool) -> Callable:
+	return func(W: float, H: float, k: float): _draw_pic(n, W, H, k, zin)
+
+func _draw_pic(n: String, W: float, H: float, k: float, zin: bool) -> void:
+	if not _pics.has(n):
+		var p := "res://assets/ui/%s.jpg" % n
+		_pics[n] = load(p) if ResourceLoader.exists(p) else null
+	var tx: Texture2D = _pics[n]
+	if tx == null:
+		Spr.vgrad(0, 0, W, H, Color(.1, .08, .06), Color(0, 0, 0))
+		return
+	var z: float = 1.0 + .09 * (k if zin else 1.0 - k)
+	var sc: float = max(W / tx.get_width(), H / tx.get_height()) * z
+	var w: float = tx.get_width() * sc
+	var h: float = tx.get_height() * sc
+	var ox: float = (W - w) / 2 + (k - .5) * 18.0
+	var oy: float = (H - h) / 2
+	draw_texture_rect(tx, Rect2(ox, oy, w, h), false)
+	_vignette(W, H, .45)
+
+func _s_post_card3(W: float, H: float, k: float) -> void:
+	var a: float = clamp(k * 3, 0, 1)
+	Spr.text("ENCONTRE-A", W / 2, H * .36, 58, Color(.95, .82, .55, a), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_title, 6)
+	Spr.text("EPISÓDIO 3", W / 2, H * .36 + 54, 34, Color(.95, .82, .55, a), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_title, 6)
 
 func _shown_chars() -> int:
 	return int(max(0.0, t - .6) * 38.0)

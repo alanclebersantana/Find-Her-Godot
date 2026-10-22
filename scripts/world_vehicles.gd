@@ -15,9 +15,14 @@ static func draw(g: Game, T: int) -> void:
 	if not VH.PL.is_empty():
 		_runway(g, VH, T)
 	if not VH.SL.is_empty():
-		_sled_world(g, VH, T)
-		if VH.mode == "sled":
-			_sled_track(g, VH, T)
+		if VH.is_cart():
+			_cart_world(g, VH, T)
+			if VH.mode == "sled":
+				_cart_track(g, VH, T)
+		else:
+			_sled_world(g, VH, T)
+			if VH.mode == "sled":
+				_sled_track(g, VH, T)
 
 ## o veículo com o Tomé (no lugar do desenho normal do Tomé)
 static func rider(g: Game, T: int) -> void:
@@ -60,6 +65,9 @@ static func rider(g: Game, T: int) -> void:
 			Spr.scale(.36, .36)
 			WorldExtras._dog_frame("dog%d" % ((T / 4) % 4), sin(T * .5) * .2)
 			Spr.restore()
+		if VH.is_cart():
+			_cart_rider(g, VH, p, T)
+			return
 		var st: Texture2D = Spr.opt("sled_tome")
 		var fr := 0
 		var on_g: bool = VH.hy >= VH.sled_y(VH.su) - 1
@@ -829,3 +837,216 @@ static func _vinebranch(x: float, oy: float, T: int) -> void:
 			var top: float = oy - 104
 			Spr.line(PackedVector2Array([Vector2(vx, top), Vector2(vx + sw * .5, top + 30), Vector2(vx + sw, oy - 46 - (k % 3) * 4)]), Color("#4f7a34"), 2.5)
 			Spr.ellipse(vx + sw, oy - 48 - (k % 3) * 4, 4, 6, Color("#6b8c3a"))
+
+
+# ======================================================================
+#  CARRINHO DE MINA (Episódio 2): o passeio do trenó nos trilhos, dentro da mina
+# ======================================================================
+static func _cart(x: float, y: float, w: float = 96.0) -> void:
+	Spr.ellipse(x, y + 1, w * .42, 4, Color(0, 0, 0, .3))
+	Spr.AB("mi_cart", x - w / 2, y - w * .72, w, w * .72)
+
+static func _cart_world(g: Game, VH: Vehicles, T: int) -> void:
+	var SL: Dictionary = VH.SL
+	if float(SL.x1) < g.cam - 300 or float(SL.x) > g.cam + g.W + 300:
+		return
+	var gy: float = float(SL.y)
+	if VH.mode != "sled" and not VH.sled_done:
+		_cart(float(SL.x), gy)
+		var p: Dictionary = g.player
+		if abs(p.x + p.w / 2 - float(SL.x)) < 120 and (T / 20) % 2 == 0:
+			Spr.text("✦ CARRINHO", float(SL.x), gy - 84 + sin(T * .15) * 3, 16, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
+	elif VH.sled_done and VH.mode != "sled":
+		_cart(float(SL.x1) - 40, gy)
+
+static func _cart_rider(g: Game, VH: Vehicles, p: Dictionary, T: int) -> void:
+	var on_g: bool = VH.hy >= VH.sled_y(VH.su) - 1
+	Spr.save()
+	Spr.translate(VH.hx, VH.hy + 2)
+	if p.dyingT > 0:
+		Spr.rotate(-p.dyingT * .12)
+	elif VH.crashT > 0:
+		Spr.rotate(VH.sang + sin(VH.crashT * .5) * .25 * VH.crashT / 30.0)
+	else:
+		Spr.rotate(VH.sang * (.3 if not on_g else 1.0))
+	# o Tomé dentro do carrinho (só a parte de cima aparece); abaixado some quase todo
+	if VH.duck:
+		Spr.A("pai_crouch", -4, -44, .5)
+	else:
+		Spr.frame(Spr.tex.pai, 0, 170, 160, 85, 156, -4, -40, .46, false)
+	_cart(0, 0, 100)
+	Spr.restore()
+	if VH.spd > 6.0:
+		for k in 4:
+			var ly: float = VH.hy - 14 - k * 11
+			Spr.seg(VH.hx - 50 - k * 6, ly, VH.hx - 50 - VH.spd * 6 - k * 6, ly, Color(1, .85, .6, .1 * (VH.spd - 6.0)), 2)
+	if p.iframe > 0 and (T / 5) % 2 == 0:
+		Spr.glow(VH.hx, VH.hy - 34, 58, Color(1, .95, .75, .45))
+
+static func _cart_track(g: Game, VH: Vehicles, T: int) -> void:
+	var t0: float = VH.sled_tx0()
+	var ln: float = float(VH.SL.get("len", 4650))
+	var a: float = max(t0 - 600, g.cam - 80)
+	var b: float = min(t0 + ln + 2400, g.cam + g.W + 80)
+	if a >= b:
+		return
+	var bot: float = g.cam_y + g.H + 400
+	var topc: float = g.cam_y - 200
+	var ROCK := Color("#2a1d14")
+	var ROCK2 := Color("#140d08")
+	var WOOD := Color("#5a3a1e")
+	# teto da galeria (rocha escura) acompanhando os trilhos, com pontas
+	var ceil := PackedVector2Array([Vector2(a - 12, topc)])
+	var x: float = floor(a / 24.0) * 24.0
+	while x <= b + 24:
+		var cy: float = VH.sled_y(x - t0) - 250 - 22 * WorldStatic_hh(floor(x / 24.0), 3)
+		ceil.push_back(Vector2(x, cy))
+		x += 24
+	ceil.push_back(Vector2(b + 24, topc))
+	Spr.poly(ceil, ROCK2)
+	# escoras de madeira (dois postes e uma viga) a cada 320 px
+	var su0: float = floor((a - t0) / 320.0) * 320.0
+	while t0 + su0 < b + 100:
+		var gy: float = VH.sled_y(su0)
+		var px: float = t0 + su0
+		Spr.rect(px - 52, gy - 240, 12, 240, WOOD)
+		Spr.rect(px + 40, gy - 240, 12, 240, WOOD)
+		Spr.rect(px - 60, gy - 246, 120, 14, Color("#6b4524"))
+		Spr.seg(px - 46, gy - 234, px - 46, gy - 4, Color(0, 0, 0, .3), 2)
+		if int(su0 / 320.0) % 2 == 0:
+			# lampião pendurado na viga
+			var sw: float = sin(T * .04 + su0) * 3
+			Spr.seg(px, gy - 232, px + sw, gy - 205, Color(.2, .2, .2), 1.5)
+			Spr.glow(px + sw, gy - 196, 70, Color(1, .7, .3, .35))
+			Spr.circle(px + sw, gy - 198, 6, Color(1, .85, .45))
+		su0 += 320
+	# corpo de rocha embaixo dos trilhos
+	var pts := PackedVector2Array()
+	var cols := PackedColorArray()
+	x = floor(a / 12.0) * 12.0
+	while x <= b + 12:
+		pts.push_back(Vector2(x, VH.sled_y(x - t0) + 6))
+		cols.push_back(ROCK)
+		x += 12
+	var top := pts.duplicate()
+	pts.push_back(Vector2(b + 12, bot))
+	cols.push_back(ROCK2)
+	pts.push_back(Vector2(a - 12, bot))
+	cols.push_back(ROCK2)
+	# os buracos nos trilhos cortam o chão (desenhados depois, por cima)
+	Spr.ci.draw_polygon(pts, cols)
+	# terra com pedras e pepitas (a textura do chão da mina), escurecendo para baixo
+	var gt: Texture2D = Spr.tex.get("chao_mina", null)
+	if gt:
+		var tw: float = 64.0
+		var cx: float = floor(a / tw) * tw
+		var ts: Vector2 = gt.get_size()
+		while cx < b + tw:
+			var ya: float = VH.sled_y(cx - t0) + 4
+			var yb: float = VH.sled_y(cx + tw - t0) + 4
+			var u0: float = fposmod(cx, ts.x - tw) / ts.x
+			var u1: float = u0 + tw / ts.x
+			var row := 0
+			var o: float = 0.0
+			while ya + o < bot and row < 12:
+				var m: float = clamp(.85 - row * .07, .25, .85)
+				var c := Color(m, m * .95, m * .9)
+				var hh_: float = 90.0 if row == 0 else 76.0
+				var v0: float = (40.0 if row == 0 else 72.0) / ts.y
+				var v1: float = v0 + hh_ / ts.y
+				Spr.ci.draw_polygon(PackedVector2Array([Vector2(cx, ya + o), Vector2(cx + tw + 1, yb + o), Vector2(cx + tw + 1, yb + o + hh_), Vector2(cx, ya + o + hh_)]),
+					PackedColorArray([c, c, c, c]), PackedVector2Array([Vector2(u0, v0), Vector2(u1, v0), Vector2(u1, v1), Vector2(u0, v1)]), gt)
+				o += hh_ - 1.0
+				row += 1
+			cx += tw
+	# dormentes e trilhos
+	var sx: float = floor(a / 26.0) * 26.0
+	while sx < b:
+		var sy: float = VH.sled_y(sx - t0)
+		Spr.rect(sx - 8, sy - 3, 16, 7, Color("#4a3018"))
+		sx += 26
+	var rail := PackedVector2Array()
+	for q in top:
+		rail.push_back(q + Vector2(0, -9))
+	Spr.line(rail, Color("#8a8a92"), 3)
+	var rail2 := PackedVector2Array()
+	for q in top:
+		rail2.push_back(q + Vector2(0, -7))
+	Spr.line(rail2, Color("#3a3a40"), 1.5)
+	# obstáculos (o destaque verde/laranja é o mesmo do trenó)
+	for o in VH.OBS:
+		if o.x < a - 160 or o.x > b + 160:
+			continue
+		var oy: float = VH.sled_y(float(o.u))
+		var ft: int = o.get("ft", -1) if o.hit else -1
+		if not o.hit and o.k != "bump":
+			var pul: float = .5 + .5 * sin(T * .15 + o.x)
+			if o.k == "branch":
+				Spr.glow(o.x + 5, oy - 62, 92, Color(1, .45, .05, .4 + .25 * pul))
+			else:
+				Spr.glow(o.x + (float(o.get("w", 0)) * .5), oy - 18, 62, Color(.2, 1, .3, .22 + .18 * pul))
+				for k in 2:
+					var u: float = fposmod(T * .025 + k * .5, 1.0)
+					var ay: float = oy - 50 - u * 40
+					var ax: float = o.x + float(o.get("w", 0)) * .5
+					Spr.line(PackedVector2Array([Vector2(ax - 12, ay + 9), Vector2(ax, ay), Vector2(ax + 12, ay + 9)]), Color(.25, .95, .35, sin(u * PI) * .95), 5)
+		match o.k:
+			"rock":
+				if ft >= 0:
+					for k in 4:
+						Spr.P("peb%d" % (k % 3), o.x - 22 + k * 15, oy + 3, 14, false, 0.0, Color(.6, .55, .5))
+				else:
+					Spr.P("rock0", o.x, oy + 8, 50, false, 0.0, Color(.62, .58, .55))
+			"log":
+				if ft < 0 or ft < 40:
+					var dy: float = 0.0 if ft < 0 else ft * ft * .2
+					Spr.save()
+					Spr.translate(o.x, oy - 12 + dy)
+					Spr.rotate(.08 if ft < 0 else ft * .1)
+					Spr.rr(-34, -9, 68, 18, 5, Color("#6b4524"))
+					Spr.rr(-34, -9, 68, 5, 3, Color("#8a5e34"))
+					Spr.restore()
+			"branch":
+				# viga baixa atravessada no túnel (pendurada por correntes): abaixe!
+				var fall: float = 0.0
+				if ft >= 0:
+					fall = min(float(ft), 40.0)
+					fall = fall * fall * .25
+				if ft < 0 or ft < 40:
+					var by: float = oy - 66 + fall
+					Spr.seg(o.x - 30, oy - 250, o.x - 30, by, Color(.35, .35, .38), 2)
+					Spr.seg(o.x + 40, oy - 250, o.x + 40, by, Color(.35, .35, .38), 2)
+					Spr.rr(o.x - 48, by - 4, 110, 22, 4, Color("#6b4524"))
+					Spr.rr(o.x - 48, by - 4, 110, 6, 3, Color("#8a5e34"))
+					if ft < 0:
+						for k in 2:
+							var u2: float = fposmod(T * .025 + k * .5, 1.0)
+							var ay2: float = oy - 40 + u2 * 22
+							Spr.line(PackedVector2Array([Vector2(o.x - 12, ay2 - 11), Vector2(o.x + 5, ay2), Vector2(o.x + 22, ay2 - 11)]), Color(1, .5, .05, sin(u2 * PI)), 7)
+			"crack":
+				# trilho quebrado sobre um buraco escuro
+				var w: float = float(o.w)
+				var ey: float = VH.sled_y(float(o.u) + w)
+				Spr.poly(PackedVector2Array([Vector2(o.x, oy - 12), Vector2(o.x + w, ey - 12), Vector2(o.x + w, bot), Vector2(o.x, bot)]), Color(0, 0, 0))
+				Spr.seg(o.x - 2, oy - 9, o.x + 10, oy + 4, Color("#8a8a92"), 3)
+				Spr.seg(o.x + w + 2, ey - 9, o.x + w - 10, ey + 6, Color("#8a8a92"), 3)
+				# lampião vermelho de aviso antes do buraco
+				var fx: float = o.x - 170
+				var fy: float = VH.sled_y(float(o.u) - 170)
+				Spr.rect(fx - 3, fy - 56, 6, 56, WOOD)
+				Spr.glow(fx, fy - 62, 34, Color(1, .2, .1, .4 + .2 * sin(T * .2)))
+				Spr.circle(fx, fy - 62, 6, Color(1, .3, .2))
+	# o carrinho do Vargas, sempre um pouco à frente (com a Isis)
+	if VH.SL.get("vargas") and VH.mode == "sled":
+		var vu: float = min(VH.su + 560.0 + sin(T * .013) * 90.0, ln - 220.0)
+		var vx: float = t0 + vu
+		if vx > a - 100 and vx < b + 100:
+			var vy: float = VH.sled_y(vu)
+			var f: int = (T / 5) % 2
+			Spr.A("lia_scared", vx + 44, vy - 58, .5)
+			Spr.A("vg_cart1" if f else "vg_cart2", vx, vy + 2, 1)
+	# para-choque de madeira no fim dos trilhos
+	var ex: float = t0 + ln - 10
+	var eyy: float = VH.sled_y(ln - 10)
+	Spr.rect(ex, eyy - 46, 18, 46, WOOD)
+	Spr.rect(ex - 6, eyy - 40, 30, 10, Color("#8a2a1a"))

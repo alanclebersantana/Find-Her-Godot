@@ -23,6 +23,8 @@ static func grass(g: Game, T: int) -> void:
 	for s in g.SOL:
 		if s.t != "ground" or s.x > x1 or s.x + s.w < x0 or s.get("snow"):
 			continue
+		if WSt.gt_at(g, s.x + s.w / 2) != "":
+			continue   # chão de pedra (mina, rua da vila): sem capim
 		var xa: float = max(s.x + 14, floor(x0 / 34.0) * 34.0)
 		var xb: float = min(s.x + s.w - 14, x1)
 		var tc: Color = WSt.tint_at(g, xa)

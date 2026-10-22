@@ -118,6 +118,10 @@ func _draw_raw() -> void:
 			"hill": hill(s)
 			"shed": shed(s)
 			"beam": beam(s)
+			"rockw": rockw(s)
+			"house":
+				# casa da vila (Episódio 2): o telhado é o caminho do Tomé
+				Spr.P("casa%d" % int(s.get("v", 0)), s.x + s.w / 2, s.y + 3, s.w, bool(s.get("flip", false)))
 			"cart":
 				if s.get("sprite"):
 					Spr.ABb(s.sprite, s.x + s.w / 2, s.y + s.h + 4, s.w + 20)
@@ -183,8 +187,23 @@ func _open_end(s: Dictionary, right: bool) -> bool:
 
 const ROUND := 22.0
 ## a textura do chão emendada duas vezes (a ponta pode cair na divisa entre dois ladrilhos)
-static var _c2: Texture2D
+static var _c2s := {}
+## textura do chão do trecho em x (seção com "gt": "mina" ou "vila"; senão a grama do bosque)
+static func gt_at(g, x: float) -> String:
+	var k := ""
+	for sc in g.L.get("sections", []):
+		if sc.x <= x:
+			k = str(sc.get("gt", ""))
+	return k
+
+static func gtex(g, x: float) -> Texture2D:
+	var k := gt_at(g, x)
+	if k != "" and Spr.tex.has("chao_" + k):
+		return Spr.tex["chao_" + k]
+	return Spr.tex.chao
+
 func _chao2(t: Texture2D, tw: float) -> Texture2D:
+	var _c2: Texture2D = _c2s.get(t.get_rid().get_id(), null)
 	if _c2 == null:
 		var im: Image = t.get_image()
 		if im.is_compressed():
@@ -194,9 +213,10 @@ func _chao2(t: Texture2D, tw: float) -> Texture2D:
 		out.blit_rect(im, Rect2i(0, 0, w, im.get_height()), Vector2i(0, 0))
 		out.blit_rect(im, Rect2i(0, 0, w, im.get_height()), Vector2i(int(tw), 0))
 		_c2 = ImageTexture.create_from_image(out)
+		_c2s[t.get_rid().get_id()] = _c2
 	return _c2
 func ground(s: Dictionary) -> void:
-	var t: Texture2D = Spr.tex.chao
+	var t: Texture2D = gtex(game, s.x + s.w / 2)
 	var x_a: float = max(s.x, x0 - 4)
 	var x_b: float = min(s.x + s.w, x1 + 4)
 	if x_b <= x_a:
@@ -240,7 +260,7 @@ func _dirt_fill(xa: float, xb: float, ya: float, yb: float, ox: float, k0: float
 	xb = min(xb, x1 + 2)
 	if xb <= xa or yb <= ya:
 		return
-	var t: Texture2D = Spr.tex.chao
+	var t: Texture2D = gtex(game, (xa + xb) * .5)
 	var ts := t.get_size()
 	var v0: float = 60.0
 	var th: float = ts.y - v0
@@ -615,6 +635,8 @@ func _ground_end(s: Dictionary, t: Texture2D, tw: float, right: bool) -> void:
 	var gc := Color(.36, .58, .2)
 	if s.get("snow"):
 		Spr.ellipse(gx, s.y - 3, 15, 7, Color(.96, .98, 1))
+	elif gt_at(game, e) != "":
+		_pebbles(gx, s.y, Color(.45, .42, .4))
 	else:
 		# tufo de grama pintado caindo por cima da quina
 		Spr.P("grass%d" % int(hh(e, 41) * 5), gx, s.y + 4, 24, right, 0.0, _ground_tint(e))
@@ -1068,3 +1090,43 @@ func beam(s: Dictionary) -> void:
 		Spr.rect(x, y, 10, 8, Color(.85, .7, .2, .85))
 		Spr.rect(x + 10, y, 10, 8, Color(.1, .08, .05, .85))
 		x += 20
+
+
+## maciço de rocha da mina (teto ou parede): terra com pedras da textura da mina, borda de pedras
+## e, no teto, pontas de rocha penduradas
+func rockw(s: Dictionary) -> void:
+	var xa: float = max(s.x, x0 - 4)
+	var xb: float = min(s.x + s.w, x1 + 4)
+	if xb <= xa:
+		return
+	_dirt_fill(xa, xb, s.y, s.y + s.h, s.x, .62)
+	var rim := Color("#4a3a2c")
+	var rim2 := Color("#2a2018")
+	if s.get("ceil"):
+		var by: float = s.y + s.h
+		var x: float = s.x + fposmod(-s.x, 34.0)
+		while x < s.x + s.w:
+			if x >= x0 - 40 and x < x1 + 40:
+				var r := hh(x, 31)
+				Spr.ellipse(x + 17, by - 4, 22, 9 + r * 5, rim2)
+				Spr.ellipse(x + 15, by - 6, 18, 6 + r * 4, rim)
+				if r > .55:
+					var ln: float = 14 + r * 30
+					Spr.poly(PackedVector2Array([Vector2(x + 6, by - 4), Vector2(x + 15, by + ln), Vector2(x + 26, by - 4)]), rim2)
+					Spr.seg(x + 11, by, x + 15, by + ln * .8, Color(.55, .45, .35, .6), 1.5)
+			x += 34
+	else:
+		# borda de cima (chão de pedra) e laterais irregulares
+		var x2: float = s.x + fposmod(-s.x, 30.0)
+		while x2 < s.x + s.w:
+			if x2 >= x0 - 40 and x2 < x1 + 40:
+				Spr.ellipse(x2 + 15, s.y + 4, 19, 7, rim2)
+				Spr.ellipse(x2 + 14, s.y + 2, 15, 4, rim)
+			x2 += 30
+		for e in [s.x, s.x + s.w]:
+			if e >= x0 - 40 and e <= x1 + 40:
+				var yy: float = s.y + 10
+				while yy < s.y + s.h - 6:
+					var r2 := hh(yy + e, 33)
+					Spr.ellipse(e, yy, 10 + r2 * 8, 14, rim2)
+					yy += 26

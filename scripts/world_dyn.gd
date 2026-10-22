@@ -53,6 +53,8 @@ func __draw_raw() -> void:
 		else:
 			WS.branch(so)
 		Spr.restore()
+	if g.MV:
+		g.MV.draw(T)
 	var __d__deco := Time.get_ticks_usec()
 	_deco(g)
 	Spr.pt("d__deco", __d__deco)
@@ -293,9 +295,13 @@ func _deco(g: Game) -> void:
 		k += 1
 	# mina: trilhos (com pontes sobre os buracos), carrinho parado e porta
 	var rx0: float = g.L.villain.x0 - 160 if g.L.has("villain") else 9380.0
-	if cam + g.W > rx0:
+	var rx1: float = g.L.spanX
+	if g.L.has("rails"):
+		rx0 = float(g.L.rails[0])
+		rx1 = float(g.L.rails[1])
+	if cam + g.W > rx0 and cam < rx1:
 		var xa: float = max(rx0, floor((cam - 10) / 18) * 18)
-		var xb: float = min(g.L.spanX, cam + g.W + 10)
+		var xb: float = min(rx1, cam + g.W + 10)
 		var x := xa
 		while x < xb:
 			var over_pit := false
@@ -325,7 +331,10 @@ func _deco(g: Game) -> void:
 				Spr.circle(jx + 2, 493, 1, Color(.85, .85, .9))
 			jx += 144
 		var gx: float = g.DOOR.x - 60
-		if gx > cam - 300 and gx < cam + g.W + 300:
+		if g.L.door.get("kind", "") == "vault":
+			if gx > cam - 300 and gx < cam + g.W + 300:
+				_vault(g.DOOR.x + 30, 500)
+		elif gx > cam - 300 and gx < cam + g.W + 300:
 			Spr.A("mi_cart_full", gx - 70, 502, .8)
 			if g.VIL and g.VIL.go and not g.VIL.gone:
 				Spr.AB("mi_door_open", gx, 500 - 221, 230, 221)
@@ -1331,3 +1340,27 @@ func _armor(p: Dictionary, cx: float, by: float) -> void:
 			var tw: float = .5 + .5 * sin(T * .2 + i * 1.7)
 			Spr.glow(sx, sy, 6, Color(1, .9, .55, .35 * tw))
 			Spr.circle(sx, sy, 1.3 + tw * .6, Color(1, .95, .7, .85 * tw))
+
+
+## porta redonda de ferro do cofre do Vargas (fim do Episódio 2), com o V gravado
+func _vault(cx: float, gy: float) -> void:
+	var cy: float = gy - 118
+	Spr.rect(cx - 150, gy - 250, 300, 250, Color("#3a3530"))
+	for k in 6:
+		Spr.rect(cx - 150 + k * 50, gy - 250, 48, 248, Color(.27 + .03 * (k % 2), .25, .23))
+	Spr.circle(cx, cy, 116, Color("#1c1a18"))
+	Spr.circle(cx, cy, 108, Color("#6a6e74"))
+	Spr.circle(cx, cy, 96, Color("#55595f"))
+	for k in 16:
+		var a: float = k * TAU / 16
+		Spr.circle(cx + cos(a) * 102, cy + sin(a) * 102, 4, Color("#8a8e96"))
+	# o V gravado
+	Spr.ci.draw_polyline(PackedVector2Array([Vector2(cx - 46, cy - 50), Vector2(cx, cy + 46), Vector2(cx + 46, cy - 50)]), Color("#2a2c30"), 16)
+	Spr.ci.draw_polyline(PackedVector2Array([Vector2(cx - 46, cy - 52), Vector2(cx, cy + 42), Vector2(cx + 46, cy - 52)]), Color("#b0a070"), 6)
+	# o volante
+	var wx: float = cx + 70
+	Spr.ring(wx, cy + 10, 20, Color("#2a2c30"), 6)
+	for k in 4:
+		var a2: float = k * PI / 4 + .3
+		Spr.seg(wx - cos(a2) * 20, cy + 10 - sin(a2) * 20, wx + cos(a2) * 20, cy + 10 + sin(a2) * 20, Color("#2a2c30"), 4)
+	Spr.circle(wx, cy + 10, 5, Color("#8a8e96"))

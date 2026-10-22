@@ -17,6 +17,7 @@ var helmet := false
 var harpoon := false
 var harp_cd := 0
 var bar_cd := 0
+var skip_bar = null        # a corda de onde o Tomé acabou de pular (não agarra de novo até pisar no chão)
 var told := {}
 
 func _init(game) -> void:
@@ -58,6 +59,8 @@ func pre() -> void:
 	var p: Dictionary = g.player
 	if bar_cd > 0:
 		bar_cd -= 1
+	if p.onGround or p.ladder or p.vine:
+		skip_bar = null
 	if harp_cd > 0:
 		harp_cd -= 1
 	# arpão: GOLPE dentro d'água dispara
@@ -75,6 +78,8 @@ func pre() -> void:
 	if not p.get("bar") and bar_cd == 0 and not p.onGround and not p.vine and not p.ladder and not p.swim and not p.get("dog") and p.dyingT == 0:
 		var pcx: float = p.x + p.w / 2
 		for b in BARS:
+			if b == skip_bar:
+				continue
 			if pcx > b.x0 + 6 and pcx < b.x1 - 6 and p.y > b.y - 16 and p.y < b.y + 18:
 				p.bar = b
 				p.vx = 0.0
@@ -88,7 +93,7 @@ func pre() -> void:
 				g.burst(pcx, b.y, 6, Color("#cdbfa6"))
 				if not told.has("bar"):
 					told.bar = 1
-					g.tip("Na corda: ← → anda pendurado. ↓ ou PULAR solta.", 200)
+					g.tip("Na corda: ← → anda pendurado. PULAR dá um impulso para cima; ↓ solta.", 200)
 				break
 
 ## andar pendurado na corda (no lugar da física normal)
@@ -104,7 +109,16 @@ func bar_step() -> void:
 	var nx: float = clamp(p.x + p.vx, b.x0 - p.w / 2, b.x1 - p.w / 2)
 	g.move_x(nx - p.x)
 	p.anim += abs(p.vx) * .07
-	if g.pressed("J") or g.kd("S"):
+	if g.pressed("J"):
+		# PULAR: dá um impulso para cima (alcança o telhado ou a margem logo acima)
+		skip_bar = b
+		p.bar = null
+		bar_cd = 16
+		p.vy = Game.JUMP * .85
+		p.vx *= .6
+		p.onGround = false
+		Audio.play("jump", -6)
+	elif g.kd("S"):
 		p.bar = null
 		bar_cd = 16
 		p.vy = 0.5
