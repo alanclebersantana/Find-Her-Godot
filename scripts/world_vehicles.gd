@@ -78,13 +78,25 @@ static func _river(g: Game, VH: Vehicles, T: int) -> void:
 			if sa >= sb:
 				continue
 			var wl: float = VH.water_y(xs[i] + 1)
-			Spr.vgrad(sa, wl - 4, sb - sa, 70, Color("#4f8fb0"), Color("#1d4a66"))
+			var wb: Dictionary = g.WV.body("r%d" % i, xs[i], xs[i + 1], wl)
+			# superfície com ondas (molas) + correnteza
+			var top := PackedVector2Array()
+			var xx: float = floor(sa / 8.0) * 8.0
+			while xx <= sb + 8.1:
+				var cx: float = clamp(xx, sa, sb)
+				top.push_back(Vector2(cx, wl - 3 + g.WV.height(wb, cx) + sin(cx * .06 - T * .2) * 1.5))
+				xx += 8
+			var band := top.duplicate()
+			band.push_back(Vector2(sb, wl + 10))
+			band.push_back(Vector2(sa, wl + 10))
+			Spr.poly(band, Color("#4f8fb0"))
+			Spr.vgrad(sa, wl + 10, sb - sa, 56, Color("#4f8fb0"), Color("#1d4a66"))
 			Spr.rect(sa, wl + 66, sb - sa, bot - wl, Color("#10283a"))
 			# espuma e correnteza
 			for k in int((sb - sa) / 46) + 1:
 				var fx: float = sa + fposmod(k * 46.0 - T * 5.0, sb - sa + 1)
 				Spr.seg(fx, wl + 6 + (k % 3) * 9, fx + 22, wl + 6 + (k % 3) * 9, Color(.85, .95, 1, .45), 2)
-			Spr.rect(sa, wl - 4, sb - sa, 3, Color(.9, .97, 1, .7))
+			Spr.line(top, Color(.9, .97, 1, .75), 3)
 		# quedas-d'água
 		for f in RA.get("falls", []):
 			if f < a - 80 or f > b + 80:

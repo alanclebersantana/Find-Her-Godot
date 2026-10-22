@@ -71,6 +71,7 @@ var NT: Nature
 var K: Kings
 var RD: Ride
 var VH: Vehicles
+var WV: Waves
 var RESTED := {}        # fogueiras grandes já descansadas
 var player: Dictionary = {}
 var keys := {}
@@ -260,6 +261,8 @@ func load_level(i: int) -> void:
 	RD.load_level()
 	VH = Vehicles.new(self)
 	VH.load_level()
+	WV = Waves.new(self)
+	WV.load_level()
 	RESTED = {}
 	_reset_player(L.spawn.x - 12, L.spawn.y - 34)
 	time_left = int(L.get("time", 180)) * 60
@@ -762,6 +765,7 @@ func step() -> void:
 		if shake > 0:
 			shake *= .85
 		VH.step()
+		WV.step()
 		max_x = max(max_x, player.x + 300)
 		_tick_fx()
 		_camera()
@@ -1915,6 +1919,7 @@ func _p1_post(pcx: float, _pcy: float) -> void:
 		if s.get("drain") and s.y < s.y2:
 			s.y = min(s.y2, s.y + 1.2)
 		if player.y + player.h > s.y + 14 and player.y < s.y0 + s.h and pcx > s.x and pcx < s.x + s.w and player.dyingT == 0:
+			WV.splash(pcx, s.y, 8.0)
 			Audio.play("splash")
 			burst(pcx, s.y, 14, Color("#9ab08a"))
 			die("Você afundou no brejo.")
@@ -1981,6 +1986,7 @@ func _p1_post(pcx: float, _pcy: float) -> void:
 	var __qVH := Time.get_ticks_usec()
 	VH.check_river()
 	Spr.pt("p_VH", __qVH)
+	WV.step()
 	var __qZN := Time.get_ticks_usec()
 	ZN.post()
 	Spr.pt("p_ZN", __qZN)

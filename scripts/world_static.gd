@@ -130,12 +130,47 @@ func tile_h(t: Texture2D, x0_: float, x1_: float, y: float, src: Rect2 = Rect2()
 		Spr.img(t, x, y, w, sr.size.y, Rect2(sr.position.x, sr.position.y, w, sr.size.y))
 		x += tw
 
+## ponta do chão sem vizinho do lado: desenhada com contorno arredondado (sem quina de caixa)
+func _open_end(s: Dictionary, right: bool) -> bool:
+	var key := "_or" if right else "_ol"
+	if s.has(key):
+		return s[key]
+	var open := true
+	var ex: float = s.x + s.w if right else s.x
+	for o in game.L.solids:
+		if o == s or not o.t in ["ground", "dirt", "cliff", "hill"]:
+			continue
+		if o.y <= s.y + 2 and o.y + o.get("h", 0) > s.y + 4 and ex >= o.x - 1 and ex <= o.x + o.get("w", 0) + 1:
+			open = false
+			break
+	s[key] = open
+	return open
+
+const ROUND := 22.0
+## a textura do chão emendada duas vezes (a ponta pode cair na divisa entre dois ladrilhos)
+static var _c2: Texture2D
+func _chao2(t: Texture2D, tw: float) -> Texture2D:
+	if _c2 == null:
+		var im: Image = t.get_image()
+		if im.is_compressed():
+			im.decompress()
+		var w: int = im.get_width()
+		var out := Image.create(int(tw) + w, im.get_height(), false, im.get_format())
+		out.blit_rect(im, Rect2i(0, 0, w, im.get_height()), Vector2i(0, 0))
+		out.blit_rect(im, Rect2i(0, 0, w, im.get_height()), Vector2i(int(tw), 0))
+		_c2 = ImageTexture.create_from_image(out)
+	return _c2
 func ground(s: Dictionary) -> void:
 	var t: Texture2D = Spr.tex.chao
 	var x_a: float = max(s.x, x0 - 4)
 	var x_b: float = min(s.x + s.w, x1 + 4)
 	if x_b <= x_a:
 		return
+	var ol: bool = _open_end(s, false) and s.w > 60
+	var orr: bool = _open_end(s, true) and s.w > 60
+	# as pontas abertas ficam por conta do contorno arredondado
+	var cut_a: float = s.x + (ROUND if ol else 0.0)
+	var cut_b: float = s.x + s.w - (ROUND if orr else 0.0)
 	# alinhado ao início do bloco para não "pular" entre pedaços
 	var tw: float = t.get_width() - 1
 	var start: float = s.x + floor((x_a - s.x) / tw) * tw
@@ -143,14 +178,91 @@ func ground(s: Dictionary) -> void:
 	# nada passa do fundo do bloco (senão a terra cobre a caverna que fica embaixo)
 	var th: float = min(float(t.get_height()), s.h + 28.0)
 	while x < x_b:
-		var w: float = min(tw + 1, s.x + s.w - x)
-		Spr.img(t, x, s.y - 28, w, th, Rect2(0, 0, w, th))
+		var xa2: float = max(x, cut_a)
+		var xb2: float = min(x + tw + 1, cut_b)
+		if xb2 > xa2:
+			Spr.img(t, xa2, s.y - 28, xb2 - xa2, th, Rect2(xa2 - x, 0, xb2 - xa2, th))
 		x += tw
 	var fy: float = s.y - 30 + t.get_height()
 	if s.y + s.h > fy:
-		Spr.rect(x_a, fy, x_b - x_a, s.y + s.h - fy, Color("#34200f"))
+		Spr.rect(max(x_a, cut_a), fy, min(x_b, cut_b) - max(x_a, cut_a), s.y + s.h - fy, Color("#34200f"))
+	if ol and s.x >= x0 - ROUND and s.x < x1:
+		_ground_end(s, t, tw, false)
+	if orr and s.x + s.w > x0 and s.x + s.w <= x1 + ROUND:
+		_ground_end(s, t, tw, true)
 	if s.get("snow"):
-		_snow_top(x_a, x_b, s.y)
+		_snow_top(x_a + (8.0 if ol and x_a <= s.x else 0.0), x_b - (8.0 if orr and x_b >= s.x + s.w else 0.0), s.y)
+
+## a ponta: a textura do chão num polígono com a quina de cima arredondada, a parede um pouco
+## irregular, sombra na borda e um tufo de grama caindo por cima
+func _ground_end(s: Dictionary, t: Texture2D, tw: float, right: bool) -> void:
+	var e: float = s.x + s.w if right else s.x
+	var inner: float = e - ROUND if right else e + ROUND
+	var top: float = s.y - 10
+	var fy: float = s.y - 30 + t.get_height()
+	var bot: float = s.y + min(s.h, 900.0)
+	var tile_x: float = s.x + floor((min(inner, e) - s.x) / tw) * tw
+	var t2: Texture2D = _chao2(t, tw)
+	var seed_v: float = e * .013
+	var inset := func(y: float) -> float:
+		var r := ROUND - 4
+		var c: float = 0.0
+		if y < s.y + r:
+			var dy: float = (s.y + r) - y
+			c = r - sqrt(max(0.0, r * r - dy * dy))
+		var wob: float = 2.5 * sin(y * .09 + seed_v) + 1.5 * sin(y * .23 + seed_v * 3.0)
+		var bc: float = 0.0
+		if s.h < 300 and y > bot - r:
+			var dy2: float = y - (bot - r)
+			bc = r - sqrt(max(0.0, r * r - dy2 * dy2))
+		return clamp(c + 2.0 + wob + bc, 0.0, ROUND - 1)
+	# parte de cima: a textura do chão (grama + terra com raízes); embaixo, terra lisa
+	var y_tex: float = min(fy, bot)
+	_end_band(top, y_tex, 8.0, inner, e, right, inset, t2, tile_x, s.y - 28, Color(1, 1, 1), Color(.86, .83, .8))
+	if bot > y_tex + 1:
+		_end_band(y_tex, bot, 30.0, inner, e, right, inset, null, 0, 0, Color("#34200f"), Color("#2a190b"))
+	# tufo de grama arredondando a quina de cima
+	var gx: float = e - 6.0 if right else e + 6.0
+	var gc := Color(.36, .58, .2)
+	if s.get("snow"):
+		Spr.ellipse(gx, s.y - 3, 15, 7, Color(.96, .98, 1))
+	else:
+		Spr.ellipse(gx, s.y - 1, 13, 6, gc.darkened(.15))
+		Spr.ellipse(gx + (2 if right else -2), s.y - 4, 9, 4, gc)
+	# pedrinhas soltas na parede
+	for k in 2:
+		var py: float = s.y + 30 + k * 34
+		if py < bot - 10:
+			var px: float = (e - 6.0 - k * 3) if right else (e + 6.0 + k * 3)
+			Spr.ellipse(px, py, 4, 3, Color(.45, .36, .28, .8))
+
+## uma faixa da ponta: lado de dentro reto, lado de fora pelo contorno (inset)
+func _end_band(ya: float, yb: float, stp: float, inner: float, e: float, right: bool, inset: Callable,
+		tex: Texture2D, tile_x: float, ty: float, c_in: Color, c_out: Color) -> void:
+	var ys: Array = []
+	var yy: float = ya
+	while yy < yb:
+		ys.append(yy)
+		yy += stp
+	ys.append(yb)
+	var pts := PackedVector2Array()
+	var cols := PackedColorArray()
+	for y in ys:
+		pts.push_back(Vector2(inner, y))
+		cols.push_back(c_in)
+	for i in range(ys.size() - 1, -1, -1):
+		var ins: float = inset.call(ys[i])
+		pts.push_back(Vector2(e - ins if right else e + ins, ys[i]))
+		cols.push_back(c_out)
+	if tex == null:
+		Spr.ci.draw_polygon(pts, cols)
+		return
+	var uvs := PackedVector2Array()
+	var tw: float = tex.get_width()
+	var th: float = tex.get_height()
+	for p in pts:
+		uvs.push_back(Vector2(clamp((p.x - tile_x) / tw, 0.0, 1.0), clamp((p.y - ty) / th, 0.0, 1.0)))
+	Spr.ci.draw_polygon(pts, cols, uvs, tex)
 
 ## camada de neve por cima do chão (com bordas fofas)
 func _snow_top(xa: float, xb: float, y: float) -> void:

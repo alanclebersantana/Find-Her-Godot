@@ -113,7 +113,7 @@ func __draw_raw() -> void:
 			continue
 		var depth: float = max(30, s.y0 + s.h - s.y)
 		# água tóxica (verde ácido): aqui o Tomé afunda — bem diferente da água azul onde dá para nadar
-		_water(g, a, b5, s.y, depth, Color(.42, .86, .16, .9), Color(.08, .26, .04, .97), T, false)
+		_water(g, a, b5, s.y, depth, Color(.42, .86, .16, .9), Color(.08, .26, .04, .97), T, false, 0.0, "s%d" % g.SWAMP.find(s), s.x, s.x + s.w)
 		Spr.rect(a, s.y - 8, b5 - a, depth + 8, Color(.02, .03, .08, g.AMB.dark * .45))
 		Spr.rect(a, s.y - 2, b5 - a, 4, Color(.75, 1, .35, .7))
 		# bolhas tóxicas subindo e estourando, e um vapor fraco por cima
@@ -209,7 +209,7 @@ func _extras(g: Game, T: int) -> void:
 		if w.x > g.cam + g.W or w.x + w.w < g.cam:
 			continue
 		# tinge de leve: o Tomé e os peixes continuam bem visíveis debaixo d'água
-		_water(g, w.x, w.x + w.w, w.y, w.h, Color(.24, .52, .6, .26), Color(.04, .14, .22, .4), T, false)
+		_water(g, max(w.x, g.cam - 40), min(w.x + w.w, g.cam + g.W + 40), w.y, w.h, Color(.24, .52, .6, .26), Color(.04, .14, .22, .4), T, false, 0.0, "w%d" % X.WATER.find(w), w.x, w.x + w.w)
 		Spr.rect(w.x, w.y, w.w, w.h, Color(.02, .03, .08, dark * .25))
 	WorldKings.draw_fish(g, T)
 	WorldNature.draw_bogs(g, T)
@@ -298,11 +298,32 @@ func _projectiles(g: Game, T: int) -> void:
 
 ## água parada com cara de água: degradê pela profundidade, faixas de luz (cáusticas) perto da superfície,
 ## superfície brilhante com ondinhas, reflexo da lanterna e bolhas / lentilha-d'água
-func _water(g: Game, a: float, b: float, y: float, depth: float, c0: Color, c1: Color, T: int, swamp: bool, ox: float = 0.0) -> void:
+func _water(g: Game, a: float, b: float, y: float, depth: float, c0: Color, c1: Color, T: int, swamp: bool, ox: float = 0.0, key: String = "", bx0: float = 0.0, bx1: float = 0.0) -> void:
 	var w: float = b - a
 	var mid := c0.lerp(c1, .45)
+	# superfície com ondas de verdade (molas) + um balanço suave constante
+	var wb: Dictionary = {}
+	if key != "" and g.WV:
+		wb = g.WV.body(key, bx0, bx1, y)
+	var top := PackedVector2Array()
+	var hi := PackedVector2Array()
+	var x2: float = floor(a / 8.0) * 8.0
+	var ys: Array = []
+	while x2 <= b + 8.1:
+		var xx: float = clamp(x2, a, b)
+		var oy: float = sin(xx * .045 + T * .07) * 1.6 + sin(xx * .11 - T * .05) * .7
+		if not wb.is_empty():
+			oy += g.WV.height(wb, xx)
+		top.push_back(Vector2(xx, y + oy))
+		ys.append(oy)
+		x2 += 8
+	# corpo d'água: faixa de cima acompanha a onda, o resto em degradê
 	var d1: float = min(depth, 70.0)
-	Spr.vgrad(a, y, w, d1, c0, mid)
+	var band := top.duplicate()
+	band.push_back(Vector2(b, y + 12))
+	band.push_back(Vector2(a, y + 12))
+	Spr.poly(band, c0)
+	Spr.vgrad(a, y + 12, w, max(0.0, d1 - 12), c0, mid)
 	if depth > d1:
 		Spr.vgrad(a, y + d1, w, depth - d1, mid, c1)
 	if swamp and Spr.has("sw_water"):
@@ -316,17 +337,15 @@ func _water(g: Game, a: float, b: float, y: float, depth: float, c0: Color, c1: 
 			pts.push_back(Vector2(x, yy + sin(x * (.035 + k * .01) + T * (.035 + k * .012) + k * 2.0) * 3.5))
 			x += 12
 		Spr.line(pts, Color(1, 1, .9, .07 - k * .015), 6 - k)
-	# superfície: linha clara com ondas + brilho fino por cima
-	var top := PackedVector2Array()
-	var hi := PackedVector2Array()
-	var x2 := a
-	while x2 <= b + 0.1:
-		var oy: float = sin(x2 * .045 + T * .07) * 1.8 + sin(x2 * .11 - T * .05) * .8
-		top.push_back(Vector2(x2, y + oy))
-		hi.push_back(Vector2(x2, y + oy - 1.5))
-		x2 += 7
+	# linha da superfície, brilho na crista das ondas e espuma onde a água está agitada
+	for i in top.size():
+		hi.push_back(top[i] + Vector2(0, -1.5))
 	Spr.line(top, Color(.72, .86, .8, .7) if swamp else Color(.78, .95, 1, .75), 3)
 	Spr.line(hi, Color(1, 1, 1, .35), 1)
+	for i in range(1, top.size() - 1):
+		var crest: float = ys[i] - (ys[i - 1] + ys[i + 1]) * .5
+		if crest < -1.2:
+			Spr.ellipse(top[i].x, top[i].y - 1, 6, 2, Color(1, 1, 1, clamp(-crest * .25, 0, .75)))
 	# pontinhos de espuma na superfície
 	for k in int(w / 40.0):
 		var fx: float = a + fmod(k * 53.7 + T * .2 * (1 + k % 3), w)

@@ -224,8 +224,12 @@ func _raft_step() -> void:
 		if vy > 4:
 			Audio.play("splash", -8)
 			g.burst(hx, wl, 12, Color(.85, .93, 1))
+			g.WV.splash(hx, wl, min(9.0, vy * .9))
 		hy = wl
 		vy = 0.0
+	# rastro da jangada na água
+	if hy >= wl - 1 and g.T % 5 == 0:
+		g.WV.splash(hx - 36, wl, 1.2, false)
 	# balanço da água
 	if hy >= wl - 1 and g.T % 4 == 0:
 		g.PARTS.append({"x": hx - 34, "y": wl + 2, "vx": -spd * .4, "vy": -1.2, "life": 16, "col": Color(.9, .96, 1, .8)})
