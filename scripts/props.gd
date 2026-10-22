@@ -89,6 +89,9 @@ func _boat_post() -> void:
 	# quem está em cima acompanha o barco
 	if on:
 		p.y += BOAT.sol.y - oy
+		# rangido da madeira de vez em quando
+		if g.T % 90 == 0 or (abs(p.vx) > 1.0 and g.T % 40 == 0):
+			Audio.play("climb", -20)
 		if not BOAT.grounded and abs(p.vx) > 2.5 and g.T % 12 == 0:
 			g.X.RIP.append({"x": p.x + p.w / 2, "y": BOAT.water.y + 2, "t": 0, "s": .8})
 	if not BOAT.grounded and g.T % 40 == 0:

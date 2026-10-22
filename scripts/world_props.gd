@@ -37,25 +37,23 @@ static func _boat(b: Dictionary, T: int) -> void:
 		pts.push_back(a)
 	Spr.line(pts, Color("#c9b48a"), 2)
 	Spr.save()
+	# balança na água (e afunda um pouco com o Tomé em cima)
+	var rock: float = sin(T * .045 + x * .01) * .025
 	Spr.translate(x + w / 2, y + hh)
-	Spr.rotate(b.ang)
-	Spr.translate(-w / 2, -hh)
-	# casco (visto de lado): proa e popa levantadas, fundo curvo
-	var hull := PackedVector2Array([Vector2(-6, -4), Vector2(4, 6), Vector2(16, hh - 4), Vector2(30, hh), Vector2(w - 30, hh),
-		Vector2(w - 14, hh - 5), Vector2(w - 2, 4), Vector2(w + 6, -6), Vector2(w - 4, 2), Vector2(w / 2, 6), Vector2(6, 2)])
-	Spr.poly(hull, WOOD)
-	Spr.line(PackedVector2Array([Vector2(-6, -4), Vector2(6, 2), Vector2(w / 2, 6), Vector2(w - 4, 2), Vector2(w + 6, -6)]), WOOD_L, 4)
-	# tábuas
-	for k in 2:
-		var yy: float = 10 + k * 7
-		Spr.line(PackedVector2Array([Vector2(8 + k * 4, yy - 2), Vector2(w / 2, yy + 2), Vector2(w - 10 - k * 4, yy - 2)]), WOOD_D, 1.5)
-	Spr.line(hull, OUT, 2)
-	# remo encostado
-	Spr.seg(18, -10, w - 26, 12, Color("#8a6640"), 4)
-	Spr.ellipse(w - 22, 13, 9, 4, Color("#8a6640"), .35)
-	# musgo na lateral
-	for k in 4:
-		Spr.ellipse(20 + k * 22, hh - 6 + (k % 2) * 2, 7, 2.5, Color(.33, .48, .22, .8))
+	Spr.rotate(b.ang + rock)
+	if Spr.has("p_boat"):
+		# barquinho pintado (proa para o lado do poste)
+		var hp: float = hh * 2.37
+		var wp: float = hp * Spr.AR["p_boat"][2] / Spr.AR["p_boat"][3]
+		Spr.P("boat", 5, hp * .18, wp, true)
+		# reflexo/sombra na água logo abaixo
+		Spr.ellipse(0, 2, w * .5, 3, Color(0, .05, .1, .25))
+	else:
+		Spr.translate(-w / 2, -hh)
+		var hull := PackedVector2Array([Vector2(-6, -4), Vector2(4, 6), Vector2(16, hh - 4), Vector2(30, hh), Vector2(w - 30, hh),
+			Vector2(w - 14, hh - 5), Vector2(w - 2, 4), Vector2(w + 6, -6), Vector2(w - 4, 2), Vector2(w / 2, 6), Vector2(6, 2)])
+		Spr.poly(hull, WOOD)
+		Spr.line(hull, OUT, 2)
 	Spr.restore()
 
 static func _table(t: Dictionary) -> void:
