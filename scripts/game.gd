@@ -1289,12 +1289,7 @@ func _comic_triggers() -> void:
 		if sct.get("bg", "") == "neve":
 			add.call("neve", float(sct.x) + 60)
 			break
-	var cx := INF
-	for so in L.solids:
-		if so.t == "crack":
-			cx = min(cx, float(so.x))
-	if cx < INF:
-		add.call("picareta", cx - 260)
+	# (sem quadrinho da picareta: o Tomé já começa com ela)
 	var dz: Array = L.get("darkZones", [])
 	if not dz.is_empty():
 		add.call("mina", float(dz[0].x) + 40)

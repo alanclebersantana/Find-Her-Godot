@@ -9,7 +9,6 @@ const DATA := {
 	"mergulho": {"img": ["mergulho"], "txt": "Água funda... respira fundo, Tomé."},
 	"neve": {"img": ["neve"], "txt": "Brrr! Que frio... aguenta firme, Isis, estou chegando!"},
 	"pipoca": {"img": ["pipoca"], "txt": "Pipoca! Agora somos dois procurando a Isis."},
-	"picareta": {"img": ["picareta"], "txt": "Minha velha picareta! Pedra rachada nenhuma me segura."},
 	"cavalo": {"img": ["cavalo"], "txt": "Calma, amigão... você me leva até a mina?"},
 	"mina": {"img": ["mina"], "txt": "Escuro demais... ainda bem que eu trouxe a lanterna."},
 	"toxico": {"img": ["toxico"], "txt": "Eca! Essa água verde é veneno. Nada de cair aí!"},

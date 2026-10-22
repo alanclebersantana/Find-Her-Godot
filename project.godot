@@ -3,6 +3,8 @@ config_version=5
 
 [application]
 
+run/max_fps=0
+
 config/name="Encontre-a"
 config/description="Um pai, uma lanterna e uma trilha de lápis de cor."
 run/main_scene="res://scenes/main.tscn"
@@ -26,6 +28,8 @@ window/size/window_height_override=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=4
+window/vsync/vsync_mode=1
+window/energy_saving/keep_screen_on=true
 
 [input_devices]
 

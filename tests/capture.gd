@@ -720,3 +720,15 @@ func pedra() -> void:
 	await hold({}, 30)
 	await jump_to(74540)
 	await walk_to(74800)
+
+func colmeia() -> void:
+	kill_enemies()
+	put(11560, 500)
+	await hold({}, 8)
+	await jump_to(11640)
+	await hold({}, 12)
+	await fr({})
+	await fr({"L": true})
+	await fr({})
+	await until({"L": true}, func(): return px() < 11000, 260)
+	await hold({}, 20)

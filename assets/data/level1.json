@@ -188,6 +188,12 @@
    "w": 1400,
    "h": 330,
    "wet": 1
+  },
+  {
+   "x": 4590,
+   "y": 500,
+   "w": 40,
+   "h": 260
   }
  ],
  "solids": [
@@ -265,28 +271,6 @@
    "x": 4340,
    "y": -10,
    "w": 130
-  },
-  {
-   "t": "ground",
-   "x": 4350,
-   "y": 500,
-   "w": 1200,
-   "h": 140
-  },
-  {
-   "t": "hollow",
-   "x": 4550,
-   "y": 448,
-   "w": 110,
-   "h": 52,
-   "deco": 1
-  },
-  {
-   "t": "dirt",
-   "x": 4430,
-   "y": 740,
-   "w": 560,
-   "h": 20
   },
   {
    "t": "dirt",
@@ -2042,6 +2026,49 @@
    "x": 50880,
    "y": 310,
    "w": 150
+  },
+  {
+   "t": "ground",
+   "x": 4350,
+   "y": 500,
+   "w": 240,
+   "h": 140
+  },
+  {
+   "t": "ground",
+   "x": 4630,
+   "y": 500,
+   "w": 920,
+   "h": 140
+  },
+  {
+   "t": "dirt",
+   "x": 4430,
+   "y": 740,
+   "w": 160,
+   "h": 20
+  },
+  {
+   "t": "dirt",
+   "x": 4630,
+   "y": 740,
+   "w": 360,
+   "h": 20
+  },
+  {
+   "t": "crack",
+   "x": 4580,
+   "y": 500,
+   "w": 60,
+   "h": 22,
+   "id": "chao1",
+   "kind": "slab",
+   "ladder": [
+    4595,
+    500,
+    460
+   ],
+   "msg": "O chão rachado se abriu! Tem uma escada descendo (↓)."
   }
  ],
  "swamp": [
@@ -2215,33 +2242,7 @@
    "kind": "ladder"
   }
  ],
- "entrances": [
-  {
-   "x": 4580,
-   "y": 460,
-   "w": 60,
-   "h": 40,
-   "to": [
-    4700,
-    960
-   ],
-   "label": "Um esconderijo dentro do tronco oco!",
-   "dir": 1
-  },
-  {
-   "x": 4565,
-   "y": 920,
-   "w": 80,
-   "h": 40,
-   "to": [
-    4605,
-    500
-   ],
-   "label": "",
-   "exit": 1,
-   "odir": -1
-  }
- ],
+ "entrances": [],
  "bushes": [
   {
    "x": 6030,
@@ -2638,12 +2639,12 @@
   },
   {
    "k": "spider",
-   "x": 4720,
+   "x": 4790,
    "y": 960,
    "top": 760,
    "r": [
-    4720,
-    4720
+    4790,
+    4790
    ]
   },
   {
@@ -5660,12 +5661,12 @@
    "a": 4430,
    "b": 4990,
    "yg": 800,
-   "t": "Esconderijo! Para sair, volte até a escadinha com luz e aperte ↑."
+   "t": "Esconderijo! Para sair, volte até a escada e aperte ↑."
   },
   {
-   "a": 4510,
-   "b": 4710,
-   "t": "Tronco oco: pare em cima da entrada e aperte ↓.",
+   "a": 4500,
+   "b": 4700,
+   "t": "Chão rachado! Perto dele, ✦ USAR quebra com a picareta. Depois desça pela escada (↓).",
    "yg": 400
   },
   {

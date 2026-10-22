@@ -22,7 +22,7 @@ func _initialize() -> void:
 	var g2 = load("res://scripts/game.gd").new()
 	root.add_child(g2)
 	g2.restore_run(run)
-	var ok: bool = g2.X.BOSS.done and g2.INV.has("picareta") and g2.X.broken.size() == 2 and g2.X.GOLD.got and g2.X.found.has("s1") and g2.X.dog_free() and g2.X.TOCAS[0].done
+	var ok: bool = g2.X.BOSS.done and g2.INV.has("picareta") and g2.X.broken.size() == 3 and g2.X.GOLD.got and g2.X.found.has("s1") and g2.X.dog_free() and g2.X.TOCAS[0].done
 	var no_bars := true
 	for s in g2.SOL:
 		if s.get("id") == "cdoor" or s.t == "crack":

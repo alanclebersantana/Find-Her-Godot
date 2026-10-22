@@ -36,7 +36,13 @@ const INK := Color("#f0e4c8")
 
 func _ready() -> void:
 	RenderingServer.set_default_clear_color(Color("#0b0906"))
-	Engine.physics_ticks_per_second = int(Save.getv("opt", "tps", 44))
+	# fluidez: o jogo anda a 60 passos por segundo, o mesmo ritmo da tela (a 44 a imagem tremia);
+	# quem nunca mexeu na velocidade passa para 60 uma vez só
+	if not Save.getv("opt", "tps60", false):
+		Save.setv("opt", "tps60", true)
+		Save.setv("opt", "tps", 60)
+	Engine.physics_ticks_per_second = int(Save.getv("opt", "tps", 60))
+	Engine.max_fps = 0
 	_make_theme()
 	_make_light_tex()
 	game = Game.new()
@@ -668,7 +674,7 @@ func show_options(from_pause: bool) -> void:
 	opt_row.call("Tamanho dos botões", "btn_size", [["Pequeno", "P"], ["Médio", "M"], ["Grande", "G"]], "M")
 	opt_row.call("Transparência", "btn_alpha", [["Clara", "clara"], ["Média", "media"], ["Forte", "forte"]], "media")
 	opt_row.call("Mão", "left", [["Destro", false], ["Canhoto", true]], false)
-	opt_row.call("Velocidade", "tps", [["Calma", 44], ["Média", 52], ["Rápida", 60]], 44)
+	opt_row.call("Velocidade", "tps", [["Calma", 44], ["Média", 52], ["Normal (mais fluido)", 60]], 60)
 	opt_row.call("Tutorial (dicas)", "tutorial", [["Ligado", true], ["Desligado", false]], true)
 	opt_row.call("Som", "sound", [["Ligado", true], ["Desligado", false]], true)
 	opt_row.call("Vibração", "vibrate", [["Sim", true], ["Não", false]], true)
