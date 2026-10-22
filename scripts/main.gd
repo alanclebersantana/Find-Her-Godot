@@ -59,6 +59,9 @@ func _ready() -> void:
 	if not Save.getv("opt", "stick_an1", false):
 		Save.setv("opt", "stick_an1", true)
 		Save.setv("opt", "stick", "analog")
+	# versão de teste: o Episódio 2 já vem liberado (escolha na tela inicial)
+	if int(Save.getv("prog", "eps", 1)) < 2:
+		Save.setv("prog", "eps", 2)
 	Engine.max_fps = 0
 	_make_theme()
 	_make_light_tex()
