@@ -23,6 +23,12 @@ def ease(t):
 def load_pos(seg, n):
     p = HI + seg + '.pos'
     rows = [l.split() for l in open(p)] if os.path.exists(p) else []
+    rows = [r for r in rows if len(r) == 3]
+    if rows:
+        last_f = int(rows[-1][0])
+        rows = [r for r in rows if -.3 < float(r[1]) < 1.3 and -.3 < float(r[2]) < 1.3] or rows
+        if int(rows[-1][0]) != last_f:  # mantém o alinhamento pelo último quadro gravado
+            rows.append([str(last_f), rows[-1][1], rows[-1][2]])
     if not rows:
         return [(.5, .55)] * n
     last = int(rows[-1][0])
@@ -39,11 +45,11 @@ def load_pos(seg, n):
     for _ in range(2):
         sm, a = [], out[0]
         for c in out:
-            a = (a[0] * .88 + c[0] * .12, a[1] * .9 + c[1] * .1)
+            a = (a[0] * .88 + c[0] * .12, a[1] * .85 + c[1] * .15)
             sm.append(a)
         out, sm2, a = sm, [], sm[-1]
         for c in reversed(sm):
-            a = (a[0] * .88 + c[0] * .12, a[1] * .9 + c[1] * .1)
+            a = (a[0] * .88 + c[0] * .12, a[1] * .85 + c[1] * .15)
             sm2.append(a)
         out = list(reversed(sm2))
     return out
@@ -55,7 +61,7 @@ def nframes(avi):
     return int(r.stdout.strip())
 
 
-def clip(out, seg, start, dur, z0=1.25, z1=None, cap=None, gamma=None, fixed=None, bias=(0, -.05)):
+def clip(out, seg, start, dur, z0=1.25, z1=None, cap=None, gamma=None, fixed=None, bias=(0, .05)):
     """z: aproximação (1 = quadro inteiro; 2 = tamanho real). fixed=(u,v) trava o centro."""
     z1 = z1 or z0
     avi = HI + seg + '.avi'
@@ -112,19 +118,18 @@ def clip(out, seg, start, dur, z0=1.25, z1=None, cap=None, gamma=None, fixed=Non
 ROTEIRO = [
     ('c', 'abertura'),
     ('c', 'sumiu'),
-    ('g', 'g_manha', 'manha', 0.3, 3.6, 2.0, 1.7, 'trilha'),
+    ('g', 'g_manha', 'manha', 0.3, 3.2, 2.0, 1.7, 'trilha'),
     ('c', 'titulo'),
     ('c', 'pista'),
     ('g', 'g_flor', 'flor', 0.6, 2.6, 1.5, 1.5, 'flor'),
-    ('g', 'g_copas', 'copas', 3.0, 2.8, 1.35, 1.35, 'copas'),
+    ('g', 'g_copas', 'copas', 3.0, 2.2, 1.35, 1.35, 'copas'),
     ('c', 'q_cipo'),
     ('g', 'g_fenda', 'fenda', 1.0, 2.6, 1.9, 1.9, 'fenda'),
-    ('g', 'g_colmeia', 'colmeia', 0.3, 2.4, 1.4, 1.4, 'colmeia'),
     ('c', 'p_quem'),
-    ('g', 'g_regias', 'regias', 2.0, 2.8, 1.3, 1.3, 'regias'),
+    ('g', 'g_regias', 'regias', 2.0, 2.2, 1.3, 1.3, 'regias'),
     ('g', 'g_cipos', 'cipos', 0.4, 2.4, 1.5, 1.5, 'cipos'),
     ('c', 'q_toxico'),
-    ('g', 'g_mergulho', 'mergulho', 11.5, 2.6, 1.4, 1.4, 'mergulho'),
+    ('g', 'g_mergulho', 'mergulho', 11.5, 2.4, 1.4, 1.4, 'mergulho'),
     ('g', 'g_jangada', 'jangada', 1.5, 2.6, 1.3, 1.3, 'jangada'),
     ('c', 'reis'),
     ('g', 'g_javali', 'javali', 1.8, 1.8, 1.2, 1.2, None),
@@ -132,26 +137,25 @@ ROTEIRO = [
     ('c', 'p_onde'),
     ('c', 'q_neve'),
     ('g', 'g_bolaneve', 'bolaneve', 1.5, 2.4, 1.35, 1.35, 'bolaneve'),
-    ('g', 'g_gelo', 'gelo', 0.8, 2.0, 1.4, 1.4, 'gelo'),
-    ('g', 'g_cavalo', 'cavalo', 2.2, 2.6, 1.15, 1.15, 'cavalo'),
+    ('g', 'g_cavalo', 'cavalo', 2.2, 2.2, 1.15, 1.15, 'cavalo'),
     ('c', 'q_pipoca'),
     ('g', 'g_ponte', 'ponte', 1.0, 2.2, 1.3, 1.3, 'ponte'),
     ('g', 'g_urso', 'urso', 0.8, 1.8, 1.15, 1.15, None),
-    ('g', 'g_vento', 'vento', 3.0, 2.0, 1.3, 1.3, 'vento'),
     ('c', 'q_aviao'),
-    ('g', 'g_voo', 'voo', 1.0, 2.8, 1.15, 1.15, 'voo'),
+    ('g', 'g_voo', 'voo', 19.0, 2.8, 1.15, 1.15, 'voo'),
     ('c', 'p_porque'),
-    ('g', 'g_cogumelos', 'cogumelos', 2.0, 3.0, 1.5, 1.9, 'cogumelos', 1.35),
+    ('g', 'g_cogumelos', 'cogumelos', 2.0, 2.6, 1.3, 1.5, 'cogumelos', 1.3),
     ('c', 'q_mina'),
-    ('g', 'g_pedra', 'pedra', 0.8, 2.4, 1.4, 1.4, 'pedra', 1.9),
-    ('c', 'q_bola'),
-    ('g', 'g_pedra2', 'pedra', 8.4, 2.0, 1.5, 1.5, 'pedra2', 1.9),
+    ('g', 'g_pedra', 'pedra', 26.0, 1.7, 1.25, 1.25, 'pedra', 1.5),
+    ('g', 'g_pedra2', 'pedra', 33.4, 2.2, 1.25, 1.25, 'pedra2', 1.5),
     ('c', 'final'),
 ]
 
 OPTS = {  # ajustes por trecho
     'g_cavalo': dict(fixed=(.55, .62)),
-    'g_voo': dict(fixed=(.5, .45)),
+    'g_voo': dict(fixed=(.45, .5)),
+    'g_pedra': dict(bias=(-.12, .05)),
+    'g_pedra2': dict(bias=(-.06, .05)),
     'g_mergulho': dict(bias=(0, 0)),
 }
 
@@ -189,7 +193,7 @@ def montar():
         "[1:a]atrim=0:{a1},adelay={d1}|{d1},afade=t=in:st={t_tit}:d=0.6,afade=t=out:st={a1f}:d=1.5[tm];"
         "[2:a]aloop=loop=3:size=2e6,atrim=0:{a2},adelay={d2}|{d2},afade=t=in:st={a2s}:d=1.2,afade=t=out:st={a2f}:d=1.5[pc];"
         "[3:a]atrim=0:{a3},adelay={d3}|{d3},afade=t=in:st={a3s}:d=1.2[nf];"
-        "[n0][tm][pc][nf]amix=inputs=4:normalize=0,atrim=0:{D},afade=t=out:st={Df}:d=2.5,volume=0.9[a]"
+        "[n0][tm][pc][nf]amix=inputs=4:normalize=0,atrim=0:{D},afade=t=out:st={Df}:d=2.5,volume=0.85,alimiter=limit=0.85:level=0[a]"
     )
     p_ini = marks['pista'][0] + 1.0
     fc = fc.format(a0=t_tit + 1.0, a0f=t_tit - .2, a1=p_ini - t_tit + 1.6, d1=int(t_tit * 1000), t_tit=t_tit,
@@ -199,7 +203,7 @@ def montar():
                     '-i', A + 'mus_perseguicao.ogg', '-i', A + 'mus_noite.ogg', '-filter_complex', fc,
                     '-map', '[a]', '-c:a', 'aac', '-b:a', '192k', '/tmp/vid/trilha2.m4a'], check=True)
     subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', '/tmp/vid/trailer_mudo.mp4', '-i', '/tmp/vid/trilha2.m4a',
-                    '-c:v', 'copy', '-c:a', 'aac', '-shortest', '-movflags', '+faststart',
+                    '-c:v', 'copy', '-c:a', 'copy', '-shortest', '-movflags', '+faststart',
                     '/tmp/vid/encontre-a_trailer.mp4'], check=True)
     print('duração', D)
     for k, v in marks.items():

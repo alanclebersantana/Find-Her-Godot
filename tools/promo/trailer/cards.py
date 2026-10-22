@@ -293,17 +293,17 @@ def final():
                     ('EPISÓDIO 1 · O BOSQUE', font('Cinzel-Bold', 44), (232, 201, 138), 325, 3)])
     D = text_layer([('Em breve: EPISÓDIO 2 · As Profundezas da Mina', font('Lora-Bold', 30), (255, 214, 120), 520, 2),
                     ('Para Android', font('Lora-Italic', 28), (220, 210, 190), 590, 0)])
-    dur = 9.0
+    dur = 7.5
 
     def fr(t):
         k = t / dur
         ox = int(W * .08 * k)
         im = base.crop((ox, 25, ox + W, 25 + H))
         im = over(im, VIG, 1)
-        im = over(im, A, ramp(t, .2, 2.0))
-        im = over(im, B, ramp(t, 2.2, 4.4))
-        im = over(im, C, ease((t - 4.8) / .8))
-        im = over(im, D, ease((t - 5.8) / .8))
+        im = over(im, A, ramp(t, .2, 1.8))
+        im = over(im, B, ramp(t, 1.9, 3.8))
+        im = over(im, C, ease((t - 4.0) / .7))
+        im = over(im, D, ease((t - 4.7) / .7))
         return im
     render('final', dur, fr, .2, 1.0)
 
