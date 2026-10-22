@@ -758,9 +758,15 @@ func _footprints() -> void:
 	var p: Dictionary = g.player
 	var song: String = g.AMB.get("song", "manha")
 	var gt: String = str(p._g.get("t", "")) if p._g != null else ""
-	var soft: bool = p.mud or (gt == "ground" and (song == "chuva" or weather == "garoa"))
+	var gk: String = g.ground_kind() if p.onGround else ""
+	var snow: bool = gk == "snow"
+	var soft: bool = p.mud or snow or (gt == "ground" and (song == "chuva" or weather == "garoa"))
 	if p.onGround and soft and abs(p.vx) > .6 and g.T % 13 == 0 and not p.crouch:
-		FOOT.append({"x": p.x + p.w / 2 + (4 if (g.T / 13) % 2 == 0 else -4), "y": p.y + p.h, "f": p.face, "t": 0})
+		FOOT.append({"x": p.x + p.w / 2 + (4 if (g.T / 13) % 2 == 0 else -4), "y": p.y + p.h, "f": p.face, "t": 0, "snow": snow})
+		# correndo na lama: respingos
+		if not snow and abs(p.vx) > 3:
+			for k in 3:
+				g.PARTS.append({"x": p.x + p.w / 2 - p.face * 6, "y": p.y + p.h - 2, "vx": -p.face * randf_range(.6, 2.2), "vy": -randf_range(1.5, 3.2), "life": 20, "col": Color(.3, .22, .13, .9)})
 		if FOOT.size() > 40:
 			FOOT.pop_front()
 	for f in FOOT:

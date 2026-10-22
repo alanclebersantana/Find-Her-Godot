@@ -62,7 +62,16 @@ func __draw_raw() -> void:
 				Spr.glow(c.x + 6, c.ry - 7, 10, Color(1, 1, .85, .7))
 		else:
 			var b := sin(T * .1 + c.x * .05) * 3
-			Spr.A(pen, c.x, c.y + b, .62)
+			if c.get("mag", false):
+				# rastro colorido voando para o Tomé
+				var pc: Color = GameData.PEN_COL[GameData.PEN_LIST[int(c.ci) % 6]]
+				Spr.glow(c.x, c.y, 16, Color(pc.r, pc.g, pc.b, .5))
+				b = 0.0
+			Spr.save()
+			Spr.translate(c.x, c.y + b)
+			Spr.rotate(sin(T * .03 + c.x * .013) * .45)
+			Spr.A(pen, 0, 0, .62)
+			Spr.restore()
 			# brilho em cruz passando de vez em quando
 			var gt: int = (T + int(c.ci) * 37) % 150
 			if gt < 12:
@@ -205,7 +214,15 @@ func __draw_raw() -> void:
 	var p: Dictionary = g.player
 	for bsh in g.BUSH:
 		var near: bool = abs(p.x + p.w / 2 - (bsh.x + bsh.w / 2)) < bsh.w / 2 + 10 and abs(p.y + p.h - (bsh.y + bsh.h)) < bsh.h
-		Spr.AB("o_bush_gold", bsh.x - 20, bsh.y + bsh.h - 84, bsh.w + 40, 84, .35 if near else 1.0)
+		# a moita treme quando o Tomé passa por dentro e solta folhinhas
+		var wob: float = sin(T * .5) * .04 if (near and abs(p.vx) > .5) else 0.0
+		Spr.save()
+		Spr.translate(bsh.x + bsh.w / 2, bsh.y + bsh.h)
+		Spr.rotate(wob)
+		Spr.AB("o_bush_gold", -bsh.w / 2 - 20, -84, bsh.w + 40, 84, .35 if near else 1.0)
+		Spr.restore()
+		if near and abs(p.vx) > .5 and T % 6 == 0:
+			g.PARTS.append({"x": bsh.x + randf() * bsh.w, "y": bsh.y + bsh.h - 60 - randf() * 20, "vx": randf_range(-1, 1), "vy": -randf_range(.5, 1.5), "life": 26, "col": Color(.5, .62, .2, .9)})
 
 ## beirada do buraco que aparece até no escuro: contorno claro seguindo a terra que desmorona e
 ## pedrinhas soltas caindo da borda
@@ -409,6 +426,9 @@ func _water(g: Game, a: float, b: float, y: float, depth: float, c0: Color, c1: 
 	# linha da superfície, brilho na crista das ondas e espuma onde a água está agitada
 	for i in top.size():
 		hi.push_back(top[i] + Vector2(0, -1.5))
+	if swamp or key.begins_with("s"):
+		# água tóxica: brilho verde pulsando na superfície (perigo bem visível)
+		Spr.line(top, Color(.75, 1, .3, .18 + .1 * sin(T * .07)), 9)
 	Spr.line(top, Color(.72, .86, .8, .7) if swamp else Color(.78, .95, 1, .75), 3)
 	Spr.line(hi, Color(1, 1, 1, .35), 1)
 	for i in range(1, top.size() - 1):

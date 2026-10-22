@@ -149,6 +149,13 @@ static func _spikes(TR: Traps, o: Dictionary, T: int) -> void:
 		Spr.poly(PackedVector2Array([Vector2(sx - 7, y - 2), Vector2(sx, y - 2 - hh), Vector2(sx + 7, y - 2)]), STEEL)
 		Spr.poly(PackedVector2Array([Vector2(sx, y - 2), Vector2(sx, y - 2 - hh), Vector2(sx + 7, y - 2)]), STEEL_D)
 	Spr.rect(x - 6, y - 2, w + 12, 5, Color("#2a2018"))
+	# pontas brilhando de leve (perigo fácil de ver)
+	if h > 4:
+		var gl: float = .35 + .25 * sin(T * .1 + x)
+		for i in n:
+			var tx: float = x + (i + .5) * w / n + sh
+			Spr.circle(tx, y - 2 - h + 2, 2.0, Color(1, .95, .85, gl))
+		Spr.rr(x - 6, y - 2 - h - 3, w + 12, h + 6, 6, Color(1, .3, .2, .06 + .04 * sin(T * .1)))
 
 static func game_dust(_x: float, _y: float) -> void:
 	pass

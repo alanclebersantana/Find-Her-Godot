@@ -138,6 +138,7 @@ func _ready() -> void:
 #  CARREGAR
 # ======================================================================
 func load_level(i: int) -> void:
+	DIPS = []
 	level_idx = i
 	max_x = 0.0
 	cur_chk = -1
@@ -629,6 +630,13 @@ func ambient() -> void:
 		AMB.dark = max(AMB.dark, .86)
 	if X:
 		X.weather_amb()
+	# a hora passando dentro de cada trecho: neblina da manhãzinha que vai sumindo,
+	# e a noite ficando mais escura conforme o Tomé avança
+	if px < 2400 and not indoors():
+		AMB.fog = max(AMB.fog, .4 * (1.0 - px / 2400.0))
+	if AMB.song in ["noite", "perseguicao"] and S.size() > 0:
+		var n0: float = 64250.0
+		AMB.dark = min(.9, AMB.dark + .12 * clamp((px - n0) / 13000.0, 0, 1))
 	# dentro do túnel e debaixo da terra não chove nem venta
 	if indoors():
 		AMB.rain = 0.0
@@ -1061,6 +1069,7 @@ func step() -> void:
 	if player.onGround and not was_ground and not kd("L") and not kd("R") and not (player._g != null and player._g.get("wet")):
 		player.vx *= .35
 		player.run = 0
+	player.landV = prev_vy if (player.onGround and not was_ground) else 0.0
 	if player.onGround and not was_ground and prev_vy > 3:
 		Audio.step(ground_kind(), -10.0 if prev_vy > 8 else -14.0)
 	if player.onGround and not was_ground and prev_vy > 6:
@@ -1086,6 +1095,12 @@ func step() -> void:
 			if not e.dead and hit(r, ebox(e)):
 				kill_enemy(e, "stomp")
 		player.slam = false
+	# correndo, chuta uma pedrinha de vez em quando
+	if player.onGround and player.run and abs(player.vx) > 4 and T % 37 == 0 and not player.swim:
+		var gk2: String = ground_kind()
+		if gk2 in ["grass", "dirt", "stone"]:
+			PARTS.append({"x": player.x + player.w / 2 + player.face * 8, "y": player.y + player.h - 3, "vx": player.face * randf_range(2.5, 4.0), "vy": -randf_range(2.0, 3.0),
+				"life": 60, "col": Color(.5, .46, .4), "gy": player.y + player.h - 3})
 	# cansaço: depois de correr bastante, quando para, fica ofegante um tempinho
 	if player.run and abs(player.vx) > 3 and player.onGround:
 		player.runT = player.get("runT", 0) + 1
@@ -1186,10 +1201,22 @@ func step() -> void:
 		_camera()
 		return
 	# lápis (moedas)
-	for c in coins_near(player.x - 80, player.x + 80):
+	var pcm := Vector2(player.x + player.w / 2, player.y + player.h / 2)
+	for c in coins_near(player.x - 120, player.x + 120):
 		if c.got:
 			continue
-		if hit(player, R(c.x - 15, c.y - 15, 30, 30)):
+		# ímã curtinho: o lápis voa para o Tomé quando ele chega perto
+		var cy0: float = c.ry - 5 if c.ry > 0 else c.y
+		var dv := pcm - Vector2(c.x, cy0)
+		if dv.length() < 80 and player.dyingT == 0:
+			c.mag = true
+			var stp: Vector2 = dv.normalized() * min(dv.length(), 7.0)
+			c.x += stp.x
+			if c.ry > 0:
+				c.ry += stp.y
+			else:
+				c.y += stp.y
+		if hit(player, R(c.x - 15, c.y - 15, 30, 30)) or (c.get("mag", false) and dv.length() < 18):
 			c.got = true
 			STATS.pen += 1
 			gain_coin(c.x, c.y)
@@ -1200,6 +1227,8 @@ func step() -> void:
 			time_left += 20 * 60
 			flash("Ampulheta: +20 segundos.")
 			burst(c.x, c.y, 14, Color("#bfe3ff"))
+	_auto_safe()
+	_plat_dips()
 	# fogueiras
 	for k in CHK.size():
 		var c: Dictionary = CHK[k]
@@ -1286,6 +1315,11 @@ func _tick_fx() -> void:
 		p.x += p.vx
 		p.y += p.vy
 		p.life -= 1
+		# pedrinha chutada: quica no chão
+		if p.has("gy") and p.y > p.gy:
+			p.y = p.gy
+			p.vy *= -.45
+			p.vx *= .7
 	PARTS = PARTS.filter(func(p): return p.life > 0)
 
 ## Mola criticamente amortecida (SmoothDamp): segue o alvo suave, sem passar do ponto nem tremer.
@@ -1783,6 +1817,60 @@ func move_x(dx: float) -> void:
 			player.x = s.x - player.w if (player.x + player.w / 2 < s.x + s.w / 2) else s.x + s.w
 		player.vx = 0
 		player.run = 0
+
+## molas das tábuas e galhos: afundam com o peso do Tomé e voltam balançando
+var DIPS: Array = []
+func _plat_dips() -> void:
+	var gs = player.get("_g")
+	if gs is Dictionary and str(gs.get("t", "")) in ["plat", "branch"] and not gs.get("crumble"):
+		if not gs.has("dip"):
+			gs.dip = 0.0
+			gs.dipv = 0.0
+		if not DIPS.has(gs):
+			DIPS.append(gs)
+			gs.dipv += 1.6 + max(0.0, player.get("landV", 0.0)) * .25
+	var keep: Array = []
+	for d in DIPS:
+		var target: float = (2.5 if str(d.t) == "plat" else 3.5) if d == gs else 0.0
+		d.dipv = (d.dipv + (target - d.dip) * .18) * .82
+		d.dip += d.dipv
+		if d == gs or abs(d.dip) > .05 or abs(d.dipv) > .05:
+			keep.append(d)
+		else:
+			d.dip = 0.0
+	DIPS = keep
+
+## ponto seguro automático: em chão firme, longe de buracos, armadilhas, inimigos e arenas de chefe,
+## bem depois da última fogueira — ao cair, o Tomé volta logo antes do desafio
+func _auto_safe() -> void:
+	if T % 30 != 0 or not player.onGround or player.dog or player.swim or (VH and VH.active()) or (RD and RD.riding):
+		return
+	var s = player.get("_g")
+	if s == null or not (s is Dictionary) or str(s.get("t", "")) not in ["ground", "cliff"] or s.get("oneway"):
+		return
+	var px: float = player.x + player.w / 2
+	if px < player.spawnX + 1400 or abs(player.vx) > 4:
+		return
+	if px < s.x + 90 or px > s.x + s.w - 90:
+		return
+	for k in ["boss", "bear", "hawk"]:
+		var a = L.get(k)
+		if a is Dictionary and px > float(a.get("x0", 0)) - 300 and px < float(a.get("x1", 0)) + 200:
+			return
+	for pit in L.get("pits", []):
+		if px > pit[0] - 160 and px < pit[1] + 160:
+			return
+	if TR:
+		for o in TR.T:
+			if abs(o.get("x", -9999.0) - px) < 260:
+				return
+	for e in EN:
+		if not e.dead and abs(e.x - px) < 420:
+			return
+	if X.water_at(px, player.y + player.h + 4) != null or player.mud:
+		return
+	player.spawnX = player.x
+	player.spawnY = player.y
 
 ## cabe o Tomé em pé em (x, y)? (para subir numa beirada)
 func _ledge_free(x: float, y: float) -> bool:

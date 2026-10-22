@@ -84,8 +84,8 @@ func _draw_raw() -> void:
 			continue
 		match s.t:
 			"ground": ground(s)
-			"plat": plat(s)
-			"branch": branch(s)
+			"plat", "branch":
+				pass   # desenhados na camada que se mexe (afundam quando o Tomé pisa)
 			"trunk": trunk(s)
 			"dirt": dirt(s)
 			"fakewall":
@@ -197,7 +197,9 @@ func ground(s: Dictionary) -> void:
 		var xa2: float = max(x, cut_a)
 		var xb2: float = min(x + tw + 1, cut_b)
 		if xb2 > xa2:
-			Spr.img(t, xa2, s.y - 28, xb2 - xa2, th, Rect2(xa2 - x, 0, xb2 - xa2, th))
+			# o chão muda de cor aos poucos entre os trechos (grama amarelando, lama, frio)
+			var tc := _ground_tint((xa2 + xb2) * .5)
+			Spr.ci.draw_texture_rect_region(t, Rect2(xa2, s.y - 28, xb2 - xa2, th), Rect2(xa2 - x, 0, xb2 - xa2, th), tc)
 		x += tw
 	var fy: float = s.y - 30 + t.get_height()
 	if s.y + s.h > fy:
@@ -327,6 +329,21 @@ func dirt(s: Dictionary) -> void:
 		Spr.poly(pts, EARTH)
 	_earth_detail(ia, ib, s.y + 6, s.y + s.h, EARTH)
 
+const TINTS := {"manha": Color(1, 1, 1), "tarde": Color(1.04, .93, .74), "chuva": Color(.84, .91, .84), "neve": Color(.93, .97, 1.04),
+	"tema": Color(.93, .97, 1.04), "noite": Color(.8, .84, .96), "perseguicao": Color(.8, .84, .96)}
+## cor do chão em x: mistura a do trecho anterior com a do atual numa faixa de 900 px
+func _ground_tint(x: float) -> Color:
+	var S: Array = game.L.get("sections", [])
+	var prev := Color(1, 1, 1)
+	var cur := Color(1, 1, 1)
+	var sx := -1e9
+	for sc in S:
+		if sc.x <= x:
+			prev = cur
+			cur = TINTS.get("neve" if sc.get("bg", "") == "neve" else sc.get("song", "manha"), Color(1, 1, 1))
+			sx = sc.x
+	return prev.lerp(cur, clamp((x - sx + 450.0) / 900.0, 0.0, 1.0))
+
 ## o "clima" do trecho em x (para escolher os enfeites do chão)
 func _theme_at(x: float) -> String:
 	var th := "manha"
@@ -383,6 +400,19 @@ func _ground_deco(s: Dictionary) -> void:
 					elif kind < 75:
 						_pebbles(gx, y, Color(.58, .55, .5))
 		gx += 58
+	# chegando na neve: manchas de neve cada vez mais frequentes no chão
+	if not s.get("snow"):
+		for sc in game.L.get("sections", []):
+			if sc.get("bg", "") == "neve":
+				var nx: float = sc.x
+				var sxp: float = max(s.x + 30, nx - 1100)
+				while sxp < min(s.x + s.w - 30, nx):
+					var dens: float = 1.0 - (nx - sxp) / 1100.0
+					if sxp >= x0 and sxp < x1 and hh(sxp, 71) < dens:
+						var w2: float = 16 + 30 * dens * hh(sxp, 72)
+						Spr.ellipse(sxp, s.y - 2, w2, 4 + 3 * dens, Color(.95, .97, 1, .95))
+					sxp += 34
+				break
 	# raízes saindo da beira do barranco (embaixo da grama)
 	if not s.get("snow") and not under:
 		var rx: float = s.x + 70 + fposmod(-(s.x + 70), 170.0)
@@ -479,7 +509,8 @@ func _ground_end(s: Dictionary, t: Texture2D, tw: float, right: bool) -> void:
 		return clamp(c + 2.0 + wob + bc, 0.0, ROUND - 1)
 	# parte de cima: a textura do chão (grama + terra com raízes); embaixo, terra lisa
 	var y_tex: float = min(fy, bot)
-	_end_band(top, y_tex, 8.0, inner, e, right, inset, t2, tile_x, s.y - 28, Color(1, 1, 1), Color(.86, .83, .8))
+	var gt := _ground_tint(e)
+	_end_band(top, y_tex, 8.0, inner, e, right, inset, t2, tile_x, s.y - 28, gt, Color(.86, .83, .8) * gt)
 	if bot > y_tex + 1:
 		_end_band(y_tex, bot, 30.0, inner, e, right, inset, null, 0, 0, Color("#34200f"), Color("#2a190b"))
 	# tufo de grama arredondando a quina de cima
@@ -535,7 +566,7 @@ func _snow_top(xa: float, xb: float, y: float) -> void:
 		Spr.ellipse(x + 13, y - 5, 16, hgt, Color(.97, .98, 1))
 		x += 26
 
-func plat(s: Dictionary) -> void:
+static func plat(s: Dictionary) -> void:
 	if s.get("crumble"):
 		return
 	if s.get("trestle"):
@@ -566,7 +597,7 @@ func plat(s: Dictionary) -> void:
 	Spr.seg(s.x + 10, s.y + 16, s.x + 4, s.y + 40, Color(0, 0, 0, .35), 2)
 	Spr.seg(s.x + s.w - 10, s.y + 16, s.x + s.w - 4, s.y + 40, Color(0, 0, 0, .35), 2)
 
-func branch(s: Dictionary) -> void:
+static func branch(s: Dictionary) -> void:
 	Spr.img(Spr.tex.galho, s.x - 12, s.y - 14, s.w + 24, 60)
 
 func trunk(s: Dictionary) -> void:

@@ -32,7 +32,11 @@ func _home() -> Vector2:
 	var vs := get_viewport_rect().size
 	var x := 150.0 * ui_scale   # longe da borda: deslizar da borda é o gesto de "voltar" do Android
 	# longe da borda de baixo também: deslizar dali é o gesto de "início" do Android
-	return Vector2(vs.x - x if left_handed else x, vs.y - 158 * ui_scale)
+	var h := Vector2(vs.x - x if left_handed else x, vs.y - 158 * ui_scale)
+	return h + offset
+
+## deslocamento escolhido pelo jogador (opções → posicionar botões)
+var offset := Vector2.ZERO
 
 func _in_zone(p: Vector2) -> bool:
 	var vs := get_viewport_rect().size

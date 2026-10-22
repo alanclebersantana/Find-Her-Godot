@@ -26,6 +26,9 @@ func _ready() -> void:
 	on = Save.getv("opt", "sound", true)
 	for n in NAMES:
 		sfx[n] = load("res://assets/audio/%s.wav" % n)
+	# latido do Pipoca: só uma vez, quando ele acha algo escondido
+	if ResourceLoader.exists("res://assets/audio/bark.wav"):
+		sfx["bark"] = load("res://assets/audio/bark.wav")
 	for k in STEPS:
 		for v in ["a", "b"]:
 			var sp := "res://assets/audio/step_%s_%s.wav" % [k, v]

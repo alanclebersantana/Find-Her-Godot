@@ -145,12 +145,43 @@ func _build_world() -> void:
 		lights.append({"n": _light(Color(.45, .75, 1), 110), "pos": Vector2(s.x, s.y - 30)})
 	lights.append({"n": _light(Color(1, .8, .5), 150), "pos": Vector2(game.DOOR.x + 30, game.DOOR.y + 20), "door": true})
 	lights.append({"n": _light(Color(1, .85, .55), 100), "vil": true})
+	# cone de luz quente da lanterna, para o lado em que o Tomé olha
+	cone_light = PointLight2D.new()
+	cone_light.texture = _cone_tex()
+	cone_light.color = Color(1, .82, .5)
+	cone_light.energy = 0
+	cone_light.texture_scale = 1.0
+	cone_light.offset = Vector2(150, 0)
+	game.add_child(cone_light)
+	# cogumelos gigantes iluminam em volta com a cor deles
+	if game.TR:
+		for o in game.TR.T:
+			if o.k == "giant":
+				var gc := Color(o.get("c", "#6a5acd")).lightened(.25)
+				lights.append({"n": _light(gc, 170), "pos": Vector2(o.x, o.cap + 10)})
 	# facho concentrado da lanterna, cristais e lápis dourado
 	lights.append({"n": _light(Color(1, .9, .65), 200), "beam": true})
 	for c in game.X.CRYSTALS:
 		lights.append({"n": _light(Color(.6, .85, 1), 120), "crystal": c})
 	if not game.X.GOLD.is_empty():
 		lights.append({"n": _light(Color(1, .85, .4), 90), "gold": true})
+
+var cone_light: PointLight2D
+## textura do cone: claro perto da lanterna, abrindo e sumindo para a frente
+var _cone: Texture2D
+func _cone_tex() -> Texture2D:
+	if _cone:
+		return _cone
+	var im := Image.create(300, 200, false, Image.FORMAT_RGBA8)
+	for y in 200:
+		for x in 300:
+			var u: float = x / 300.0
+			var half: float = 18.0 + u * 80.0
+			var d: float = abs(y - 100.0) / half
+			var a: float = clamp(1.0 - d, 0, 1) * (1.0 - u) * clamp(u * 6.0, 0, 1)
+			im.set_pixel(x, y, Color(1, 1, 1, a * a))
+	_cone = ImageTexture.create_from_image(im)
+	return _cone
 
 func _make_light_tex() -> void:
 	var g := Gradient.new()
@@ -187,6 +218,10 @@ func _update_lights() -> void:
 	player_light.position = pc + Vector2(p.face * 6 + sw * 7, -4 + abs(sw) * 3)
 	player_light.texture_scale = (110.0 if out else 230.0) * 2 / 256.0
 	player_light.energy = dark * (1.15 + sin(game.T * .21) * .04) * (.25 + .75 * p.get("wal", 1.0))
+	if cone_light:
+		cone_light.position = player_light.position + Vector2(p.face * 10, 0)
+		cone_light.rotation = 0.0 if p.face > 0 else PI
+		cone_light.energy = 0.0 if out else dark * .9 * (.25 + .75 * p.get("wal", 1.0))
 	for l in lights:
 		var n: PointLight2D = l.n
 		if l.has("chk"):
@@ -492,7 +527,10 @@ func _layout() -> void:
 			"G": pos = Vector2(vs.x - 18 - (js + sz) / 2, vs.y - 34 - js - 18 - sz)
 		if left:
 			pos.x = vs.x - pos.x - sz
-		b.position = pos
+		var off: Array = Save.getv("opt", "pos_" + k, [0, 0])
+		b.position = pos + Vector2(off[0], off[1])
+	var so: Array = Save.getv("opt", "pos_stick", [0, 0])
+	stick.offset = Vector2(so[0], so[1])
 
 func _make_top_buttons() -> void:
 	# faixa do topo: só mochila e pausa (menores), logo à esquerda do painel com o nome do trecho;
@@ -754,6 +792,7 @@ func show_options(from_pause: bool) -> void:
 	opt_row.call("Vibração", "vibrate", [["Sim", true], ["Não", false]], true)
 	opt_row.call("Tremor da tela", "shake", [["Sim", true], ["Não", false]], true)
 	vb.add_child(_label("Destro: movimento à esquerda e PULAR à direita. Canhoto: ao contrário.", 13, Color(.8, .75, .65), Spr.font_i))
+	vb.add_child(_button("POSICIONAR BOTÕES NA TELA", func(): _edit_controls(from_pause)))
 	var back := func():
 		if from_pause:
 			_pause_menu()
@@ -763,6 +802,101 @@ func show_options(from_pause: bool) -> void:
 			show_title()
 	vb.add_child(_button("VOLTAR", back))
 	panel.set_meta("ok", back)
+
+## editor: arraste o direcional e os botões para onde preferir
+func _edit_controls(from_pause: bool) -> void:
+	if panel:
+		panel.queue_free()
+		panel = null
+	var ed := _CtrlEditor.new()
+	ed.main = self
+	ed.set_anchors_preset(Control.PRESET_FULL_RECT)
+	ui_layer.add_child(ed)
+	panel = ed
+	var hb := HBoxContainer.new()
+	hb.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	hb.offset_top = 16
+	hb.add_theme_constant_override("separation", 12)
+	ed.add_child(hb)
+	var ok := _button("PRONTO", func():
+		ed.queue_free()
+		panel = null
+		show_options(from_pause))
+	var rst := _button("RESTAURAR", func():
+		for k in ["J", "A", "G", "stick"]:
+			Save.setv("opt", "pos_" + k, [0, 0])
+		_layout())
+	hb.add_child(rst)
+	hb.add_child(ok)
+	panel.set_meta("ok", func(): ok.pressed.emit())
+
+class _CtrlEditor extends Control:
+	var main
+	var drag := ""
+	var last := Vector2.ZERO
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_STOP
+	func _process(_d: float) -> void:
+		queue_redraw()
+	func _targets() -> Dictionary:
+		var t := {}
+		for b in main.touch:
+			var sz: float = b.scale.x * b.texture_normal.get_width()
+			t[b.get_meta("k")] = [b.position + Vector2(sz, sz) / 2, sz / 2, b]
+		t["stick"] = [main.stick._home(), main.stick.radius * main.stick.ui_scale, null]
+		return t
+	func _draw() -> void:
+		draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, .55))
+		draw_string(Spr.font_i, Vector2(size.x / 2 - 200, size.y / 2), "Arraste o direcional e os botões para onde preferir.", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(1, .95, .8))
+		var t := _targets()
+		for k in t:
+			var c: Vector2 = t[k][0]
+			var r: float = t[k][1]
+			draw_circle(c, r + 6, Color(1, .85, .4, .25 if drag != k else .5))
+			draw_arc(c, r + 6, 0, TAU, 48, Color(1, .9, .6, .9), 3, true)
+			if t[k][2]:
+				var b: TouchScreenButton = t[k][2]
+				var sz: float = r * 2
+				draw_texture_rect(b.texture_normal, Rect2(c - Vector2(r, r), Vector2(sz, sz)), false)
+	func _gui_input(e: InputEvent) -> void:
+		var pos := Vector2.ZERO
+		var down := false
+		var moving := false
+		if e is InputEventScreenTouch:
+			pos = e.position
+			down = e.pressed
+			if not down:
+				if drag != "":
+					Save.cfg.save(Save.PATH)
+				drag = ""
+				return
+		elif e is InputEventMouseButton:
+			pos = e.position
+			down = e.pressed
+			if not down:
+				if drag != "":
+					Save.cfg.save(Save.PATH)
+				drag = ""
+				return
+		elif e is InputEventScreenDrag or e is InputEventMouseMotion:
+			pos = e.position
+			moving = true
+		else:
+			return
+		if down:
+			var t := _targets()
+			for k in t:
+				if pos.distance_to(t[k][0]) < t[k][1] + 14:
+					drag = k
+					last = pos
+					return
+		elif moving and drag != "":
+			var d := pos - last
+			last = pos
+			var cur: Array = Save.getv("opt", "pos_" + drag, [0, 0])
+			# só na memória enquanto arrasta; grava no disco ao soltar
+			Save.cfg.set_value("opt", "pos_" + drag, [cur[0] + d.x, cur[1] + d.y])
+			main._layout()
 
 func start_level(cont: bool) -> void:
 	game.CLUEGOT.clear()

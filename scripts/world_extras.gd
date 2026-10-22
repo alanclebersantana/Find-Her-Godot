@@ -71,8 +71,9 @@ static func crawl(g: Game, T: int) -> void:
 static func footprints(g: Game) -> void:
 	for f in g.X.FOOT:
 		var a: float = clamp(1.0 - f.t / 900.0, 0, 1) * .5
-		Spr.ellipse(f.x, f.y - 1, 5, 2, Color(.12, .08, .05, a))
-		Spr.ellipse(f.x + f.f * 5, f.y - 1.5, 2.2, 1.6, Color(.12, .08, .05, a))
+		var fc := Color(.45, .55, .72, a) if f.get("snow") else Color(.12, .08, .05, a)
+		Spr.ellipse(f.x, f.y - (5 if f.get("snow") else 1), 5, 2, fc)
+		Spr.ellipse(f.x + f.f * 5, f.y - (5.5 if f.get("snow") else 1.5), 2.2, 1.6, fc)
 
 # ---------------------------------------------------------------- giz da Isis
 static func _stroke(pts: PackedVector2Array, w: float = 3.0) -> void:
@@ -493,6 +494,7 @@ static func dog(g: Game, T: int) -> void:
 		Spr.rotate(.3 * d.face)
 		Spr.A("drawing", 0, 0, .35)
 		Spr.restore()
+	_dog_guide(g, d, x, y, T)
 	if d.bark > 0:
 		var k: float = d.bark / 30.0
 		Spr.text("AU!", x + d.face * 28, y - 58 - (1.0 - k) * 8, 16, Color(1, 1, 1, k), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
@@ -500,6 +502,51 @@ static func dog(g: Game, T: int) -> void:
 		var p: Dictionary = g.player
 		if abs(p.x + p.w / 2 - d.x) < 70 and abs(p.y + p.h - d.y) < 50:
 			Spr.text("✦ SOLTAR", x, y - 70 + sin(T * .15) * 3, 16, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
+
+## o Pipoca guia: quando fareja algo escondido por perto (desenho da Isis, segredo, lápis dourado),
+## para, aponta o focinho, mostra um "!" e late uma vez só
+static var _barked := {}
+static func _dog_guide(g: Game, d: Dictionary, x: float, y: float, T: int) -> void:
+	if not d.st in ["follow", "sit"]:
+		return
+	var best = null
+	var bd := 330.0
+	var bkey := ""
+	for dr in g.DRWS:
+		if not dr.get("got", false):
+			var dd: float = Vector2(dr.x - x, (dr.y - y) * .6).length()
+			if dd < bd:
+				bd = dd
+				best = Vector2(dr.x, dr.y)
+				bkey = "d%d_%d" % [int(dr.x), int(dr.y)]
+	for sc in g.L.get("secrets", []):
+		if g.X.found.has(sc.id):
+			continue
+		var cx: float = sc.x + sc.w / 2.0
+		var dd2: float = abs(cx - x)
+		if dd2 < bd and abs(sc.y - y) < 500:
+			bd = dd2
+			best = Vector2(cx, sc.y)
+			bkey = "s" + str(sc.id)
+	if not g.X.GOLD.is_empty() and not g.X.GOLD.got:
+		var dd3: float = Vector2(g.X.GOLD.x - x, g.X.GOLD.y - y).length()
+		if dd3 < bd:
+			best = Vector2(g.X.GOLD.x, g.X.GOLD.y)
+			bkey = "gold"
+	if best == null:
+		return
+	if not _barked.has(bkey):
+		_barked[bkey] = true
+		Audio.play("bark", -10)
+		d.bark = 30
+	# focinho apontando e um "!" piscando sobre a cabeça
+	var bv: Vector2 = best
+	var dir: Vector2 = (bv - Vector2(x, y - 20)).normalized()
+	var a: float = .6 + .4 * sin(T * .2)
+	for k in 3:
+		var q: Vector2 = Vector2(x, y - 22) + dir * (30 + k * 14 + fmod(T * .8, 14.0))
+		Spr.circle(q.x, q.y, 2.6 - k * .6, Color(1, .95, .7, a * (1.0 - k * .28)))
+	Spr.text("!", x, y - 70 + sin(T * .2) * 3, 24, Color(1, .9, .4, a), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4, Color(.3, .15, 0, .9))
 
 ## o Pipoca desenhado em dois pedaços: o corpo e o rabo (que abana girando na base)
 static func _dog_frame(fr: String, wag: float) -> void:
@@ -631,6 +678,27 @@ static func mech(g: Game, T: int) -> void:
 		if s.get("trestle") and not s.fallen:
 			for lx in [s.x + 8, s.x + s.w - 16]:
 				Spr.rect(lx, s.y + 10, 8, 700 - s.y, Color("#4a3220"))
+		if s.fallen:
+			# quebrou: três pedaços caindo e girando cada um para um lado
+			for i in 3:
+				var pw: float = s.w / 3.0
+				var px0: float = s.x + i * pw + (i - 1) * s.fy * .18
+				var py0: float = yy + s.fy * i * .12
+				Spr.save()
+				Spr.translate(px0 + pw / 2, py0 + 8)
+				Spr.rotate((i - 1) * s.fy * .012 + (s.fy * .004 if i == 1 else 0.0))
+				Spr.rr(-pw / 2 + 1, -8, pw - 2, 16, 4, wood)
+				Spr.seg(-pw / 2 + 4, -2, pw / 2 - 4, 2, Color(0, 0, 0, .35 * a), 1.2)
+				Spr.restore()
+			continue
+		# tábua podre: rachaduras à mostra e um contorno pálido pulsando (dá para ver que é perigosa)
+		var pulse: float = .18 + .12 * sin(T * .08 + s.x)
+		Spr.rr(s.x - 2 + shake, yy - 2, s.w + 4, 20, 8, Color(1, .85, .55, pulse * a))
 		Spr.rr(s.x + shake, yy, s.w, 16, 6, wood)
 		Spr.seg(s.x + 12 + shake, yy + 4, s.x + 30 + shake, yy + 12, Color(0, 0, 0, .45 * a), 1.5)
 		Spr.seg(s.x + s.w - 20 + shake, yy + 3, s.x + s.w - 34 + shake, yy + 13, Color(0, 0, 0, .45 * a), 1.5)
+		Spr.seg(s.x + s.w * .5 + shake, yy + 2, s.x + s.w * .45 + shake, yy + 14, Color(0, 0, 0, .35 * a), 1.2)
+		if s.ct > 0 and T % 3 == 0:
+			# serragem caindo antes de quebrar
+			g.PARTS.append({"x": s.x + randf() * s.w, "y": yy + 15, "vx": randf_range(-.4, .4), "vy": .5, "life": 22,
+				"col": Color(.85, .7, .45, .9) if not s.get("icy") else Color(.9, .97, 1, .9)})

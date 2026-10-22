@@ -1,4 +1,5 @@
 extends Node2D
+const WS = preload("res://scripts/world_static.gd")
 ## Tudo o que se mexe no mundo: escadas, cadeados, vitórias-régias, vilão, caixas, inimigos,
 ## o Tomé, poeira e faíscas. Redesenhado a cada quadro.
 
@@ -77,6 +78,19 @@ func __draw_raw() -> void:
 		Spr.A("vg_cart1" if f else "vg_cart2", v.x, v.y + 2, 1)
 	var cx0: float = g.cam - 400
 	var cx1: float = g.cam + g.W + 400
+	# tábuas e galhos: afundam um pouquinho e balançam quando o Tomé pisa ou aterrissa
+	for so in g.SOL:
+		var st_: String = str(so.get("t", ""))
+		if (st_ != "plat" and st_ != "branch") or so.x > cx1 or so.x + so.w < cx0:
+			continue
+		var dp: float = so.get("dip", 0.0)
+		Spr.save()
+		Spr.translate(0, dp)
+		if st_ == "plat":
+			WS.plat(so)
+		else:
+			WS.branch(so)
+		Spr.restore()
 	for v in g.VINES:
 		if v.x + v.len < cx0 or v.x - v.len > cx1:
 			continue
@@ -111,6 +125,7 @@ func __draw_raw() -> void:
 			Spr.sil_c = Color(0, 0, 0, 0)
 		Spr.restore()
 		_enemy_fx_over(g, e, eo, hop_u)
+	Critters.draw(g, T)
 	var __d_Extras_tocas := Time.get_ticks_usec()
 	WorldExtras.tocas(g, T)
 	Spr.pt("d_Extras_tocas", __d_Extras_tocas)
@@ -171,9 +186,18 @@ func _deco(g: Game) -> void:
 			var sa: float = .5 * (1.0 - u) * min(1.0, u * 6.0)
 			Spr.circle(sx, sy, 6 + u * 24, Color(.86, .86, .88, sa))
 	var k := 0
+	var pp: Dictionary = g.player
+	var ppx: float = pp.x + pp.w / 2
 	for x in g.L.get("cattails", []):
 		if x > cam - 80 and x < cam + g.W + 80:
-			Spr.A("sw_cattail", x, 512, .62 + (k % 3) * .1, k % 2 == 1)
+			# os juncos se curvam quando o Tomé passa e balançam com o vento
+			var near: float = clamp(1.0 - abs(x - ppx) / 50.0, 0, 1) if abs(pp.y + pp.h - 512) < 60 else 0.0
+			var bend: float = sign(x - ppx) * near * .35 + sin(T * .03 + x) * .04 + g.AMB.get("wind", 0.0) * .12
+			Spr.save()
+			Spr.translate(x, 512)
+			Spr.rotate(bend)
+			Spr.A("sw_cattail", 0, 0, .62 + (k % 3) * .1, k % 2 == 1)
+			Spr.restore()
 		k += 1
 	# mina: trilhos (com pontes sobre os buracos), carrinho parado e porta
 	var rx0: float = g.L.villain.x0 - 160 if g.L.has("villain") else 9380.0
@@ -618,8 +642,16 @@ func _player(g: Game) -> void:
 		return
 	var off := g.ip_off()
 	var p: Dictionary = g.player
+	# fim de tarde: sombra comprida do Tomé deitada no chão
+	var tw: float = g.section_weights().get("tarde", 0.0)
+	if tw > 0 and p.onGround:
+		var u: float = clamp((p.x - 3350.0) / 11350.0, 0, 1) * tw
+		if u > .2:
+			Spr.ellipse(p.x + p.w / 2 + off.x + 22 * u, p.y + p.h + 1 + off.y, 18 + 26 * u, 3.2, Color(.2, .08, .02, .22 * u))
 	Spr.save()
-	Spr.translate(off.x, off.y + p.get("wdy", 0.0) + p.get("sink", 0.0))
+	var gd = p.get("_g")
+	var pdip: float = gd.get("dip", 0.0) if gd is Dictionary else 0.0
+	Spr.translate(off.x, off.y + p.get("wdy", 0.0) + p.get("sink", 0.0) + pdip)
 	var a0: float = Spr.alpha
 	Spr.alpha = a0 * p.get("wal", 1.0)
 	if p.get("wpose", "") != "":
