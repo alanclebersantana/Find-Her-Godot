@@ -66,6 +66,9 @@ func _ready() -> void:
 	ui_layer = CanvasLayer.new()
 	ui_layer.layer = 4
 	add_child(ui_layer)
+	var sky := preload("res://scripts/sky_fx.gd").new()
+	sky.game = game
+	screen_layer.add_child(sky)
 	var front := preload("res://scripts/front.gd").new()
 	front.game = game
 	screen_layer.add_child(front)
@@ -161,7 +164,9 @@ func _update_lights() -> void:
 	var p: Dictionary = game.player
 	var pc := Vector2(p.x + p.w / 2, p.y + p.h / 2 + p.get("wdy", 0.0))
 	var out: bool = game.L.has("lanternOutX") and not game.lantern_lit and pc.x > game.L.lanternOutX
-	player_light.position = pc + Vector2(p.face * 6, -4)
+	# a lanterna balança na mão conforme ele anda (a luz acompanha)
+	var sw: float = sin(game.T * .17) * clamp(abs(p.vx) / 4.0, 0, 1)
+	player_light.position = pc + Vector2(p.face * 6 + sw * 7, -4 + abs(sw) * 3)
 	player_light.texture_scale = (110.0 if out else 230.0) * 2 / 256.0
 	player_light.energy = dark * (1.15 + sin(game.T * .21) * .04) * (.25 + .75 * p.get("wal", 1.0))
 	for l in lights:
@@ -527,8 +532,16 @@ func _apply_hud_theme() -> void:
 
 func close_panel() -> void:
 	if panel:
-		panel.queue_free()
+		# some suavemente (o painel sai da lista na hora; só o desenho termina de sumir)
+		var old: Control = panel
 		panel = null
+		old.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		for ch in old.get_children():
+			if ch is Control:
+				ch.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var tw := old.create_tween()
+		tw.tween_property(old, "modulate:a", 0.0, .14)
+		tw.tween_callback(old.queue_free)
 	if state in [S.BAG, S.CLUE, S.PAUSE]:
 		state = S.PLAY
 		_show_hud(true)
@@ -559,6 +572,12 @@ func _overlay(dim: float = .78) -> VBoxContainer:
 	cc.add_child(vb)
 	ui_layer.add_child(root)
 	panel = root
+	# aparece com um esmaecer rápido e o conteúdo subindo um pouquinho
+	root.modulate.a = 0.0
+	var tw := root.create_tween().set_parallel(true)
+	tw.tween_property(root, "modulate:a", 1.0, .2)
+	vb.position.y += 14
+	tw.tween_property(vb, "position:y", vb.position.y - 14, .25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	return vb
 
 func _label(t: String, size: int = 18, c: Color = INK, f: Font = null, maxw: float = 0) -> Label:

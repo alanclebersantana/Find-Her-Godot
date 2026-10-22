@@ -33,6 +33,70 @@ func __draw_raw() -> void:
 		var al: float = 1.0 if first else ws[k]
 		first = false
 		_layer(k, ox, oy, w, bh, al)
+	for k in keys:
+		_sky(k, ws[k], w, oy)
+
+static func hh(x: float, k: int = 0) -> float:
+	var v := sin(x * 12.9898 + k * 78.233) * 43758.5453
+	return v - floor(v)
+
+## o céu vivo por cima da pintura: nuvens andando, a tarde caindo, estrelas piscando, a lua com halo
+## e uma névoa de distância na base (separa o fundo do caminho do Tomé)
+func _sky(k: String, al: float, w: float, oy: float) -> void:
+	var H: float = game.H
+	var t := float(game.T)
+	match k:
+		"bosque", "neve":
+			# nuvens fofas em duas alturas, cada uma no seu passo
+			for i in 5:
+				var sp: float = .05 + hh(i, 1) * .06
+				var cw: float = 110 + hh(i, 2) * 130
+				var span: float = w + cw * 2 + 300
+				var cx: float = fposmod(hh(i, 3) * span - t * sp - game.rcam * .03, span) - cw
+				var cy: float = 26 + hh(i, 4) * H * .1 + oy * .2
+				var ca: float = (.42 if k == "bosque" else .5) * al
+				_cloud(cx, cy, cw, Color(1, 1, 1, ca))
+		"tarde":
+			# o sol vai baixando: o céu esquenta e escurece aos poucos até o pântano
+			var u: float = clamp((game.player.x - 3350.0) / (14700.0 - 3350.0), 0, 1)
+			Spr.vgrad(0, 0, w, H * .7, Color(.45, .12, .25, .3 * u * al), Color(.9, .35, .15, .12 * u * al))
+		"noite":
+			# halo respirando em volta da lua pintada no fundo (a lua fica em 878,90 na pintura)
+			var t3: Texture2D = Spr.tex["bg_noite"]
+			var sc3: float = GL / t3.get_height()
+			var tw3: float = t3.get_width() * sc3
+			var x3: float = fposmod(-game.rcam * PX, tw3 - 1) - (tw3 - 1)
+			while x3 < w:
+				Spr.glow(x3 + 878 * sc3, oy + 90 * sc3, 90 + sin(t * .02) * 8, Color(.8, .86, 1, .3 * al))
+				x3 += tw3 - 1
+	# névoa de distância na base do fundo
+	var fc: Color = {"bosque": Color(.86, .94, .82), "tarde": Color(1, .78, .5), "pantano": Color(.55, .65, .6),
+		"noite": Color(.2, .25, .45), "neve": Color(.92, .95, 1)}.get(k, Color(.9, .9, .9))
+	Spr.vgrad(0, H * .5, w, H * .5, Color(fc.r, fc.g, fc.b, 0), Color(fc.r, fc.g, fc.b, .32 * al))
+
+func _cloud(x: float, y: float, cw: float, c: Color) -> void:
+	# contorno único (sem sobreposição de transparências): bolotas em cima, base reta e arredondada
+	var pts := PackedVector2Array()
+	var base: float = y + cw * .07
+	var n := 26
+	for i in n + 1:
+		var u := float(i) / n
+		var top := 0.0
+		for j in 5:
+			var cu: float = .12 + j * .19
+			var r: float = .13 + .1 * sin((j / 4.0) * PI)
+			var d: float = (u - cu) / r
+			if abs(d) < 1:
+				top = max(top, r * sqrt(1 - d * d) + .02 * (j % 2))
+		var end: float = sin(u * PI)
+		pts.push_back(Vector2(x + u * cw, base - cw * top * .9 * (.4 + .6 * sqrt(end))))
+	for i in range(n - 1, 0, -1):
+		var u2 := float(i) / n
+		pts.push_back(Vector2(x + u2 * cw, base + cw * .03 * sin(u2 * PI)))
+	Spr.poly(pts, c)
+	# sombrinha azulada na base
+	Spr.ellipse(x + cw * .5, base, cw * .42, cw * .03, Color(.7, .78, .92, c.a * .5))
+
 
 const LAYER_PX := [.04, .16, .3, .48]
 ## brilho de cada camada: a mais perto fica mais escura para o Tomé e os objetos se destacarem

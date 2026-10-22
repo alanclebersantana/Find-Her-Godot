@@ -24,6 +24,11 @@ func _ready() -> void:
 	on = Save.getv("opt", "sound", true)
 	for n in NAMES:
 		sfx[n] = load("res://assets/audio/%s.wav" % n)
+	for k in STEPS:
+		for v in ["a", "b"]:
+			var sp := "res://assets/audio/step_%s_%s.wav" % [k, v]
+			if ResourceLoader.exists(sp):
+				sfx["step_%s_%s" % [k, v]] = load(sp)
 	for i in 8:
 		var p := AudioStreamPlayer.new()
 		add_child(p)
@@ -57,17 +62,26 @@ func set_on(v: bool) -> void:
 	Save.setv("opt", "sound", v)
 	_apply()
 
-func play(n: String, vol_db: float = 0.0) -> void:
+func play(n: String, vol_db: float = 0.0, pitch: float = 1.0) -> void:
 	if not sfx.has(n):
 		return
 	for p in players:
 		if not p.playing:
 			p.stream = sfx[n]
 			p.volume_db = vol_db
+			p.pitch_scale = pitch
 			p.play()
 			return
 	players[0].stream = sfx[n]
+	players[0].pitch_scale = pitch
 	players[0].play()
+
+## passo no tipo de chão (grama, terra, neve, madeira, pedra, lama), com variação de tom
+const STEPS := ["grass", "dirt", "snow", "wood", "stone", "mud"]
+var _alt := false
+func step(kind: String, vol_db: float = -16.0) -> void:
+	_alt = not _alt
+	play("step_%s_%s" % [kind, "a" if _alt else "b"], vol_db, randf_range(.9, 1.12))
 
 func _stream(base: String) -> AudioStream:
 	## procura .ogg (instrumentos reais) e, se não houver, .wav (sintetizado); devolve em loop

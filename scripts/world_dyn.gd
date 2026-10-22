@@ -96,10 +96,21 @@ func __draw_raw() -> void:
 		if e.x < g.cam - 200 or e.x > g.cam + g.W + 200:
 			continue
 		var eo := g.e_off(e)
+		_enemy_fx_under(g, e, eo)
 		Spr.save()
 		Spr.translate(eo.x, eo.y)
+		var st0: int = e.get("startT", -99)
+		var hop_u: float = (g.T - st0) / 18.0
+		if hop_u >= 0 and hop_u < 1:
+			Spr.translate(0, -sin(hop_u * PI) * 12)
 		_enemy(e)
+		# clarão branco logo que leva o golpe
+		if e.dead > 0 and e.dead <= 5:
+			Spr.sil_c = Color(1, 1, 1, .9 * (1.0 - (e.dead - 1) / 5.0))
+			_enemy(e)
+			Spr.sil_c = Color(0, 0, 0, 0)
 		Spr.restore()
+		_enemy_fx_over(g, e, eo, hop_u)
 	var __d_Extras_tocas := Time.get_ticks_usec()
 	WorldExtras.tocas(g, T)
 	Spr.pt("d_Extras_tocas", __d_Extras_tocas)
@@ -113,6 +124,7 @@ func __draw_raw() -> void:
 		WorldExtras.dog(g, T)
 	var __d__player := Time.get_ticks_usec()
 	_player(g)
+	_breath(g)
 	Spr.pt("d__player", __d__player)
 	var __d_Traps_draw_front := Time.get_ticks_usec()
 	WorldTraps.draw_front(g, T)
@@ -124,11 +136,39 @@ func __draw_raw() -> void:
 		Spr.A(f.n, f.x, f.y, f.sc, false, 1.0 - float(f.t) / f.life)
 	for p in g.PARTS:
 		var c: Color = p.col
-		Spr.rect(p.x, p.y, 3, 3, Color(c.r, c.g, c.b, c.a * clamp(p.life / 24.0, 0, 1)))
+		var pa: float = c.a * clamp(p.life / 24.0, 0, 1)
+		if p.get("ember"):
+			# brasa: brilho alaranjado, ziguezagueando e esfriando para vermelho
+			var ex: float = p.x + sin(p.life * .5 + p.y * .1) * 3
+			var ec := Color(1, .85, .4).lerp(Color(1, .35, .1), 1.0 - clamp(p.life / 28.0, 0, 1))
+			Spr.glow(ex, p.y, 7, Color(ec.r, ec.g, ec.b, pa * .5))
+			Spr.circle(ex, p.y, 1.6, Color(ec.r, ec.g, ec.b, pa))
+		else:
+			Spr.rect(p.x, p.y, 3, 3, Color(c.r, c.g, c.b, pa))
 
 # ---------- cenário com estado ----------
+var cabins: Array = []
 func _deco(g: Game) -> void:
 	var cam := g.cam
+	# fumaça da chaminé da cabana
+	if cabins.is_empty() or cabins[0] != g.L:
+		cabins = [g.L]
+		for so in g.L.solids:
+			if so.t == "cabin":
+				cabins.append(so)
+	for ci_ in range(1, cabins.size()):
+		var cb: Dictionary = cabins[ci_]
+		if cb.x > cam + g.W + 300 or cb.x + 400 < cam:
+			continue
+		var chx: float = cb.x - 15 + 167
+		var chy: float = cb.y + cb.h - 221 + 6
+		for i in 9:
+			var age: float = fposmod(T * .5 + i * 22.0, 198.0)
+			var u: float = age / 198.0
+			var sx: float = chx + u * 46 + sin(u * 6.0 + i) * 7
+			var sy: float = chy - u * 170
+			var sa: float = .5 * (1.0 - u) * min(1.0, u * 6.0)
+			Spr.circle(sx, sy, 6 + u * 24, Color(.86, .86, .88, sa))
 	var k := 0
 	for x in g.L.get("cattails", []):
 		if x > cam - 80 and x < cam + g.W + 80:
@@ -273,7 +313,7 @@ func _campfire(c: Dictionary) -> void:
 			Spr.ellipse(lx + sx * 32, c.y - 7, 5, 7, Color("#d8b07a"))
 			Spr.ring(lx + sx * 32, c.y - 7, 3, Color("#8a5a32"), 1.5)
 		if T % 3 == 0:
-			game.PARTS.append({"x": c.x + (randf() - .5) * 24, "y": c.y - 40, "vx": (randf() - .5) * .8, "vy": -1.8, "life": 28, "col": Color("#ffcf6a")})
+			game.PARTS.append({"x": c.x + (randf() - .5) * 24, "y": c.y - 40, "vx": (randf() - .5) * .8, "vy": -1.8, "life": 28, "col": Color("#ffcf6a"), "ember": true})
 		Spr.A("o_fire_on", c.x, c.y + 4, 1.25)
 		if not game.RESTED.has(c.rest) and (T / 20) % 2 == 0:
 			Spr.text("▼", c.x, c.y - 100 + sin(T * .1) * 4, 20, Color("#ffe0a0"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
@@ -281,7 +321,7 @@ func _campfire(c: Dictionary) -> void:
 	if c.on:
 		Spr.glow(c.x, c.y - 20, 60, Color(1, .75, .35, .35))
 		if T % 5 == 0:
-			game.PARTS.append({"x": c.x + (randf() - .5) * 14, "y": c.y - 26, "vx": (randf() - .5) * .6, "vy": -1.4, "life": 22, "col": Color("#ffcf6a")})
+			game.PARTS.append({"x": c.x + (randf() - .5) * 14, "y": c.y - 26, "vx": (randf() - .5) * .6, "vy": -1.4, "life": 22, "col": Color("#ffcf6a"), "ember": true})
 	Spr.A("o_fire_on" if c.on else "o_fire_off", c.x, c.y + 4, .8)
 
 func _crate(c: Dictionary) -> void:
@@ -295,6 +335,44 @@ func _crate(c: Dictionary) -> void:
 		Spr.rect(c.x, c.y, c.w, c.h, Color(0, 0, 0, .25))
 
 # ---------- inimigos ----------
+const NO_SHADOW := {"spider": 1, "leech": 1, "plant": 1, "piranha": 1, "mole": 1}
+## sombra no chão e o "susto" quando vê o Tomé chegando
+func _enemy_fx_under(g: Game, e: Dictionary, eo: Vector2) -> void:
+	if e.dead:
+		return
+	if not Game.FLY.has(e.k) and not NO_SHADOW.has(e.k):
+		Spr.ellipse(e.x + eo.x, e.y + 3, 24, 4.5, Color(0, 0, 0, .24))
+	if not e.has("seen"):
+		var p: Dictionary = g.player
+		if abs(p.x + p.w / 2 - e.x) < 300 and abs(p.y + p.h - e.y) < 180:
+			e.seen = true
+			e.startT = g.T
+
+## "!" do susto e estrelinhas girando quando está tonto
+func _enemy_fx_over(g: Game, e: Dictionary, eo: Vector2, hop_u: float) -> void:
+	if e.dead:
+		return
+	var hx: float = e.x + eo.x
+	var hy: float = e.y + eo.y - (34 if not Game.FLY.has(e.k) else 30)
+	if hop_u >= 0 and hop_u < 1.6:
+		var a: float = clamp(1.6 - hop_u, 0, 1)
+		Spr.text("!", hx, hy - 22 - sin(min(hop_u, 1.0) * PI) * 12, 26, Color(1, .92, .4, a), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 5, Color(.25, .12, 0, a * .9))
+	if e.get("stun", 0) > 0:
+		dizzy(hx, hy - 8, T)
+
+## estrelinhas de tontura girando em volta da cabeça (inimigos e chefes)
+static func dizzy(x: float, y: float, t: int) -> void:
+	for i in 3:
+		var a: float = t * .12 + TAU * i / 3.0
+		var sx: float = x + cos(a) * 20
+		var sy: float = y + sin(a) * 6
+		var s: float = 4.5 + sin(a) * 1.2
+		var pts := PackedVector2Array()
+		for k in 10:
+			var r: float = s if k % 2 == 0 else s * .45
+			var aa: float = -PI / 2 + TAU * k / 10.0 + t * .05
+			pts.push_back(Vector2(sx + cos(aa) * r, sy + sin(aa) * r))
+		Spr.poly(pts, Color(1, .9, .3, .95))
 func _enemy(e: Dictionary) -> void:
 	Spr.save()
 	if e.dead:
@@ -460,6 +538,28 @@ func _rider(g: Game) -> void:
 	WorldNature.horse(RD.hx, RD.hy, g0, run, hst, T)
 	Spr.alpha = 1.0
 
+# ---------- vapor da respiração no frio ----------
+var puffs: Array = []
+func _breath(g: Game) -> void:
+	var p: Dictionary = g.player
+	var cold: bool = g.AMB.get("snow", 0.0) > .2
+	if cold and g.running and not p.swim and p.dyingT == 0 and not (g.VH and g.VH.active()) and not (g.RD and g.RD.riding):
+		var per: int = 46 if (abs(p.vx) > 2.5 or p.get("pant", 0) > 0) else 110
+		if T % per == 0 or T % per == 8:
+			var off := g.ip_off()
+			puffs.append({"x": p.x + p.w / 2 + p.face * 12 + off.x, "y": p.y + p.h - 44 + off.y, "vx": p.face * .5 + p.vx * .3, "t": 0})
+	var keep: Array = []
+	for f in puffs:
+		f.t += 1
+		f.x += f.vx
+		f.vx *= .96
+		f.y -= .25
+		var u: float = f.t / 50.0
+		if u < 1:
+			Spr.circle(f.x, f.y, 3 + u * 9, Color(.95, .97, 1, .45 * (1 - u)))
+			keep.append(f)
+	puffs = keep
+
 # ---------- o Tomé ----------
 func _player(g: Game) -> void:
 	if g.RD and g.RD.riding:
@@ -608,6 +708,9 @@ func _player_draw(g: Game) -> void:
 		if n != "":
 			if p.onGround:
 				Spr.ellipse(cx, by + 1, 18, 4, Color(0, 0, 0, .22))
+			var rim := _rim(g, p)
+			if rim.a > 0:
+				Spr.A_sil(n, cx + rim_off.x, by + rim_off.y, .56, p.face < 0, rim)
 			Spr.A(n, cx, by, .56, p.face < 0)
 			_armor(p, cx, by)
 			return
@@ -676,19 +779,93 @@ func _player_draw(g: Game) -> void:
 	var sc := .48
 	var sq: float = p.squash
 	var idle := sin(T * .08) * .025 if (fr == 0 and tex == pai and p.onGround) else 0.0
+	# cansado depois de correr muito: respira rápido e fundo, curvado para a frente
+	var pant: float = p.get("pant", 0) / 150.0
+	if pant > 0 and fr == 0 and tex == pai:
+		idle = sin(T * .32) * .05 * pant - .02 * pant
 	var turn: float = .65 + .35 * (1 - p.turnT / 6.0) if p.turnT > 0 else 1.0
-	Spr.save()
-	Spr.translate(cx, by)
-	if p.skidT > 0 and p.onGround:
-		Spr.rotate(-p.face * .18)
-	elif p.run and p.onGround:
-		Spr.rotate(p.face * .07)
-	Spr.scale(p.face * sc * (1 + sq * .25) * turn, sc * (1 - sq * .3 + idle))
-	Spr.ci.draw_texture_rect_region(tex, Rect2(-85, -156, 170, 160), Rect2(fr * 170, 0, 170, 160), Color(1, 1, 1, Spr.alpha))
-	Spr.restore()
+	var rim2 := _rim(g, p)
+	for pass_i in (2 if rim2.a > 0 else 1):
+		var rimp: bool = pass_i == 0 and rim2.a > 0
+		Spr.save()
+		Spr.translate(cx + (rim_off.x if rimp else 0.0), by + (rim_off.y if rimp else 0.0))
+		if pant > 0 and fr == 0 and tex == pai:
+			Spr.rotate(p.face * .06 * pant)
+		if p.skidT > 0 and p.onGround:
+			Spr.rotate(-p.face * .18)
+		elif p.run and p.onGround:
+			Spr.rotate(p.face * .07)
+		Spr.scale(p.face * sc * (1 + sq * .25) * turn, sc * (1 - sq * .3 + idle))
+		if rimp:
+			Spr.ci.draw_texture_rect_region(Spr.sil(tex), Rect2(-85, -156, 170, 160), Rect2(fr * 170, 0, 170, 160), Color(rim2.r, rim2.g, rim2.b, rim2.a * Spr.alpha))
+		else:
+			if tex == pai and (abs(p.vx) > 2.2 or not p.onGround):
+				_scarf(p)
+			Spr.ci.draw_texture_rect_region(tex, Rect2(-85, -156, 170, 160), Rect2(fr * 170, 0, 170, 160), Color(1, 1, 1, Spr.alpha))
+			if tex == pai and fr == 0:
+				_blink(p)
+		Spr.restore()
 	_armor(p, cx, by)
 	if not p.onGround and not p.vine and not p.ladder and p.airJumps > 0:
 		Spr.ring(cx, by + 7, 4, Color(.92, .88, .76, .55), 1.5)
+
+## ponta do cachecol esvoaçando para trás quando corre ou pula (atrás do corpo)
+func _scarf(p: Dictionary) -> void:
+	var sp: float = clamp(abs(p.vx) / 6.0, .4, 1.0)
+	var pts_top := PackedVector2Array()
+	var pts_bot := PackedVector2Array()
+	var n := 7
+	for i in n + 1:
+		var u := float(i) / n
+		var x: float = -18 - u * 46 * sp
+		var y: float = -88 + u * (14 - sp * 10) + sin(T * .45 - u * 4.0) * 7 * u
+		var wd: float = 8.0 - u * 2.0
+		pts_top.push_back(Vector2(x, y - wd * .5))
+		pts_bot.push_back(Vector2(x, y + wd * .5))
+	# listras verdes e creme, como o cachecol do Tomé
+	for i in n:
+		var c := Color(.33, .55, .2) if i % 2 == 0 else Color(.93, .86, .55)
+		var q := PackedVector2Array([pts_top[i], pts_top[i + 1], pts_bot[i + 1], pts_bot[i]])
+		Spr.ci.draw_colored_polygon(q, Color(c.r, c.g, c.b, Spr.alpha))
+	var outl := PackedVector2Array(pts_top)
+	for i in range(n, -1, -1):
+		outl.push_back(pts_bot[i])
+	outl.push_back(pts_top[0])
+	Spr.ci.draw_polyline(outl, Color(.12, .1, .05, Spr.alpha), 2.0, true)
+	# franjinha na ponta
+	var tip: Vector2 = (pts_top[n] + pts_bot[n]) / 2
+	for k in 3:
+		Spr.ci.draw_line(tip + Vector2(0, (k - 1) * 3), tip + Vector2(-6, (k - 1) * 3.5 + 1), Color(.93, .86, .55, Spr.alpha), 1.5)
+
+## contorno de luz: de dia vem do sol (de cima, atrás), à noite da lanterna (da frente)
+var rim_off := Vector2.ZERO
+func _rim(g: Game, p: Dictionary) -> Color:
+	if p.swim or p.dyingT > 0 or p.iframe > 40:
+		return Color(0, 0, 0, 0)
+	var dark: float = g.AMB.dark
+	if g.L.has("under") and p.y > g.L.under:
+		dark = 1.0
+	if dark > .3:
+		rim_off = Vector2(p.face * 1.6, -1.0)
+		return Color(1, .78, .45, .55)
+	rim_off = Vector2(-1.8, -1.6)
+	var tw: float = g.section_weights().get("tarde", 0.0)
+	return Color(1, .95, .78).lerp(Color(1, .72, .4), tw) * Color(1, 1, 1, .7)
+
+## piscadinha: de vez em quando as pálpebras descem sobre os olhos (só na pose parada)
+func _blink(p: Dictionary) -> void:
+	var t: int = (T + int(p.x)) % 220
+	var c: float = 0.0
+	if t < 8:
+		c = 1.0 - abs(t - 4) / 4.0
+	elif t > 30 and t < 36 and (T / 220) % 3 == 0:
+		c = 1.0 - abs(t - 33) / 3.0
+	if c <= 0:
+		return
+	var skin := Color(.96, .69, .53)
+	for e in [Vector2(5, -101), Vector2(21, -102)]:
+		Spr.ci.draw_rect(Rect2(e.x - 4.5, e.y - 5, 9, 9 * c + .5), skin)
+		Spr.ci.draw_line(Vector2(e.x - 4, e.y - 5 + 9 * c), Vector2(e.x + 4, e.y - 5 + 9 * c), Color(.35, .2, .15), 1.6)
 
 func _armor(p: Dictionary, cx: float, by: float) -> void:
 	if p.armor > 0:

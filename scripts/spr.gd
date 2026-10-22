@@ -13,6 +13,8 @@ var ci: CanvasItem
 var M := Transform2D.IDENTITY
 var stack: Array[Transform2D] = []
 var alpha := 1.0
+## quando tem alfa, as peças (A, frame, novo) saem em silhueta dessa cor (clarão branco do golpe)
+var sil_c := Color(0, 0, 0, 0)
 var astack: Array[float] = []
 var glow_tex: Texture2D
 var font: Font
@@ -147,7 +149,40 @@ func A(n: String, x: float, y: float, sc: float = 1.0, flip: bool = false, al: f
 	save()
 	translate(x, y)
 	scale(-sc if flip else sc, sc)
-	ci.draw_texture_rect_region(atlas_tex(r), Rect2(-r[4], -r[5], r[2], r[3]), Rect2(r[0], r[1], r[2], r[3]), Color(1, 1, 1, alpha * al))
+	if sil_c.a > 0:
+		ci.draw_texture_rect_region(sil(atlas_tex(r)), Rect2(-r[4], -r[5], r[2], r[3]), Rect2(r[0], r[1], r[2], r[3]), Color(sil_c.r, sil_c.g, sil_c.b, sil_c.a * alpha * al))
+	else:
+		ci.draw_texture_rect_region(atlas_tex(r), Rect2(-r[4], -r[5], r[2], r[3]), Rect2(r[0], r[1], r[2], r[3]), Color(1, 1, 1, alpha * al))
+	restore()
+
+## silhueta branca da textura (mesmo alfa) — para o contorno de luz (rim light) dos personagens
+var _sil := {}
+func sil(t: Texture2D) -> Texture2D:
+	var id := t.get_instance_id()
+	if not _sil.has(id):
+		var im: Image = t.get_image()
+		if im.is_compressed():
+			im.decompress()
+		im.convert(Image.FORMAT_RGBA8)
+		var w := im.get_width()
+		var h := im.get_height()
+		var data := im.get_data()
+		for i in range(0, data.size(), 4):
+			data[i] = 255
+			data[i + 1] = 255
+			data[i + 2] = 255
+		_sil[id] = ImageTexture.create_from_image(Image.create_from_data(w, h, false, Image.FORMAT_RGBA8, data))
+	return _sil[id]
+
+## a peça n em silhueta de uma cor só (para o rim light)
+func A_sil(n: String, x: float, y: float, sc: float, flip: bool, c: Color) -> void:
+	var r = AR.get(n)
+	if r == null:
+		return
+	save()
+	translate(x, y)
+	scale(-sc if flip else sc, sc)
+	ci.draw_texture_rect_region(sil(atlas_tex(r)), Rect2(-r[4], -r[5], r[2], r[3]), Rect2(r[0], r[1], r[2], r[3]), Color(c.r, c.g, c.b, c.a * alpha))
 	restore()
 
 ## Peça esticada num retângulo
@@ -208,7 +243,10 @@ func frame(t: Texture2D, fr: int, cw: float, ch: float, ax: float, ay: float, x:
 	save()
 	translate(x, y)
 	scale(-sc if flip else sc, sc)
-	ci.draw_texture_rect_region(t, Rect2(-ax, -ay, cw, ch), Rect2(fr * cw, 0, cw, ch), Color(1, 1, 1, alpha * al))
+	if sil_c.a > 0:
+		ci.draw_texture_rect_region(sil(t), Rect2(-ax, -ay, cw, ch), Rect2(fr * cw, 0, cw, ch), Color(sil_c.r, sil_c.g, sil_c.b, sil_c.a * alpha * al))
+	else:
+		ci.draw_texture_rect_region(t, Rect2(-ax, -ay, cw, ch), Rect2(fr * cw, 0, cw, ch), Color(1, 1, 1, alpha * al))
 	restore()
 
 # ---------- formas ----------

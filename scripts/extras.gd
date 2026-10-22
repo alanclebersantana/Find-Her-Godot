@@ -998,9 +998,17 @@ func _follow() -> void:
 	if DOG.i >= ti:
 		DOG.st = "sit" if DOG.t % 600 > 30 else "follow"
 		DOG.hy = 0.0
+		DOG.v = 0.0
+		DOG.wake = 0
 		return
+	# reage com um atraso de cachorro: percebe que o Tomé saiu, levanta e pega velocidade aos poucos
+	if DOG.st == "sit" and far < 220:
+		DOG.wake = DOG.get("wake", 0) + 1
+		if DOG.wake < 16:
+			return
 	DOG.st = "follow"
-	var budget := spd
+	DOG.v = lerpf(DOG.get("v", 0.0), spd, .1)
+	var budget: float = max(DOG.v, .8)
 	while budget > 0 and DOG.i < ti:
 		var nxt: Vector2 = TRAIL[DOG.i + 1]
 		var here := Vector2(DOG.x, DOG.y)

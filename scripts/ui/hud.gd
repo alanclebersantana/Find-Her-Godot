@@ -4,6 +4,11 @@ extends Control
 var game: Game
 var hint_alpha := 0.0
 var hint_txt := ""
+var last_coins := -1
+var coin_pop := 0.0
+var last_hp := -1
+var lost_heart := -1
+var lost_t := 0.0
 
 func _process(_d: float) -> void:
 	queue_redraw()
@@ -27,13 +32,37 @@ func __draw_raw() -> void:
 		return
 	var o := 40.0   # 5 corações: o resto do painel anda para a direita
 	_box(8, 8, 290 + o, 40)
+	# corações: batem de leve; com pouca vida o último pulsa forte; o que se perde dá um pulinho e some
+	if last_hp >= 0 and p.hp < last_hp:
+		lost_heart = p.hp
+		lost_t = 1.0
+	last_hp = p.hp
+	lost_t = max(0.0, lost_t - .04)
 	for i in Game.MAXHP:
-		Spr.A("hud_heart_full" if i < p.hp else "hud_heart_empty", 26 + i * 23, 28, .45)
+		var hs := .45
+		if i < p.hp:
+			var beat: float = pow(max(0.0, sin(game.T * (.16 if p.hp <= 2 else .07) - i * .5)), 8.0)
+			hs *= 1.0 + beat * (.22 if (p.hp <= 2 and i == p.hp - 1) else .06)
+		if i == lost_heart and lost_t > 0:
+			Spr.A("hud_heart_empty", 26 + i * 23, 28, .45)
+			Spr.A("hud_heart_full", 26 + i * 23, 28 - (1.0 - lost_t) * 14, .45 * (1.0 + (1.0 - lost_t) * .5), false, lost_t)
+			continue
+		Spr.A("hud_heart_full" if i < p.hp else "hud_heart_empty", 26 + i * 23, 28, hs)
 	if p.armor > 0:
 		Spr.A("hud_shield", 108 + o, 28, .48)
 	Spr.text("× %d" % max(0, game.lives), 122 + o, 34, 16, Color("#e6d4ac"))
-	Spr.A("pen_vermelho", 179 + o, 30, .62 * 1.1)
-	Spr.text("%d/100" % game.coin_life, 194 + o, 34, 14, Color("#f0cd72"))
+	# o contador de lápis "pula" a cada lápis pego
+	if last_coins >= 0 and game.coin_life != last_coins:
+		coin_pop = 1.0
+	last_coins = game.coin_life
+	coin_pop = max(0.0, coin_pop - .07)
+	var cp: float = 1.0 + sin(coin_pop * PI) * .35
+	Spr.A("pen_vermelho", 179 + o, 30, .62 * 1.1 * cp)
+	Spr.save()
+	Spr.translate(194 + o, 34)
+	Spr.scale(cp, cp)
+	Spr.text("%d/100" % game.coin_life, 0, 0, 14, Color("#f0cd72").lerp(Color(1, 1, .85), coin_pop))
+	Spr.restore()
 	var k := 0
 	for c in GameData.PEN_LIST:
 		Spr.rr(240 + o + k * 8, 14, 6, 26, 2, GameData.PEN_COL[c] if game.SPECGOT.has(c) else Color(.35, .31, .25, .6))
@@ -97,7 +126,7 @@ func __draw_raw() -> void:
 		var hw := 0.0
 		for ln in hl:
 			hw = max(hw, Spr.font_i.get_string_size(ln, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x)
-		var hy := 100.0 if (X and X.boss_active()) else 92.0
+		var hy: float = (100.0 if (X and X.boss_active()) else 92.0) - (1.0 - hint_alpha) * 10.0
 		Spr.rr(cx - hw / 2 - 14, hy, hw + 28, hl.size() * 21 + 12, 9, Color(.04, .03, .02, .55 * hint_alpha))
 		_wrapped(hint_txt, cx, hy + 18, mw, 15, Color(.93, .87, .74, hint_alpha), Spr.font_i)
 	# aviso (flash)
@@ -109,7 +138,7 @@ func __draw_raw() -> void:
 		for ln in lines:
 			bw = max(bw, Spr.font.get_string_size(ln, HORIZONTAL_ALIGNMENT_LEFT, -1, 17).x)
 		bw += 36
-		var by := size.y - 150 - bh
+		var by: float = size.y - 150 - bh + (1.0 - clamp(game.flash_t / 10.0, 0, 1)) * 10.0
 		if (game.RD and game.RD.riding) or (game.VH and game.VH.mode == "raft"):
 			# na cavalgada o aviso fica no alto, longe dos obstáculos do chão
 			by = 158

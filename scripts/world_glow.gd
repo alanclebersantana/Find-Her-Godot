@@ -70,6 +70,15 @@ func __draw_raw() -> void:
 		else:
 			var b := sin(T * .1 + c.x * .05) * 3
 			Spr.A(pen, c.x, c.y + b, .62)
+			# brilho em cruz passando de vez em quando
+			var gt: int = (T + int(c.ci) * 37) % 150
+			if gt < 12:
+				var gk: float = sin(gt / 12.0 * PI)
+				var gx: float = c.x + 3
+				var gy: float = c.y + b - 9
+				Spr.seg(gx - 8 * gk, gy, gx + 8 * gk, gy, Color(1, 1, .9, .9 * gk), 1.6)
+				Spr.seg(gx, gy - 8 * gk, gx, gy + 8 * gk, Color(1, 1, .9, .9 * gk), 1.6)
+				Spr.glow(gx, gy, 9, Color(1, 1, .8, .6 * gk))
 	for c in g.CLK:
 		if not c.got:
 			if c.ry > 0:
@@ -149,6 +158,18 @@ func __draw_raw() -> void:
 				Spr.glow(o.x, o.cap + 4, o.w * .7, Color(gc.r, gc.g, gc.b, .22 + .06 * sin(T * .05 + o.x)))
 				for d in [[-.3, -.15, .07], [.05, -.22, .08], [.3, -.1, .06]]:
 					Spr.circle(o.x + d[0] * o.w, o.cap + 8 + d[1] * o.w, d[2] * o.w * .6, Color(.85, 1, .95, .35))
+	# janelas acesas das casas da vila: a luz de dentro tremula como lamparina
+	for d in g.L.get("decor", []):
+		if not d.k in ["house1", "house2"] or d.x < x0 - 200 or d.x > x1 + 200:
+			continue
+		var r = Spr.AR["v_" + d.k]
+		var k: float = 210.0 * d.get("s", 1.0) / r[2]
+		var wins: Array = [[35, 107], [62, 107], [110, 100], [160, 100], [42, 167], [65, 167]] if d.k == "house1" else [[37, 107], [67, 107], [117, 102], [169, 102], [155, 55], [51, 165], [169, 170]]
+		for i in wins.size():
+			var wx: float = d.x + (wins[i][0] - r[2] / 2.0) * k
+			var wy: float = d.y + 6 - (r[3] - wins[i][1]) * k
+			var fl: float = .7 + .3 * sin(T * .13 + i * 2.1) * sin(T * .07 + i)
+			Spr.glow(wx, wy, 26, Color(1, .78, .35, .32 * fl))
 	for ff in g.L.get("fireflies", []):
 		if ff[1] < x0 or ff[0] > x1:
 			continue

@@ -470,8 +470,22 @@ static func dog(g: Game, T: int) -> void:
 	if not Spr.novo("pipoca", nf, 54, d.face < 0):
 		if d.st == "dig":
 			Spr.rotate(d.face * .25)
+		# parado: de vez em quando fareja o chão ou coça a orelha
+		var wag_k := .14
+		if d.st == "sit":
+			var ct: int = (int(d.t) + 140) % 520
+			wag_k = .32
+			if ct < 80:
+				var u: float = sin(clamp(ct / 80.0, 0, 1) * PI)
+				Spr.rotate(d.face * .16 * u)
+				if ct % 12 == 0 and ct > 10 and ct < 70:
+					g.PARTS.append({"x": x + d.face * 34, "y": y - 8, "vx": d.face * .4, "vy": -.3, "life": 14, "col": Color(.85, .8, .7, .7)})
+			elif ct > 300 and ct < 360:
+				Spr.rotate(-d.face * .08)
+				Spr.translate(0, -abs(sin(T * .9)) * 2.0)
+				wag_k = .05
 		Spr.scale(sc if d.face > 0 else -sc, sc * (1.0 + bob))
-		Spr.A(fr, 0, 0, 1.0)
+		_dog_frame(fr, sin(T * (.45 if d.st == "sit" else .3)) * wag_k)
 	Spr.restore()
 	if d.carry:
 		Spr.save()
@@ -486,6 +500,28 @@ static func dog(g: Game, T: int) -> void:
 		var p: Dictionary = g.player
 		if abs(p.x + p.w / 2 - d.x) < 70 and abs(p.y + p.h - d.y) < 50:
 			Spr.text("✦ SOLTAR", x, y - 70 + sin(T * .15) * 3, 16, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
+
+## o Pipoca desenhado em dois pedaços: o corpo e o rabo (que abana girando na base)
+static func _dog_frame(fr: String, wag: float) -> void:
+	var r = Spr.AR.get(fr)
+	if r == null:
+		return
+	var t: Texture2D = Spr.atlas_tex(r)
+	var c := Color(1, 1, 1, Spr.alpha)
+	var ax: float = r[4]
+	var ay: float = r[5]
+	const TX := 25.0     # o rabo fica à esquerda desta coluna...
+	const TY := 74.0     # ...e acima desta linha (no quadro virado para a direita)
+	# corpo: tudo à direita do rabo + a parte de baixo da coluna do rabo (a pata de trás)
+	Spr.ci.draw_texture_rect_region(t, Rect2(-ax + TX, -ay, r[2] - TX, r[3]), Rect2(r[0] + TX, r[1], r[2] - TX, r[3]), c)
+	Spr.ci.draw_texture_rect_region(t, Rect2(-ax, -ay + TY, TX, r[3] - TY), Rect2(r[0], r[1] + TY, TX, r[3] - TY), c)
+	# rabo girando em volta da base (onde encosta no corpo)
+	var piv := Vector2(-ax + TX, -ay + TY - 8)
+	Spr.save()
+	Spr.translate(piv.x, piv.y)
+	Spr.rotate(wag)
+	Spr.ci.draw_texture_rect_region(t, Rect2(-TX, -(TY - 8), TX + 1, TY), Rect2(r[0], r[1], TX + 1, TY), c)
+	Spr.restore()
 
 # ---------------------------------------------------------------- golpe, defesa e parede
 static func tool_fx(g: Game, T: int) -> void:

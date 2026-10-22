@@ -66,6 +66,14 @@ func _initialize() -> void:
 			for k in p[2].split("+"):
 				if k == "lit":
 					g.lantern_lit = true
+				elif k == "runr":
+					main._set_key("R", true)
+				elif k == "dogs":
+					g.X.DOG.st = "sit"
+					g.X.DOG.x = x - 60
+					g.X.DOG.y = y
+					g.X.DOG.t = 400
+					g.X.TRAIL = [Vector2(x - 60, y)]
 				elif k == "dark":
 					g.lantern_lit = false
 				elif k == "drain":

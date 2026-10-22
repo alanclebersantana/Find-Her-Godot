@@ -48,6 +48,13 @@ func __draw_raw() -> void:
 	col.a = .93
 	var wind: float = g.AMB.get("wind", 0.0)
 	var t := float(g.T)
+	# sombras de nuvens passando devagar pelo chão (só de dia, ao ar livre)
+	if not under and dark < .15 and song in ["manha", "tarde", "tema"] and g.AMB.rain < .2:
+		for i in 3:
+			var cw: float = 700 + hh(i * 1.0, 6) * 500
+			var span: float = vs.x + cw * 2
+			var cx: float = fposmod(hh(i * 1.0, 7) * span - t * (.35 + i * .12) - g.rcam * .9, span) - cw
+			draw_texture_rect(Spr.glow_tex, Rect2(cx, vs.y * .25 + hh(i * 1.0, 8) * vs.y * .3, cw, vs.y * .8), false, Color(0, .02, .08, .13))
 	# silhuetas só na borda de baixo: capim e samambaias, translúcidos e "desfocados" (várias cópias suaves)
 	if not under:
 		var step := 300.0

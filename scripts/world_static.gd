@@ -192,6 +192,134 @@ func ground(s: Dictionary) -> void:
 		_ground_end(s, t, tw, true)
 	if s.get("snow"):
 		_snow_top(x_a + (8.0 if ol and x_a <= s.x else 0.0), x_b - (8.0 if orr and x_b >= s.x + s.w else 0.0), s.y)
+	_ground_deco(s)
+
+## o "clima" do trecho em x (para escolher os enfeites do chão)
+func _theme_at(x: float) -> String:
+	var th := "manha"
+	for sc in game.L.get("sections", []):
+		if sc.x <= x:
+			th = "neve" if sc.get("bg", "") == "neve" else sc.get("song", "manha")
+	return th
+
+static func hh(x: float, k: int = 0) -> float:
+	var v := sin(x * 12.9898 + k * 78.233) * 43758.5453
+	return v - floor(v)
+
+## enfeites pequenos em cima do chão: flores, pedrinhas, folhas secas, poças, montinhos de neve
+## e raízes saindo da beira. Tudo fixo (sorteado pela posição), desenhado uma vez só.
+func _ground_deco(s: Dictionary) -> void:
+	if s.w < 120:
+		return
+	var y: float = s.y
+	var th := _theme_at(s.x + s.w / 2)
+	var under: bool = game.L.has("under") and y > game.L.under
+	var gx: float = s.x + 40 + fposmod(-(s.x + 40), 58.0)
+	while gx < s.x + s.w - 40:
+		if gx >= x0 and gx < x1:
+			var r := hh(gx, 11)
+			if r < .5 and not _covered(gx, y):
+				var kind := int(hh(gx, 12) * 100)
+				if s.get("snow") or th == "neve":
+					if kind < 45:
+						_snow_mound(gx, y)
+					elif kind < 70:
+						_pebbles(gx, y, Color(.55, .58, .64))
+				elif under or th in ["noite", "perseguicao", "tunel"]:
+					if kind < 55:
+						_pebbles(gx, y, Color(.36, .32, .3))
+					elif kind < 75:
+						_tiny_mush(gx, y)
+				elif th == "chuva":
+					if kind < 30:
+						_puddle(gx, y)
+					elif kind < 60:
+						_pebbles(gx, y, Color(.38, .4, .36))
+					elif kind < 75:
+						_leaves(gx, y, [Color(.36, .42, .2), Color(.3, .32, .18)])
+				elif th == "tarde":
+					if kind < 45:
+						_leaves(gx, y, [Color(.86, .5, .16), Color(.72, .32, .12), Color(.9, .7, .2)])
+					elif kind < 65:
+						_flower(gx, y, Color(1, .82, .3))
+					elif kind < 85:
+						_pebbles(gx, y, Color(.55, .48, .4))
+				else:
+					if kind < 50:
+						_flower(gx, y, [Color(1, .55, .7), Color(1, .95, .55), Color(.98, .98, 1), Color(.6, .7, 1)][int(hh(gx, 13) * 4)])
+					elif kind < 75:
+						_pebbles(gx, y, Color(.58, .55, .5))
+		gx += 58
+	# raízes saindo da beira do barranco (embaixo da grama)
+	if not s.get("snow") and not under:
+		var rx: float = s.x + 70 + fposmod(-(s.x + 70), 170.0)
+		while rx < s.x + s.w - 70:
+			if rx >= x0 and rx < x1 and hh(rx, 14) < .45:
+				_root_curl(rx, y + 14 + hh(rx, 15) * 10)
+			rx += 170
+
+## não enfeita onde tem outra coisa em cima do chão (parede, caixa fixa, pedra...)
+func _covered(x: float, y: float) -> bool:
+	for o in game.L.solids:
+		if o.t in ["ground", "dirt", "cliff", "hill"]:
+			continue
+		if x > o.x - 14 and x < o.x + o.get("w", 0) + 14 and y > o.y - 4 and y < o.y + o.get("h", 0) + 30:
+			return true
+	return false
+
+func _flower(x: float, y: float, c: Color) -> void:
+	for k in 2:
+		var fx: float = x + k * 9 - 4
+		var hgt: float = 10 + hh(fx, 16) * 8
+		var tip := Vector2(fx + (hh(fx, 17) - .5) * 5, y - hgt)
+		Spr.seg(fx, y, tip.x, tip.y, Color(.25, .45, .16), 1.6)
+		Spr.ellipse(fx + 3, y - hgt * .45, 3.5, 1.6, Color(.32, .55, .2), -.5)
+		for j in 5:
+			var a := TAU * j / 5.0 + hh(fx, 18)
+			Spr.circle(tip.x + cos(a) * 2.8, tip.y + sin(a) * 2.8, 2.3, c)
+		Spr.circle(tip.x, tip.y, 1.6, Color(.95, .7, .15) if c.b > .5 or c.g < .8 else Color(.85, .45, .1))
+
+func _pebbles(x: float, y: float, c: Color) -> void:
+	for k in 3:
+		var px: float = x + (k - 1) * 8 + hh(x + k, 19) * 4
+		var rw: float = 3 + hh(x + k, 20) * 3.5
+		Spr.ellipse(px, y - rw * .45 + 1, rw, rw * .65, c.darkened(.15 * k))
+		Spr.circle(px - rw * .3, y - rw * .7 + 1, rw * .25, Color(1, 1, 1, .35))
+
+func _leaves(x: float, y: float, cs: Array) -> void:
+	for k in 4:
+		var lx: float = x + (hh(x + k, 21) - .5) * 30
+		var c: Color = cs[int(hh(x + k, 22) * cs.size()) % cs.size()]
+		Spr.ellipse(lx, y - 1.5, 5, 2, c, (hh(x + k, 23) - .5) * .8)
+		Spr.seg(lx - 4, y - 1.5, lx + 4, y - 1.5, c.darkened(.35), 1)
+
+func _puddle(x: float, y: float) -> void:
+	var w: float = 18 + hh(x, 24) * 16
+	Spr.ellipse(x, y + 1, w, 3.5, Color(.16, .24, .26, .9))
+	Spr.ellipse(x - w * .2, y + .5, w * .45, 1.2, Color(.7, .85, .9, .55))
+
+func _snow_mound(x: float, y: float) -> void:
+	var w: float = 14 + hh(x, 25) * 14
+	Spr.ellipse(x, y - 3, w, 6 + w * .18, Color(.8, .87, .97))
+	Spr.ellipse(x - 2, y - 5, w * .85, 4.5 + w * .15, Color(.97, .98, 1))
+	Spr.ellipse(x - w * .35, y - 8 - w * .1, w * .25, 1.5, Color(1, 1, 1))
+
+func _tiny_mush(x: float, y: float) -> void:
+	for k in 2:
+		var mx: float = x + k * 8
+		var hgt: float = 6 + k * 3
+		Spr.rect(mx - 1, y - hgt, 2, hgt, Color(.85, .8, .7))
+		Spr.ellipse(mx, y - hgt, 4.5 - k, 2.5, Color(.45, .6, .9))
+		Spr.circle(mx - 1, y - hgt - 1, .8, Color(.85, .95, 1))
+
+func _root_curl(x: float, y: float) -> void:
+	var pts := PackedVector2Array()
+	var dir: float = 1.0 if hh(x, 26) > .5 else -1.0
+	for i in 9:
+		var u := i / 8.0
+		pts.push_back(Vector2(x + dir * (u * 16 + sin(u * 5.0) * 4), y + u * 14 + u * u * 6))
+	Spr.line(pts, Color(.24, .15, .08), 3.2)
+	Spr.line(pts, Color(.45, .3, .16), 1.4)
 
 ## a ponta: a textura do chão num polígono com a quina de cima arredondada, a parede um pouco
 ## irregular, sombra na borda e um tufo de grama caindo por cima

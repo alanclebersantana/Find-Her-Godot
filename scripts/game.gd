@@ -1032,6 +1032,8 @@ func step() -> void:
 	if player.onGround and not was_ground and not kd("L") and not kd("R") and not (player._g != null and player._g.get("wet")):
 		player.vx *= .35
 		player.run = 0
+	if player.onGround and not was_ground and prev_vy > 3:
+		Audio.step(ground_kind(), -10.0 if prev_vy > 8 else -14.0)
 	if player.onGround and not was_ground and prev_vy > 6:
 		player.squash = min(1, prev_vy / 14)
 		player.landT = 8
@@ -1055,6 +1057,23 @@ func step() -> void:
 			if not e.dead and hit(r, ebox(e)):
 				kill_enemy(e, "stomp")
 		player.slam = false
+	# cansaço: depois de correr bastante, quando para, fica ofegante um tempinho
+	if player.run and abs(player.vx) > 3 and player.onGround:
+		player.runT = player.get("runT", 0) + 1
+	elif abs(player.vx) < .4 and player.onGround:
+		if player.get("runT", 0) > 160:
+			player.pant = 150
+		player.runT = 0
+	if player.get("pant", 0) > 0:
+		player.pant -= 1
+		if abs(player.vx) > .4 or not player.onGround:
+			player.pant = 0
+	# passos: um som a cada pisada (nos quadros em que o pé encosta no chão)
+	if player.onGround and abs(player.vx) > .8 and not player.crouch and not player.swim:
+		var ph: int = int(player.anim * (1.6 if player.run else 1.2)) % 4
+		if ph != player.get("stepPh", -1) and (ph == 1 or ph == 3):
+			Audio.step(ground_kind(), -15.0 if player.run else -18.0)
+		player.stepPh = ph
 	if player.onGround and abs(player.vx) > 2.4 and T % (2 if player.run else 4) == 0:
 		PARTS.append({"x": player.x + player.w / 2 - player.face * 8, "y": player.y + player.h - 2, "vx": -player.face * 1.2, "vy": -.6, "life": 14, "col": Color(.59, .55, .43, .5)})
 	if player.blink > 0:
@@ -1230,7 +1249,7 @@ func _tick_fx() -> void:
 		f.sc *= 1.01
 	FXS = FXS.filter(func(f): return f.t < f.life)
 	for p in PARTS:
-		p.vy += .18
+		p.vy += -.015 if p.has("ember") else .18
 		p.x += p.vx
 		p.y += p.vy
 		p.life -= 1
@@ -1745,6 +1764,27 @@ func move_y(dy: float) -> void:
 					continue
 			player.y = s.y + s.h
 			player.vy = 0
+
+## que chão está debaixo do Tomé (para o som do passo)
+func ground_kind() -> String:
+	var s = player.get("_g")
+	if s == null or not (s is Dictionary):
+		return "dirt"
+	var t: String = str(s.get("t", ""))
+	if s.get("snow") or t in ["ice", "snowbank"]:
+		return "snow"
+	if t in ["plat", "branch", "trunk", "log", "cabin", "treehouse", "wall", "damwall", "beam", "shed", "cart", "root"]:
+		return "wood"
+	if t in ["stone", "cliff", "hill"]:
+		return "stone"
+	if L.has("under") and player.y > L.under:
+		return "dirt"
+	match AMB.get("song", "manha"):
+		"chuva":
+			return "mud"
+		"noite", "perseguicao", "tunel":
+			return "dirt"
+	return "grass"
 
 func _land(s: Dictionary) -> void:
 	player.launchT = 0
