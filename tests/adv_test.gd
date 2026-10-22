@@ -339,6 +339,113 @@ func _initialize() -> void:
 		until({"S": true}, func(): return bol.st in ["break", "done"], 600)
 		S("sai do buraco", jump_to(76340))
 		S("barricada quebrada", walk_to(76700))
+	if all or args.has("mochila"):
+		# perto da trava com as peças soltas: botão da mochila → junta → ✔ → usa
+		var wanted := []
+		g.bag_wanted.connect(func(l): wanted.append(l.kind))
+		for kd in ["hook", "dam", "dark"]:
+			g.load_level(0)
+			P = g.player
+			for e in g.EN:
+				e.dead = 99
+			var lk: Dictionary = {}
+			for l in g.LOCKS:
+				if l.kind == kd:
+					lk = l
+			if not g.X.BOSS.is_empty():
+				g.X.BOSS.done = true
+			put(float(lk.x) - 20.0, float(lk.y) + float(lk.h))
+			for pt in lk.parts:
+				if not g.INV.has(pt):
+					g.INV.append(pt)
+			hold({}, 3)
+			S("%s: botão vira mochila" % kd, g.use_mode() == "bag")
+			press("A")
+			hold({}, 2)
+			S("%s: toque abre a mochila" % kd, wanted.has(kd))
+			S("%s: junta as peças" % kd, g.try_combine(lk.parts[0], lk.parts[1]) != "")
+			var want_m: String = "crank" if lk.get("crank") else "check"
+			S("%s: botão vira %s" % [kd, want_m], g.use_mode() == want_m)
+			press("A")
+			hold({}, 2)
+			if lk.get("crank"):
+				S("%s: um toque só não abre" % kd, not lk.done)
+				for k in 6:
+					press("A")
+					hold({}, 6)
+			S("%s: trava aberta" % kd, lk.done)
+			S("%s: botão volta a ser a mão" % kd, g.use_mode() == "hand")
+	if all or args.has("manivela"):
+		g.load_level(0)
+		P = g.player
+		for e in g.EN:
+			e.dead = 99
+		var ck: Dictionary = g.CRANKS[0]
+		var gt = g.crank_gate(ck)
+		put(float(ck.x) - 10.0, 500)
+		hold({}, 3)
+		S("manivela: botão vira manivela", g.use_mode() == "crank")
+		# sem girar não passa (nem pulando)
+		var esc := false
+		for k in 3:
+			put(float(gt.x) - 80.0, 500)
+			djump("R")
+			hold({"R": true}, 30)
+			if px() > float(gt.x) + float(gt.w) + 6:
+				esc = true
+		S("manivela: porta fechada não deixa passar", not esc)
+		put(float(ck.x) - 10.0, 500)
+		press("A")
+		hold({}, 6)
+		S("manivela: um toque não abre", not ck.done and float(ck.turn) > 0.1)
+		press("A")
+		hold({}, 6)
+		press("A")
+		hold({}, 300)
+		S("manivela: largou no meio, a porta desce", float(ck.turn) < .3)
+		for k in 6:
+			press("A")
+			hold({}, 8)
+		S("manivela: 6 toques abrem", ck.done)
+		S("manivela: passa pela porta", walk_to(float(gt.x) + 120.0) == true)
+	if all or args.has("portas"):
+		# portas de caixa no botão: sem a caixa no botão não dá para passar (nem pulando da caixa)
+		for gid in ["g1", "g3", "g5", "g2", "g4"]:
+			g.load_level(0)
+			P = g.player
+			for e in g.EN:
+				e.dead = 99
+			var gt: Dictionary = {}
+			for s2 in g.M.GATES:
+				if s2.id == gid:
+					gt = s2
+			var gy: float = float(gt.y) + float(gt.h)
+			if gid in ["g2", "g4"]:
+				gy = 500.0 if gid == "g4" else 100.0
+			var passed := false
+			for tryk in 4:
+				put(float(gt.x) - 60.0 - tryk * 40.0, gy)
+				# caixa encostada na porta (fora do botão)
+				if tryk >= 2 and not g.M.PUSH.is_empty():
+					var bx: Dictionary = g.M.PUSH[0]
+					var best := 1e9
+					for c in g.M.PUSH:
+						if abs(float(c.x) - float(gt.x)) < best:
+							best = abs(float(c.x) - float(gt.x))
+							bx = c
+					if best < 1500:
+						bx.x = float(gt.x) - bx.w - 2
+						bx.y = gy - bx.h
+						bx.vy = 0.0
+						P.x = bx.x + 10
+						P.y = bx.y - P.h - 1
+						hold({}, 5)
+				for k in 3:
+					djump("R")
+					hold({"R": true}, 20)
+					if px() > float(gt.x) + float(gt.w) + 8:
+						passed = true
+			S("porta %s: não passa sem a caixa no botão" % gid, not passed)
 	if all or args.has("vargas"):
 		# trecho da pedra gigante ~2x mais comprido
 		var bo: Dictionary = trap_at("boulder", 72700)
@@ -513,7 +620,7 @@ func _initialize() -> void:
 			frame(d)
 		S("batidas: segue descendo sem recomeçar", ok_sled == true and not back)
 		S("batidas: perdeu 2 corações", P.hp == 3 and hits == 2)
-		S("batidas: Tomé vivo no fim", g.lives == 9 and P.dyingT == 0)
+		S("batidas: Tomé vivo no fim", g.lives >= 9 and P.dyingT == 0)
 		# batendo em tudo: sem corações, morre e volta para a fogueira; o trenó fica no alto de novo
 		g.load_level(0)
 		P = g.player

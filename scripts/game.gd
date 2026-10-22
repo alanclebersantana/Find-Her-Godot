@@ -4,6 +4,7 @@ class_name Game
 ## mochila, cadeados, pântano, noite), inimigos, itens e câmera. Tudo roda em passos fixos.
 
 signal clue_opened(id: int)
+signal bag_wanted(l: Dictionary)   # perto de uma trava com as peças soltas: abrir a mochila para juntar
 signal results_ready
 signal game_over
 signal level_won
@@ -54,6 +55,7 @@ var SPECS: Array = []
 var LILY: Array = []
 var MUD: Array = []
 var SWAMP: Array = []
+var CRANKS: Array = []   # portas de manivela: toques em USAR vão subindo a porta
 var BUSH: Array = []
 var VIL = null
 var DOOR: Dictionary
@@ -326,7 +328,17 @@ func _p1_load() -> void:
 	for l in L.get("locks", []):
 		var o: Dictionary = l.duplicate()
 		o.done = false
+		o.turn = 0.0
+		o.idle = 0
 		LOCKS.append(o)
+	CRANKS = []
+	for c in L.get("cranks", []):
+		var o2: Dictionary = c.duplicate()
+		o2.done = false
+		o2.turn = 0.0
+		o2.idle = 0
+		o2.ang = 0.0
+		CRANKS.append(o2)
 	CLUES = []
 	for c in L.get("clues", []):
 		var o: Dictionary = c.duplicate()
@@ -712,6 +724,8 @@ func use_available() -> bool:
 	if RD and RD.near_horse():
 		return true
 	if VH and (VH.near_sled() or VH.near_raft() or VH.near_plane()):
+		return true
+	if near_crank() != null:
 		return true
 	if EV and EV.near_lever() != null:
 		return true
@@ -2292,10 +2306,18 @@ func _p1_post(pcx: float, _pcy: float) -> void:
 		if X.boss_active():
 			flash("Agora não dá: o javali está em cima de você!", 120)
 		elif has_item(nearL.need):
-			use_lock(nearL)
+			if nearL.get("crank"):
+				crank_tap(nearL)
+			else:
+				use_lock(nearL)
+		elif parts_ready(nearL):
+			# as peças estão na mochila, mas soltas: abre a mochila para juntar
+			bag_wanted.emit(nearL)
 		else:
 			flash(lock_msg(nearL), 260)
 			Audio.vib(15)
+	# portas de manivela
+	_cranks_step(nearL)
 	var __qX := Time.get_ticks_usec()
 	X.post()
 	Spr.pt("p_X", __qX)
@@ -2416,6 +2438,93 @@ func _update_coal() -> void:
 			c.life = 0
 			burst(c.x, c.y, 10, Color(.25, .25, .27) if not c.get("k", "") in ["dirt", "acorn"] else Color("#7a5a3a"))
 	COAL = COAL.filter(func(c): return c.life > 0 and c.y < L.bottom)
+
+## todas as peças de uma trava estão na mochila (falta só juntar)
+func parts_ready(l) -> bool:
+	if l == null or l.done or has_item(l.need) or not l.has("parts"):
+		return false
+	for p in l.parts:
+		if not has_item(p):
+			return false
+	return true
+
+## o que o botão de usar faz agora: "bag" (abrir a mochila e juntar), "check" (usar o que juntou),
+## "crank" (girar a manivela) ou "hand" (usar normal)
+func use_mode() -> String:
+	if player.dyingT > 0 or player.get("dog") or (M and M.is_dog()) or (X and X.boss_active()):
+		return "hand"
+	var l = player.nearL
+	if l != null and not l.done:
+		if has_item(l.need):
+			return "crank" if l.get("crank") else "check"
+		if parts_ready(l):
+			return "bag"
+	if near_crank() != null:
+		return "crank"
+	return "hand"
+
+func near_crank():
+	if player.get("dog") or player.dyingT > 0:
+		return null
+	var pcx: float = player.x + player.w / 2
+	for c in CRANKS:
+		if not c.done and abs(pcx - float(c.x)) < 70 and abs(player.y + player.h - float(c.y)) < 40:
+			return c
+	return null
+
+## a porta (sólido) ligada a uma manivela
+func crank_gate(c: Dictionary):
+	var gid: String = c.get("gate", "")
+	for s in SOL:
+		if s.get("id", "") == gid:
+			return s
+	return null
+
+## um toque em USAR: a manivela dá uma volta e a porta sobe um pouco (6 voltas abrem de vez)
+func crank_tap(c: Dictionary) -> void:
+	if c.done:
+		return
+	c.turn = min(1.0, float(c.turn) + 1.0 / 6.0)
+	c.idle = 0
+	player.face = 1 if float(c.get("x", player.x)) >= player.x else -1
+	player.act = "crank"
+	player.actT = 14
+	Audio.play("climb", -2, .8 + c.turn * .4)
+	Audio.vib(25)
+	shake = max(shake, 1.5)
+	if c.turn >= .999:
+		if c.has("need"):
+			use_lock(c)
+		else:
+			c.done = true
+			Audio.play("door")
+			Audio.vib(80)
+			flash("A porta subiu! Pode passar.", 140)
+	elif c.turn < .2:
+		flash("Continue girando: toque mais vezes no botão da manivela!", 120)
+
+func _cranks_step(nearL) -> void:
+	var nc = near_crank()
+	if nc != null and keys.get("Ap", false):
+		keys.Ap = false
+		crank_tap(nc)
+	for c in CRANKS:
+		_crank_decay(c)
+		var gt = crank_gate(c)
+		if gt != null:
+			gt.open = 1.0 if c.done else float(c.turn) * .82
+	for l in LOCKS:
+		if l.get("crank"):
+			_crank_decay(l)
+
+## largou a manivela no meio: a porta vai descendo devagar
+func _crank_decay(c: Dictionary) -> void:
+	if c.done:
+		return
+	c.idle = int(c.idle) + 1
+	if int(c.idle) > 50 and float(c.turn) > 0.0:
+		c.turn = max(0.0, float(c.turn) - .004)
+	c.ang = float(c.get("ang", 0.0))
 
 func use_lock(l: Dictionary) -> void:
 	l.done = true
@@ -2954,7 +3063,7 @@ func save_checkpoint(k: int) -> void:
 	Save.save_run({"level": level_idx, "chk": k, "lives": lives, "inv": INV.duplicate(), "items": got_items, "locks": locks,
 		"clues": CLUEGOT.keys(), "specs": SPECGOT.keys(), "drawn": DRAWN.keys(), "coins": coins_got, "coin_life": coin_life,
 		"pen": STATS.pen, "lit": lantern_lit, "fuel": FUEL, "oil": OIL.filter(func(c): return c.got).map(func(c): return OIL.find(c)), "fires": CHK.filter(func(c): return c.on).map(func(c): return CHK.find(c)), "time": time_left, "x": X.save_data(), "m": M.save_data(), "tr": TR.save_data(),
-		"nt": NT.save_data(), "k": K.save_data(), "rd": RD.save_data(), "vh": VH.save_data(), "ev": EV.save_data(), "sl": SL.save_data(), "rested": RESTED.keys()})
+		"nt": NT.save_data(), "k": K.save_data(), "rd": RD.save_data(), "vh": VH.save_data(), "ev": EV.save_data(), "sl": SL.save_data(), "rested": RESTED.keys(), "cranks": CRANKS.map(func(c): return c.done)})
 
 func restore_run(d: Dictionary) -> void:
 	## Continua do ponto salvo: refaz a fase no estado da fogueira
@@ -3008,6 +3117,11 @@ func restore_run(d: Dictionary) -> void:
 	SL.restore(d.get("sl", {}))
 	for r in d.get("rested", []):
 		RESTED[int(r)] = 1
+	var ck: Array = d.get("cranks", [])
+	for i in min(ck.size(), CRANKS.size()):
+		if ck[i]:
+			CRANKS[i].done = true
+			CRANKS[i].turn = 1.0
 	var k: int = int(d.get("chk", -1))
 	if d.has("fires"):
 		for i in d.fires:

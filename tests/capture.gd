@@ -442,6 +442,10 @@ func tunel() -> void:
 	await jump_to(72200)
 	await walk_to(72240)
 	await crawl(72390)
+	await walk_to(72460)
+	for k in 6:
+		g.crank_tap(g.CRANKS[0])
+		await hold({}, 8)
 	await walk_to(72600)
 
 func cogumelo() -> void:

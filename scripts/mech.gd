@@ -367,6 +367,8 @@ func post() -> void:
 		pl.on = on
 		pl.d = move_toward(pl.d, 1.0 if on else 0.0, .2)
 	for gt in GATES:
+		if gt.get("crank"):
+			continue   # portas de manivela: quem mexe é a manivela (game.crank_tap)
 		var want := 0.0
 		for pl in PLATES:
 			if pl.gate == gt.id and pl.on:

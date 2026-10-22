@@ -955,7 +955,10 @@ func _initialize() -> void:
 	S("desce", climb_to("S", func(): return P.onGround and P.y > 400, 500))
 	S("combina engrenagem+manivela", g.try_combine("engrenagem", "manivela_q") != "")
 	S("comporta", walk_to(14790))
-	use()
+	S("botão vira manivela na comporta", g.use_mode() == "crank")
+	for k in 6:
+		use()
+		hold({}, 6)
 	S("escoa", until({}, func(): return g.SWAMP.filter(func(s): return s.get("id") == "canal")[0].y >= 639, 400))
 	S("passa a comporta", walk_to(14878))
 	S("pedra 1", jump_to(14970))
@@ -1204,6 +1207,11 @@ func _initialize() -> void:
 	S("fim das tábuas", jump_to(72200))
 	walk_to(72240)
 	S("viga 2 do túnel", crawl(72390))
+	S("chega na manivela", walk_to(72460))
+	for k in 6:
+		use()
+		hold({}, 6)
+	S("porta da manivela abriu", g.CRANKS[0].done)
 	S("túnel da pedra", walk_to(72850))
 	var bol: Dictionary = trap_at("boulder", 72700)
 	S("a pedra caiu", until({"R": true}, func(): return bol.st != "idle", 200))

@@ -823,9 +823,9 @@
   {
    "t": "pgate",
    "x": 3555,
-   "y": 240,
+   "y": -700,
    "w": 22,
-   "h": 260,
+   "h": 1200,
    "id": "g1"
   },
   {
@@ -1410,9 +1410,9 @@
   {
    "t": "pgate",
    "x": 2000,
-   "y": 240,
+   "y": -700,
    "w": 22,
-   "h": 260,
+   "h": 1200,
    "id": "g3"
   },
   {
@@ -1703,9 +1703,9 @@
   {
    "t": "pgate",
    "x": 11500,
-   "y": 240,
+   "y": -700,
    "w": 22,
-   "h": 260,
+   "h": 1200,
    "id": "g5"
   },
   {
@@ -2086,6 +2086,15 @@
    "y": 444,
    "w": 46,
    "h": 56
+  },
+  {
+   "t": "pgate",
+   "id": "cg1",
+   "x": 72530,
+   "y": 376,
+   "w": 22,
+   "h": 124,
+   "crank": 1
   }
  ],
  "swamp": [
@@ -2406,12 +2415,13 @@
     "manivela_q": "no galho alto em cima da rede de cipó"
    },
    "pre": "A comporta está travada.",
-   "place": "Vá até a comporta do canal e toque em ✦ USAR.",
-   "use": "Toque em ✦ USAR na comporta.",
+   "place": "Vá até a comporta do canal e gire a manivela (toques no botão de usar).",
+   "use": "Encaixe a manivela na comporta e gire: toque várias vezes no botão da manivela.",
    "kind": "dam",
    "water": "canal",
    "gate": "damgate",
-   "hint": "A comporta está travada. Falta a manivela — e ela está quebrada sem uma engrenagem."
+   "hint": "A comporta está travada. Falta a manivela — e ela está quebrada sem uma engrenagem.",
+   "crank": 1
   },
   {
    "x": 70720,
@@ -6370,6 +6380,11 @@
    "a": 78900,
    "b": 79020,
    "t": "A ponte de madeira caiu: pule de tábua em tábua."
+  },
+  {
+   "a": 72395,
+   "b": 72530,
+   "t": "Uma porta de manivela! Toque várias vezes no botão da manivela para subir a porta."
   }
  ],
  "pits": [
@@ -7757,5 +7772,12 @@
    76820,
    468
   ]
+ ],
+ "cranks": [
+  {
+   "x": 72468,
+   "y": 500,
+   "gate": "cg1"
+  }
  ]
 }

@@ -21,6 +21,10 @@ var dog_btn: TextureButton
 var tex_dog: Texture2D = preload("res://assets/ui/btn_dog.png")
 var bag_btn: TextureButton
 var tex_golpe: Texture2D = preload("res://assets/ui/btn_golpe.png")
+var tex_use: Texture2D = preload("res://assets/ui/btn_use.png")
+var tex_bagb: Texture2D = preload("res://assets/ui/btn_bag.png")
+var tex_check: Texture2D = load("res://assets/ui/btn_check.png") if ResourceLoader.exists("res://assets/ui/btn_check.png") else tex_use
+var tex_crank: Texture2D = load("res://assets/ui/btn_crank.png") if ResourceLoader.exists("res://assets/ui/btn_crank.png") else tex_use
 var tex_harpoon: Texture2D = preload("res://assets/ui/btn_harpoon.png")
 var hint_btn: TextureButton
 var tex_tome: Texture2D = preload("res://assets/ui/btn_tome.png")
@@ -53,6 +57,7 @@ func _ready() -> void:
 	game.name = "Game"
 	add_child(game)
 	game.clue_opened.connect(_on_clue)
+	game.bag_wanted.connect(func(l): open_bag(l))
 	game.results_ready.connect(_on_level_end)
 	game.game_over.connect(_on_over)
 	game.level_won.connect(_on_results)
@@ -263,6 +268,16 @@ func _process(_d: float) -> void:
 			var want: bool = top_buttons.visible and (game.use_available() or game.kd("A"))
 			tb.modulate.a = lerpf(tb.modulate.a, .85 if want else 0.0, .25)
 			tb.visible = tb.modulate.a > .03
+			# o desenho do botão muda: mochila (juntar as peças), ✔ (usar o que juntou) ou manivela
+			var um: String = game.use_mode() if game.running else "hand"
+			var ut: Texture2D = {"bag": tex_bagb, "check": tex_check, "crank": tex_crank}.get(um, tex_use)
+			if tb.texture_normal != ut:
+				var base: float = tb.get_meta("size") * {"P": .85, "M": 1.0, "G": 1.2}[Save.getv("opt", "btn_size", "M")]
+				tb.texture_normal = ut
+				tb.scale = Vector2.ONE * base / float(ut.get_width())
+			# brilha pulsando quando muda de função, para chamar atenção
+			var lum: float = 1.0 + (.25 + .25 * sin(Time.get_ticks_msec() * .008) if um != "hand" else 0.0)
+			tb.modulate = Color(lum, lum, lum * .9, tb.modulate.a)
 		elif tb.get_meta("k") == "G":
 			# na luta do Bagre-Rei a picareta vira arpão
 			var fish: bool = game.K and not game.K.FISH.is_empty() and game.K.FISH.active and not game.K.FISH.done
@@ -598,7 +613,7 @@ func _make_top_buttons() -> void:
 	bag_btn.ignore_texture_size = true
 	bag_btn.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 	bag_btn.size = Vector2(54, 54)
-	bag_btn.pressed.connect(open_bag)
+	bag_btn.pressed.connect(func(): open_bag())
 	hud_layer.add_child(bag_btn)
 	dog_btn = TextureButton.new()
 	dog_btn.texture_normal = load("res://assets/ui/btn_dog.png")
@@ -1125,13 +1140,18 @@ func _pause_menu() -> void:
 	panel.set_meta("ok", close_panel)
 
 # ---------- mochila ----------
-func open_bag() -> void:
+func open_bag(l = null) -> void:
 	if state != S.PLAY:
 		return
 	state = S.BAG
 	_clear_keys()
 	_show_hud(false)
 	bag_sel = ""
+	if l is Dictionary and l.has("parts") and game.has_item(l.parts[0]) and game.has_item(l.parts[1]):
+		# veio do botão da mochila na trava: a primeira peça já fica escolhida
+		bag_sel = l.parts[0]
+		_render_bag("Toque em " + game.item_name(l.parts[1]).to_lower() + " para juntar com " + game.item_name(l.parts[0]).to_lower() + ". Depois feche a mochila e toque em ✔.")
+		return
 	_render_bag("")
 
 func _render_bag(msg: String) -> void:
@@ -1228,6 +1248,9 @@ func _bag_tap(id: String) -> void:
 	if bag_sel != "" and bag_sel != id:
 		var r := game.try_combine(bag_sel, id)
 		bag_sel = ""
+		var nl = game.player.nearL
+		if r != "" and nl != null and not nl.done and game.has_item(nl.need):
+			r += " Feche a mochila e toque no botão " + ("da manivela" if nl.get("crank") else "✔") + " para usar."
 		_render_bag(r if r != "" else "Esses dois não combinam.")
 	else:
 		bag_sel = "" if bag_sel == id else id

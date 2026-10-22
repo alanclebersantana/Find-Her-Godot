@@ -359,10 +359,54 @@ func _locks(g: Game) -> void:
 			if l.done:
 				Spr.A("it_gancho", l.ring[0], l.ring[1] + 4, .32)
 		elif l.kind == "dam":
-			Spr.A("sw_gate_open" if l.done else "sw_gate", l.x + l.w + 25, 503, 1)
+			# a comporta sobe enquanto o Tomé gira a manivela
+			var lift: float = 0.0 if l.done else float(l.get("turn", 0.0)) * 70.0
+			Spr.A("sw_gate_open" if l.done else "sw_gate", l.x + l.w + 25, 503 - lift, 1)
+			if l.done or g.has_item(l.need) or float(l.get("turn", 0.0)) > 0.0:
+				crank_post(l.x - 10, 500, float(l.get("turn", 0.0)) * TAU * 3.0 if not l.done else 0.0, T)
 		if not l.done and g.player.nearL == l:
 			var b := sin(T * .15) * 3
-			Spr.text("✦ USAR" if g.has_item(l.need) else "?", l.x + l.w / 2, l.y - 14 + b, 20, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
+			var um: String = g.use_mode()
+			var lbl: String = {"bag": "JUNTE NA MOCHILA", "check": "✔ USAR", "crank": "↻ GIRE A MANIVELA"}.get(um, "✦ USAR" if g.has_item(l.need) else "?")
+			Spr.text(lbl, l.x + l.w / 2, l.y - 14 + b, 18, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
+	# portas de manivela
+	for c in g.CRANKS:
+		if float(c.x) < g.cam - 200 or float(c.x) > g.cam + g.W + 200:
+			continue
+		crank_post(float(c.x), float(c.y), float(c.turn) * TAU * 3.0, T)
+
+## poste com engrenagem e a manivela girando (ângulo a)
+static func crank_post(x: float, gy: float, a: float, T: int) -> void:
+	if Spr.has("p_crankpost") and Spr.has("p_crankarm"):
+		# poste de madeira com a engrenagem (pintado) e a manivela girando em volta do eixo
+		var rp: Array = Spr.AR["p_crankpost"]
+		var k: float = 72.0 / rp[3]
+		var pw: float = rp[2] * k
+		var left: float = x - pw * .52
+		var top: float = gy + 3 - rp[3] * k
+		Spr.PR("crankpost", left, top, pw, rp[3] * k)
+		# centro da engrenagem na pintura: (237, 275) de 455x696
+		var hub := Vector2(left + 237.0 / 455.0 * pw, top + 275.0 / 696.0 * rp[3] * k)
+		var ra: Array = Spr.AR["p_crankarm"]
+		var ka: float = 62.0 / ra[2]
+		Spr.save()
+		Spr.translate(hub.x, hub.y)
+		Spr.rotate(a)
+		Spr.PR("crankarm", -37.0 / 620.0 * ra[2] * ka, -225.0 / 354.0 * ra[3] * ka, ra[2] * ka, ra[3] * ka)
+		Spr.restore()
+		return
+	Spr.PR("stake", x - 6, gy - 70, 12, 72, Color(.85, .8, .75))
+	var hub := Vector2(x, gy - 56)
+	for k in 8:
+		var aa: float = a * .5 + k * TAU / 8.0
+		Spr.circle(hub.x + cos(aa) * 15, hub.y + sin(aa) * 15, 4, Color("#5e626a"))
+	Spr.circle(hub.x, hub.y, 15, Color("#6e727a"))
+	Spr.circle(hub.x, hub.y, 6, Color("#3a3c40"))
+	var tip := hub + Vector2(cos(a), sin(a)) * 22
+	Spr.seg(hub.x, hub.y, tip.x, tip.y, Color("#3a3c40"), 4)
+	Spr.rr(tip.x - 3, tip.y - 10, 6, 12, 3, Color("#8a5e34"))
+
+
 
 func _entrances(g: Game) -> void:
 	var p: Dictionary = g.player

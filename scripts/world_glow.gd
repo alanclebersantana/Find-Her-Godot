@@ -155,6 +155,16 @@ func __draw_raw() -> void:
 				Spr.ci.draw_arc(Vector2(rx, s.y + 2), rr, 0, TAU, 16, Color(.86, .92, .86, .5), 1.2)
 	_projectiles(g, T)
 	_extras(g, T)
+	# manivela: aviso e barrinha de quanto a porta já subiu (por cima do escuro da mina)
+	for c in g.CRANKS:
+		if not c.done and g.near_crank() == c:
+			Spr.text("↻ GIRE A MANIVELA", float(c.x), float(c.y) - 120 + sin(T * .15) * 3, 18, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
+			Spr.rr(float(c.x) - 30, float(c.y) - 104, 60, 8, 4, Color(0, 0, 0, .55))
+			Spr.rr(float(c.x) - 29, float(c.y) - 103, 58 * float(c.turn), 6, 3, Color("#ffd27a"))
+	for l in g.LOCKS:
+		if l.get("crank") and not l.done and g.player.nearL == l and g.has_item(l.need):
+			Spr.rr(float(l.x) - 10, float(l.y) - 40, 60, 8, 4, Color(0, 0, 0, .55))
+			Spr.rr(float(l.x) - 9, float(l.y) - 39, 58 * float(l.turn), 6, 3, Color("#ffd27a"))
 	# cogumelos gigantes brilham no escuro, e vaga-lumes mostram o caminho
 	if g.TR:
 		for o in g.TR.T:
