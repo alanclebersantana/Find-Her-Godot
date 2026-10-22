@@ -227,16 +227,19 @@ func swing_hits(hb: Dictionary) -> void:
 # ======================================================================
 #  URSO-PARDO-REI (fim da neve)
 #  anda até o Tomé, se ergue com um rugido e dá uma patada forte no chão à frente.
-#  Na terceira patada errada fica tonto: pular na cabeça dele ou bater com a picareta. 4 acertos.
+#  Três ataques (patada, investida, tremor); no terceiro erro fica tonto: pular na cabeça ou picareta. 3 acertos.
 #  Na clareira há blocos de gelo e galhos para subir e pular por cima dele.
 # ======================================================================
 func bear_box() -> Dictionary:
 	var b: Dictionary = BEAR
 	match b.st:
-		"rear", "slam":
+		"rear", "slam", "rear2", "quake", "shake":
 			return g.R(b.x - 60, b.gy - 180, 120, 180)
 		"dizzy":
 			return g.R(b.x - 70, b.gy - 120, 140, 120)
+		"charge", "scrape", "skid":
+			# investida de cabeça baixa: dá para pular por cima
+			return g.R(b.x - 90, b.gy - 84, 180, 84)
 		"down", "flee":
 			return g.R(-9999, -9999, 0, 0)
 	return g.R(b.x - 95, b.gy - 130, 190, 130)
@@ -248,6 +251,70 @@ func bear_paw() -> Rect2:
 	var c: float = b.x + b.dir * 215.0
 	return Rect2(min(a, c), b.gy - 80, abs(c - a), 80)
 
+## o urso machuca o Tomé: empurra para o MEIO da clareira (nunca para o canto) e dá 1,5 s de folga
+func _bear_dmg() -> void:
+	var b: Dictionary = BEAR
+	var p: Dictionary = g.player
+	if p.iframe > 0 or p.dyingT > 0:
+		return
+	var pcx: float = p.x + p.w / 2
+	var mid: float = (b.x0 + b.x1) * .5
+	g.hurt(1, pcx + (20.0 if pcx > mid else -20.0))
+	p.iframe = max(p.iframe, 90)
+	b.hitme = true
+
+## galho da clareira em que o Tomé está de pé (ou null)
+func _bear_branch():
+	var b: Dictionary = BEAR
+	var p: Dictionary = g.player
+	if not p.onGround:
+		return null
+	var pcx: float = p.x + p.w / 2
+	var feet: float = p.y + p.h
+	for s2 in g.SOL:
+		if str(s2.get("t", "")) == "branch" and s2.x > b.x0 - 50 and s2.x < b.x1 and abs(feet - s2.y) < 5 and pcx > s2.x - 4 and pcx < s2.x + s2.w + 4:
+			return s2
+	return null
+
+func _bear_attack() -> void:
+	var b: Dictionary = BEAR
+	b.t = 0
+	b.hitme = false
+	var k: int = int(b.get("atk", 0)) % 3
+	b.atk = int(b.get("atk", 0)) + 1
+	match k:
+		0:
+			b.st = "rear"
+			Audio.play("roar", -6)
+		1:
+			b.st = "scrape"
+			Audio.play("dj", -10)
+		2:
+			b.st = "rear2"
+			Audio.play("roar", -4)
+
+func _bear_missed() -> void:
+	var b: Dictionary = BEAR
+	b.t = 0
+	if b.hitme:
+		b.st = "back"
+		return
+	b.miss = b.get("miss", 0) + 1
+	if b.miss >= 3:
+		# o terceiro ataque errado cansa o urso: fica tonto
+		b.miss = 0
+		b.st = "dizzy"
+		Audio.play("dj", -6)
+		if not g.L.get("_bear_tip", false):
+			g.L["_bear_tip"] = true
+			g.flash_tut("Ele está tonto: pule na cabeça ou GOLPE!", "Três ataques errados e o urso ficou tonto! Pule na cabeça (o mergulho vale 2), ou acerte com a picareta (GOLPE)!", 200)
+	else:
+		b.st = "back"
+		g.note("Ele errou! (%d/3)" % b.miss)
+		if b.miss == 1 and not g.L.get("_bear_tip0", false):
+			g.L["_bear_tip0"] = true
+			g.flash_tut("Desvie dos ataques!", "Fuja dos ataques: patada (pata brilhando), investida (ele cava o chão — pule por cima) e tremor (pule a onda). Três erros e ele fica tonto.", 220)
+
 func _bear() -> void:
 	if BEAR.is_empty() or BEAR.done:
 		return
@@ -258,7 +325,16 @@ func _bear() -> void:
 	var gy: float = b.gy
 	if b.red > 0:
 		b.red -= 1
-	var lvl: int = b.maxhp - b.hp          # 0..3: fica mais rápido a cada acerto
+	var lvl: int = b.maxhp - b.hp          # fica mais rápido a cada rodada
+	var dx: float = pcx - b.x
+	# ondas de choque do tremor correndo pelo chão
+	var waves: Array = b.get("waves", [])
+	for w in waves:
+		w.x += w.d * (6.0 + lvl * .8)
+		w.t += 1
+		if p.dyingT == 0 and p.onGround and feet >= gy - 3 and abs(pcx - w.x) < 22:
+			_bear_dmg()
+	b.waves = waves.filter(func(w): return w.x > b.x0 - 20 and w.x < b.x1 + 20)
 	match b.st:
 		"wait":
 			if pcx > b.trig and pcx < b.x1 and feet <= gy + 4 and feet > gy - 300 and p.dyingT == 0:
@@ -267,30 +343,28 @@ func _bear() -> void:
 				b.t = 0
 				b.hp = b.maxhp
 				b.miss = 0
+				b.atk = 0
+				b.perch = 0
+				b.waves = []
 				b.x = b.x1 - 420.0
 				b.dir = -1
 				_gate("bearL", true, Rect2(b.x0 - 24, gy - 260, 24, 260))
 				_gate("bearR", true, Rect2(b.x1, gy - 260, 24, 260))
 				Audio.play("roar", -4)
 				g.start_cine("urso", (b.x0 + b.x1) / 2.0, gy - 140, 250,
-					[[150, 245, "TOMÉ", "Um urso enorme... e de coroa! Quando ele errar a patada, é a minha vez.", "tome"]],
+					[[150, 245, "TOMÉ", "Um urso enorme... e de coroa! Quando ele errar três vezes, é a minha vez.", "tome"]],
 					[60, 150, "URSO-PARDO-REI", "o guardião da neve"])
 			return
 		"walk":
 			b.t += 1
-			var dx: float = pcx - b.x
 			b.dir = 1 if dx > 0 else -1
-			var spd: float = 1.7 + lvl * .35
-			var nx: float = clamp(b.x + b.dir * spd, b.x0 + 100, b.x1 - 100)
-			# não atravessa os blocos de gelo: encosta, para e dá a volta
+			var spd: float = 1.6 + lvl * .4
+			var nx: float = clamp(b.x + b.dir * spd, b.x0 + 140, b.x1 - 140)
 			var blk = _bear_block(nx)
 			if blk != null:
-				# encostou no bloco: se o Tomé está perto, dá a patada por cima do gelo; se não, pula o bloco
 				g.burst(blk.x + blk.w / 2.0, blk.y + 20, 6, Color(.85, .95, 1))
 				if abs(dx) < 300:
-					b.st = "rear"
-					b.t = 0
-					Audio.play("roar", -6)
+					_bear_attack()
 				else:
 					b.st = "hop"
 					b.t = 0
@@ -299,67 +373,157 @@ func _bear() -> void:
 			else:
 				b.x = nx
 			b.anim += spd * .05
-			if abs(dx) < 200 and b.t > 30 and p.dyingT == 0:
-				b.st = "rear"
+			# o Tomé parado no galho: o urso vai sacudir a árvore
+			var br = _bear_branch()
+			b.perch = b.get("perch", 0) + 1 if br != null else 0
+			if b.perch > 70 and b.t > 30:
+				b.st = "tree"
 				b.t = 0
-				Audio.play("roar", -6)
-		"rear":
-			# se ergue: aviso para o jogador sair da frente
+				b.br = br
+				return
+			if abs(dx) < 230 and b.t > 30 and p.dyingT == 0:
+				# perto da parede: dá dois passos para trás e ruge antes de atacar (dá tempo de fugir)
+				var near_edge: bool = pcx < b.x0 + 200 or pcx > b.x1 - 200
+				if near_edge:
+					b.st = "backoff"
+					b.t = 0
+				else:
+					_bear_attack()
+		"backoff":
 			b.t += 1
-			if b.t > 46 - lvl * 5:
+			var away: float = -1.0 if dx > 0 else 1.0
+			if b.t < 24:
+				var bx3: float = clamp(b.x + away * 2.6, b.x0 + 140, b.x1 - 140)
+				if _bear_block(bx3) == null:
+					b.x = bx3
+				b.anim += .12
+			elif b.t == 24:
+				Audio.play("roar", -4)
+				g.shake = max(g.shake, 5)
+			elif b.t > 24 + 46 - lvl * 6:
+				_bear_attack()
+		"rear":
+			# patada: ergue a pata brilhando (aviso), depois desce na frente dele
+			b.t += 1
+			if b.t > 46 - lvl * 6:
 				b.st = "slam"
 				b.t = 0
-				var hit_tome := false
 				var paw := bear_paw()
 				if p.dyingT == 0 and pcx > paw.position.x - 12 and pcx < paw.end.x + 12 and feet > gy - 90:
-					hit_tome = true
-					g.hurt(1, b.x)
+					_bear_dmg()
 				g.shake = 14
 				Audio.play("stomp")
 				Audio.vib(80)
-				# a patada no bloco de gelo faz ele tremer e soltar lascas
 				for s2 in g.SOL:
 					if s2.get("ice") and s2.y < gy and s2.x < paw.end.x and s2.x + s2.w > paw.position.x:
 						s2.shk = 18
-						for i in 14:
-							g.PARTS.append({"x": s2.x + randf() * s2.w, "y": s2.y + randf() * 20, "vx": (randf() - .5) * 6, "vy": -2.0 - randf() * 4, "life": 30, "col": Color(.85, .95, 1, .95)})
 				g.burst(b.x + b.dir * 150, gy, 24, Color(.95, .97, 1))
 				g.fx("fx_dust", b.x + b.dir * 150, gy - 10, 20, .4, -.3)
-				b.missed = not hit_tome
 		"slam":
 			b.t += 1
 			if b.t > 22:
+				_bear_missed()
+		"scrape":
+			# investida: cava o chão com a pata (neve voando), de cabeça baixa
+			b.t += 1
+			b.dir = 1 if dx > 0 else -1
+			if b.t % 6 == 0:
+				g.PARTS.append({"x": b.x - b.dir * 60, "y": gy - 6, "vx": -b.dir * randf_range(2, 4), "vy": -randf_range(2, 4), "life": 24, "col": Color(.95, .97, 1, .95)})
+			if b.t > 50 - lvl * 6:
+				b.st = "charge"
 				b.t = 0
-				if b.missed:
-					b.miss = b.get("miss", 0) + 1
-				if b.missed and b.miss >= 3:
-					# a terceira patada errada cansa o urso: fica tonto
-					b.miss = 0
-					b.st = "dizzy"
-					Audio.play("dj", -6)
-					if not g.L.get("_bear_tip", false):
-						g.L["_bear_tip"] = true
-						g.flash_tut("Ele está tonto: pule na cabeça ou GOLPE!", "Três patadas erradas e o urso ficou tonto! Pule na cabeça dele ou acerte com a picareta (GOLPE)!", 200)
+				Audio.play("roar", -6)
+		"charge":
+			b.t += 1
+			var cs: float = 7.0 + lvl * .8
+			var nx2: float = b.x + b.dir * cs
+			b.anim += .3
+			if Game.hit(p, bear_box()) and p.dyingT == 0:
+				_bear_dmg()
+			if nx2 < b.x0 + 140 or nx2 > b.x1 - 140 or _bear_block(nx2) != null or b.t > 120:
+				b.st = "skid"
+				b.t = 0
+				g.shake = max(g.shake, 8)
+				g.burst(b.x + b.dir * 80, gy, 14, Color(.95, .97, 1))
+			else:
+				b.x = nx2
+				if b.t % 3 == 0:
+					g.PARTS.append({"x": b.x - b.dir * 70, "y": gy - 4, "vx": -b.dir * 2.0, "vy": -1.5, "life": 18, "col": Color(.97, .98, 1, .9)})
+		"skid":
+			b.t += 1
+			if b.t > 30:
+				_bear_missed()
+		"rear2":
+			# tremor: fica de pé com as duas patas no alto (brilhando) e bate no chão
+			b.t += 1
+			if b.t > 52 - lvl * 6:
+				b.st = "quake"
+				b.t = 0
+				g.shake = 18
+				Audio.play("stomp")
+				Audio.vib(100)
+				b.waves.append({"x": b.x - 70, "d": -1.0, "t": 0})
+				b.waves.append({"x": b.x + 70, "d": 1.0, "t": 0})
+				g.burst(b.x, gy, 30, Color(.95, .97, 1))
+		"quake":
+			b.t += 1
+			if b.t > 70:
+				_bear_missed()
+		"tree":
+			# vai até debaixo do galho onde o Tomé está
+			b.t += 1
+			var br2: Dictionary = b.br
+			var tx: float = clamp(br2.x + br2.w * .5, b.x0 + 140, b.x1 - 140)
+			b.dir = 1 if tx > b.x else -1
+			if abs(tx - b.x) > 6 and b.t < 160:
+				var bx4: float = b.x + b.dir * (2.4 + lvl * .4)
+				if _bear_block(bx4) == null:
+					b.x = bx4
 				else:
-					b.st = "back"
-					if b.missed:
-						g.note("Errou a patada! (%d/3)" % b.miss)
-						if b.miss == 1 and not g.L.get("_bear_tip0", false):
-							g.L["_bear_tip0"] = true
-							g.flash_tut("Desvie das patadas!", "Desvie das patadas: na terceira que ele errar, ele fica tonto. Suba no gelo e nos galhos para pular por cima dele!", 220)
+					b.t = 160
+				b.anim += .12
+			else:
+				b.st = "shake"
+				b.t = 0
+				Audio.play("roar", -4)
+		"shake":
+			# se ergue, agarra o tronco e sacode: o galho treme (aviso) e derruba quem ficar
+			b.t += 1
+			var br3: Dictionary = b.br
+			br3.trem = b.t
+			if b.t % 5 == 0:
+				g.PARTS.append({"x": br3.x + randf() * br3.w, "y": br3.y - 6, "vx": randf_range(-.5, .5), "vy": 1.0, "life": 30, "col": Color(.97, .98, 1, .95)})
+			if b.t == 50:
+				g.shake = max(g.shake, 10)
+				if _bear_branch() == br3:
+					# o galho sacode e o Tomé cai (atravessa o galho para baixo)
+					p.onGround = false
+					p.dropT = 20
+					p.y += 6
+					_bear_dmg()
+					p.vy = 1.0
+			if b.t > 75:
+				br3.trem = 0
+				b.perch = 0
+				b.st = "back"
+				b.t = 0
 		"dizzy":
 			b.t += 1
-			# pular na cabeça dele conta como acerto
-			if p.vy > 0 and p.dyingT == 0 and abs(pcx - b.x) < 70 and feet > gy - 128 and feet < gy - 96 and b.red == 0:
+			# pular na cabeça dele conta como acerto (o mergulho conta dois)
+			if p.vy > 0 and p.dyingT == 0 and abs(pcx - b.x) < 75 and feet > gy - 130 and feet < gy - 92 and b.red == 0:
+				var dive: bool = p.get("slam", false)
 				p.vy = -10.5
-				p.y = gy - 128 - p.h
+				p.y = gy - 130 - p.h
 				_bear_hit()
+				if dive and b.hp > 0:
+					b.st = "dizzy"
+					_bear_hit()
+					g.note("Mergulho! Acerto duplo!")
 				return
-			if b.t > 150 - lvl * 20:
+			if b.t > 160 - lvl * 20:
 				b.st = "back"
 				b.t = 0
 		"hop":
-			# pulo pesado por cima do bloco de gelo
 			b.t += 1
 			var u: float = min(1.0, b.t / 34.0)
 			b.x = lerpf(b.hx0, b.hx1, u)
@@ -375,9 +539,9 @@ func _bear() -> void:
 		"back":
 			# acorda e se afasta um pouco antes de voltar a andar
 			b.t += 1
-			var away: float = -1.0 if pcx > b.x else 1.0
-			b.dir = -int(away)
-			var bx2: float = clamp(b.x + away * 4.5, b.x0 + 100, b.x1 - 100)
+			var away2: float = -1.0 if pcx > b.x else 1.0
+			b.dir = -int(away2)
+			var bx2: float = clamp(b.x + away2 * 4.0, b.x0 + 140, b.x1 - 140)
 			if _bear_block(bx2) == null:
 				b.x = bx2
 			b.anim += .2
@@ -392,12 +556,12 @@ func _bear() -> void:
 			if b.t > 140:
 				b.done = true
 				b.active = false
-	# encostar no urso (sem ser em cima dele tonto) machuca
-	if b.st in ["walk", "rear"] and p.dyingT == 0 and Game.hit(p, bear_box()):
+	# encostar no urso andando machuca (por cima dele, quica)
+	if b.st in ["walk", "rear", "rear2", "backoff", "tree"] and p.dyingT == 0 and Game.hit(p, bear_box()):
 		if p.vy > 0 and feet < gy - 110:
 			p.vy = -8.0
 		else:
-			g.hurt(1, b.x)
+			_bear_dmg()
 
 ## bloco de gelo da clareira que o urso encostaria em x (ou null)
 func _bear_block(x: float):
@@ -405,7 +569,6 @@ func _bear_block(x: float):
 	for s2 in g.SOL:
 		if s2.get("ice") and s2.t == "stone" and s2.x < b.x1 and s2.x + s2.w > b.x0:
 			if x + 62 > s2.x and x - 62 < s2.x + s2.w:
-				# só bloqueia se estiver vindo de fora (não prende o urso que já está em cima)
 				if not (b.x + 62 > s2.x and b.x - 62 < s2.x + s2.w):
 					return s2
 	return null

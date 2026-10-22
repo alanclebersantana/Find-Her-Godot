@@ -247,6 +247,30 @@ func _initialize() -> void:
 		S("desceu de trenó", ok_sled)
 		S("velocidade cresce na descida (> 7)", top_spd > 7.0)
 		S("trenó sem batidas", P.hp == 5 and VH.tries == 0)
+	if all or args.has("urso"):
+		put(50150, 500)
+		S("Urso-Rei", bear_fight())
+		S("urso: Tomé vivo", g.lives >= 9)
+		# o galho não é esconderijo: parado nele, o urso sacode a árvore e derruba
+		g.load_level(0)
+		for e in g.EN:
+			e.dead = 99
+		P = g.player
+		put(50150, 500)
+		hold({}, 300)
+		var bb: Dictionary = g.K.BEAR
+		bb.x = 50900.0
+		bb.st = "walk"
+		put(50345, 310)
+		var shook := false
+		for i in 600:
+			frame()
+			if bb.st == "shake":
+				shook = true
+			if shook and bb.st == "back":
+				break
+		S("urso sacode o galho", shook)
+		S("Tomé caiu do galho", g.player.y + g.player.h > 400)
 	if all or args.has("cavalo"):
 		put(39380, 500)
 		for h in g.NT.HOLES:

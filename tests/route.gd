@@ -244,7 +244,7 @@ func hawk_fight():
 ## Urso-Rei: espera ele vir; quando se ergue, recua para fora da patada; tonto: picareta
 func bear_fight():
 	var b: Dictionary = g.K.BEAR
-	for it in 6000:
+	for it in 9000:
 		P = g.player
 		if not ok():
 			return "state"
@@ -254,29 +254,48 @@ func bear_fight():
 		var dx: float = px() - b.x
 		if it % 30 == 0 and OS.get_environment("BEARDBG") != "":
 			print("bear st=%s t=%d bx=%d px=%d hp=%d php=%d" % [b.st, b.t, int(b.x), int(px()), b.hp, P.hp])
+		var away := "R" if dx > 0 else "L"
+		var room_ok: bool = (px() < b.x1 - 120) if dx > 0 else (px() > b.x0 + 120)
+		# onda do tremor chegando: pula
+		var wave_near := false
+		for w in b.get("waves", []):
+			if abs(w.x - px()) < 70 and sign(px() - w.x) == w.d:
+				wave_near = true
+		if wave_near and P.onGround:
+			press("J")
+			frame({"J": true})
+			continue
 		match b.st:
 			"rear", "slam":
-				if abs(dx) < 245:
-					frame({"R" if dx > 0 else "L": true})
+				if abs(dx) < 245 and room_ok:
+					frame({away: true})
 				else:
 					frame()
+			"charge":
+				if abs(dx) < 150 and P.onGround and sign(dx) == b.dir:
+					djump(away)
+				else:
+					frame()
+			"scrape", "skid", "rear2", "quake":
+				frame()
 			"dizzy":
 				var side: float = -1.0 if dx < 0 else 1.0
 				var tx: float = b.x + side * 90
 				if abs(tx - px()) > 6:
 					var before: float = px()
 					frame({"R" if tx > px() else "L": true})
-					# o bloco de gelo no caminho: pula por cima dele (cai na cabeça do urso)
 					if abs(px() - before) < .2 and P.onGround:
 						jump_to(b.x)
 				else:
 					P.face = -int(side)
 					press("G")
 					hold({}, 26)
-			"walk":
-				# não deixa ficar encurralado na parede
-				if (px() < b.x0 + 120 and dx < 0) or (px() > b.x1 - 120 and dx > 0):
-					djump("R" if dx < 0 else "L")
+			"walk", "backoff", "back":
+				var mid: float = (b.x0 + b.x1) * .5
+				if abs(dx) < 260 and room_ok:
+					frame({away: true})
+				elif abs(px() - mid) > 200 and abs(dx) > 300:
+					frame({"R" if mid > px() else "L": true})
 				else:
 					frame()
 			_:

@@ -132,33 +132,83 @@ static func _bear(g: Game, K: Kings, T: int) -> void:
 	if not Spr.tex.has("urso"):
 		Spr.tex["urso"] = load("res://assets/sprites/urso.png")
 	var fr: int = int(b.anim * 2.0) % 2
+	var rot := 0.0
+	var dy := 0.0
+	var warn := false
 	match b.st:
-		"rear":
+		"rear", "rear2", "shake":
 			fr = 2
-		"slam":
+			warn = b.st != "shake"
+		"slam", "quake":
 			fr = 3
 		"dizzy":
 			fr = 4
-		"flee":
+		"scrape":
+			fr = int(T / 6) % 2
+			rot = .12
+			dy = 6
+			warn = true
+		"charge":
 			fr = int(b.anim * 2.0) % 2
-	var sc := 1.0
+			rot = .16
+			dy = 8
+		"skid":
+			fr = 0
+			rot = -.1
+		"backoff":
+			if b.t >= 24:
+				fr = 2
+				warn = true
 	var tint := Color(1, .55, .5) if b.red > 0 and (T / 3) % 2 == 0 else Color(1, 1, 1)
-	# aviso da patada: área no chão à frente dele pisca vermelha enquanto ele se ergue
+	var k: float = .35 + .25 * sin(T * .5)
+	# avisos no chão: patada (à frente), tremor (dos dois lados)
 	if b.st == "rear":
 		var paw: Rect2 = K.bear_paw()
-		var k: float = .35 + .25 * sin(T * .5)
 		Spr.ellipse(paw.position.x + paw.size.x / 2, b.gy + 1, paw.size.x / 2, 9, Color(1, .25, .15, k))
+	if b.st == "rear2":
+		Spr.ellipse(b.x, b.gy + 1, 300, 10, Color(1, .3, .15, k * .7))
+	if b.st == "scrape":
+		Spr.seg(b.x + b.dir * 100, b.gy - 2, b.x + b.dir * 420, b.gy - 2, Color(1, .3, .15, k), 5)
 	Spr.ellipse(b.x, b.gy + 2, 100, 12, Color(0, 0, 0, .28))
 	Spr.save()
-	Spr.translate(b.x, b.gy + 2 + b.get("hy", 0.0))
-	if b.st == "rear":
+	var sway: float = sin(T * .9) * 5.0 if b.st == "shake" else 0.0
+	Spr.translate(b.x + sway, b.gy + 2 + b.get("hy", 0.0) + dy)
+	if b.st in ["rear", "rear2"]:
 		Spr.translate(0, -sin(min(1.0, b.t / 20.0) * PI * .5) * 6)
-	Spr.scale(b.dir * sc, sc)
+	Spr.scale(b.dir, 1)
+	Spr.rotate(rot)
 	Spr.ci.draw_texture_rect_region(Spr.tex.urso, Rect2(-140, -228, 280, 230), Rect2(fr * 280, 0, 280, 230), Color(tint.r, tint.g, tint.b, Spr.alpha))
 	Spr.restore()
+	# pata(s) erguida(s) brilhando antes de bater
+	if b.st == "rear":
+		Spr.glow(b.x + b.dir * 62, b.gy - 176, 34 + 6 * k, Color(1, .45, .2, .55 + .3 * k))
+	if b.st == "rear2":
+		for sd in [-1.0, 1.0]:
+			Spr.glow(b.x + sd * 50, b.gy - 190, 32 + 6 * k, Color(1, .45, .2, .55 + .3 * k))
+	if b.st == "charge":
+		for i in 4:
+			var ly: float = b.gy - 30 - i * 22
+			Spr.seg(b.x - b.dir * (110 + i * 6), ly, b.x - b.dir * (170 + i * 10), ly, Color(1, 1, 1, .55), 3)
+	# ondas do tremor: uma onda de neve correndo pelo chão
+	for w in b.get("waves", []):
+		var wx: float = w.x
+		Spr.ellipse(wx, b.gy - 6, 26, 18, Color(.98, .99, 1, .95))
+		Spr.ellipse(wx - w.d * 18, b.gy - 3, 18, 10, Color(.85, .92, 1, .9))
+		Spr.ring(wx, b.gy - 8, 22, Color(1, .4, .2, .5), 2, PI, TAU)
+		if T % 3 == 0:
+			g.PARTS.append({"x": wx, "y": b.gy - 18, "vx": w.d * 1.0, "vy": -2.0, "life": 16, "col": Color(.97, .98, 1, .9)})
+	# o galho tremendo antes do urso derrubar quem está nele
+	var br = b.get("br")
+	if b.st == "shake" and br != null:
+		var tr: float = sin(T * 1.3) * 3.0
+		for i in 3:
+			var lx: float = br.x + br.w * (.2 + i * .3)
+			Spr.seg(lx + tr, br.y - 10, lx - tr, br.y - 20, Color(1, 1, 1, .8), 2)
+		if (T / 6) % 2 == 0:
+			Spr.text("!", br.x + br.w * .5, br.y - 40, 26, Color("#ff6a4a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 5)
 	if b.st == "dizzy":
 		for i in 3:
 			var a := T * .12 + TAU * i / 3.0
 			Spr.text("★", b.x + cos(a) * 34, b.gy - 150 + sin(a) * 8, 16, Color("#ffe27a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3)
-	if b.st == "rear" and (T / 6) % 2 == 0:
+	if warn and (T / 6) % 2 == 0:
 		Spr.text("!", b.x, b.gy - 240, 34, Color("#ff6a4a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 5)
