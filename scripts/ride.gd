@@ -161,8 +161,14 @@ func step() -> void:
 		endT += 1
 		spd = 0.0
 		if endT == 20 and g.X.DOG.get("st", "") == "ride":
+			# o Pipoca veio correndo pela trilha e já está esperando perto da fogueira
+			var fx: float = hx - 80
+			for c in g.CHK:
+				if float(c.x) > hx - 200 and float(c.x) < hx + 700:
+					fx = float(c.x) - 50
+					break
 			g.X.DOG.st = "follow"
-			g.X.DOG.x = hx - 80
+			g.X.DOG.x = fx
 			g.X.DOG.y = 500.0
 			g.X._resync()
 		if endT == 110:

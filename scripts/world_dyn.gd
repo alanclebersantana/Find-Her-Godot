@@ -1002,6 +1002,10 @@ func _player(g: Game) -> void:
 		if g.NT and g.NT.helmet and p.swim and not p.get("dog") and p.dyingT == 0 and not (p.iframe > 0 and (T / 4) % 2 == 0):
 			var hx: float = p.x + p.w / 2 + p.face * 3
 			var hb: float = p.y + p.h - 34
+			if p.crouch:
+				# deitado (rastejando no fundo): a cabeça fica na frente, perto do chão
+				hx = p.x + p.w / 2 + p.face * 20
+				hb = p.y + p.h - 2
 			WorldNature.prop("capacete", hx, hb, 46, p.face < 0)
 		WorldExtras.tool_fx(g, T)
 	Spr.alpha = a0

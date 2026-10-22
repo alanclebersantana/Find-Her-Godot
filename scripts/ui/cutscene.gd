@@ -446,4 +446,3 @@ func _s_post_card(W: float, H: float, k: float) -> void:
 	var a: float = clamp(k * 3, 0, 1)
 	Spr.text("EPISÓDIO 2", W / 2, H * .36, 22, Color(.8, .72, .6, a), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_title)
 	Spr.text("AS PROFUNDEZAS DA MINA", W / 2, H * .36 + 54, 40, Color(.95, .82, .55, a), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_title, 6)
-	Spr.text("em breve", W / 2, H * .36 + 96, 18, Color(.8, .75, .65, a * .8), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_i)

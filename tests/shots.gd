@@ -229,6 +229,8 @@ func _initialize() -> void:
 					g.VH._sled_place(float(k.substr(5)), 6.0)
 					g.veh_t = 200
 					g.set_cam(g.VH.hx - g.W * .26, g.VH.hy * .6 + g.VH.sled_y(g.VH.su + 300.0) * .4 - g.H * .56)
+				elif k == "helmet":
+					g.NT.helmet = true
 				elif k == "unlock":
 					for l in g.LOCKS:
 						if not l.done:

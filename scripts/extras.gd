@@ -189,6 +189,9 @@ func near_surface() -> bool:
 ## física de nado (chamada no lugar da corrida/pulo normais)
 func swim() -> void:
 	var p: Dictionary = g.player
+	# nadando, o Tomé não fica deitado (agachado no fundo e soltou do chão: levanta)
+	if p.crouch and not p.onGround:
+		g.stand_up()
 	p.puff = false
 	p.slam = false
 	p.run = 0
