@@ -638,6 +638,14 @@ func _enemy(e: Dictionary) -> void:
 	Spr.restore()
 
 # ---------- cavalo e trilha da cavalgada ----------
+const RS := .58   # escala das folhas da cavalgada (quadros 260x250, chão em 244)
+
+static func _rtex(n: String) -> Texture2D:
+	if not Spr.tex.has(n):
+		var pth := "res://assets/sprites/%s.png" % n
+		Spr.tex[n] = load(pth) if ResourceLoader.exists(pth) else null
+	return Spr.tex[n]
+
 func _ride_world(g: Game) -> void:
 	var RD: Ride = g.RD
 	if RD == null or RD.H.is_empty():
@@ -645,91 +653,113 @@ func _ride_world(g: Game) -> void:
 	var x0: float = g.cam - 160
 	var x1: float = g.cam + g.W + 160
 	for o in RD.OBS:
-		if o.x > x1 or o.x + 140 < x0:
+		if o.x > x1 or o.x + 160 < x0:
 			continue
+		# marca de cascos na neve: o melhor ponto para saltar
+		var cx: float = Ride.obs_center(o)
+		if cx > 0 and not o.hit and (RD.riding or RD.H.st == "trapped"):
+			var tx: float = RD.takeoff_x(o)
+			var pa: float = .45 + .25 * sin(T * .12 + o.x)
+			Spr.glow(tx, 497, 22, Color(.75, .9, 1, .25 * pa))
+			for k in 2:
+				var hxk: float = tx - 7 + k * 14
+				Spr.ellipse(hxk, 498, 5, 2.5, Color(.35, .45, .6, .55 + pa * .3))
+				Spr.ring(hxk, 497.5, 4, Color(.3, .38, .5, .6), 1.2, PI, TAU)
 		match o.k:
 			"log":
-				WorldNature.prop("tora_neve", o.x + 31, 503, 40)
+				WorldVehicles._hlog(o.x + 2, o.x + 62, 474, 26)
+				Spr.P("logend0", o.x + 62, 501, 26)
+				Spr.ellipse(o.x + 32, 474, 30, 5, Color(.97, .98, 1))
 			"rock":
-				WorldNature.prop("pedra_neve", o.x + 27, 504, 60)
+				Spr.P("rock0", o.x + 30, 504, 58)
+				Spr.ellipse(o.x + 28, 466, 18, 5, Color(.97, .98, 1))
+			"fence":
+				# cerquinha de madeira: dois mourões e duas travessas, neve em cima
+				for px2 in [o.x + 14.0, o.x + 46.0]:
+					Spr.PR("stake", px2 - 6, 456, 12, 46, Color(.85, .8, .75))
+				WorldVehicles._hlog(o.x + 4, o.x + 58, 466, 8)
+				WorldVehicles._hlog(o.x + 4, o.x + 58, 482, 8)
+				Spr.ellipse(o.x + 14, 457, 7, 3, Color(.97, .98, 1))
+				Spr.ellipse(o.x + 46, 457, 7, 3, Color(.97, .98, 1))
 			"gap":
-				# riacho gelado: água escura correndo, placas de gelo quebradas e margens de neve
+				# riacho gelado: água escura correndo, placas de gelo e margens de neve com pedras
 				var gw: float = o.w
 				Spr.vgrad(o.x, 470, gw, 30, Color("#5f9cc4"), Color("#24506e"))
 				Spr.vgrad(o.x, 500, gw, 160, Color("#163a52"), Color("#04090f"))
 				Spr.rect(o.x, 470, gw, 3, Color(.85, .95, 1, .8))
-				for k in 3:
-					var wx: float = o.x + fposmod(T * 1.4 + k * 41.0, gw - 20) + 4
-					Spr.seg(wx, 482 + k * 6, wx + 14, 482 + k * 6, Color(.6, .8, .95, .5), 1.5)
+				for k in 4:
+					var wx: float = o.x + fposmod(T * 1.4 + k * 31.0, gw - 20) + 4
+					Spr.line(PackedVector2Array([Vector2(wx, 482 + k * 5), Vector2(wx + 7, 480 + k * 5), Vector2(wx + 14, 482 + k * 5)]), Color(.6, .8, .95, .5), 1.5)
 				for k in 2:
 					var fx: float = o.x + 18 + k * (gw - 56)
 					var bob: float = sin(T * .08 + k * 2.0) * 1.5
 					Spr.poly(PackedVector2Array([Vector2(fx, 476 + bob), Vector2(fx + 22, 473 + bob), Vector2(fx + 28, 479 + bob), Vector2(fx + 4, 482 + bob)]), Color(.85, .94, 1, .95))
-				# bordas de gelo rachado e neve das margens
-				Spr.poly(PackedVector2Array([Vector2(o.x - 14, 468), Vector2(o.x + 10, 470), Vector2(o.x + 4, 480), Vector2(o.x - 14, 484)]), Color(.8, .92, 1))
-				Spr.poly(PackedVector2Array([Vector2(o.x + gw + 14, 468), Vector2(o.x + gw - 10, 470), Vector2(o.x + gw - 4, 480), Vector2(o.x + gw + 14, 484)]), Color(.8, .92, 1))
-				Spr.rr(o.x - 20, 462, 30, 12, 6, Color(.97, .98, 1))
-				Spr.rr(o.x + gw - 10, 462, 30, 12, 6, Color(.97, .98, 1))
+				for sd in [0, 1]:
+					var ex: float = o.x if sd == 0 else o.x + gw
+					var dr: float = 1.0 if sd == 0 else -1.0
+					Spr.poly(PackedVector2Array([Vector2(ex - dr * 14, 466), Vector2(ex + dr * 10, 468), Vector2(ex + dr * 6, 482), Vector2(ex - dr * 14, 488)]), Color(.8, .92, 1))
+					Spr.P("peb%d" % sd, ex + dr * 4, 492, 18, sd == 1, 0.0, Color(.8, .85, .95))
+					Spr.ellipse(ex, 465, 18, 6, Color(.97, .98, 1))
 			"branch":
-				# galho baixo de uma árvore (o tronco fica do lado de lá; o galho aponta para o cavalo)
-				var bw: float = 190.0 * 220.0 / 175.0
-				WorldNature.prop("galho_neve", o.x - 60 + bw / 2, 500 + 190.0 * .06, 190, true)
+				# árvore com neve do lado de lá e um galho baixo cheio de neve por cima da trilha
+				WorldNature.prop("arvore_neve", o.x + 130, 504, 300)
+				WorldNature.prop("galho_neve", o.x + 73, 504, 130, true)
 			"rope":
-				Spr.rect(o.x - 8, 360, 10, 140, Color("#5a3d22"))
-				Spr.rect(o.x + 84, 360, 10, 140, Color("#5a3d22"))
-				Spr.seg(o.x - 4, 380, o.x + 88, 384, Color("#c9a26a"), 4)
+				for px3 in [o.x - 4.0, o.x + 88.0]:
+					Spr.PR("stake", px3 - 6, 360, 12, 142, Color(.85, .8, .75))
+				Spr.seg(o.x - 4, 380, o.x + 88, 384, Color("#7a5a32"), 4)
+				Spr.seg(o.x - 4, 380, o.x + 88, 384, Color("#d4ae74"), 2)
 				for k in 4:
-					Spr.poly(PackedVector2Array([Vector2(o.x + 8 + k * 20, 384), Vector2(o.x + 14 + k * 20, 398), Vector2(o.x + 20 + k * 20, 384)]), [Color("#e0463a"), Color("#f0c040"), Color("#3a8ad0"), Color("#5ab04a")][k])
+					Spr.poly(PackedVector2Array([Vector2(o.x + 8 + k * 20, 383), Vector2(o.x + 14 + k * 20, 395), Vector2(o.x + 20 + k * 20, 383)]), [Color("#e0463a"), Color("#f0c040"), Color("#3a8ad0"), Color("#5ab04a")][k])
 	var H: Dictionary = RD.H
 	if RD.riding:
 		return
+	var ft := _rtex("horse_free")
 	match H.st:
 		"trapped", "free":
-			var rear: float = 0.0
-			if H.st == "free" and H.t > 90 and H.t < 130:
-				rear = sin((H.t - 90) / 40.0 * PI) * .35
-			Spr.save()
-			Spr.translate(H.x, H.y)
-			Spr.rotate(-rear)
-			Spr.scale(-1, 1)
-			WorldNature.horse(0, 0, T * .01, 0.0, H.st, T)
-			Spr.restore()
+			var fr := 1
+			if H.st == "trapped":
+				# preso: fica de cabeça baixa e de vez em quando empina puxando o arame
+				fr = 0 if (T % 220) < 50 else 1
+				Spr.text("!", H.x - 20, H.y - 150 + sin(T * .2) * 3, 26, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
+			else:
+				fr = 0 if (H.t > 90 and H.t < 130) else 2
+			Spr.ellipse(H.x, H.y + 2, 60, 7, Color(0, 0, 0, .22))
+			if ft:
+				Spr.frame(ft, fr, 260, 250, 130, 244, H.x, H.y + 3, RS, true)
 		"gone":
-			Spr.save()
-			Spr.translate(H.hx, 500)
-			Spr.scale(-1, 1)
-			WorldNature.horse(0, 0, T * .045, 1.0, "gone", T)
-			Spr.restore()
+			Spr.ellipse(H.hx, 502, 60, 7, Color(0, 0, 0, .22))
+			if ft:
+				Spr.frame(ft, 3, 260, 250, 130, 244, H.hx, 503, RS, true)
 
 func _rider(g: Game) -> void:
 	var RD: Ride = g.RD
 	var p: Dictionary = g.player
 	if p.iframe > 0 and (T / 4) % 2 == 0:
 		Spr.alpha = .55
-	var g0: float = RD.gallop
-	var run: float = clamp(RD.spd / 5.0, .2, 1.0)
-	var hst: String = "jump" if RD.hy < 497.0 else "ride"
-	var seat: float = WorldNature.horse_seat(WorldNature.horse_frame(g0, run, hst))
-	# o Tomé sentado na sela: as pernas ficam atrás do corpo do cavalo (desenhado depois)
-	var sx: float = RD.hx - 6
-	var sy: float = RD.hy + seat + 26
+	var gt := _rtex("ride_gallop")
+	var jt := _rtex("ride_jump")
+	Spr.ellipse(RD.hx, 502, 62 * (1.0 - clamp((500.0 - RD.hy) / 160.0, 0, .6)), 7, Color(0, 0, 0, .22))
 	Spr.save()
-	Spr.translate(sx, sy)
-	if RD.duck:
-		Spr.translate(16, 12)
-		Spr.rotate(.6)
-	elif RD.stumble > 0:
-		Spr.rotate(sin(T * .8) * .15)
-	Spr.frame(Spr.tex.pai, 0, 170, 160, 85, 156, 0, 0, .46, false)
+	Spr.translate(RD.hx, RD.hy + 3)
+	if RD.stumble > 0:
+		Spr.rotate(sin(T * .6) * .06)
+	if RD.hy < 497.0 and jt:
+		var jf: int = 0 if RD.vy < -3.0 else (1 if RD.vy < 3.0 else 2)
+		Spr.frame(jt, jf, 260, 250, 130, 244, 0, 0, RS)
+	elif RD.duck and jt:
+		# abaixado: o cavalo baixa o corpo e o Tomé deita sobre o pescoço
+		Spr.scale(1.04, .86)
+		Spr.frame(jt, 3, 260, 250, 130, 244, 0, 0, RS)
+	elif gt:
+		var gf: int = int(RD.gallop) % 8
+		if RD.hy < 497.0:
+			gf = 3
+		if RD.duck:
+			Spr.translate(0, 10)
+			Spr.scale(1, .9)
+		Spr.frame(gt, gf, 260, 250, 130, 244, 0, 0, RS)
 	Spr.restore()
-	if g.X.DOG.get("st", "") == "ride":
-		Spr.save()
-		Spr.translate(RD.hx + 30, RD.hy + seat + 8)
-		if not Spr.novo("pipoca", 6, 30):
-			Spr.scale(.3, .3)
-			Spr.A("dog0", 0, 0, 1)
-		Spr.restore()
-	WorldNature.horse(RD.hx, RD.hy, g0, run, hst, T)
 	Spr.alpha = 1.0
 
 # ---------- alavancas, contrapesos e portão de ferro da mina ----------

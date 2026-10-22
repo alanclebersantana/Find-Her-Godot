@@ -271,9 +271,9 @@ func _dirt_fill(xa: float, xb: float, ya: float, yb: float, ox: float, k0: float
 func _cave_border(c: Dictionary, ice: bool) -> void:
 	var rock: Color = Color("#2a1a0e") if not ice else Color("#1d2c40")
 	var rock2: Color = Color("#3a2616") if not ice else Color("#2c4060")
-	# teto: dentes irregulares descendo
+	# teto: dentes irregulares descendo (nos lagos não: ali o "teto" é a superfície da água)
 	var x: float = c.x
-	while x < c.x + c.w:
+	while x < c.x + c.w and not c.get("wet"):
 		var w: float = 22 + hh(x, 51) * 30
 		if x + w > x0 - 4 and x < x1 + 4:
 			var d: float = 6 + hh(x, 52) * 16

@@ -234,6 +234,21 @@ func _initialize() -> void:
 			frame({"J": true} if g.VH.vy < 0 else {})
 		S("desceu de trenó", ok_sled)
 		S("trenó sem batidas", P.hp == 5)
+	if all or args.has("cavalo"):
+		put(39380, 500)
+		for h in g.NT.HOLES:
+			h.filled = true
+		S("cavalo preso", g.RD.H.st == "trapped")
+		walk_to(39440)
+		use()
+		S("cavalgada começou", until({}, func(): return g.RD.riding, 500))
+		var obsd: Array = g.RD.OBS.map(func(o): return float(o.x))
+		var md := 1e9
+		for i in range(1, obsd.size()):
+			md = min(md, obsd[i] - obsd[i - 1])
+		S("obstáculos da cavalgada espaçados (>= 600)", md >= 600)
+		S("cavalgada", ride())
+		S("cavalgada sem batidas", P.hp == 5 and g.RD.tries == 0)
 	if all or args.has("pingentes"):
 		var ic: Dictionary = trap_at("icicle", 37450)
 		put(37300, 868)

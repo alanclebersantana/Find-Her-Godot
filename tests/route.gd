@@ -395,14 +395,17 @@ func ride():
 		var d := {}
 		for o in RD.OBS:
 			var dx: float = o.x - RD.hx
-			if dx < -140 or dx > 220:
+			if dx < -200 or dx > 260:
 				continue
-			if o.k in ["log", "rock", "gap"] and dx < 74 and dx > 30 and RD.hy >= 500:
-				press("J")
-				d["J"] = true
-			if o.k in ["branch", "rope"] and dx < 130:
+			# pula em cima da marca de cascos (o melhor ponto)
+			if o.k in ["log", "rock", "gap", "fence"] and not o.hit and RD.hy >= 500:
+				var tk: float = RD.takeoff_x(o)
+				if RD.hx >= tk - 3 and RD.hx < tk + 6:
+					press("J")
+					d["J"] = true
+			if o.k in ["branch", "rope"] and dx < 110 and dx > -130:
 				d["S"] = true
-			if dx > -40 or o.k in ["branch", "rope"]:
+			if dx > -40:
 				break
 		frame(d)
 	return "não terminou x=%d" % int(RD.hx)

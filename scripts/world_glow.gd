@@ -545,39 +545,54 @@ func _water(g: Game, a: float, b: float, y: float, depth: float, c0: Color, c1: 
 ## margem de um corpo d'água: terra arredondada descendo para dentro da água (sem quina reta),
 ## faixa de lama molhada, pedras brilhando, juncos e uma vitória-régia
 func _bank(e: float, y: float, dir: float, toxic: bool, T: int, depth: float, soy: float = 0.0) -> void:
-	var earth := Color("#4a3220") if not toxic else Color("#3a3018")
-	var mud := Color("#2e2014") if not toxic else Color("#29301a")
+	# barranco com a textura da terra (raízes e pedrinhas), seguindo a curva e escurecendo para o fundo
+	var t: Texture2D = Spr.tex.chao
+	var ts := t.get_size()
+	var tint := Color(1, 1, 1) if not toxic else Color(.85, .95, .7)
 	var pts := PackedVector2Array([Vector2(e - dir * 4, y - 4)])
+	var edge := PackedVector2Array()
 	for i in 13:
 		var u := i / 12.0
-		# curva do barranco: começa na beira e vai entrando na água conforme desce
-		pts.push_back(Vector2(e + dir * (4 + sin(u * PI * .5) * 26 + sin(u * 9.0 + e) * 3), y - 4 + u * depth))
+		var p := Vector2(e + dir * (4 + sin(u * PI * .5) * 26 + sin(u * 9.0 + e) * 3), y - 4 + u * depth)
+		pts.push_back(p)
+		edge.push_back(p)
 	pts.push_back(Vector2(e - dir * 4, y + depth))
-	Spr.poly(pts, earth)
-	# faixa de lama molhada na linha da água (acompanha a onda) e espuma batendo na margem
-	Spr.ellipse(e + dir * 10, y + 2 + soy, 20, 5, mud)
-	Spr.ellipse(e + dir * 6, y + soy, 14, 2, Color(1, 1, 1, .18))
+	var uvs := PackedVector2Array()
+	var cols := PackedColorArray()
+	var ub: float = fposmod(e * .37, 80.0)
+	for q in pts:
+		uvs.push_back(Vector2((ub + 20 + (q.x - e) * dir) / ts.x, clamp((60.0 + (q.y - y + 4) * .75) / ts.y, 0, 1)))
+		var dk: float = lerpf(.95, .45, clamp((q.y - y) / max(depth, 1.0), 0, 1))
+		cols.push_back(Color(tint.r * dk, tint.g * dk, tint.b * dk))
+	Spr.ci.draw_polygon(pts, cols, uvs, t)
+	# contorno escuro da beira e a linha de lama molhada que sobe e desce com a onda
+	Spr.line(edge, Color(.12, .08, .05, .7), 2)
+	var wl: float = y + soy
+	var mud := PackedVector2Array()
+	for i in 7:
+		var u2 := i / 6.0
+		var yy: float = wl - 3 + u2 * 12
+		var ex2: float = e + dir * (4 + sin(clamp((yy - y + 4) / max(depth, 1.0), 0, 1) * PI * .5) * 26)
+		mud.push_back(Vector2(ex2 + dir * 1, yy))
+	Spr.line(mud, Color("#2a1c10") if not toxic else Color("#28301a"), 6)
+	Spr.line(mud, Color(1, 1, 1, .16), 1.5)
 	var fo: float = .35 + .25 * sin(T * .09 + e)
-	Spr.ellipse(e + dir * 30, y + soy + 1, 12, 2.2, Color(1, 1, 1, fo))
-	Spr.ellipse(e + dir * 42, y + soy + 2, 6, 1.5, Color(1, 1, 1, fo * .7))
-	# pedras molhadas
-	for k in 2:
-		var rx: float = e + dir * (12 + k * 14)
-		var ry: float = y + 4 + k * 3 + soy * .5
-		Spr.ellipse(rx, ry, 8 - k * 2, 5 - k, Color("#5e5d56"))
-		Spr.ellipse(rx - 2, ry - 2, 3, 1.4, Color(1, 1, 1, .45))
-	# juncos balançando
+	Spr.ellipse(e + dir * 30, wl + 1, 12, 2.2, Color(1, 1, 1, fo))
+	Spr.ellipse(e + dir * 42, wl + 2, 6, 1.5, Color(1, 1, 1, fo * .7))
+	# pedrinhas pintadas e molhadas na beira
 	for k in 3:
-		var jx: float = e - dir * (2 + k * 6)
-		var jh: float = 24 + fmod(abs(jx) * 1.3, 16.0)
+		var rx: float = e + dir * (6 + k * 11)
+		var ry: float = wl + 6 + k * 4
+		Spr.P("peb%d" % (k % 3), rx, ry, 14 - k * 2, dir < 0, 0.0, Color(.85, .9, .95))
+	# juncos pintados balançando
+	for k in 3:
+		var jx: float = e - dir * (2 + k * 8)
 		var sw: float = sin(T * .04 + jx) * 3
-		Spr.seg(jx, y, jx + sw + dir * 2, y - jh, Color("#4f7a34") if not toxic else Color("#5a6a2a"), 2.2)
-		if k != 1:
-			Spr.rr(jx + sw + dir * 2 - 2.5, y - jh - 1, 5, 11, 2.5, Color("#6b4626"))
+		Spr.P("cat_open" if k != 1 else "cat_bud", jx, y + 3, 15 + fmod(abs(jx) * .7, 8.0), dir < 0, sw, Color(.95, 1, .9) if not toxic else Color(.85, .95, .6))
 	# vitória-régia boiando perto da margem
 	if not toxic:
 		var lx: float = e + dir * 52
-		var ly: float = y + 1 + soy
+		var ly: float = wl + 1
 		Spr.ellipse(lx, ly, 14, 4, Color("#4f8a3a"))
 		Spr.poly(PackedVector2Array([Vector2(lx, ly), Vector2(lx + 12, ly - 2), Vector2(lx + 12, ly + 2)]), Color(.2, .35, .4, .8))
 		Spr.circle(lx - 4, ly - 2, 2.5, Color(1, .8, .9))

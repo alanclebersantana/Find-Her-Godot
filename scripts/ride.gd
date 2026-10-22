@@ -98,7 +98,7 @@ func _start() -> void:
 		g.X.DOG.st = "ride"
 	_place_player()
 	g.snap_camera()
-	g.flash_tut("Segure firme!", "Segure firme! PULAR salta troncos, pedras e buracos. ↓ abaixa sob galhos e cordas.", 240)
+	g.flash_tut("Segure firme!", "Segure firme! PULAR salta (pule nas marcas de cascos na neve). ↓ abaixa sob galhos e cordas. → acelera, ← segura.", 240)
 
 func _place_player() -> void:
 	var p: Dictionary = g.player
@@ -109,20 +109,62 @@ func _place_player() -> void:
 	p.onGround = hy >= 500.0
 	p.face = 1
 
-## caixa do cavalo com o Tomé montado
+## caixa do cavalo com o Tomé montado (do tamanho do desenho)
 func box() -> Dictionary:
-	var top: float = hy - (82 if duck else 122)
+	var top: float = hy - (100 if duck else 124)
 	return g.R(hx - BOX_W / 2, top, BOX_W, hy - top)
+
+## pulo sempre igual (preciso): sobe JUMP_V, gravidade JUMP_G
+const JUMP_V := 10.5
+const JUMP_G := .5
+
+## área de batida de cada obstáculo (é a mesma usada no desenho)
+static func obs_rect(o: Dictionary) -> Rect2:
+	match o.k:
+		"log":
+			return Rect2(o.x + 10, 478, 44, 22)
+		"rock":
+			return Rect2(o.x + 12, 464, 36, 36)
+		"fence":
+			return Rect2(o.x + 12, 462, 36, 38)
+		"branch":
+			return Rect2(o.x, 368, 90, 28)
+		"rope":
+			return Rect2(o.x, 378, 84, 18)
+	return Rect2()
+
+## centro do obstáculo de pular (para a marca de cascos no melhor ponto de salto)
+static func obs_center(o: Dictionary) -> float:
+	match o.k:
+		"log":
+			return o.x + 32
+		"rock":
+			return o.x + 30
+		"fence":
+			return o.x + 30
+		"gap":
+			return o.x + o.w / 2.0
+	return -1.0
+
+## onde saltar para passar bem no meio (metade do tempo no ar antes do centro)
+func takeoff_x(o: Dictionary) -> float:
+	return obs_center(o) - float(H.spd) * (JUMP_V / JUMP_G)
 
 func step() -> void:
 	var p: Dictionary = g.player
 	g.T += 1
-	gallop += spd * .055
+	# galope suave: 8 quadros, a cadência acompanha a velocidade
+	gallop += spd * .042
+	var want: float = float(H.spd)
+	if g.kd("R"):
+		want += .8
+	elif g.kd("L"):
+		want -= .9
 	if stumble > 0:
 		stumble -= 1
-		spd = move_toward(spd, 2.0, .4)
+		spd = move_toward(spd, 2.0, .3)
 	else:
-		spd = move_toward(spd, float(H.spd), .08)
+		spd = move_toward(spd, want, .04)
 	var on_ground: bool = hy >= 500.0
 	if g.pressed("J"):
 		jbuf = 9
@@ -130,20 +172,24 @@ func step() -> void:
 		jbuf -= 1
 	if jbuf > 0 and on_ground and stumble < 20:
 		jbuf = 0
-		vy = -11.0
-		Audio.play("jump", -4)
+		vy = -JUMP_V
+		Audio.play("jump", -6)
 		g.burst(hx - 30, 500, 8, Color(.95, .97, 1))
 	duck = g.kd("S") and on_ground
-	# segurando PULAR o salto vai um pouco mais longe; soltando, o cavalo desce logo (pulo preciso)
-	vy += .42 if (vy < 0 and g.kd("J")) else .62
+	# pulo sempre do mesmo tamanho: dá para acertar o ponto (marca dos cascos na neve)
+	vy += JUMP_G
 	hy = min(500.0, hy + vy)
 	if hy >= 500.0:
 		if vy > 6:
 			g.fx("fx_dust", hx - 20, 494, 14, .12, -.2)
 		vy = 0.0
 	hx += spd
-	if on_ground and g.T % 5 == 0:
-		g.PARTS.append({"x": hx - 34, "y": 498, "vx": -spd * .3, "vy": -1.0, "life": 16, "col": Color(.95, .97, 1, .8)})
+	# neve levantada pelos cascos e o bafo do cavalo no frio
+	if on_ground and g.T % 4 == 0:
+		g.PARTS.append({"x": hx - 30 + randf_range(-10, 10), "y": 498, "vx": -spd * .35 + randf_range(-.3, .3), "vy": -1.2 - randf() * .8, "life": 18, "col": Color(.96, .98, 1, .85)})
+	if g.T % 48 == 0:
+		for k in 3:
+			g.PARTS.append({"x": hx + 66, "y": hy - 98 + (14 if duck else 0), "vx": .9 + spd * .4 + k * .2, "vy": -.25, "life": 30, "col": Color(1, 1, 1, .45)})
 	# obstáculos
 	var b := box()
 	for o in OBS:
@@ -151,15 +197,11 @@ func step() -> void:
 			continue
 		var bad := false
 		# as caixas de batida têm uma folga: raspar de leve não conta
-		match o.k:
-			"log":
-				bad = Game.hit(b, g.R(o.x + 8, 476, 46, 24))
-			"rock":
-				bad = Game.hit(b, g.R(o.x + 8, 460, 38, 40))
-			"gap":
-				bad = hy >= 498 and hx > o.x + 22 and hx < o.x + o.w - 22
-			"branch", "rope":
-				bad = Game.hit(b, g.R(o.x + 6, 376, 72, 18))
+		if o.k == "gap":
+			bad = hy >= 498 and hx > o.x + 22 and hx < o.x + o.w - 22
+		else:
+			var r := obs_rect(o)
+			bad = Game.hit(b, g.R(r.position.x, r.position.y, r.size.x, r.size.y))
 		if bad:
 			o.hit = true
 			_hurt(o)

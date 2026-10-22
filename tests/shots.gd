@@ -41,7 +41,7 @@ func _initialize() -> void:
 		return
 	g.lives = 99
 	g.clue_opened.disconnect(main._on_clue)
-	for cid in ["cipo", "mergulho", "neve", "pipoca", "picareta", "cavalo", "mina", "toxico", "javali", "gaviao", "bagre", "urso", "vargas", "bola", "aviao", "jangada"]:
+	for cid in ["cipo", "mergulho", "neve", "pipoca", "picareta", "cavalo", "mina", "toxico", "javali", "gaviao", "bagre", "urso", "vargas", "bola", "aviao", "jangada", "colmeia"]:
 		root.get_node("Save").setv("comic", cid, true)
 	for e in g.EN:
 		if e.k != "owl" and e.k != "frog" and e.k != "leech":
