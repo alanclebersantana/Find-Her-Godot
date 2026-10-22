@@ -115,20 +115,6 @@ static func _sled_world(g: Game, VH: Vehicles, T: int) -> void:
 	if SL.is_empty() or float(SL.x1) < g.cam - 200 or float(SL.x) > g.cam + g.W + 200:
 		return
 	var gy: float = float(SL.y)
-	var obs: Array = VH.OBS if VH.mode == "sled" else SL.get("obs", [])
-	for o in obs:
-		match o.k:
-			"mound":
-				Spr.ellipse(o.x, gy - 6, 30, 14, Color(.82, .88, .97))
-				Spr.ellipse(o.x - 3, gy - 9, 25, 11, Color(.97, .98, 1))
-			"rock":
-				Spr.AB("o_rocks", o.x - 26, gy - 34, 52, 38)
-				Spr.ellipse(o.x, gy - 30, 18, 5, Color(.97, .98, 1))
-			"log":
-				Spr.rr(o.x - 36, gy - 20, 72, 20, 10, Color("#6b4626"))
-				Spr.rr(o.x - 36, gy - 20, 72, 7, 5, Color("#8a5e34"))
-				Spr.ellipse(o.x + 34, gy - 10, 5, 10, Color("#c9a26a"))
-				Spr.ellipse(o.x, gy - 21, 30, 4, Color(.97, .98, 1))
 	# monte de neve no fim (onde o trenó para)
 	Spr.ellipse(float(SL.x1) + 30, gy - 8, 46, 20, Color(.82, .88, .97))
 	Spr.ellipse(float(SL.x1) + 26, gy - 12, 40, 16, Color(.97, .98, 1))

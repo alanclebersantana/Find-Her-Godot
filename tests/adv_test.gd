@@ -14,6 +14,7 @@ func put(x: float, y: float) -> void:
 	g.player.spawnX = g.player.x
 	g.player.spawnY = g.player.y
 	g.player.hp = 5
+	g.lives = 9
 	g.snap_camera()
 	for i in 10:
 		frame()
@@ -40,15 +41,15 @@ func _initialize() -> void:
 		put(9800, 500)
 		S("tronco-pêndulo", cross_swing(trap_at("swing", 10010), 10290))
 		S("sem dano (tronco)", P.hp == 5)
-		for hx in [2440.0, 15450.0, 22850.0]:
+		for hx in [21290.0, 15450.0, 22850.0]:
 			put(hx - 70, 500)
 			hold({}, 10)
 			S("em pé toca a colmeia %d" % int(hx), g.hit(P, g.R(hx - 22, 0, 44, 2000)) == false and (P.y < 474))
-			S("abaixado passa sob a colmeia %d" % int(hx), crawl(hx + 60))
+			S("abaixado passa sob a colmeia %d" % int(hx), crawl(hx + 48))
 			S("colmeia %d quieta" % int(hx), trap_at("hive", hx).st == "idle")
 			put(hx - 70, 500)
 			hold({}, 10)
-			walk_to(hx + 60)
+			walk_to(hx + 48)
 			S("andando em pé acorda a colmeia %d" % int(hx), trap_at("hive", hx).st == "angry")
 			var hv0: Dictionary = trap_at("hive", hx)
 			hv0.st = "idle"
@@ -129,6 +130,8 @@ func _initialize() -> void:
 		S("voo sem batidas", P.hp == 5)
 	if all or args.has("cogumelos"):
 		put(64400, 500)
+		walk_to(64470)
+		S("pula a caixa de coração", jump_to(64610, true))
 		walk_to(64805)
 		S("saltador 1", bounce_to(64855))
 		S("chapéu alto", P.y + P.h <= 232)
@@ -153,6 +156,7 @@ func _initialize() -> void:
 			e.dead = 99
 		g.INV.append("engrenagem")
 		put(13110, 900)
+		g.lives = 9
 		S("chegou na escada", climb_to("U", func(): return g.EV.FL.st != "idle", 120))
 		S("enchente começou", g.EV.FL.st in ["warn", "rise"])
 		S("subiu antes da água", climb_to("U", func(): return P.ladder == null and P.onGround and P.y < 500, 500))

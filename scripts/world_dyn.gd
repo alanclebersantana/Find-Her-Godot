@@ -302,12 +302,27 @@ func _deco(g: Game) -> void:
 				if x > pit[0] and x < pit[1]:
 					over_pit = true
 			if over_pit:
+				# cavalete de madeira pintada segurando o trilho sobre o buraco
 				if int(x) % 72 < 18:
-					Spr.rect(x, 495, 6, 140, Color("#2e2014"))
+					Spr.PR("log", x - 2, 497, 10, 140, Color(.7, .62, .55))
+					Spr.seg(x + 3, 520, x + 39, 590, Color("#3e2a18"), 4)
 			else:
-				Spr.rect(x, 494, 11, 7, Color("#4a3220"))
+				# dormente de madeira com veio e prego
+				Spr.rr(x - 1, 493, 14, 8, 2, Color("#4a3220"))
+				Spr.rect(x, 494, 12, 2, Color("#6b4a2c"))
+				Spr.circle(x + 6, 497, 1.2, Color(.6, .6, .62))
 			x += 18
-		Spr.rect(max(rx0, cam - 10), 491, xb - max(rx0, cam - 10), 4, Color("#8a8f98"))
+		# trilho de ferro: escuro embaixo, brilho em cima, emendas com chapas e rebites
+		var ra: float = max(rx0, cam - 10)
+		Spr.rect(ra, 491, xb - ra, 5, Color("#4c5058"))
+		Spr.rect(ra, 491, xb - ra, 1.5, Color("#c9ced6"))
+		var jx: float = floor(ra / 144.0) * 144.0
+		while jx < xb:
+			if jx > ra:
+				Spr.rr(jx - 5, 489, 10, 8, 2, Color("#5e626a"))
+				Spr.circle(jx - 2, 493, 1, Color(.85, .85, .9))
+				Spr.circle(jx + 2, 493, 1, Color(.85, .85, .9))
+			jx += 144
 		var gx: float = g.DOOR.x - 60
 		if gx > cam - 300 and gx < cam + g.W + 300:
 			Spr.A("mi_cart_full", gx - 70, 502, .8)

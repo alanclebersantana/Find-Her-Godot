@@ -251,7 +251,7 @@ func post() -> void:
 	var pcx: float = p.x + p.w / 2
 	if weather_msg_t > 0:
 		weather_msg_t -= 1
-		if weather_msg_t == 0 and weather_text() != "":
+		if weather_msg_t == 0 and weather_text() != "" and g.AMB.snow < .1 and g.AMB.dark < .3:
 			g.note(weather_text())
 	# ✦ USAR: picareta, espelho do chão
 	if g.M.is_dog():
@@ -1076,6 +1076,30 @@ func _follow() -> void:
 		DOG.wake = DOG.get("wake", 0) + 1
 		if DOG.wake < 16:
 			return
+	# o próximo trecho atravessaria uma parede ou um telhado (o Tomé subiu/pulou por cima): o Pipoca
+	# senta e espera; quando o Tomé já foi longe, ele reaparece um pouco atrás e vem correndo
+	if DOG.i < ti and _seg_blocked(DOG.i):
+		DOG.st = "sit"
+		DOG.hy = 0.0
+		DOG.v = 0.0
+		var dist_t: float = Vector2(DOG.x, DOG.y).distance_to(TRAIL[ti])
+		if dist_t > 420 or off_screen:
+			var bi := TRAIL.size() - 1
+			var back := 0.0
+			while bi > 0 and back < 300:
+				back += TRAIL[bi].distance_to(TRAIL[bi - 1])
+				bi -= 1
+			# só se dali até o Tomé o caminho estiver livre
+			var ok := true
+			for k in range(bi, ti):
+				if _seg_blocked(k):
+					ok = false
+					bi = k + 1
+			DOG.i = bi
+			DOG.x = TRAIL[bi].x
+			DOG.y = TRAIL[bi].y
+			DOG.st = "follow"
+		return
 	DOG.st = "follow"
 	DOG.v = lerpf(DOG.get("v", 0.0), spd, .1)
 	var budget: float = max(DOG.v, .8)
@@ -1109,6 +1133,37 @@ func _follow() -> void:
 			DOG.hy = 0.0
 	DOG.moving = true
 	DOG.anim += spd * .08
+
+## o pedaço do caminho entre as pegadas i e i+1 passa por dentro de algo sólido?
+var _blk_cache := {}
+func _seg_blocked(i: int) -> bool:
+	if i < 0 or i + 1 >= TRAIL.size():
+		return false
+	var a: Vector2 = TRAIL[i]
+	var b: Vector2 = TRAIL[i + 1]
+	var key := "%d,%d,%d,%d" % [int(a.x), int(a.y), int(b.x), int(b.y)]
+	if _blk_cache.has(key):
+		return _blk_cache[key]
+	var seg: float = a.distance_to(b)
+	var blocked := false
+	if seg > 26 or abs(b.y - a.y) > 10:
+		var n: int = max(2, int(seg / 10.0))
+		for k in range(1, n):
+			var u: float = k / float(n)
+			var q: Vector2 = a.lerp(b, u)
+			q.y -= min(80.0, seg * .45) * sin(u * PI) if seg > 26 else 0.0
+			for so in g.SOL:
+				if so.get("oneway") or so.get("deco") or so.get("boat") or str(so.get("t", "")) in ["branch", "plat", "seat", "trunk"]:
+					continue
+				if q.x + 8 > so.x and q.x - 8 < so.x + so.w and q.y - 18 > so.y and q.y - 4 < so.y + so.h:
+					blocked = true
+					break
+			if blocked:
+				break
+	if _blk_cache.size() > 2000:
+		_blk_cache.clear()
+	_blk_cache[key] = blocked
+	return blocked
 
 func _look_for_moles() -> void:
 	var p: Dictionary = g.player

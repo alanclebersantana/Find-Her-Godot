@@ -3227,15 +3227,15 @@
   ],
   [
    8993,
-   -300
+   -342
   ],
   [
    9037,
-   -300
+   -360
   ],
   [
    9050,
-   -300
+   -342
   ],
   [
    9080,
@@ -4923,23 +4923,23 @@
   ],
   [
    61022,
-   210
+   180
   ],
   [
    61064,
-   210
+   158
   ],
   [
    61106,
-   210
+   150
   ],
   [
    61148,
-   210
+   158
   ],
   [
    61190,
-   210
+   180
   ],
   [
    61232,
@@ -4951,19 +4951,19 @@
   ],
   [
    61474,
-   150
+   115
   ],
   [
    61518,
-   150
+   93
   ],
   [
    61562,
-   150
+   93
   ],
   [
    61606,
-   150
+   115
   ],
   [
    61650,
@@ -5808,11 +5808,6 @@
    "yl": 520
   },
   {
-   "a": 2380,
-   "b": 2470,
-   "t": "Colmeia! Abaixe-se (↓) para passar por baixo. Se o enxame vier, mergulhe na água (↓) para despistar."
-  },
-  {
    "a": 2470,
    "b": 2650,
    "t": "Espinhos! Espere eles descerem e passe rápido."
@@ -6029,7 +6024,12 @@
    "yl": 480
   },
   {
-   "a": 21200,
+   "a": 21180,
+   "b": 21280,
+   "t": "Colmeia! Abaixe-se (↓) para passar por baixo. Se o enxame vier, mergulhe na água (↓) para despistar."
+  },
+  {
+   "a": 21290,
    "b": 21530,
    "t": "Mais um mergulho! Respire nas bolhas e acerte as piranhas com a picareta (GOLPE).",
    "yl": 520
@@ -6643,7 +6643,7 @@
   },
   {
    "k": "flower",
-   "x": 2512,
+   "x": 2470,
    "y": 500,
    "to": [
     2750,
@@ -6863,10 +6863,9 @@
   },
   {
    "k": "hive",
-   "x": 2440,
+   "x": 21290,
    "y": 474,
-   "tx": 2382,
-   "tw": 70
+   "tx": 21228
   },
   {
    "k": "hive",
