@@ -53,7 +53,7 @@ func _initialize() -> void:
 	for i in 30:
 		await physics_frame
 	st.set_mode("analog")
-	var p0: Vector2 = to_win * Vector2(150, 400)
+	var p0: Vector2 = to_win * st._home()
 	_touch(1, p0, true)
 	_drag(1, p0 + to_win.basis_xform(Vector2(30, 0)))
 	for i in 60:
@@ -63,7 +63,7 @@ func _initialize() -> void:
 	for i in 60:
 		await physics_frame
 	var fast: float = g.player.vx
-	print("ANALÓGICO devagar vx=", slow, " rápido vx=", fast, " axis=", g.axis_x)
+	print("ANALÓGICO devagar vx=", slow, " rápido vx=", fast, " axis=", g.axis_x, " estado=", st.state, " x=", g.player.x)
 	var ok3: bool = slow > .5 and slow < 3.2
 	_touch(1, p0, false)
 	print("TOUCH ", "OK" if ok1 and ok2 and ok3 else "FALHOU")

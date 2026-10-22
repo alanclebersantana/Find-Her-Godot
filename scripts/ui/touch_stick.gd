@@ -1,7 +1,7 @@
 extends Control
 ## Controle de movimento pelo toque, com um dedo só:
 ## - "dpad": direcional de 8 direções (inclui diagonais: ↘ anda abaixado, ↗ sobe andando)
-## - "analog": analógico flutuante (aparece onde o polegar encosta; inclinar pouco = andar devagar)
+## - "analog": analógico fixo no canto (inclinar pouco = andar devagar); a base não sai do lugar
 
 signal changed(keys: Dictionary)
 
@@ -47,10 +47,8 @@ func _in_zone(p: Vector2) -> bool:
 	var vs := get_viewport_rect().size
 	if mode == "dpad":
 		return p.distance_to(_home()) < radius * ui_scale * 1.9
-	# analógico: metade do lado do polegar, abaixo do HUD
-	if left_handed:
-		return p.x > vs.x * .54 and p.y > vs.y * .3
-	return p.x < vs.x * .46 and p.y > vs.y * .3
+	# analógico: em volta da base (um pouco maior que ela, para o polegar não escapar)
+	return p.distance_to(_home()) < radius * ui_scale * 2.1 and p.y > vs.y * .3
 
 func _input(e: InputEvent) -> void:
 	if mode == "gamepad" or not is_visible_in_tree():
@@ -59,7 +57,7 @@ func _input(e: InputEvent) -> void:
 		var p := _to_local(e.position)
 		if e.pressed and finger == -1 and _in_zone(p):
 			finger = e.index
-			center = _home() if mode == "dpad" else p
+			center = _home()
 			_update(p)
 		elif not e.pressed and e.index == finger:
 			_release()
@@ -78,10 +76,6 @@ func _release() -> void:
 func _update(p: Vector2) -> void:
 	var v := p - center
 	var rr := radius * ui_scale
-	if mode == "analog" and v.length() > rr:
-		# o analógico acompanha o dedo quando ele passa da borda
-		center += v - v.normalized() * rr
-		v = p - center
 	knob = v.limit_length(rr)
 	var s := {"L": false, "R": false, "U": false, "S": false}
 	axis = 1.0
@@ -141,7 +135,7 @@ func _draw() -> void:
 		if finger != -1:
 			draw_circle(c + knob, 12 * ui_scale, Color(1, .95, .8, .4 * al))
 	else:
-		var c2 := center if finger != -1 else _home()
+		var c2 := _home()
 		var a := (.7 if finger != -1 else .38) * al
 		if tex.has("base") and tex.has("knob"):
 			var ab: float = min(1.0, (.95 if finger != -1 else .7) * al + .15)
