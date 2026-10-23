@@ -222,6 +222,8 @@ var lean := false
 var brake := false
 var sboard := 0        # embarcando no trenó: empurra, senta e escorrega (a tela fecha e abre lá no morro)
 var sfin := 0          # chegou no monte de neve: a tela fecha antes de voltar para o mapa
+var vg_t0 := -1        # carrinho: quadro em que o Vargas parou no fim dos trilhos e saltou com a Isis
+const VG_STOP := 850.0  # o Vargas chega ao fim dos trilhos quando o Tomé ainda está esta distância atrás
 const SBOARD := 40
 
 func sled_y(u: float) -> float:
@@ -256,6 +258,7 @@ func _start_sled() -> void:
 	srest = 40.0
 	sboard = SBOARD
 	sfin = 0
+	vg_t0 = -1
 	su = 0.0
 	hx = float(SL.x)
 	hy = float(SL.y)
@@ -400,6 +403,8 @@ func _sled_step() -> void:
 			o.hit = true
 			_hurt_sled(o)
 	_coins(b)
+	if SL.get("vargas") and vg_t0 < 0 and su >= float(SL.get("len", 4650)) - VG_STOP:
+		vg_t0 = g.T
 	if su >= float(SL.get("len", 4650)) - 200:
 		# freia sozinho no fim e para no monte de neve
 		spd = move_toward(spd, 0.0, .18)

@@ -13,6 +13,7 @@ var MV: Array = []
 var told := {}
 
 const LIFT_SPD := 2.6
+const HANG := 34.0   # comprimento das cordas das tábuas do moinho
 
 func _init(game) -> void:
 	g = game
@@ -59,8 +60,9 @@ func _place(o: Dictionary) -> void:
 			for i in n:
 				var a: float = float(o.ang) + TAU * i / n
 				var s: Dictionary = o.plats[i]
+				# a tábua fica pendurada por cordas na ponta da pá (como a cadeirinha de uma roda-gigante)
 				var nx: float = float(o.x) + cos(a) * float(o.r) - s.w / 2
-				var ny: float = float(o.y) + sin(a) * float(o.r)
+				var ny: float = float(o.y) + sin(a) * float(o.r) + HANG
 				_move(s, nx, ny)
 		"lift":
 			var s2: Dictionary = o.plats[0]
@@ -194,15 +196,24 @@ func _wheel(o: Dictionary, T: int) -> void:
 		var sz: float = r * 2.0 * 1.12
 		Spr.save()
 		Spr.translate(cx, cy)
-		Spr.rotate(float(o.ang) + PI / 4)
+		Spr.rotate(float(o.ang))
 		Spr.ci.draw_texture_rect_region(Spr.atlas_tex(rr), Rect2(-sz / 2, -sz / 2, sz, sz), Rect2(rr[0], rr[1], rr[2], rr[3]), Color(1, 1, 1, Spr.alpha))
 		Spr.restore()
 	# tábuas penduradas nas pontas (ficam sempre na horizontal)
-	for s in o.plats:
+	for i in o.plats.size():
+		var s: Dictionary = o.plats[i]
+		var a: float = float(o.ang) + TAU * i / o.plats.size()
+		var tx: float = cx + cos(a) * r
+		var ty: float = cy + sin(a) * r
 		var px: float = s.x + s.w / 2
-		Spr.seg(px - s.w * .32, s.y + 2, px, s.y - 26, Color("#4a3018"), 2.5)
-		Spr.seg(px + s.w * .32, s.y + 2, px, s.y - 26, Color("#4a3018"), 2.5)
-		Spr.circle(px, s.y - 26, 4, Color("#6b4a2a"))
+		# cordas da ponta da pá até as duas pontas da tábua
+		Spr.seg(tx, ty, px - s.w * .4, s.y + 2, Color("#3a2414"), 3)
+		Spr.seg(tx, ty, px + s.w * .4, s.y + 2, Color("#3a2414"), 3)
+		Spr.seg(tx, ty, px - s.w * .4, s.y + 2, Color("#c9a26a"), 1.4)
+		Spr.seg(tx, ty, px + s.w * .4, s.y + 2, Color("#c9a26a"), 1.4)
+		# argola presa na ponta da pá
+		Spr.circle(tx, ty, 6, Color("#2a1a0c"))
+		Spr.circle(tx, ty, 4, Color("#8a8e96"))
 		_plank(s)
 
 func _lift(o: Dictionary, T: int) -> void:

@@ -41,7 +41,7 @@ func vjump():
 		frame({"J": i < 10})
 	return wait_ground()
 
-## anda no telhado pulando as chaminés
+## anda no telhado pulando as chaminés (as quentes: espera a labareda baixar, pulo duplo) e as telhas soltas
 func roof_walk(x: float, chims: Array):
 	for c in chims:
 		var cx0: float = float(c.x)
@@ -51,7 +51,13 @@ func roof_walk(x: float, chims: Array):
 			var r = walk_to(before)
 			if not (r is bool and r):
 				return "até a chaminé: " + str(r)
-			r = jump_to(cx1 + 26 if x > px() else cx0 - 26)
+			if c.get("hot"):
+				var hc: Dictionary = {}
+				for h in g.VL.HOT:
+					if abs(float(h.x) - cx0) < 3:
+						hc = h
+				until({}, func(): return g.VL.hot_phase(hc) == 0 and int((g.T + int(hc.get("ph", 0))) % int(hc.per)) < 20, 400)
+			r = jump_to(cx1 + 26 if x > px() else cx0 - 26, c.get("hot", 0) == 1 or float(c.get("h", 0)) > 50)
 			if not (r is bool and r):
 				return "pula a chaminé: " + str(r)
 	return walk_to(x)
@@ -107,15 +113,34 @@ func house_list() -> Array:
 	var out: Array = []
 	for s in g.L.solids:
 		if s.t == "house":
-			var best = null
+			var parts: Array = []
 			var chims: Array = []
 			for r in g.L.solids:
-				if r.t == "roof" and r.x >= s.x - 2 and r.x + r.w <= s.x + s.w + 2:
-					if r.get("chim"):
-						chims.append(r)
-					elif best == null or r.w > best.w:
-						best = r
-			out.append({"h": s, "walk": best, "chims": chims})
+				if r.x < s.x - 2 or r.x + r.w > s.x + s.w + 2:
+					continue
+				if r.t == "roof" and r.get("chim"):
+					chims.append(r)
+				elif r.t == "roof" and r.get("walk"):
+					parts.append(r)
+				elif r.t == "plat" and r.get("roofhole"):
+					chims.append({"x": r.x, "w": r.w, "h": 0})
+			var x0: float = 1e9
+			var x1: float = -1e9
+			for r in parts:
+				x0 = min(x0, float(r.x))
+				x1 = max(x1, float(r.x) + float(r.w))
+			# telhas soltas viram um obstáculo só (pula por cima de todas)
+			var obs: Array = []
+			var loose: Array = chims.filter(func(c): return not c.has("t"))
+			if not loose.is_empty():
+				var lx0: float = loose.map(func(c): return float(c.x)).min()
+				var lx1: float = loose.map(func(c): return float(c.x) + float(c.w)).max()
+				obs.append({"x": lx0, "w": lx1 - lx0, "h": 0})
+			for c in chims:
+				if c.has("t"):
+					obs.append(c)
+			obs.sort_custom(func(a, b): return float(a.x) < float(b.x))
+			out.append({"h": s, "walk": {"x": x0, "w": x1 - x0, "y": float(parts[0].y)}, "chims": obs})
 	return out
 
 func _initialize() -> void:
@@ -216,7 +241,7 @@ func _initialize() -> void:
 	S("beira do barranco", walk_to(16700))
 	S("pilar", walk_to(16880))
 	var HS := house_list()
-	S("%d casas" % HS.size(), HS.size() == 19)
+	S("%d casas" % HS.size(), HS.size() == 12)
 	var w0: Dictionary = HS[0].walk
 	S("primeiro telhado", walk_to(w0.x + 40) if true else true)
 	S("no telhado", until({}, func(): return P.onGround and P.y + P.h < 300, 200))
@@ -226,12 +251,23 @@ func _initialize() -> void:
 		# o que tem neste telhado (lápis especial e desenho no alto: pulo no lugar)
 		for o in g.SPECS + g.DRWS + g.ITEMS + g.CLUES:
 			if not o.got and o.x > w.x and o.x < w.x + w.w:
-				roof_walk(o.x, hs.chims)
-				if o.y < w.y - 60:
-					hop("R", 0)
-		if i == 4:
+				var smoke = null
+				for c in hs.chims:
+					if c.has("t") and o.x > float(c.x) - 30 and o.x < float(c.x) + float(c.w) + 30:
+						smoke = c
+				if smoke != null and o.y < w.y - 100:
+					# lá no alto da fumaça: sobe na chaminé e plana na fumaça
+					roof_walk(float(smoke.x) - 30, hs.chims)
+					jump_to(float(smoke.x) + float(smoke.w) / 2, true)
+					until({"J": true}, func(): return o.got, 160)
+					wait_ground()
+				else:
+					roof_walk(o.x, hs.chims)
+					if o.y < w.y - 60:
+						hop("R", 0)
+		if i == 2:
 			S("metade A", g.INV.has("chave_a"))
-		if i == 13:
+		if i == 9:
 			S("metade B", g.INV.has("chave_b"))
 		var endx: float = w.x + w.w - 14
 		for c in hs.chims:
@@ -242,13 +278,55 @@ func _initialize() -> void:
 		if i + 1 < HS.size():
 			var nw: Dictionary = HS[i + 1].walk
 			var gap: float = nw.x - px()
-			var r2 = jump_to(nw.x + 40, true) if gap < 250 else glide_to(nw.x + 60)
+			var r2
+			if float(nw.y) < float(w.y) - 150:
+				# sobrado alto demais: desce no toldo, ele joga para cima, e pulo duplo no alto
+				var aw: Dictionary = g.L.awnings[0]
+				var amid: float = float(aw.x) + float(aw.w) / 2
+				press("J")
+				var launched = "timeout"
+				for k in 300:
+					P = g.player
+					if P.vy < -12.0 and not P.onGround and P.y + P.h > float(w.y):
+						launched = true
+						break
+					var d := {"J": k < 14}
+					if px() < amid - 8:
+						d["R"] = true
+					elif px() > amid + 8:
+						d["L"] = true
+					frame(d)
+				var dj := false
+				for k in 200:
+					P = g.player
+					var d := {"J": true}
+					if px() < nw.x + 60:
+						d["R"] = true
+					if not dj and P.vy > -2.0:
+						press("J")
+						dj = true
+					frame(d)
+					P = g.player
+					if P.onGround and k > 5:
+						break
+				r2 = launched
+			else:
+				var land: float = nw.x + 40
+				for c in HS[i + 1].chims:
+					if float(c.x) < land + 30 and float(c.x) + float(c.w) > nw.x:
+						land = float(c.x) + float(c.w) + 30
+				r2 = jump_to(land, true) if gap < 250 else glide_to(land + 20)
+			P = g.player
 			if P.get("bar") != null:
 				# pendurado no varal: anda até a ponta e pula para o telhado
 				var bb: Dictionary = P.bar
 				until({"R": true}, func(): return px() > float(bb.x1) - 40, 400)
 				press("J")
 				r2 = jump_to(nw.x + 50)
+			var gs = P.get("_g")
+			if gs is Dictionary and gs.get("tile"):
+				# pousou nas telhas soltas: corre antes que caiam
+				r2 = jump_to(nw.x + 40)
 			var hn: Dictionary = HS[i + 1].h
 			S("pula para o telhado %d (vão %d)" % [i + 1, int(gap)], r2 is bool and r2 and P.onGround and px() > hn.x and px() < hn.x + hn.w and P.y + P.h < 400)
 	S("pistas na vila (9 e 10)", n_clues() == 4)
@@ -261,8 +339,9 @@ func _initialize() -> void:
 	walk_to(float(lk.x) + 40)
 	use()
 	S("porteira aberta", lk.done)
+	S("porteira sobe (animação)", until({}, func(): return g.M.GATES.filter(func(gt): return gt.get("id", "") == "vgate")[0].open >= 1.0, 300))
 	# ---------------- D · PROFUNDEZAS
-	var D0: float = float(L.sections[3].x)
+	var D0: float = float(L.sections[3].x) - 420.0
 	S("pista 11", walk_to(D0 + 610) and n_clues() == 5)
 	walk_to(D0 + 800)
 	S("tábua do roxo", jump_to(D0 + 900))

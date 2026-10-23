@@ -78,6 +78,7 @@ var EV: Events
 var SL: Slam
 var WV: Waves
 var MV: Movers
+var VL: Village
 var RESTED := {}        # fogueiras grandes já descansadas
 var player: Dictionary = {}
 var keys := {}
@@ -295,6 +296,8 @@ func load_level(i: int) -> void:
 	WV.load_level()
 	MV = Movers.new(self)
 	MV.load_level()
+	VL = Village.new(self)
+	VL.load_level()
 	RESTED = {}
 	_reset_player(L.spawn.x - 12, L.spawn.y - 34)
 	time_left = int(L.get("time", 180)) * 60
@@ -385,6 +388,15 @@ func _p1_load() -> void:
 
 func _reset_player(x: float, y: float) -> void:
 	player = make_body(x, y)
+	if L and L.get("isis"):
+		# fase da Isis: ela é menor (cabe nos buracos) e pula mais baixo
+		player.isis = true
+		player.w = 20.0
+		player.h = 26.0
+		player.x += 2
+		player.y += 8
+		player.spawnX = player.x
+		player.spawnY = player.y
 	if M:
 		M.ctrl = false
 
@@ -613,17 +625,24 @@ func touching_wall(dir: int) -> bool:
 			return true
 	return false
 
+## altura em pé / abaixado (a Isis é menor: cabe nos buracos)
+func body_h() -> float:
+	return 26.0 if player.get("isis") else 34.0
+func crouch_h() -> float:
+	return 16.0 if player.get("isis") else 20.0
+
 func can_stand() -> bool:
+	var dh: float = body_h() - crouch_h()
 	for s in blockers():
-		if not s.get("oneway") and hit(R(player.x + 1, player.y - 14, player.w - 2, 34), s):
+		if not s.get("oneway") and hit(R(player.x + 1, player.y - dh, player.w - 2, body_h()), s):
 			return false
 	return true
 
 func stand_up() -> bool:
 	if player.crouch and can_stand():
 		player.crouch = false
-		player.y -= 14
-		player.h = 34
+		player.y -= body_h() - crouch_h()
+		player.h = body_h()
 		player.slideT = 0
 		return true
 	return not player.crouch
@@ -902,6 +921,7 @@ func step() -> void:
 	time_left -= 1
 	var __m := Time.get_ticks_usec()
 	MV.pre()
+	VL.pre()
 	X.pre_step()
 	if player.dyingT > 0:
 		return
@@ -950,7 +970,7 @@ func step() -> void:
 		player.ladder = null
 		if player.crouch:
 			player.crouch = false
-			player.h = 34
+			player.h = body_h()
 		M.reset_crates(player.spawnX)
 		flash("De volta à fogueira.")
 	# corrida: dois toques na mesma direção
@@ -995,7 +1015,7 @@ func step() -> void:
 		X.swim()
 	else:
 		# planar
-		player.puff = (kd("P") or (kd("J") and player.airJumps == 0 and player.vy > .5)) and not player.onGround and not player.slam and player.vy > -1.5 and not player.dog and player.wall == 0 and not in_fumes()
+		player.puff = (kd("P") or (kd("J") and player.airJumps == 0 and player.vy > .5)) and not player.onGround and not player.slam and player.vy > -1.5 and not player.dog and not player.get("isis") and player.wall == 0 and not in_fumes()
 		# pulos
 		var g0 = player._g
 		if pressed("J"):
@@ -1011,17 +1031,17 @@ func step() -> void:
 		var mudF := .78 if player.mud else 1.0
 		if player.jbuf > 0:
 			if player.onGround or player.coyote > 0:
-				player.vy = (JUMP * .9 if player.dog else JUMP) * mudF
+				player.vy = (JUMP * .9 if player.dog else (JUMP * .72 if player.get("isis") else JUMP)) * mudF
 				Audio.play("jump", -6)
 				player.onGround = false
 				player.coyote = 0
-				player.airJumps = 0 if player.dog else 1
+				player.airJumps = 0 if (player.dog or player.get("isis")) else 1
 				player.jbuf = 0
 				player.cutOk = true
 				player.slam = false
 				player.squash = -.5
 				burst(player.x + player.w / 2, player.y + player.h, 6, Color("#cdbfa6"))
-			elif player.wall != 0 and player.wall != player.lastWall and not player.dog and (player.wsl > 0 or player.airJumps == 0):
+			elif player.wall != 0 and player.wall != player.lastWall and not player.dog and not player.get("isis") and (player.wsl > 0 or player.airJumps == 0):
 				# pulo na parede: empurra para o lado oposto e devolve o pulo duplo
 				player.lastWall = player.wall
 				player.vx = -player.wall * 6.4
@@ -1334,7 +1354,7 @@ func step() -> void:
 			continue
 		# qualquer fogueira que não seja a atual vira o ponto de volta (mesmo já acesa)
 		player.spawnX = c.x - 12
-		player.spawnY = c.y - 34
+		player.spawnY = c.y - body_h()
 		cur_chk = k
 		if not c.on:
 			c.on = true
@@ -1997,7 +2017,7 @@ func _auto_safe() -> void:
 	if T % 30 != 0 or not player.onGround or player.dog or player.swim or (VH and VH.active()) or (RD and RD.riding):
 		return
 	var s = player.get("_g")
-	if s == null or not (s is Dictionary) or str(s.get("t", "")) not in ["ground", "cliff"] or s.get("oneway"):
+	if s == null or not (s is Dictionary) or str(s.get("t", "")) not in ["ground", "cliff"] or s.get("oneway") or s.get("street"):
 		return
 	var px: float = player.x + player.w / 2
 	if px < player.spawnX + 1400 or abs(player.vx) > 4:
@@ -2111,7 +2131,7 @@ func _land(s: Dictionary) -> void:
 	player.launchT = 0
 	player.onGround = true
 	player.coyote = COY
-	player.airJumps = 0 if player.get("dog") else 1
+	player.airJumps = 0 if (player.get("dog") or player.get("isis")) else 1
 	player.lastWall = 0
 	player._g = s
 	player.vy = 0
@@ -2168,8 +2188,8 @@ func _p1_pre(pcx: float) -> void:
 		tip("Passagem baixa: segure ↓ para se abaixar e passar.")
 	if wantC and not player.crouch:
 		player.crouch = true
-		player.y += 14
-		player.h = 20
+		player.y += body_h() - crouch_h()
+		player.h = crouch_h()
 		if abs(player.vx) > 3.1:
 			player.slideT = 1
 			Audio.play("slide")
@@ -2331,6 +2351,7 @@ func _p1_post(pcx: float, _pcy: float) -> void:
 			Audio.vib(15)
 	# portas de manivela
 	_cranks_step(nearL)
+	VL.post()
 	var __qX := Time.get_ticks_usec()
 	X.post()
 	Spr.pt("p_X", __qX)
@@ -2568,7 +2589,10 @@ func use_lock(l: Dictionary) -> void:
 		# velas novas no moinho: as pás começam a girar (as tábuas das pontas levam o Tomé para cima)
 		flash(l.get("msg", "Velas novas! O vento pegou e as pás começaram a girar."), 200)
 	elif l.kind == "gate":
-		SOL = SOL.filter(func(s): return s.get("id") != l.gate)
+		# a porteira sobe devagar (Village.pre anima)
+		for s in SOL:
+			if s.get("id") == l.gate:
+				s.unlocking = true
 		blockers_dirty()
 		Audio.play("door")
 		flash(l.get("msg", "Abriu!"), 180)

@@ -20,6 +20,8 @@ func __draw_raw() -> void:
 	var x0 := g.cam - 60
 	var x1 := g.cam + g.W + 60
 	Spr.begin(self)
+	if g.VL:
+		g.VL.draw_glow(T)
 	# beiradas dos buracos aparecem mesmo no escuro: borda clara e pedrinhas soltas
 	for pit in g.L.get("pits", []):
 		if pit[1] < x0 or pit[0] > x1:

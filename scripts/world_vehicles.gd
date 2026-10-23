@@ -883,6 +883,109 @@ static func _cart_rider(g: Game, VH: Vehicles, p: Dictionary, T: int) -> void:
 	if p.iframe > 0 and (T / 5) % 2 == 0:
 		Spr.glow(VH.hx, VH.hy - 34, 58, Color(1, .95, .75, .45))
 
+const VG_PARK := 150.0     # o carrinho do Vargas para a esta distância do fim
+const VG_DOOR := 40.0      # a porta de ferro fica depois do para-choque
+
+## 0 = porta aberta ... 1 = fechada (a porta do fim dos trilhos)
+static func _vg_door(VH: Vehicles, T: int) -> float:
+	if VH.vg_t0 < 0:
+		return 0.0
+	return clamp(float(T - VH.vg_t0 - 112) / 20.0, 0.0, 1.0)
+
+static func _vargas_run(g: Game, VH: Vehicles, T: int, t0: float, ln: float, a: float, b: float) -> void:
+	var park: float = ln - VG_PARK
+	var stop_u: float = ln - VH.VG_STOP
+	var lead: float = VH.su + 560.0 + sin(T * .013) * 90.0
+	var vu: float = lead
+	if VH.vg_t0 >= 0:
+		vu = park
+	elif VH.su > stop_u - 1300.0:
+		var k: float = clamp((VH.su - (stop_u - 1300.0)) / 1300.0, 0.0, 1.0)
+		k = k * k * (3.0 - 2.0 * k)
+		vu = min(lerpf(lead, park, k), park)
+	var vx: float = t0 + vu
+	var vy: float = VH.sled_y(vu)
+	var el: int = T - VH.vg_t0 if VH.vg_t0 >= 0 else -1
+	if vx > a - 300 and vx < b + 300:
+		if el < 0:
+			var f: int = (T / 5) % 2
+			Spr.A("lia_scared", vx + 44, vy - 58, .5)
+			Spr.A("vg_cart1" if f else "vg_cart2", vx, vy + 2, 1)
+		else:
+			# o carrinho vazio parado e o Vargas correndo até a porta com a Isis debaixo do braço
+			_empty_cart(vx, vy)
+			var dx: float = t0 + ln + VG_DOOR + 30
+			var u: float = clamp(float(el - 12) / 96.0, 0.0, 1.0)
+			if el < 112:
+				var mx: float = lerpf(vx + 40, dx, u)
+				var hop: float = -sin(clamp(el / 14.0, 0, 1) * PI) * 40.0 if el < 14 else 0.0
+				var my: float = VH.sled_y(min(mx - t0, ln - 10)) + hop
+				_vargas_walk(mx, my, T, el)
+				if el == 4:
+					Audio.play("jump", -6)
+			if el == 116:
+				Audio.play("door", -2, .6)
+				g.shake = max(g.shake, 5)
+				g.burst(dx, my_floor(VH, ln), 18, Color(.7, .65, .6))
+
+static func _end_door(VH: Vehicles, T: int, x: float, gy: float) -> void:
+	var h: float = 170.0
+	var w: float = 92.0
+	# batente de pedra
+	Spr.rect(x - 22, gy - h - 26, w + 44, h + 26, Color("#3a3430"))
+	Spr.rect(x - 22, gy - h - 26, w + 44, 6, Color("#5a524a"))
+	# vão escuro
+	Spr.rect(x, gy - h, w, h, Color("#060404"))
+	var c: float = _vg_door(VH, T)
+	# folha de ferro: aberta (de lado, estreita) até bater fechada
+	var fw: float = lerpf(14.0, w, c)
+	Spr.rect(x, gy - h, fw, h, Color("#4a4c52"))
+	Spr.rect(x, gy - h, fw, 5, Color("#7a7c84"))
+	for k in 4:
+		Spr.rect(x, gy - h + 20 + k * 40, fw, 4, Color("#2e3034"))
+	if c > .7:
+		Spr.text("V", x + w / 2, gy - h / 2 + 12, 40, Color(.7, .7, .74, (c - .7) / .3), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_title, 3, Color(0, 0, 0, .6))
+		Spr.circle(x + w - 16, gy - h / 2, 6, Color("#8a8c92"))
+
+static func my_floor(VH: Vehicles, ln: float) -> float:
+	return VH.sled_y(ln - 10)
+
+static func _empty_cart(x: float, y: float) -> void:
+	# carrinho de ferro parado, vazio
+	Spr.rr(x - 46, y - 46, 92, 36, 6, Color("#4a4a52"))
+	Spr.rr(x - 46, y - 46, 92, 8, 4, Color("#6a6a74"))
+	Spr.rect(x - 40, y - 34, 80, 2, Color(0, 0, 0, .3))
+	for wx in [x - 26, x + 26]:
+		Spr.circle(wx, y - 8, 9, Color("#222226"))
+		Spr.circle(wx, y - 8, 4, Color("#77777e"))
+
+## o Vargas a pé (capacete de mineiro com lampião, capote marrom) carregando a Isis
+static func _vargas_walk(x: float, y: float, T: int, el: int) -> void:
+	var st: float = sin(el * .45) * 6.0
+	Spr.ellipse(x, y, 22, 4, Color(0, 0, 0, .35))
+	var dark := Color("#2a2420")
+	var coat := Color("#5a3a22")
+	Spr.rr(x - 11 + st, y - 34, 10, 34, 3, dark)
+	Spr.rr(x + 1 - st, y - 34, 10, 34, 3, dark)
+	Spr.rr(x - 13 + st, y - 6, 14, 6, 2, Color("#1a1410"))
+	Spr.rr(x - 1 - st, y - 6, 14, 6, 2, Color("#1a1410"))
+	Spr.poly(PackedVector2Array([Vector2(x - 18, y - 30), Vector2(x - 14, y - 86), Vector2(x + 14, y - 86), Vector2(x + 20, y - 30)]), coat)
+	Spr.rect(x - 17, y - 52, 36, 5, Color("#2a1a0e"))
+	# a Isis debaixo do braço, esperneando
+	Spr.save()
+	Spr.translate(x + 4, y - 48)
+	Spr.rotate(-1.25 + sin(T * .5) * .12)
+	Spr.A("lia_scared", 0, 0, .5)
+	Spr.restore()
+	# cabeça, bigode e o capacete com a luz
+	Spr.circle(x + 4, y - 96, 12, Color("#c99a78"))
+	Spr.rr(x + 2, y - 92, 14, 4, 2, Color("#3a2a1e"))
+	Spr.circle(x + 10, y - 99, 1.8, Color(0, 0, 0))
+	Spr.rr(x - 11, y - 114, 26, 12, 6, Color("#6a5a3a"))
+	Spr.rect(x - 13, y - 104, 30, 4, Color("#4a3e28"))
+	Spr.circle(x + 13, y - 108, 4.5, Color(1, .9, .55))
+	Spr.glow(x + 13, y - 108, 28, Color(1, .85, .45, .5))
+
 static func _cart_track(g: Game, VH: Vehicles, T: int) -> void:
 	var t0: float = VH.sled_tx0()
 	var ln: float = float(VH.SL.get("len", 4650))
@@ -1036,15 +1139,13 @@ static func _cart_track(g: Game, VH: Vehicles, T: int) -> void:
 				Spr.rect(fx - 3, fy - 56, 6, 56, WOOD)
 				Spr.glow(fx, fy - 62, 34, Color(1, .2, .1, .4 + .2 * sin(T * .2)))
 				Spr.circle(fx, fy - 62, 6, Color(1, .3, .2))
-	# o carrinho do Vargas, sempre um pouco à frente (com a Isis)
+	# o carrinho do Vargas, sempre um pouco à frente (com a Isis); perto do fim ele dispara,
+	# para no fim dos trilhos, salta com a Isis e entra pela porta de ferro, que bate antes de o Tomé chegar
 	if VH.SL.get("vargas") and VH.mode == "sled":
-		var vu: float = min(VH.su + 560.0 + sin(T * .013) * 90.0, ln - 220.0)
-		var vx: float = t0 + vu
-		if vx > a - 100 and vx < b + 100:
-			var vy: float = VH.sled_y(vu)
-			var f: int = (T / 5) % 2
-			Spr.A("lia_scared", vx + 44, vy - 58, .5)
-			Spr.A("vg_cart1" if f else "vg_cart2", vx, vy + 2, 1)
+		_vargas_run(g, VH, T, t0, ln, a, b)
+	# a porta de ferro no fim dos trilhos (o Vargas passa por ela e ela bate)
+	if VH.SL.get("vargas"):
+		_end_door(VH, T, t0 + ln + VG_DOOR, VH.sled_y(ln - 10))
 	# para-choque de madeira no fim dos trilhos
 	var ex: float = t0 + ln - 10
 	var eyy: float = VH.sled_y(ln - 10)

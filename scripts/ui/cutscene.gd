@@ -57,9 +57,12 @@ func _ready() -> void:
 		"isis":
 			shots = [
 				{"d": _pic("cut_isis_a", true), "txt": "Do outro lado daquela porta, a Isis desenhava o pai nas paredes, à luz de uma vela.", "dur": 6.0},
-				{"d": _pic("cut_isis_b", false), "txt": "Toda vez que ninguém olhava, um lápis escorregava por baixo da porta. A trilha não podia acabar.", "dur": 6.0},
-				{"d": _pic("cut_isis_c", true), "txt": "— Pode esconder quanto quiser, menina. — Ele já está vindo, seu Vargas. O meu pai sempre vem.", "dur": 6.5},
-				{"d": _s_post_card3, "txt": "Episódio 3 — em breve.", "dur": 4.0},
+				{"d": _pic("cut_isis_b", false), "txt": "Embaixo da parede havia uma fresta. Pequena demais para um adulto... mas não para ela.", "dur": 6.0},
+			]
+		"isis_fim":
+			shots = [
+				{"d": _pic("cut_isis_c", true), "txt": "O Vargas a levou de volta. — Pode fugir quanto quiser, menina. — Ele já está vindo, seu Vargas. O meu pai sempre vem.", "dur": 7.0},
+				{"d": _s_post_card3, "txt": "Mas os lápis ficaram no chão do túnel. E o Tomé já estava na porta de ferro.", "dur": 5.0},
 			]
 		"mina":
 			shots = [

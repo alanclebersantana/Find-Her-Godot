@@ -635,6 +635,15 @@ static func mech(g: Game, T: int) -> void:
 		if s.get("trestle") and not s.fallen:
 			for lx in [s.x + 8, s.x + s.w - 16]:
 				Spr.rect(lx, s.y + 10, 8, 700 - s.y, Color("#4a3220"))
+		if s.get("tile") and not s.get("roofhole"):
+			# sarrafos finos esticados entre os telhados (as telhas ficam soltas em cima deles)
+			Spr.seg(s.x - 4, s.y + 12, s.x + s.w + 4, s.y + 12, Color("#3a2414"), 3)
+			Spr.seg(s.x - 4, s.y + 12, s.x + s.w + 4, s.y + 12, Color("#8a6a42"), 1.2)
+		if s.fallen and s.get("roofhole"):
+			# buraco no telhado: dá para ver os caibros e o escuro lá dentro
+			Spr.rect(s.x, s.y - 4, s.w, 22, Color("#120a06"))
+			for kx in [s.x + 6, s.x + s.w - 12]:
+				Spr.rect(kx, s.y - 4, 6, 22, Color("#5a3a1e"))
 		if s.fallen:
 			# quebrou: três pedaços caindo e girando cada um para um lado
 			for i in 3:
@@ -644,8 +653,46 @@ static func mech(g: Game, T: int) -> void:
 				Spr.save()
 				Spr.translate(px0 + pw / 2, py0 + 8)
 				Spr.rotate((i - 1) * s.fy * .012 + (s.fy * .004 if i == 1 else 0.0))
-				Spr.PRs("seesaw_plank", -pw / 2, -9, pw, 18, i / 3.0, (i + 1) / 3.0, Color(.85, .8, .75, a) if not s.get("icy") else Color(.8, .92, 1.1, a))
+				if s.get("tile"):
+					Spr.rr(-pw / 2, -7, pw, 14, 4, Color(.7, .32, .18, a))
+				else:
+					Spr.PRs("seesaw_plank", -pw / 2, -9, pw, 18, i / 3.0, (i + 1) / 3.0, Color(.85, .8, .75, a) if not s.get("icy") else Color(.8, .92, 1.1, a))
 				Spr.restore()
+			continue
+		if s.get("tile") and s.get("roofhole"):
+			# telhas soltas no meio do telhado: tortas, com frestas escuras entre elas
+			Spr.rect(s.x, yy - 2, s.w, 14, Color(.07, .04, .03, .9))
+			var k2 := 0
+			var tx2: float = s.x + 2
+			while tx2 < s.x + s.w - 4:
+				Spr.save()
+				Spr.translate(tx2 + 9 + shake, yy + 3 + (k2 % 2) * 2.0)
+				Spr.rotate((.16 if k2 % 2 == 0 else -.12) + (sin(T * 1.9 + k2) * .08 if s.ct > 0 else 0.0))
+				Spr.rr(-10, -6, 20, 12, 3, Color("#c0603a"))
+				Spr.rr(-10, -6, 20, 4, 2, Color("#e08058"))
+				Spr.restore()
+				tx2 += 22
+				k2 += 1
+			Spr.text("!", s.x + s.w / 2, yy - 16 + sin(T * .12) * 2, 14, Color(1, .8, .4, .85), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3)
+			if s.ct > 0 and T % 4 == 0:
+				g.PARTS.append({"x": s.x + randf() * s.w, "y": yy + 10, "vx": randf_range(-.5, .5), "vy": .6, "life": 18, "col": Color(.75, .35, .2, .9)})
+			continue
+		if s.get("tile"):
+			# telhas soltas na beira do telhado: tremem e despencam logo depois de pisar
+			var tc := Color("#b4502e")
+			var tw: float = 24.0
+			var tx: float = s.x
+			var k := 0
+			while tx < s.x + s.w - 2:
+				var jy: float = (sin(T * 1.9 + k) * 1.5 if s.ct > 0 else 0.0) + (k % 2) * 1.5
+				Spr.rr(tx + shake, yy - 4 + jy, min(tw + 2, s.x + s.w - tx), 14, 4, tc)
+				Spr.rr(tx + shake, yy - 4 + jy, min(tw + 2, s.x + s.w - tx), 5, 3, Color("#d8704a"))
+				Spr.seg(tx + tw * .6 + shake, yy + jy, tx + tw * .4 + shake, yy + 9 + jy, Color(0, 0, 0, .35), 1.2)
+				tx += tw
+				k += 1
+			Spr.rr(s.x - 2 + shake, yy - 6, s.w + 4, 18, 7, Color(1, .7, .4, (.1 + .08 * sin(T * .1 + s.x)) * a))
+			if s.ct > 0 and T % 4 == 0:
+				g.PARTS.append({"x": s.x + randf() * s.w, "y": yy + 10, "vx": randf_range(-.5, .5), "vy": .6, "life": 18, "col": Color(.75, .35, .2, .9)})
 			continue
 		# tábua podre: rachaduras à mostra e um contorno pálido pulsando (dá para ver que é perigosa)
 		var pulse: float = .18 + .12 * sin(T * .08 + s.x)

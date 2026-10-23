@@ -298,6 +298,8 @@ func _process(_d: float) -> void:
 			var want_t: Texture2D = tex_harpoon if fish else tex_golpe
 			if tb.texture_normal != want_t:
 				tb.texture_normal = want_t
+			# a Isis não tem picareta
+			tb.visible = not (game.L and game.L.get("isis"))
 	if hint_btn:
 		hint_btn.visible = top_buttons.visible and hud.can_replay()
 		hint_btn.position = Vector2(352, 8)
@@ -393,8 +395,13 @@ func _zoom_target() -> float:
 		for o in g.TR.T:
 			if o.k == "boulder" and o.st in ["drop", "roll"]:
 				return .88
-	# calma: perto de uma fogueira, parado
 	var p: Dictionary = g.player
+	# perto do moinho: a câmera abre para mostrar as pás inteiras
+	if g.MV:
+		for o in g.MV.MV:
+			if o.k == "wheel" and abs(float(o.x) - (p.x + p.w / 2)) < 700:
+				return .62
+	# calma: perto de uma fogueira, parado
 	if abs(p.vx) < .5 and p.onGround:
 		for c in g.CHK:
 			if abs(c.x - (p.x + p.w / 2)) < 220 and abs(c.y - (p.y + p.h)) < 80:
@@ -999,6 +1006,13 @@ func _choose_episode() -> void:
 			panel = null
 			start_level(false, lv)))
 		vb.add_child(_label(EPISODES[i][1], 13, Color(.8, .75, .65), Spr.font_i))
+	# o epílogo jogável do Episódio 2 (liberado depois de jogar até o fim, ou na versão de teste)
+	if eps >= 2 and (OS.has_feature("teste") or Save.getv("prog", "isis", false) or not Save.best(1).is_empty()):
+		vb.add_child(_button("EPÍLOGO · A FUGA DA ISIS", func():
+			panel.queue_free()
+			panel = null
+			start_level(false, 2)))
+		vb.add_child(_label("Do outro lado da porta de ferro: jogue com a Isis.", 13, Color(.8, .75, .65), Spr.font_i))
 	var back := func():
 		panel.queue_free()
 		panel = null
@@ -1182,7 +1196,7 @@ func start_level(cont: bool, lvl: int = 0) -> void:
 	if cont:
 		show_intro(true)
 	else:
-		var cut: String = "abertura" if game.level_idx == 0 else "ep2"
+		var cut: String = ["abertura", "ep2", "isis"][clamp(game.level_idx, 0, 2)]
 		if game.level_idx > 0 and Save.getv("opt", "tut_asked", false):
 			play_cut(cut, func(): show_intro(false))
 		else:
@@ -1283,7 +1297,7 @@ func show_intro(cont: bool) -> void:
 	state = S.INTRO
 	_show_hud(false)
 	var vb := _overlay(.88)
-	vb.add_child(_label("EPISÓDIO %d" % (game.level_idx + 1), 16, Color("#cdbfa6"), Spr.font_title))
+	vb.add_child(_label(str(game.L.get("introSub", "EPISÓDIO %d" % (game.level_idx + 1))), 16, Color("#cdbfa6"), Spr.font_title))
 	var img := TextureRect.new()
 	var ip: String = game.L.get("introImg", "res://assets/ui/cena1.jpg")
 	img.texture = load(ip) if ResourceLoader.exists(ip) else load("res://assets/ui/cena1.jpg")
@@ -1540,7 +1554,7 @@ func play_cut(id: String, after: Callable) -> void:
 		Audio.set_song("tunel")
 	elif id in ["ep2", "ep2fim"]:
 		Audio.set_song("tunel")
-	elif id == "isis":
+	elif id in ["isis", "isis_fim"]:
 		Audio.set_song("noite")
 	var c := preload("res://scripts/ui/cutscene.gd").new(id)
 	c.theme = theme_ui
@@ -1548,6 +1562,12 @@ func play_cut(id: String, after: Callable) -> void:
 	c.finished.connect(after)
 
 func _on_level_end() -> void:
+	if game.level_idx == 2:
+		# fim da fuga da Isis: o Vargas a pegou (gancho para o Episódio 3)
+		Save.setv("prog", "isis", true)
+		Save.clear_run()
+		play_cut("isis_fim", show_title)
+		return
 	play_cut("mina" if game.level_idx == 0 else "ep2fim", _on_results)
 
 # ---------- mapa da fase ----------
@@ -1756,8 +1776,8 @@ func _on_results() -> void:
 		Save.setv("prog", "eps", max(2, int(Save.getv("prog", "eps", 1))))
 		vb.add_child(_button("CONTINUAR", func(): play_cut("posfinal", func(): start_level(false, 1))))
 	else:
-		vb.add_child(_label("O Episódio 3 chega em breve.", 13, Color(.75, .7, .6)))
-		vb.add_child(_button("CONTINUAR", func(): play_cut("isis", show_title)))
+		vb.add_child(_label("Enquanto isso, do outro lado da porta de ferro...", 13, Color(.75, .7, .6), Spr.font_i))
+		vb.add_child(_button("CONTINUAR", func(): start_level(false, 2)))
 
 class _FinalDrawing extends Control:
 	## O desenho da Isis, colorido com os lápis especiais encontrados

@@ -257,7 +257,7 @@ check(13300)
 coins_arc(MILL_X - 300, MILL_X + 300, 120, 0, 2)
 for k in range(10):
     a = math.pi / 2 + k * 2 * math.pi / 10
-    L["coins"].append([int(MILL_X + math.cos(a) * 300), int(MILL_HUB + math.sin(a) * 300 - 40)])
+    L["coins"].append([int(MILL_X + math.cos(a) * 300), int(MILL_HUB + math.sin(a) * 300 - 6)])
 # o alto do barranco (só se chega pelas pás)
 S.append({"t": "ground", "x": 14000, "y": -150, "w": 2820, "h": 650})
 hint(13960, 14200, "Pule da tábua para o alto do barranco quando ela passar perto!", yl=-100)
@@ -283,9 +283,15 @@ HOUSE = [
     {"w": 490, "h": 476, "walk": [50, 440, 55], "sides": [[5, 50, 170], [440, 485, 170]], "chim": [100, 165, 0]},
 ]
 houses = []
+L["watchmen"] = []
+L["dogs"] = []
+L["hotchims"] = []
+L["tilefall"] = []
+L["awnings"] = []
+ROOF_H = 24     # o telhado é uma laje fina: a rua passa por baixo, na frente das casas
 
 
-def house(x, v, sc, flip=False, smoke=False):
+def house(x, v, sc, flip=False, smoke=False, hot=False):
     hv = HOUSE[v]
     w = hv["w"] * sc
     top = GY - hv["h"] * sc
@@ -295,117 +301,168 @@ def house(x, v, sc, flip=False, smoke=False):
     S.append({"t": "house", "x": round(x), "y": GY, "w": round(w), "v": v, "flip": flip, "deco": 1})
     xa, xb = sorted([fx(hv["walk"][0]), fx(hv["walk"][1])])
     wt = top + hv["walk"][2] * sc
-    S.append({"t": "roof", "x": round(xa), "y": round(wt), "w": round(xb - xa), "h": round(GY - wt)})
+    S.append({"t": "roof", "x": round(xa), "y": round(wt), "w": round(xb - xa), "h": ROOF_H, "walk": 1})
     for sd in hv["sides"]:
         a, b = sorted([fx(sd[0]), fx(sd[1])])
         st = top + sd[2] * sc
-        S.append({"t": "roof", "x": round(a), "y": round(st), "w": round(b - a), "h": round(GY - st)})
+        S.append({"t": "roof", "x": round(a), "y": round(st), "w": round(b - a), "h": ROOF_H, "oneway": 1})   # beiral: dá para pular de baixo
     ca, cb = sorted([fx(hv["chim"][0]), fx(hv["chim"][1])])
     ct = top + hv["chim"][2] * sc
-    S.append({"t": "roof", "x": round(ca), "y": round(ct), "w": round(cb - ca), "h": round(wt - ct), "chim": 1})
-    if smoke:
+    if hot:
+        ct -= 40          # chaminé quente: mais alta (pulo duplo) e queima quem pisa em cima
+    S.append({"t": "roof", "x": round(ca), "y": round(ct), "w": round(cb - ca), "h": round(wt - ct), "chim": 1, "hot": 1 if hot else 0})
+    if hot:
+        L["hotchims"].append({"x": round(ca), "w": round(cb - ca), "y": round(ct), "h": round(wt - ct), "per": 210, "ph": int(x) % 210})
+    if smoke or hot:
         L["traps"].append({"k": "wind", "smoke": 1, "x": round(ca) - 10, "y": round(ct) - 430, "w": round(cb - ca) + 20,
                            "h": 430, "pow": 1.0})
-    info = {"x": x, "w": w, "wx0": xa, "wx1": xb, "wt": wt, "st": top + hv["sides"][0][2] * sc, "edge0": min(fx(hv["sides"][0][0]), fx(hv["sides"][1][1])),
-            "edge1": max(fx(hv["sides"][0][0]), fx(hv["sides"][1][1])), "ch": (ca, cb, ct)}
+    info = {"x": x, "w": w, "wx0": xa, "wx1": xb, "wt": wt, "st": top + hv["sides"][0][2] * sc,
+            "edge0": min(fx(hv["sides"][0][0]), fx(hv["sides"][1][1])),
+            "edge1": max(fx(hv["sides"][0][0]), fx(hv["sides"][1][1])), "ch": (ca, cb, ct), "hot": hot}
     houses.append(info)
     return info
 
 
-# primeira descida: do alto do barranco para o primeiro telhado
-plan = [  # (gap antes, variante, escala, espelhada, fumaça)
-    (40, 1, .62, False, False), (110, 0, .66, False, False), (90, 2, .58, True, False), (150, 1, .70, False, True),
-    (260, 0, .60, True, False), (100, 2, .64, False, False), (120, 1, .58, True, True), (300, 0, .72, False, False),
-    (110, 2, .60, False, False), (90, 1, .66, True, False), (140, 0, .62, False, True), (420, 2, .70, False, False),
-    (100, 1, .60, False, False), (130, 0, .68, True, False), (100, 2, .62, False, True), (280, 1, .72, True, False),
-    (110, 0, .60, False, False), (120, 2, .66, True, False), (100, 1, .62, False, False),
+# (vão antes, variante, escala, espelhada, fumaça, chaminé quente)
+plan = [
+    (40, 1, .62, False, False, False),    # 0 o primeiro telhado
+    (120, 0, .68, False, True, False),    # 1 fumaça para planar
+    (300, 2, .60, True, False, False),    # 2 depois de um vão largo (plane na fumaça)
+    (130, 1, .70, True, False, True),     # 3 chaminé quente no meio do caminho
+    (300, 0, .48, False, False, False),   # 4 (telhas soltas no vão antes dela) — bem baixa
+    (150, 2, 1.10, False, False, False),  # 5 o sobrado: alto demais para o pulo duplo, suba pelo toldo
+    (120, 1, .78, False, False, False),   # 6 telhas soltas no meio do telhado
+    (390, 0, .66, False, False, False),   # 7 varal sobre o esgoto
+    (130, 2, .70, True, False, True),     # 8 chaminé quente com labaredas
+    (140, 1, .62, False, True, False),    # 9
+    (280, 0, .68, True, False, False),    # 10 telhas soltas no vão
+    (120, 2, .62, False, False, False),   # 11 a última
 ]
-x = 16900
-for gap, v, sc, fl, sm in plan:
+x = 16940
+for gap, v, sc, fl, sm, hot in plan:
     x += gap
-    h = house(x, v, sc, fl, sm)
+    h = house(x, v, sc, fl, sm, hot)
     x += h["w"]
 VILLAGE_END = x
+gx = round(VILLAGE_END + 420)
+S.append({"t": "ground", "x": 16860, "y": GY, "w": gx + 22 - 16860, "h": 140, "street": 1})    # a rua (pedras)
 # a beira do barranco desce um degrau até o primeiro telhado
 S.append({"t": "stone", "x": 16820, "y": -10, "w": 120, "h": 510})
-hint(16820, 17200, "Os capangas do Vargas vigiam a rua. Vá por cima: de telhado em telhado!", yl=100)
+hint(16820, 17300, "Vigias e cães de guarda andam pela rua. Fique lá em cima: de telhado em telhado!", yl=100)
 check(16880, -10)
+
+
+def gapx(i):
+    """vão entre a casa i e a próxima (x0, x1) no nível da rua"""
+    a, b = houses[i], houses[i + 1]
+    return a["x"] + a["w"], b["x"]
+
 
 # lápis em cima dos telhados e arcos sobre os vãos
 for i, h in enumerate(houses):
     coins_line(h["wx0"] + 20, h["wx1"] - 20, h["wt"] - 30, 52)
     if i + 1 < len(houses):
         n = houses[i + 1]
-        coins_arc(h["wx1"] - 10, n["wx0"] + 10, min(h["wt"], n["wt"]) - 30, 70, 5)
-    # escada na parede (para voltar da rua para a aba do telhado)
-    if i > 0 and h["x"] - (houses[i - 1]["x"] + houses[i - 1]["w"]) < 380:
-        lx = h["edge0"] - 30
-        L["climb"].append({"x": round(lx), "y": round(h["st"]), "w": 30, "h": round(GY - h["st"]), "kind": "ladder"})
+        coins_arc(h["wx1"] - 10, n["wx0"] + 10, min(h["wt"], n["wt"]) - 40, 70, 5)
 
-# varais nos vãos largos (ande pendurado) e a fumaça das chaminés para planar
-for i in range(len(houses) - 1):
-    a, b = houses[i], houses[i + 1]
-    gap = b["wx0"] - a["wx1"]
-    if gap > 330:
-        y = min(a["wt"], b["wt"]) + 30
-        L["bars"].append({"x0": round(a["wx1"] - 30), "x1": round(b["wx0"] + 30), "y": round(y), "clothes": 1})
+# escadas nas paredes (quem cair na rua volta por elas)
+for i in [1, 4, 7, 9, 11]:
+    h = houses[i]
+    L["climb"].append({"x": round(h["edge0"] - 30), "y": round(h["st"]), "w": 30, "h": round(GY - h["st"]), "kind": "ladder"})
 
-# os vãos mais largos têm o esgoto embaixo (veneno): cair ali é perigoso
-for i in range(len(houses) - 1):
+# telhas soltas nos vãos 3→4 e 10→11 (pise e corra: elas despencam)
+for i in [3, 10]:
     a, b = houses[i], houses[i + 1]
-    if b["x"] - (a["x"] + a["w"]) >= 380:
-        x0 = round(a["x"] + a["w"] + 20)
-        x1 = round(b["x"] - 20)
-        L["swamp"].append({"x": x0, "y": 530, "w": x1 - x0, "h": 110, "fumes": 1, "pit": 1})
-        S.append({"t": "dirt", "x": x0, "y": 560, "w": x1 - x0, "h": 580, "deco": 1})
+    y = round(a["wt"])
+    x0 = a["wx1"]
+    span = b["wx0"] - x0
+    n = 3
+    for k in range(n):
+        S.append({"t": "plat", "x": round(x0 + 6 + k * (span - 12) / n), "y": y, "w": round((span - 12) / n - 4), "crumble": 1, "tile": 1})
+hint(round(houses[3]["wx1"] - 120), round(houses[3]["wx1"] + 60), "Telhas soltas! Elas despencam logo depois que você pisa: não pare.", yl=-150)
+
+# toldo: da casa 4 (baixa) para a 5 (alta)
+h4, h5 = houses[4], houses[5]
+L["awnings"].append({"x": round(h5["x"] - 92), "y": round(h4["wt"] + 34), "w": 100, "pow": 17, "wall": "right"})
+hint(round(h4["wx0"]), round(h5["wx0"]), "A casa ao lado é alta demais: pule no toldo de pano e ele joga você para cima!", yl=-150)
+
+# telhas soltas no meio do telhado da casa 6: pisou, despencou (pule por cima delas)
+h6 = houses[6]
+walk6 = [o for o in S if o["t"] == "roof" and o.get("walk") and abs(o["x"] - h6["wx0"]) < 2][0]
+a6 = round(h6["wx0"] + (h6["wx1"] - h6["wx0"]) * .45)
+b6 = a6 + 88
+S.remove(walk6)
+S.append({"t": "roof", "x": walk6["x"], "y": walk6["y"], "w": a6 - walk6["x"], "h": ROOF_H, "walk": 1})
+S.append({"t": "roof", "x": b6, "y": walk6["y"], "w": walk6["x"] + walk6["w"] - b6, "h": ROOF_H, "walk": 1})
+for k in range(2):
+    S.append({"t": "plat", "x": a6 + k * 44, "y": walk6["y"], "w": 44, "crumble": 1, "tile": 1, "roofhole": 1})
+h6["loose"] = (a6, b6)
+hint(round(h6["wx0"] - 40), round(a6), "Telhas soltas no meio do telhado! Se pisar, elas despencam e você cai na rua. Pule por cima.", yl=-150)
+
+# varal sobre o esgoto entre as casas 7 e 8
+a, b = houses[7], houses[8]
+L["bars"].append({"x0": round(a["wx1"] - 30), "x1": round(b["wx0"] + 30), "y": round(min(a["wt"], b["wt"]) + 30), "clothes": 1})
+x0, x1 = gapx(7)
+L["swamp"].append({"x": round(x0 + 20), "y": 530, "w": round(x1 - x0 - 40), "h": 110, "fumes": 1, "pit": 1})
+S.append({"t": "dirt", "x": round(x0 + 20), "y": 560, "w": round(x1 - x0 - 40), "h": 580, "deco": 1})
+hint(round(a["wx1"] - 160), round(a["wx1"]), "Esgoto lá embaixo! Pule no varal e ande pendurado; PULAR dá impulso para subir.", yl=-150)
+hint(round(houses[3]["wx0"]), round(houses[3]["ch"][0] + 10), "Chaminé quente: não pise nela! Pule por cima (pulo duplo) — a fumaça ajuda a planar.", yl=-150)
+
+# vigias e cães na rua
+L["watchmen"].append({"x0": round(houses[1]["x"]), "x1": round(houses[3]["x"] + houses[3]["w"]), "spd": 1.1})
+L["watchmen"].append({"x0": round(houses[5]["x"]), "x1": round(houses[7]["x"] + houses[7]["w"]), "spd": 1.2})
+L["watchmen"].append({"x0": round(houses[9]["x"]), "x1": round(houses[11]["x"] + houses[11]["w"] - 60), "spd": 1.0})
+gx3a, gx3b = houses[3]["x"] + houses[3]["w"], houses[5]["x"] + 40
+L["dogs"].append({"x": round((gx3a + gx3b) / 2), "r": [round(gx3a - 40), round(gx3b + 200)]})
+L["dogs"].append({"x": round(houses[8]["x"] + houses[8]["w"] / 2), "r": [round(houses[8]["x"]), round(houses[9]["x"] + 200)]})
+
 
 def hpos(i, u=.5):
     h = houses[i]
     return h["wx0"] + (h["wx1"] - h["wx0"]) * u, h["wt"]
 
+
 # objetos e pistas nos telhados
-x, y = hpos(4)
+x, y = hpos(2)
 L["items"].append({"x": round(x), "y": round(y) - 24, "id": "chave_a"})
-x, y = hpos(7, .3)
+x, y = hpos(5, .65)
 L["clues"].append({"x": round(x), "y": round(y) - 30, "id": 9})
-x, y = hpos(9)
-L["specials"].append({"x": round(x), "y": round(y) - 110, "c": "azul"})
-x, y = hpos(13)
+x, y = hpos(1, .7)
+L["specials"].append({"x": round(x), "y": round(y) - 170, "c": "azul"})       # em cima da fumaça
+x, y = hpos(9, .4)
 L["items"].append({"x": round(x), "y": round(y) - 24, "id": "chave_b"})
-x, y = hpos(15, .6)
+x, y = hpos(11, .5)
 L["clues"].append({"x": round(x), "y": round(y) - 30, "id": 10})
-x, y = hpos(11)
+x, y = hpos(6, .85)
 L["drawings"].append({"x": round(x), "y": round(y) - 36, "txt": "Um desenho da Isis: a vila de noite, com o papai pulando nos telhados."})
-for i in [3, 9, 14]:
+for i in [2, 9]:
     x, y = hpos(i)
     L["enemies"].append({"k": "crow", "x": round(x), "y": round(y) - 160, "cy": round(y) - 160, "r": [round(x) - 300, round(x) + 300]})
-for i in [2, 6, 10, 14, 17]:
-    x, y = hpos(i, .3)
+for i, u in [(2, .2), (6, .93), (9, .8)]:
+    x, y = hpos(i, u)
     check(round(x), round(y))
-hint(round(houses[3]["x"]), round(houses[3]["x"] + 400), "Fumaça quente da chaminé: plane (segure PULAR no ar) em cima dela para subir.", yl=-200)
 
-# fim da vila: desce para a rua, porteira da mina (chave)
-gx = VILLAGE_END + 380
-ground(16860, round(gx + 22))                  # a rua (pedras)
-check(round(VILLAGE_END + 120), GY, 3)
+# fim da vila: desce para a rua, porteira da mina (chave) na boca da mina
+check(round(VILLAGE_END + 140), GY, 3)
+S.append({"t": "portal", "x": gx - 90, "y": GY, "w": 260, "deco": 1})
 S.append({"t": "pgate", "id": "vgate", "x": gx, "y": -700, "w": 22, "h": 1200, "crank": 1})
 L["locks"].append({"x": gx - 60, "y": 380, "w": 80, "h": 120, "id": "vgate", "kind": "gate", "gate": "vgate",
                    "need": "chave", "parts": ["chave_a", "chave_b"],
-                   "where": {"chave_a": "num telhado no começo da vila", "chave_b": "num telhado depois do esgoto largo"},
+                   "where": {"chave_a": "num telhado no começo da vila", "chave_b": "num telhado depois do esgoto"},
                    "pre": "A porteira da mina está trancada.",
                    "place": "Vá até a porteira da mina e toque em ✦ USAR.",
                    "use": "Toque em ✦ USAR na porteira para destrancar.",
-                   "msg": "A chave girou! A porteira da mina se abriu."})
+                   "msg": "A chave girou! A porteira da mina está subindo..."})
 hint(round(gx - 300), round(gx + 10), "A porteira da mina: junte as duas metades da chave na mochila.")
-coins_line(VILLAGE_END + 40, gx - 80, 470)
+coins_line(VILLAGE_END + 40, gx - 100, 470)
 
 # ======================================================================
 #  D · PROFUNDEZAS E O CARRINHO
 # ======================================================================
 D0 = round(gx + 40)
-L["sections"].append({"x": D0, "song": "tunel", "bg": "mina", "gt": "mina", "dark": .6, "night": 1, "per": 3,
+L["sections"].append({"x": D0 + 420, "song": "tunel", "bg": "mina", "gt": "mina", "dark": .6, "night": 1, "per": 3,
                       "tint": "rgba(60,35,10,.2)"})
-L["darkZones"].append({"x": D0, "w": 6000, "dark": .85})
+L["darkZones"].append({"x": D0 + 200, "w": 5800, "dark": .85})
 ground(round(gx + 22), D0 + 1500)
 rock(D0, D0 + 4000, -620, 120, True)
 L["oil"].append([D0 + 200, 468])

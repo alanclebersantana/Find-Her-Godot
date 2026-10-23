@@ -119,6 +119,11 @@ func _draw_raw() -> void:
 			"shed": shed(s)
 			"beam": beam(s)
 			"rockw": rockw(s)
+			"portal": portal(s)
+			"brickw":
+				# parede de pedra do quarto da Isis (com a fresta embaixo)
+				_masonry(s, Color(.62, .58, .54), Color(.3, .25, .2), Color(.1, .08, .06, .97), s.y)
+				Spr.rect(s.x, s.y + s.h - 4, s.w, 4, Color(0, 0, 0, .5))
 			"house":
 				# casa da vila (Episódio 2): o telhado é o caminho do Tomé
 				Spr.P("casa%d" % int(s.get("v", 0)), s.x + s.w / 2, s.y + 3, s.w, bool(s.get("flip", false)))
@@ -1094,6 +1099,52 @@ func beam(s: Dictionary) -> void:
 
 ## maciço de rocha da mina (teto ou parede): terra com pedras da textura da mina, borda de pedras
 ## e, no teto, pontas de rocha penduradas
+## boca da mina no fim da vila: paredão de pedra com a entrada escorada por vigas
+func portal(s: Dictionary) -> void:
+	var x: float = s.x
+	var w: float = s.w
+	var gy: float = s.y
+	var op0: float = x + 50          # vão da entrada
+	var op1: float = x + w - 30
+	var top: float = gy - 268
+	# o escuro lá dentro
+	Spr.rect(op0, top, op1 - op0, gy - top, Color("#0c0907"))
+	Spr.ellipse((op0 + op1) / 2, top + 40, (op1 - op0) * .5, 50, Color("#0c0907"))
+	# paredão de pedra em volta (até lá em cima)
+	_dirt_fill(x - 40, op0, -760, gy, x, .62)
+	_dirt_fill(op0, op1 + 10, -760, top + 6, x, .62)
+	_dirt_fill(op1, x + w + 80, -760, gy, x, .62)
+	var rim := Color("#4a3a2c")
+	var rim2 := Color("#2a2018")
+	# borda irregular de pedras no paredão (lado da vila)
+	var yy: float = -740
+	while yy < gy:
+		var r := hh(yy + x, 17)
+		Spr.ellipse(x - 40, yy + 16, 14 + r * 10, 20, rim2)
+		Spr.ellipse(x - 36, yy + 14, 10 + r * 8, 15, rim)
+		yy += 36
+	# vigas: dois esteios e a travessa
+	var wood := Color("#5a3a1e")
+	var wood2 := Color("#2e1c0c")
+	for px in [op0 - 6, op1 - 16]:
+		Spr.rect(px, top, 22, gy - top, wood2)
+		Spr.rect(px + 3, top, 15, gy - top, wood)
+		Spr.rect(px + 6, top, 3, gy - top, Color(1, .85, .6, .15))
+	Spr.rect(op0 - 26, top - 26, op1 - op0 + 52, 28, wood2)
+	Spr.rect(op0 - 22, top - 22, op1 - op0 + 44, 20, wood)
+	Spr.rect(op0 - 22, top - 22, op1 - op0 + 44, 4, Color(1, .85, .6, .18))
+	for k in 2:
+		Spr.seg(op0 + 16 + k * (op1 - op0 - 52), top, op0 + 46 + k * (op1 - op0 - 112), top + 32, wood, 6)
+	# placa
+	var sx: float = (op0 + op1) / 2
+	Spr.rect(sx - 46, top - 62, 92, 30, wood2)
+	Spr.rect(sx - 43, top - 59, 86, 24, Color("#7a5530"))
+	Spr.text("MINA", sx, top - 41, 16, Color("#f0dcb0"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 2, Color(0, 0, 0, .7))
+	# lanterninha pendurada
+	Spr.seg(op0 + 4, top - 2, op0 + 4, top + 26, Color("#222"), 1.5)
+	Spr.circle(op0 + 4, top + 32, 7, Color("#3a2a18"))
+	Spr.circle(op0 + 4, top + 32, 4, Color(1, .8, .4))
+
 func rockw(s: Dictionary) -> void:
 	var xa: float = max(s.x, x0 - 4)
 	var xb: float = min(s.x + s.w, x1 + 4)

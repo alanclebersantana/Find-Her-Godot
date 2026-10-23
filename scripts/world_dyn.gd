@@ -55,6 +55,8 @@ func __draw_raw() -> void:
 		Spr.restore()
 	if g.MV:
 		g.MV.draw(T)
+	if g.VL:
+		g.VL.draw(T)
 	var __d__deco := Time.get_ticks_usec()
 	_deco(g)
 	Spr.pt("d__deco", __d__deco)
@@ -231,6 +233,8 @@ func _draw_front_node(n: CanvasItem) -> void:
 		return
 	Spr.begin(n)
 	WorldNature.front_decor(g)
+	if g.VL:
+		g.VL.draw_front(T)
 	var __d_Traps_draw_front := Time.get_ticks_usec()
 	WorldTraps.draw_front(g, T)
 	Spr.pt("d_Traps_draw_front", __d_Traps_draw_front)
@@ -334,6 +338,20 @@ func _deco(g: Game) -> void:
 		if g.L.door.get("kind", "") == "vault":
 			if gx > cam - 300 and gx < cam + g.W + 300:
 				_vault(g.DOOR.x + 30, 500)
+		elif g.L.door.get("kind", "") == "exit":
+			# saída do túnel: o luar entrando por uma abertura na rocha
+			var ex: float = g.DOOR.x
+			if ex > cam - 300 and ex < cam + g.W + 300:
+				Spr.rect(ex - 90, 120, 300, 382, Color("#2a1d14"))
+				for st in 9:
+					Spr.ellipse(ex - 90, 140 + st * 42, 16, 24, Color("#3a2a1c"))
+					Spr.ellipse(ex + 210, 150 + st * 42, 16, 24, Color("#3a2a1c"))
+				Spr.rr(ex - 10, 330, 120, 172, 50, Color("#1a2a44"))
+				Spr.rr(ex, 342, 100, 160, 44, Color("#3a5a86"))
+				Spr.circle(ex + 66, 380, 12, Color(.95, .95, .85))
+				for st in 5:
+					Spr.circle(ex + 14 + st * 19, 360 + (st * 37) % 50, 1.4, Color(1, 1, 1, .8))
+				Spr.glow(ex + 50, 430, 120, Color(.6, .75, 1, .25))
 		elif gx > cam - 300 and gx < cam + g.W + 300:
 			Spr.A("mi_cart_full", gx - 70, 502, .8)
 			if g.VIL and g.VIL.go and not g.VIL.gone:
@@ -1011,6 +1029,36 @@ func _player(g: Game) -> void:
 	Spr.alpha = a0
 	Spr.restore()
 
+## a Isis (fase da fuga): quadros do filha.png — parada, acenando, pulando, mãos à frente
+func _isis_draw(p: Dictionary) -> void:
+	var t2: Texture2D = Spr.tex.filha
+	var fw: float = t2.get_width() / 4.0
+	var fh: float = t2.get_height()
+	var cx: float = p.x + p.w / 2
+	var by: float = p.y + p.h + 2
+	var hgt: float = 56.0
+	var fr := 0
+	var sy := 1.0
+	var rot := 0.0
+	var bob := 0.0
+	if not p.onGround:
+		fr = 2
+	elif p.crouch:
+		fr = 3
+		sy = .62
+	elif abs(p.vx) > .5:
+		fr = 0 if int(p.anim * .6) % 2 == 0 else 3
+		bob = -abs(sin(p.anim * .6 * PI)) * 3.0
+		rot = sin(p.anim * .6 * PI) * .06
+	var s: float = hgt / fh
+	Spr.ellipse(cx, p.y + p.h + 1, 11, 2.5, Color(0, 0, 0, .3))
+	Spr.save()
+	Spr.translate(cx, by + bob)
+	Spr.rotate(rot * p.face)
+	Spr.scale(-s if p.face < 0 else s, s * sy)
+	Spr.ci.draw_texture_rect_region(t2, Rect2(-fw / 2, -fh, fw, fh), Rect2(fr * fw, 0, fw, fh), Color(1, 1, 1, Spr.alpha))
+	Spr.restore()
+
 ## poses da animação de entrar/sair dos esconderijos
 func _warp_pose(p: Dictionary) -> void:
 	var cx: float = p.x + p.w / 2
@@ -1032,6 +1080,9 @@ func _warp_pose(p: Dictionary) -> void:
 func _player_draw(g: Game) -> void:
 	var p: Dictionary = g.player
 	if p.iframe > 0 and (T / 4) % 2 == 0 and p.dyingT == 0:
+		return
+	if p.get("isis"):
+		_isis_draw(p)
 		return
 	var cx: float = p.x + p.w / 2
 	var by: float = p.y + p.h

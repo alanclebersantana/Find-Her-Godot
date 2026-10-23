@@ -72,11 +72,29 @@ func _initialize() -> void:
 		await process_frame
 		_end_cuts()
 	await process_frame
+	# o epílogo: a fuga da Isis (jogável) começa depois da cena
+	if m.game.level_idx != 2 or not m.game.player.get("isis"):
+		fails.append("a fase da Isis não começou (nível %d)" % m.game.level_idx)
+	if m.panel and m.panel.has_meta("ok"):
+		m.panel.get_meta("ok").call()
+	await process_frame
+	m.game.running = false
+	m._on_level_end()
+	for i in 6:
+		await process_frame
+		_end_cuts()
+	await process_frame
 	if m.state != m.S.TITLE:
 		fails.append("depois da Isis não voltou ao início (estado %d)" % m.state)
 	if not _press("ESCOLHER EPISÓDIO"):
 		fails.append("sem ESCOLHER EPISÓDIO no início")
 	await process_frame
+	var has_epi := false
+	for b in m._joy_buttons():
+		if b is Button and b.text.begins_with("EPÍLOGO"):
+			has_epi = true
+	if not has_epi:
+		fails.append("sem o botão do epílogo da Isis")
 	if not _press("EPISÓDIO 2"):
 		fails.append("sem botão do Episódio 2")
 	await process_frame
