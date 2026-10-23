@@ -168,7 +168,7 @@ func bagre() -> void:
 	f.x = 24140 + 330.0
 	f.y = 850.0
 	f.dir = -1
-	await run(100, func(i): return {"L": i > 10 and i < 70, "U": i % 18 < 6})
+	await run(150, func(i): return {"L": i > 10 and i < 70, "U": i % 18 < 6})
 
 func gelo() -> void:
 	kill_enemies()
