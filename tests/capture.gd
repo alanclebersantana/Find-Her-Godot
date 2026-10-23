@@ -12,7 +12,7 @@ func _initialize() -> void:
 	for i in 3:
 		await process_frame
 	var sv = root.get_node("Save")
-	for id in ["cipo", "mergulho", "neve", "pipoca", "picareta", "cavalo", "mina", "toxico", "javali", "gaviao", "bagre", "urso", "vargas", "bola", "aviao", "jangada"]:
+	for id in ["cipo", "mergulho", "neve", "pipoca", "picareta", "cavalo", "mina", "toxico", "javali", "gaviao", "bagre", "urso", "vargas", "bola", "aviao", "jangada", "colmeia", "carrinho"]:
 		sv.setv("comic", id, true)
 	main.start_level(false)
 	await process_frame
@@ -237,14 +237,14 @@ func fr(set: Dictionary = {}) -> void:
 	hide_ui()
 	g.flash_t = 0
 	g.player.hp = 5
-	for k in ["L", "R", "J", "S", "U", "A", "G"]:
+	for k in ["L", "R", "J", "S", "U", "A", "G", "P"]:
 		g.keys[k] = false
 	for k in set:
 		g.keys[k] = set[k]
 	await physics_frame
 	P = g.player
 	nf += 1
-	if nf % 60 == 0:
+	if nf % 60 == 0 or OS.has_environment("CAPDBG"):
 		print("f%d x=%d y=%d st=%s" % [nf, int(px()), int(g.player.y), str(main.state)])
 	if nf > 2480:
 		quit()
@@ -749,3 +749,184 @@ func colmeia() -> void:
 	await fr({})
 	await until({"L": true}, func(): return px() < 11440, 260)
 	await hold({}, 20)
+
+
+# ---------- trechos de ação para o trailer (versão 2) ----------
+## pula e, no alto do pulo, aperta ↓ (mergulho) e espera bater no chão
+func slam_here() -> void:
+	press("J")
+	await fr({"J": true})
+	for i in 40:
+		await fr({"J": true})
+		if g.player.vy > -2:
+			break
+	press("S")
+	await fr()
+	for i in 90:
+		await fr()
+		if g.player.onGround or g.player.ladder != null or g.player.y > 600:
+			break
+
+func stake_cross(sx: float) -> void:
+	var st: Dictionary = {}
+	for o in g.SL.STAKES:
+		if abs(float(o.x) - sx) < 5:
+			st = o
+	if st.is_empty():
+		return
+	if px() < sx - 60:
+		await walk_to(sx - 60)
+	await jump_to(sx)
+	await hold({}, 6)
+	await slam_here()
+	await until({}, func(): return st.done and st.lift >= 1.0, 400)
+	await walk_to(float(st.bridge.x) + float(st.bridge.w) + 40)
+
+func djump(dir: String) -> void:
+	press("J")
+	await hold({"J": true, dir: true}, 16)
+	for i in 30:
+		if g.player.vy >= -.5:
+			break
+		await fr({dir: true})
+	press("J")
+	await hold({"J": true, dir: true}, 16)
+	await wait_ground({dir: true})
+
+func a_inicio() -> void:
+	kill_enemies()
+	put(430, 500)
+	await hold({}, 4)
+	await walk_to(600)
+	await crawl(870)
+	await walk_to(980)
+	await jump_to(1060)
+	await jump_to(1170)
+	await jump_to(1300)
+	await walk_to(1480)
+	await hold({}, 10)
+
+func a_estaca() -> void:
+	kill_enemies()
+	put(2075, 500)
+	await hold({}, 10)
+	await stake_cross(2040)
+	await hold({}, 10)
+
+func a_escada() -> void:
+	kill_enemies()
+	put(2600, 500)
+	await hold({}, 4)
+	await cross_spikes(trap_at("spikes", 2640), 2780)
+	await walk_to(2835)
+	await climb("U", func(): return g.player.ladder == null and g.player.y < 100, 400)
+	await hold({}, 14)
+	await walk_to(2835)
+	await climb("S", func(): return g.player.onGround and g.player.y > 400, 500)
+	await walk_to(3000)
+
+func cross_spikes(o: Dictionary, x_after: float) -> void:
+	var per: int = o.get("per", 140)
+	for i in 400:
+		if (g.T + int(o.get("ph", 0))) % per == per / 2 + 8:
+			break
+		await fr()
+	await walk_to(x_after)
+
+func a_galho() -> void:
+	kill_enemies()
+	put(3690, 500)
+	await hold({}, 6)
+	await walk_to(3720)
+	await djump("R")
+	await walk_to(3910)
+	await jump_to(4060, true)
+	await walk_to(4185)
+	press("J")
+	await hold({"J": true, "R": true}, 16)
+	await until({"R": true}, func(): return g.player.vine != null, 80)
+	await swing_off()
+	await wait_ground()
+	await hold({}, 10)
+
+func a_chao() -> void:
+	kill_enemies()
+	put(4500, 500)
+	await hold({}, 6)
+	await walk_to(4685)
+	await hold({}, 10)
+	await slam_here()
+	await walk_to(4690)
+	await climb("S", func(): return g.player.onGround and g.player.y > 800, 500)
+	await walk_to(4900)
+
+func a_planar() -> void:
+	kill_enemies()
+	put(9515, -280)
+	await wait_ground()
+	await hold({}, 6)
+	press("J")
+	await hold({"J": true, "R": true}, 18)
+	for i in 400:
+		if g.player.onGround and i > 4:
+			break
+		await fr({"R": true, "P": true})
+	await hold({}, 12)
+
+func a_regias() -> void:
+	kill_enemies()
+	put(12480, 500)
+	await hold({}, 4)
+	await walk_to(12575)
+	for x in [12676, 12816, 12946, 13090]:
+		await jump_to(x)
+	await walk_to(13200)
+	await jump_to(13330)
+	await walk_to(13460)
+
+func a_colmeia() -> void:
+	kill_enemies()
+	put(15790, 500)
+	await hold({}, 8)
+	await crawl(15955)
+	await walk_to(16035)
+	await until({"R": true, "S": true}, func(): return px() > 16190 and g.player.y > 600, 300)
+	await hold({"R": true}, 90)
+
+func a_noite() -> void:
+	kill_enemies()
+	put(64400, 500)
+	g.lantern_lit = true
+	await hold({}, 4)
+	await walk_to(64460)
+	var axe: Dictionary = g.TR.by_kind("axe")[0]
+	await until({}, func(): g.TR.axe_blade(axe); return axe.ang > .35, 300)
+	await jump_to(64800, true)
+	await walk_to(64910)
+	await jump_to(64975)
+	if px() < 65000:
+		await jump_to(65040, true)
+	await walk_to(65245)
+	await bounce_to(65295)
+	await hold({}, 6)
+	await bounce_to(65755)
+	await hold({}, 6)
+	await jump_to(66265)
+	await jump_to(66450)
+	await walk_to(66600)
+
+func a_tabuas() -> void:
+	kill_enemies()
+	put(72110, 500)
+	g.lantern_lit = true
+	await hold({}, 6)
+	await jump_to(72210)
+	await jump_to(72360)
+	await walk_to(72400)
+	await jump_to(72600)
+	await walk_to(72735)
+	await jump_to(72810)
+	await jump_to(72900)
+	await jump_to(73000)
+	await walk_to(73040)
+	await hold({}, 10)
