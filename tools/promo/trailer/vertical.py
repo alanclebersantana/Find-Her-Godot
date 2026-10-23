@@ -206,7 +206,7 @@ def c_abertura(dur):
 
 
 def c_sumiu(dur):
-    L = text_layer([('Na manhã seguinte, ela tinha sumido.', font('Lora-Italic', 64), CREAM, 880, 0, 900)])
+    L = text_layer([('Quando o pai chegou, ela já não estava lá.', font('Lora-Italic', 64), CREAM, 860, 0, 900)])
     L2 = text_layer([('Ninguém viu quem a levou.', font('Lora-Italic', 46), (190, 178, 160), 1060, 0, 900)])
 
     def fr(t):

@@ -151,7 +151,7 @@ def abertura():
 
 
 def sumiu():
-    L = text_layer([('Na manhã seguinte, ela tinha sumido.', font('Lora-Italic', 46), CREAM, 330, 0)])
+    L = text_layer([('Quando o pai chegou, ela já não estava lá.', font('Lora-Italic', 46), CREAM, 330, 0)])
     L2 = text_layer([('Ninguém viu quem a levou.', font('Lora-Italic', 34), (190, 178, 160), 400, 0)])
 
     def fr(t):

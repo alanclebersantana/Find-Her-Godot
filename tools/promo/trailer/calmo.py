@@ -6,7 +6,7 @@ pelo cenário, sons de ambiente de cada fase e frases sobre o capricho e o clás
 Mesma história (Isis, a sombra, o sumiço) e o final com a pergunta. Ninguém revela quem levou a Isis.
 Uso: python3 calmo.py [cA cB cC] -> /tmp/vid/encontre-a_calmo_<v>.mp4"""
 import os, sys, math, subprocess, hashlib
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 import vertical as V
 from vertical import (font, ease, ramp, cover, text_layer, over, paste_a, writer, render, framed_panel,
                       W, H, FPS, SW, SH, GOLD, CREAM, YEL, INK, FASES, FASE_COR, R, A)
@@ -88,6 +88,46 @@ def c_final_destaque(dur):
     return fr
 
 
+def c_final_simples(dur):
+    base = cover(R + 'assets/bg/noite.jpg', int(W * 1.06), int(H * 1.03), 6, .6)
+    B = text_layer([('QUEM LEVOU A ISIS?', font('Cinzel-Bold', 100), YEL, 920, 6, 960)])
+    C = text_layer([('ENCONTRE-A', font('Cinzel-Bold', 124), GOLD, 820, 6),
+                    ('EPISÓDIO 1 · O BOSQUE', font('Cinzel-Bold', 50), (232, 201, 138), 935, 4)])
+    E = text_layer([('A seguir: Episódio 2 · As Profundezas da Mina', font('Lora-Bold', 36), (255, 214, 120), 1110, 2, 1000),
+                    ('Para Android', font('Lora-Italic', 40), (225, 215, 195), 1200, 0)])
+    a1 = dur * .36
+
+    def fr(t):
+        ox = int(W * .05 * t / dur)
+        im = over(base.crop((ox, 20, ox + W, 20 + H)), V.VIG, 1)
+        im = over(im, B, ramp(t, .2, a1, .45))
+        im = over(im, C, ease((t - a1 - .2) / .7))
+        im = over(im, E, ease((t - a1 - 1.0) / .7))
+        return im
+    return fr
+
+
+V.CARDS['final_simples'] = c_final_simples
+def c_final_simples(dur):
+    base = cover(R + 'assets/bg/noite.jpg', int(W * 1.06), int(H * 1.03), 6, .6)
+    B = text_layer([('QUEM LEVOU A ISIS?', font('Cinzel-Bold', 100), YEL, 920, 6, 960)])
+    C = text_layer([('ENCONTRE-A', font('Cinzel-Bold', 124), GOLD, 820, 6),
+                    ('EPISÓDIO 1 · O BOSQUE', font('Cinzel-Bold', 50), (232, 201, 138), 935, 4)])
+    E = text_layer([('A seguir: Episódio 2 · As Profundezas da Mina', font('Lora-Bold', 36), (255, 214, 120), 1110, 2, 1000),
+                    ('Para Android', font('Lora-Italic', 40), (225, 215, 195), 1200, 0)])
+    a1 = dur * .36
+
+    def fr(t):
+        ox = int(W * .05 * t / dur)
+        im = over(base.crop((ox, 20, ox + W, 20 + H)), V.VIG, 1)
+        im = over(im, B, ramp(t, .2, a1, .45))
+        im = over(im, C, ease((t - a1 - .2) / .7))
+        im = over(im, E, ease((t - a1 - 1.0) / .7))
+        return im
+    return fr
+
+
+V.CARDS['final_simples'] = c_final_simples
 V.CARDS['classico'] = c_classico
 V.CARDS['final_destaque'] = c_final_destaque
 V.CARDS['final_calmo'] = c_final_calmo
@@ -143,10 +183,16 @@ def tomada(seg, st, du, fase, layout, frase=None, z0=1.0, z1=1.08, gm=None, fixe
     tag = V.pill('%d · %s' % (fase + 1, FASES[fase]), 36, (14, 10, 6, 150), fcol, 'Cinzel-Bold')
     fl = text_layer([(frase, font('Lora-Italic', 60), CREAM, 1520, 3, 960)]) if (frase and layout == 'cheia' and isinstance(frase, str)) else None
     band = soft_band(1330, 1750, 150) if layout == 'cheia' else None
-    jl = jd = None
+    jl = jd = emo = None
     if frase and layout != 'cheia':
-        if isinstance(frase, tuple):  # (frase pequena, DESTAQUE)
-            peq, big = frase
+        if isinstance(frase, tuple):  # (frase pequena, DESTAQUE[, emoji])
+            peq, big = frase[:2]
+            if len(frase) > 2:
+                ef = ImageFont.truetype('/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf', 109)
+                ei = Image.new('RGBA', (160, 160), (0, 0, 0, 0))
+                ImageDraw.Draw(ei).text((10, 10), frase[2], font=ef, embedded_color=True)
+                ei = ei.crop(ei.getbbox())
+                emo = ei.resize((int(ei.width * 1.5), int(ei.height * 1.5)), Image.LANCZOS)
             bl = big.split('|')  # '|' marca a quebra de linha do destaque
             nb = len(bl)
             y0 = 1640 - (nb - 1) * 76
@@ -204,6 +250,12 @@ def tomada(seg, st, du, fase, layout, frase=None, z0=1.0, z1=1.08, gm=None, fixe
                 fr = over(fr.convert('RGB'), jl, ta).convert('RGBA')
                 if jd:
                     fr = over(fr.convert('RGB'), jd, ramp(i / FPS, 1.0, du - .3, .5)).convert('RGBA')
+                if emo is not None:
+                    ea = ramp(i / FPS, 1.0, du - .3, .4)
+                    if ea > 0:
+                        sc = .8 + .2 * ease((i / FPS - 1.0) / .35)
+                        e2 = emo.resize((int(emo.width * sc), int(emo.height * sc)), Image.LANCZOS)
+                        paste_a(fr, e2, (W // 2 - e2.width // 2, 1340 - e2.height // 2), ea)
                 d = ImageDraw.Draw(fr)
             if trilha:
                 xs = [140 + k * 160 for k in range(6)]
@@ -261,15 +313,15 @@ ROT = {
         c('final_calmo', 6.0)]),
     'cB2': ('janela', [
         c('abertura', 6.4), c('sumiu', 3.0), c('titulo', 3.0),
-        t('manha', 0.0, 4.0, 0, ('Pular, correr, subir na casa da árvore...', 'O BÁSICO BEM FEITO.'), z0=1.1, z1=1.18, trilha=True),
+        t('manha', 0.0, 4.0, 0, 'A casa na árvore, as flores, as folhas no vento...', z0=1.1, z1=1.18, trilha=True),
         t('a_galho', 0.0, 5.4, 1, 'Um bosque de outono desenhado com capricho.', z0=1.1, z1=1.18, trilha=True),
-        t('a_regias', 0.2, 5.4, 1, ('Ele está de volta:', 'O CLÁSSICO GÊNERO|DE PLATAFORMA'), z0=1.1, z1=1.16, trilha=True),
+        t('a_regias', 0.2, 5.6, 1, ('Ele está de volta:', 'O CLÁSSICO GÊNERO|DE PLATAFORMA'), z0=1.1, z1=1.16, trilha=True),
         t('corda', 0.2, 4.2, 2, 'Chuva, sapos e cipós no pântano.', z0=1.1, z1=1.16, trilha=True),
-        t('jangada', 1.0, 5.0, 2, ('Sem truques, sem pressa.', 'O BÁSICO BEM FEITO.'), z0=1.05, z1=1.12, trilha=True),
-        t('vento', 2.0, 5.2, 3, 'Neve caindo sobre a montanha.', z0=1.1, z1=1.16, trilha=True),
+        t('jangada', 1.0, 5.0, 2, 'A correnteza leva a jangada rio abaixo.', z0=1.05, z1=1.12, trilha=True),
+        t('vento', 2.0, 5.4, 3, ('Jogue no toque ou no controle:', '100% COMPATÍVEL|COM GAMEPAD', '🎮'), z0=1.1, z1=1.16, trilha=True),
         t('a_noite', 0.0, 5.6, 4, 'O dia vira noite enquanto você joga.', z0=1.05, z1=1.12, gm=1.15, trilha=True),
-        t('a_noite', 4.6, 4.8, 4, ('Feito com capricho, como antigamente:', 'O CLÁSSICO GÊNERO|DE PLATAFORMA'), z0=1.1, z1=1.16, gm=1.2, trilha=True),
-        c('final_destaque', 7.0)]),
+        t('a_noite', 4.6, 5.0, 4, ('Sem truques, só capricho:', 'O BÁSICO BEM FEITO.'), z0=1.1, z1=1.16, gm=1.2, trilha=True),
+        c('final_simples', 6.2)]),
     'cC': ('cheia', [
         c('classico', 4.2),
         c('abertura', 4.6), c('sumiu', 2.4),
