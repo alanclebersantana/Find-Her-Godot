@@ -89,7 +89,7 @@ func _lever_step() -> void:
 		if lv.down:
 			down += 1
 	# cada peso embaixo puxa o portão um pouco; com os dois, ele abre de vez
-	var want: float = (0.32 if down == 1 else (1.0 if down >= 2 else 0.0)) * (GATE.h - 6)
+	var want: float = (0.12 if down == 1 else (1.0 if down >= 2 else 0.0)) * (GATE.h - 6)
 	var old: float = GATE.lift
 	GATE.lift = move_toward(GATE.lift, want, 1.6)
 	if GATE.lift != old:

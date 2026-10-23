@@ -81,6 +81,12 @@ def hint(a, b, t, **kw):
     L["hints"].append(d)
 
 
+def bat(x, cy, r, ceil_y):
+    """morcego pendurado numa ponta de rocha que desce do teto (não fica solto no ar)"""
+    L["enemies"].append({"k": "bat", "x": x, "y": cy, "cy": cy, "r": r})
+    rock(x - 34, x + 34, ceil_y - 10, cy - 14, True)
+
+
 def lake(x, w, stake_x):
     """lago de veneno com estaca: o mergulho na estaca baixa a ponte"""
     L["swamp"].append({"x": x, "y": 530, "w": w, "h": 110, "fumes": 1, "pit": 1})
@@ -124,7 +130,7 @@ coins_arc(1430, 1560, 430, 50, 4)
 coins_arc(1590, 1710, 390, 50, 4)
 coins_arc(1740, 1880, 420, 50, 4)
 L["specials"].append({"x": 1650, "y": 300, "c": "vermelho"})
-L["enemies"].append({"k": "bat", "x": 1650, "y": 250, "cy": 250, "r": [1450, 1880]})
+bat(1650, 250, [1450, 1880], -40)
 ground(1900, 3720)
 hint(1300, 1500, "Cavaletes sobre o poço: pule de tábua em tábua. Cuidado com o morcego!")
 check(2000)
@@ -157,7 +163,7 @@ hint(4100, 4380, "Elevador da mina: suba na gaiola e aperte USAR.")
 check(4150)
 L["items"].append({"x": 4760, "y": 36, "id": "corda"})
 coins_line(4450, 5600, 30)
-L["enemies"].append({"k": "bat", "x": 5100, "y": -60, "cy": -60, "r": [4700, 5500]})
+bat(5100, -100, [4700, 5500], -160)
 L["specials"].append({"x": 5250, "y": -60, "c": "laranja"})
 L["oil"].append([5450, 28])
 L["drawings"].append({"x": 5560, "y": 26, "txt": "Um desenho da Isis: o papai de capacete, com a lanterna, descendo na gaiola."})
@@ -188,9 +194,10 @@ for i, (sx, sh) in enumerate([(7480, 60), (7630, 130), (7780, 200), (7930, 270)]
     S.append({"t": "stone", "x": sx, "y": GY - sh, "w": 150 if i < 3 else 140, "h": sh})
 ground(7480, 9800)
 S.append({"t": "ground", "x": 8070, "y": 230, "w": 520, "h": 270})
-coins_arc(7480, 8070, 400, 160, 9)
+for sx, top in [(7555, 440), (7705, 370), (7855, 300), (8000, 230)]:
+    L["coins"].append([sx, top - 30])
 coins_line(8100, 8560, 200)
-L["enemies"].append({"k": "bat", "x": 8300, "y": 60, "cy": 60, "r": [8100, 8560]})
+bat(8300, 60, [8100, 8560], -160)
 L["levers"] = {"y": GY, "list": [{"x": 8860}, {"x": 8930}], "gate": {"x": 9020, "y": 380, "w": 22, "h": 120}}
 rock(8990, 9080, -620, 380)
 hint(8700, 9000, "Duas alavancas: puxe as duas (USAR) para o portão subir.")
@@ -406,7 +413,7 @@ L["clues"].append({"x": D0 + 600, "y": 470, "id": 11})
 L["specials"].append({"x": D0 + 900, "y": 360, "c": "roxo"})
 plat(D0 + 840, 400, 120, trestle=1)
 coins_line(D0 + 80, D0 + 1100, 470)
-L["enemies"].append({"k": "bat", "x": D0 + 700, "y": 260, "cy": 260, "r": [D0 + 400, D0 + 1100]})
+bat(D0 + 700, 260, [D0 + 400, D0 + 1100], 120)
 check(D0 + 150)
 CART_X = D0 + 1300
 L["sled"] = {"x": CART_X, "x1": CART_X + 1500, "y": GY, "tx0": 60000, "len": 7000, "skin": "cart", "vargas": 1,
@@ -433,6 +440,24 @@ hint(E0, E0 + 600, "A porta de ferro do Vargas... Pegue a pista e vá até a por
 
 # ----------------------------------------------------------------------
 L["solids"] = [s for s in S if s]
+
+# nenhum lápis dentro de pedra, parede ou telhado: sobe para cima do sólido (ou desce, se for teto)
+def _fix_coin(c):
+    for _ in range(12):
+        moved = False
+        for so in L["solids"]:
+            if so.get("deco") or so["t"] in ("plat", "branch", "barrier", "pgate", "house"):
+                continue
+            if so["x"] - 14 <= c[0] <= so["x"] + so["w"] + 14 and so["y"] - 18 <= c[1] <= so["y"] + so.get("h", 0) + 8:
+                if so.get("ceil"):
+                    c[1] = int(so["y"] + so["h"] + 30)
+                else:
+                    c[1] = int(so["y"] - 30)
+                moved = True
+        if not moved:
+            return
+for c in L["coins"]:
+    _fix_coin(c)
 out = os.path.join(ROOT, "assets", "data", "level2.json")
 json.dump(L, open(out, "w"), ensure_ascii=False, indent=1)
 print("level2.json:", len(L["solids"]), "sólidos,", len(L["coins"]), "lápis, spanX", L["spanX"],

@@ -588,7 +588,8 @@ static func mech(g: Game, T: int) -> void:
 		var hh: float = gt.h
 		# batentes de madeira dos lados e o portão de tábuas com ferragens subindo entre eles
 		# (portões altos: vão até bem acima da tela, em gomos do tamanho normal, sem esticar a pintura)
-		var seg: float = 260.0
+		# portões baixos (porta de manivela): um gomo só, do tamanho do vão
+		var seg: float = min(260.0, hh)
 		var nseg: int = int(ceil(hh / seg))
 		var bot: float = gt.y + gt.h
 		for k in nseg:
@@ -601,7 +602,7 @@ static func mech(g: Game, T: int) -> void:
 			var py: float = y0 + hh - (k + 1) * seg
 			if py + seg < g.cam_y - 100 or py > g.cam_y + g.H + 100:
 				continue
-			Spr.PR("gate_wood", gt.x - 6, py - 4, gt.w + 12, min(seg, hh) + 4)
+			Spr.PR("gate_wood", gt.x - 6, py - 4, gt.w + 12, seg + 4)
 		if gt.get("dogpass"):
 			# portinhola para o cachorro, embaixo
 			var fy: float = gt.y + gt.h - 24
