@@ -305,7 +305,7 @@ static func boss(g: Game, T: int) -> void:
 	if b.st == "down":
 		# tomba de lado e some devagar
 		Spr.rotate(-b.dir * min(1.0, b.t / 30.0) * 1.35)
-	Spr.scale(1 if b.dir > 0 else -1, 1)
+	Spr.scale(Spr.eturn(b, .14), 1)
 	var tint := Color(1, .45, .4, 1) if b.red > 0 and (T / 3) % 2 == 0 else Color(1, 1, 1, 1)
 	if b.st == "down":
 		tint.a = clamp(1.0 - (b.t - 90) / 60.0, 0.0, 1.0)
@@ -354,7 +354,16 @@ static func _brutus(b: Dictionary, T: int, bd: float = 0.0) -> void:
 	var flip: bool = b.dir < 0 if b.st != "down" else b.dir > 0
 	Spr.ellipse(b.x + dx, 502, 92, 12, Color(0, 0, 0, .3 * a))
 	var gb: float = -abs(sin(bd * PI / 28.0)) * (4.0 if b.st == "charge" else 2.5) if b.st in ["charge", "trot"] else 0.0
-	Spr.sheet("cao", fr, 200, 150, b.x + dx, b.y + 4 + gb, 210.0, flip, Color(tint.r, tint.g, tint.b, a))
+	# vira girando (estreita e abre) em vez de espelhar num quadro
+	var fs: float = Spr.eturn(b, .14)
+	var tw: float = abs(fs) if b.st != "down" else 1.0
+	if b.st != "down":
+		flip = fs < 0
+	Spr.save()
+	Spr.translate(b.x + dx, b.y + 4 + gb)
+	Spr.scale(tw, 1)
+	Spr.sheet("cao", fr, 200, 150, 0, 0, 210.0, flip, Color(tint.r, tint.g, tint.b, a))
+	Spr.restore()
 	if b.st == "stun":
 		for i in 4:
 			var a2 := T * .12 + TAU * i / 4.0

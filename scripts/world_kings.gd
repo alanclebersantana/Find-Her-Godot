@@ -261,12 +261,19 @@ static func _bear(g: Game, K: Kings, T: int) -> void:
 	if b.st == "scrape":
 		Spr.seg(b.x + b.dir * 100, b.gy - 2, b.x + b.dir * 420, b.gy - 2, Color(1, .3, .15, k), 5)
 	Spr.ellipse(b.x, b.gy + 2, 100, 12, Color(0, 0, 0, .28))
+	# inclinação e agachar com peso (sem estalar de uma pose para a outra)
+	b._rot = lerpf(float(b.get("_rot", 0.0)), rot, .18)
+	b._dy = lerpf(float(b.get("_dy", 0.0)), dy, .2)
+	rot = b._rot
+	dy = b._dy
+	if b.st in ["walk", "charge"]:
+		dy -= abs(sin(b.anim * PI)) * (4.0 if b.st == "charge" else 2.5)
 	Spr.save()
 	var sway: float = sin(T * .9) * 5.0 if b.st == "shake" else 0.0
 	Spr.translate(b.x + sway, b.gy + 2 + b.get("hy", 0.0) + dy)
 	if b.st in ["rear", "rear2"]:
 		Spr.translate(0, -sin(min(1.0, b.t / 20.0) * PI * .5) * 6)
-	Spr.scale(b.dir, 1)
+	Spr.scale(Spr.eturn(b, .15), 1)
 	Spr.rotate(rot)
 	Spr.ci.draw_texture_rect_region(Spr.tex.urso, Rect2(-140, -228, 280, 230), Rect2(fr * 280, 0, 280, 230), Color(tint.r, tint.g, tint.b, Spr.alpha))
 	Spr.restore()

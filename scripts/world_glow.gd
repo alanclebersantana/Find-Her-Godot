@@ -398,15 +398,18 @@ func _extras(g: Game, T: int) -> void:
 		if c.on or c.charge > 0:
 			Spr.glow(c.x, c.y, 30 + c.charge * .5, Color(.6, .85, 1, .25 + c.charge / 120.0))
 	# mariposas em volta da lanterna
-	if g.lantern_lit and dark > .35:
+	if g.lantern_lit and dark > .35 and not g.player.get("isis"):
 		var o2 := X.lamp()
 		for m in X.MOTHS:
 			var mx: float = o2.x + cos(m.a) * m.r
 			var my: float = o2.y + sin(m.a * 1.3) * m.r * .6 - 6
-			var fl: float = abs(sin(m.ph))
-			Spr.ellipse(mx - 2.5, my, 3.5 * fl + .5, 2.5, Color(.92, .88, .78, .85))
-			Spr.ellipse(mx + 2.5, my, 3.5 * fl + .5, 2.5, Color(.92, .88, .78, .85))
-			Spr.circle(mx, my, 1.2, Color(.5, .45, .4))
+			# asinhas em "V" batendo (abrem para cima e fecham), corpinho escuro no meio
+			var fl: float = sin(m.ph)
+			var wa: float = .35 + .55 * fl
+			var wc := Color(.92, .88, .78, .8)
+			Spr.ellipse(mx - 2.6, my - 1.0 * fl, 3.2, 1.8, wc, -wa)
+			Spr.ellipse(mx + 2.6, my - 1.0 * fl, 3.2, 1.8, wc, wa)
+			Spr.ellipse(mx, my + .5, 1.0, 2.0, Color(.45, .38, .32, .95))
 	# vaga-lumes (fogem da lanterna)
 	for ff in X.FIRE:
 		var bl: float = .45 + .55 * max(0.0, sin(ff.ph))

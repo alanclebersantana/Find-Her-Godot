@@ -1126,6 +1126,7 @@ func _follow() -> void:
 	DOG.st = "follow"
 	DOG.v = lerpf(DOG.get("v", 0.0), spd, .1)
 	var budget: float = max(DOG.v, .8)
+	var from := Vector2(DOG.x, DOG.y)
 	while budget > 0 and DOG.i < ti:
 		var nxt: Vector2 = TRAIL[DOG.i + 1]
 		var here := Vector2(DOG.x, DOG.y)
@@ -1154,8 +1155,10 @@ func _follow() -> void:
 			DOG.hy = -min(80.0, seg * .45) * sin(u * PI)
 		else:
 			DOG.hy = 0.0
-	DOG.moving = true
-	DOG.anim += spd * .08
+	# as patas seguem o quanto ele andou de verdade (sem correr no lugar)
+	var moved: float = Vector2(DOG.x, DOG.y).distance_to(from)
+	DOG.moving = moved > .25
+	DOG.anim += moved * .08
 
 ## o pedaço do caminho entre as pegadas i e i+1 passa por dentro de algo sólido?
 var _blk_cache := {}

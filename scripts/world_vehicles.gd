@@ -25,6 +25,12 @@ static func draw(g: Game, T: int) -> void:
 				_sled_track(g, VH, T)
 
 ## o veículo com o Tomé (no lugar do desenho normal do Tomé)
+## inclinação do trenó/carrinho suavizada (sem estalar quando a rampa muda ou ele sai do chão)
+static var _sang_s := 0.0
+static func _tilt(target: float) -> float:
+	_sang_s = lerpf(_sang_s, target, .22)
+	return _sang_s
+
 static func rider(g: Game, T: int) -> void:
 	var VH: Vehicles = g.VH
 	var p: Dictionary = g.player
@@ -86,9 +92,9 @@ static func rider(g: Game, T: int) -> void:
 		elif VH.crashT > 0:
 			Spr.rotate(VH.sang + sin(VH.crashT * .5) * .25 * VH.crashT / 30.0)
 		elif fr == 3:
-			Spr.rotate(VH.sang * .3)
+			Spr.rotate(_tilt(VH.sang * .3))
 		else:
-			Spr.rotate(VH.sang)
+			Spr.rotate(_tilt(VH.sang))
 		if st:
 			Spr.frame(st, fr, 260, 200, 130, 196, 0, 0, .56)
 		else:
@@ -868,12 +874,14 @@ static func _cart_rider(g: Game, VH: Vehicles, p: Dictionary, T: int) -> void:
 	elif VH.crashT > 0:
 		Spr.rotate(VH.sang + sin(VH.crashT * .5) * .25 * VH.crashT / 30.0)
 	else:
-		Spr.rotate(VH.sang * (.3 if not on_g else 1.0))
+		Spr.rotate(_tilt(VH.sang * (.3 if not on_g else 1.0)))
 	# o Tomé dentro do carrinho (só a parte de cima aparece); abaixado some quase todo
+	# (sacode de leve com os trilhos, mais quanto mais rápido)
+	var jig: float = sin(T * .9) * clamp(VH.spd / 9.0, 0, 1) * .8 if on_g else 0.0
 	if VH.duck:
-		Spr.A("pai_crouch", -4, -44, .5)
+		Spr.A("pai_crouch", -4, -44 + jig, .5)
 	else:
-		Spr.frame(Spr.tex.pai, 0, 170, 160, 85, 156, -4, -40, .46, false)
+		Spr.frame(Spr.tex.pai, 0, 170, 160, 85, 156, -4, -40 + jig, .46, false)
 	_cart(0, 0, 100)
 	Spr.restore()
 	if VH.spd > 6.0:
@@ -963,9 +971,11 @@ static func _empty_cart(x: float, y: float) -> void:
 static func _vargas_walk(x: float, y: float, T: int, el: int) -> void:
 	# o Vargas correndo (arte do Gemini) com a Isis debaixo do braço, esperneando
 	Spr.ellipse(x, y + 1, 26, 5, Color(0, 0, 0, .35))
-	Spr.sheet("vargas_pe", 5, 200, 200, x, y + 2, 124.0, false)
+	# passadas: o corpo sobe e desce a cada passo
+	var bob: float = -abs(sin(el * .35)) * 4.0
+	Spr.sheet("vargas_pe", 5, 200, 200, x, y + 2 + bob, 124.0, false)
 	Spr.save()
-	Spr.translate(x + 2, y - 50)
+	Spr.translate(x + 2, y - 50 + bob)
 	Spr.rotate(-.2 + sin(T * .5) * .1)
 	Spr.sheet("isis2", 6, 150, 150, 0, 22, 70.0, false)
 	Spr.restore()

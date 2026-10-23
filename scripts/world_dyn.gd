@@ -1264,6 +1264,29 @@ func _player_draw(g: Game) -> void:
 			Spr.A(n, cx, by, .56, p.face < 0)
 			_armor(p, cx, by)
 			return
+	# nadando: o corpo deita na direção do nado (braçada), sobe e desce devagar; parado, fica de pé
+	# batendo as pernas (sem ficar trocando entre as poses de pulo e queda)
+	if p.swim and not p.crouch and not (p.iframe > 40) and Spr.anim.has("fall"):
+		var sa: Dictionary = Spr.anim["fall"]
+		var ssz: float = sa.s
+		var sk := 78.0 / ssz
+		var spd: float = Vector2(p.vx, p.vy).length()
+		var mvk: float = clamp(spd / 3.0, 0, 1)
+		var tgt: float = 0.0
+		if abs(p.vx) > .3:
+			tgt = sign(p.vx) * mvk * .95 + p.vy * .05 * sign(p.vx)
+		p.swr = lerp(float(p.get("swr", 0.0)), tgt, .1)
+		var stroke: float = sin(T * (.12 + mvk * .1))
+		var sbob: float = sin(T * .06) * 2.0 * (1.0 - mvk)
+		_ppos = Vector2(p.x, p.y)
+		Spr.save()
+		Spr.translate(cx, by - 30 + sbob)
+		Spr.rotate(p.swr)
+		Spr.scale(p.face * sk * (1 + stroke * .03 * mvk), sk * (1 - stroke * .04))
+		Spr.ci.draw_texture_rect_region(sa.tex, Rect2(-ssz / 2, -ssz + 30 / sk, ssz, ssz), Rect2(0, 0, ssz, ssz), Color(1, 1, 1, Spr.alpha))
+		Spr.restore()
+		_armor(p, cx, by)
+		return
 	# animações novas (se existirem em assets/sprites/tome/)
 	if not Spr.anim.is_empty() and not (p.iframe > 40) and not p.puff and not p.slam:
 		var key := ""

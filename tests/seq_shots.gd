@@ -10,7 +10,8 @@ func _initialize() -> void:
 	root.add_child(main)
 	for i in 3:
 		await process_frame
-	main.start_level(false)
+	var lvl := int(OS.get_environment("LVL")) if OS.get_environment("LVL") != "" else 0
+	main.start_level(false, lvl)
 	await process_frame
 	if main.panel and main.panel.has_meta("ok"):
 		main.panel.get_meta("ok").call()
@@ -23,6 +24,8 @@ func _initialize() -> void:
 	var g = main.game
 	g.lives = 99
 	g.clue_opened.disconnect(main._on_clue)
+	for cid in ["cipo", "mergulho", "neve", "pipoca", "picareta", "cavalo", "mina", "toxico", "javali", "gaviao", "bagre", "urso", "vargas", "bola", "aviao", "jangada", "colmeia", "moinho", "telhados", "carrinho", "sapo", "morcego", "brutus", "vigia"]:
+		root.get_node("Save").setv("comic", cid, true)
 	var args := OS.get_cmdline_user_args()
 	var pos = args[0].split(",")
 	var acts: Array = []
@@ -51,8 +54,14 @@ func _initialize() -> void:
 				g.X.DOG.x = float(pos[0]) - 50
 				g.X.DOG.y = float(pos[1])
 				g.X.TRAIL = [Vector2(float(pos[0]) - 50, float(pos[1]))]
+	if "isis" in setup:
+		g.begin_isis()
+		for e in g.EN:
+			e.dead = 99
+	if "nocatch" in setup:
+		g.VL.no_catch = true
 	g.player.x = float(pos[0]) - 12
-	g.player.y = float(pos[1]) - 34
+	g.player.y = float(pos[1]) - (26 if "isis" in setup else 34)
 	if "vine" in setup:
 		g.player.vine = g.VINES[0]
 		g.player.vr = 150.0
@@ -74,6 +83,9 @@ func _initialize() -> void:
 		if f in caps:
 			await process_frame
 			root.get_texture().get_image().save_png("/tmp/fh_shots/q%02d.png" % n)
+			var k: float = root.get_texture().get_size().y / root.get_visible_rect().size.y
+			var sp: Vector2 = root.get_final_transform() * g.get_global_transform_with_canvas() * Vector2(g.player.x + g.player.w / 2, g.player.y + g.player.h)
+			print("POS %d %d %d" % [n, int(sp.x), int(sp.y)])
 			n += 1
 	print("SEQ ", n)
 	quit()
