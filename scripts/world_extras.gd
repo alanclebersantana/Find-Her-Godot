@@ -377,7 +377,10 @@ static func _brutus(b: Dictionary, T: int, bd: float = 0.0) -> void:
 	Spr.save()
 	Spr.translate(b.x + dx, b.y + 4 + gb)
 	Spr.scale(tw, 1)
-	Spr.sheet("cao", fr, 200, 150, 0, 0, 210.0, flip, Color(tint.r, tint.g, tint.b, a))
+	if b.st in ["charge", "trot"]:
+		Spr.sheet_cycle("cao", bd / (14.0 if b.st == "charge" else 15.0), 4, 0, 200, 150, 0, 0, 210.0, flip, Color(tint.r, tint.g, tint.b, a))
+	else:
+		Spr.sheet("cao", fr, 200, 150, 0, 0, 210.0, flip, Color(tint.r, tint.g, tint.b, a))
 	Spr.restore()
 	if b.st == "stun":
 		for i in 4:

@@ -485,6 +485,16 @@ func eturn(e: Dictionary, k: float = .2) -> float:
 ## aparece por cima aos poucos — os 4 quadros da arte viram um movimento contínuo
 ## fpos: posição contínua no ciclo (ex.: distância / passo); quadros base .. base + n - 1
 func sheet_cycle(name: String, fpos: float, n: int, base: int, cw: float, ch: float, x: float, by: float, hgt: float, flip: bool = false, mod: Color = Color(1, 1, 1)) -> void:
+	# ciclo completo opcional (assets/sprites/<nome>_walk.png, mesmos quadros cw x ch): usa ele com
+	# mais quadros, mantendo a mesma distância por passo
+	var wt: Texture2D = opt(name + "_walk")
+	if wt:
+		var wn: int = int(wt.get_width() / cw)
+		if wn > n:
+			fpos = fpos * wn / float(n)
+			n = wn
+			base = 0
+			name = name + "_walk"
 	var f0: int = int(floor(fpos))
 	var fr: float = fpos - f0
 	var a: int = base + posmod(f0, n)

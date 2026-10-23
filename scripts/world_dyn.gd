@@ -1101,13 +1101,24 @@ func _isis_draw(p: Dictionary) -> void:
 	var sy: float = s * st.y * (1 - sq * .25)
 	var src := Rect2(fr * 150, 0, 150, 150)
 	var dst := Rect2(-75, -150, 150, 150)
+	# folha de corrida completa (assets/sprites/isis_run.png, quadros 150x150 na mesma escala), se existir
+	var rt: Texture2D = Spr.opt("isis_run")
+	var rn: int = int(rt.get_width() / 150) if rt else 0
+	var fp2: float = p.anim * .78 * rn / 4.0
+	if fr < 4 and rt and rn > 0:
+		t = rt
+		src = Rect2((int(fp2) % rn) * 150, 0, 150, 150)
 	_pose("isis%d" % (fr if fr >= 4 else 0), t, src, dst, cx, by, rot, sx, sy)
 	Spr.save()
 	Spr.translate(cx, by)
 	Spr.rotate(rot)
 	Spr.scale(sx, sy)
 	Spr.ci.draw_texture_rect_region(t, dst, src, Color(1, 1, 1, Spr.alpha))
-	if fr < 4 and p.onGround and not p.crouch:
+	if fr < 4 and rt and rn > 0 and p.onGround and not p.crouch:
+		var kr: float = smoothstep(.6, 1.0, fp2 - floor(fp2)) * .5
+		if kr > .02:
+			Spr.ci.draw_texture_rect_region(t, dst, Rect2(((int(fp2) + 1) % rn) * 150, 0, 150, 150), Color(1, 1, 1, Spr.alpha * kr))
+	elif fr < 4 and p.onGround and not p.crouch:
 		# só 4 quadros de corrida: perto da troca o próximo aparece por cima (movimento contínuo)
 		var fp: float = p.anim * .78
 		var kk: float = smoothstep(.55, 1.0, fp - floor(fp)) * .7
@@ -1310,7 +1321,7 @@ func _player_draw(g: Game) -> void:
 				"walk", "run":
 					f = int(p.get("gait", p.anim * 1.2) * n / 4.0) % n
 				"idle":
-					f = (T / 7) % n
+					f = (T / 12) % n
 				"jump":
 					f = int(clamp((p.vy + 12) / 12.0, 0, .999) * n)
 				"fall":
