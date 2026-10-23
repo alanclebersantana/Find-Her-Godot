@@ -60,7 +60,7 @@ func _initialize() -> void:
 	S("lápis 1", g.VL.DROPS[0].done)
 	# E2: o lampião do Vargas
 	var W1: Dictionary = g.VL.WATCH[3]
-	S("Vargas 1 é o do depósito", W1.get("vargas") and absf(float(W1.x0) - (IX + 980)) < 2)
+	S("vigia 1 é o do depósito (subornado)", W1.get("bribed") and absf(float(W1.x0) - (IX + 980)) < 2)
 	S("caixote 1", walk_to(IX + 793))
 	S("espera escondida ele ir para a direita", hide_until(func(): return float(W1.dir) > 0 and float(W1.x) > IX + 1100 and W1.wait == 0))
 	S("vai atrás dele até o caixote", follow_behind(W1, IX + 1350))

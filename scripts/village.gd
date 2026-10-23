@@ -115,6 +115,9 @@ func post() -> void:
 	# vigias
 	for w in WATCH:
 		w.t += 1
+		if w.get("bribed") and not told.has("bribed") and abs(float(w.x) - pc.x) < 700:
+			told.bribed = 1
+			g.tip("Um vigia da vila aqui embaixo, com uma bolsinha de ouro no cinto: o Vargas subornou os vigias para guardar o esconderijo!", 300)
 		if w.wait > 0:
 			w.wait -= 1
 			if w.wait == 0:
@@ -291,7 +294,7 @@ func _caught(w: Dictionary) -> void:
 	p.iframe = 60
 	w.wait = 90
 	if p.get("isis"):
-		g.flash("O Vargas viu a Isis! Ela voltou correndo para trás. Abaixe-se atrás dos caixotes quando a luz vier.", 260)
+		g.flash("Um vigia subornado pelo Vargas viu a Isis! Ela voltou correndo para trás. Abaixe-se atrás dos caixotes quando a luz vier.", 260)
 	else:
 		g.flash("Um vigia te pegou com o lampião! Você foi levado de volta. Fique longe da rua: vá pelos telhados.", 260)
 
@@ -326,6 +329,8 @@ func draw(T: int) -> void:
 			vargas_fig(w.x, 500.0, float(w.dir), T, w.t if w.wait == 0 else 0)
 		else:
 			_watchman(w, T)
+			if w.get("bribed"):
+				_bribe(w, T)
 	for d in DROPS:
 		if d.done:
 			_pencil(float(d.x), float(d.y), str(d.get("c", "#e04a3a")))
@@ -419,6 +424,26 @@ func _watchman(w: Dictionary, T: int) -> void:
 	Spr.sheet("vigia", fr, 220, 200, x, 502, VIGIA_H, d < 0)
 	if w.wait > 40:
 		Spr.text("?", x, 380 + sin(T * .2) * 2, 18, Color(1, .9, .6), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3)
+
+## vigia subornado pelo Vargas: bolsinha de ouro no cinto e, parado, joga uma moeda para cima
+func _bribe(w: Dictionary, T: int) -> void:
+	var x: float = float(w.x)
+	var d: float = float(w.dir)
+	var bx: float = x - d * 22
+	Spr.seg(bx, 438, bx, 446, Color("#3a2410"), 2)
+	Spr.ellipse(bx, 455, 10, 11, Color("#6b4a1e"))
+	Spr.ellipse(bx - 2, 452, 6, 6, Color("#8a6430"))
+	Spr.text("$", bx, 461, 11, Color("#ffd76a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 2, Color(0, 0, 0, .6))
+	Spr.glow(bx, 455, 16, Color(1, .85, .3, .25))
+	if w.wait > 0:
+		# a moeda de ouro subindo e descendo na mão livre
+		var u: float = fposmod(T * .035, 1.0)
+		var cy: float = 400 - sin(u * PI) * 40
+		var cx: float = x - d * 6
+		var sq: float = abs(cos(T * .4))
+		Spr.ellipse(cx, cy, 5 * sq + 1, 5, Color("#ffd23a"))
+		Spr.ellipse(cx, cy, 3 * sq + .5, 3, Color("#fff2a8"))
+		Spr.glow(cx, cy, 14, Color(1, .85, .3, .35))
 
 ## cão de guarda (arte do Gemini: cao.png — 0-3 correndo, 4 rosnando, 5 latindo, 6 farejando, 7 pulando)
 const CAO_H := 73.0

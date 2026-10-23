@@ -3568,7 +3568,7 @@
   {
    "a": 29206,
    "b": 29486,
-   "t": "O Vargas está fazendo a ronda. Quando a luz vier, segure ↓ atrás de um caixote ou barril: escondida, ele não vê.",
+   "t": "Um vigia da vila aqui embaixo! O Vargas pagou os vigias com o ouro roubado. Quando a luz vier, segure ↓ atrás de um caixote ou barril: escondida, ele não vê.",
    "yl": 200
   },
   {
@@ -3610,7 +3610,7 @@
   {
    "a": 34956,
    "b": 35106,
-   "t": "O ar fresco da noite... a saída está perto! Mais um lampião: esconda-se e espere a hora certa.",
+   "t": "O ar fresco da noite... a saída está perto! Mais um vigia subornado: esconda-se e espere a hora certa.",
    "yl": 200
   }
  ],
@@ -3883,21 +3883,21 @@
    "x1": 30006,
    "spd": 0.9,
    "any": 1,
-   "vargas": 1
+   "bribed": 1
   },
   {
    "x0": 33836,
    "x1": 34406,
    "spd": 1.0,
    "any": 1,
-   "vargas": 1
+   "bribed": 1
   },
   {
    "x0": 35266,
    "x1": 35526,
    "spd": 1.2,
    "any": 1,
-   "vargas": 1
+   "bribed": 1
   }
  ],
  "dogs": [

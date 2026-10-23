@@ -537,11 +537,11 @@ check(IX + 650)
 coins_line(IX + 700, IX + 900, 470)
 
 # E2 · o depósito: o Vargas faz a ronda com o lampião; caixote para empurrar até a parede alta
-L["watchmen"].append({"x0": IX + 980, "x1": IX + 1500, "spd": .9, "any": 1, "vargas": 1})
+L["watchmen"].append({"x0": IX + 980, "x1": IX + 1500, "spd": .9, "any": 1, "bribed": 1})
 ihide(760, 66)
 ihide(1080, 46, "barrel", 54)
 ihide(1330, 70)
-hint(IX + 700, IX + 980, "O Vargas está fazendo a ronda. Quando a luz vier, segure ↓ atrás de um caixote ou barril: escondida, ele não vê.", yl=200)
+hint(IX + 700, IX + 980, "Um vigia da vila aqui embaixo! O Vargas pagou os vigias com o ouro roubado. Quando a luz vier, segure ↓ atrás de um caixote ou barril: escondida, ele não vê.", yl=200)
 L["crates"].append({"t": "push", "x": IX + 1640, "y": GY - 56, "w": 56, "h": 56})
 S.append({"t": "wall", "x": IX + 1820, "y": GY - 84, "w": 130, "h": 84})
 hint(IX + 1560, IX + 1820, "Alto demais para a Isis! Empurre o caixote até a parede e suba nele.", yl=200)
@@ -576,7 +576,7 @@ hint(IX + 4180, IX + 4320, "Um túnel bem baixinho: segure ↓ e passe engatinha
 coins_line(IX + 4340, IX + 4740, 485, 50)
 
 # E5 · prateleiras e a passarela: lá em cima o lampião não alcança
-L["watchmen"].append({"x0": IX + 5330, "x1": IX + 5900, "spd": 1.0, "any": 1, "vargas": 1})
+L["watchmen"].append({"x0": IX + 5330, "x1": IX + 5900, "spd": 1.0, "any": 1, "bribed": 1})
 for x, y, w, kw in [(5000, 455, 100, {}), (5090, 410, 100, {}), (5180, 365, 290, {}), (5470, 365, 90, {"crumble": 1}),
                     (5560, 365, 240, {}), (5800, 260, 300, {}), (6100, 320, 90, {}), (6180, 380, 90, {}), (6260, 440, 90, {})]:
     d = {"t": "plat", "x": IX + x, "y": y, "w": w, "trestle": 1}
@@ -592,11 +592,11 @@ idrop(5950, "#3aa04a", "Lápis verde: ela deixou um em cada lugar por onde passo
 check(IX + 6420)
 
 # E6 · a saída... o último lampião e o Vargas
-L["watchmen"].append({"x0": IX + 6760, "x1": IX + 7020, "spd": 1.2, "any": 1, "vargas": 1})
+L["watchmen"].append({"x0": IX + 6760, "x1": IX + 7020, "spd": 1.2, "any": 1, "bribed": 1})
 ihide(6600, 66)
 ihide(6880, 46, "barrel", 54)
 ihide(7080, 70)
-hint(IX + 6450, IX + 6600, "O ar fresco da noite... a saída está perto! Mais um lampião: esconda-se e espere a hora certa.", yl=200)
+hint(IX + 6450, IX + 6600, "O ar fresco da noite... a saída está perto! Mais um vigia subornado: esconda-se e espere a hora certa.", yl=200)
 L["chalk"].append({"x": IX + 7230, "y": 420, "k": "seta", "d": 1})
 coins_line(IX + 7160, IX + 7360, 470)
 L["isisCatch"] = {"x": IX + 7390}

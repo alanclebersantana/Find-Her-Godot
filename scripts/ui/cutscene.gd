@@ -61,8 +61,11 @@ func _ready() -> void:
 			]
 		"isis_fim":
 			shots = [
-				{"d": _pic("cut_isis_c", true), "txt": "O Vargas a levou de volta. — Pode fugir quanto quiser, menina. — Ele já está vindo, seu Vargas. O meu pai sempre vem.", "dur": 7.0},
-				{"d": _s_post_card3, "txt": "Mas os lápis ficaram no chão do túnel. E o Tomé já estava na porta de ferro.", "dur": 5.0},
+				{"d": _pic("cut_isis_c", true), "txt": "O Vargas a levou de volta ao quarto de pedra. — Pode fugir quanto quiser, menina. — Ele já está vindo, seu Vargas. O meu pai sempre vem.", "dur": 7.0},
+				{"d": _s_vargas_plan, "txt": "— Então vamos para onde ele não alcança. Antes do amanhecer, o trem de carga leva você para as montanhas.", "dur": 6.5},
+				{"d": _pic("cut_ep2fim", false), "txt": "Do outro lado, o Tomé encostou o ouvido na porta de ferro. Lá dentro, bem longe, um apito de trem.", "dur": 6.0},
+				{"d": _s_train, "txt": "O trem saiu da mina pela passagem secreta. E da janela do último vagão, um lápis caiu nos trilhos.", "dur": 7.0},
+				{"d": _s_ep3_card, "txt": "A trilha continua. Episódio 3 — em breve.", "dur": 5.0},
 			]
 		"mina":
 			shots = [
@@ -436,6 +439,121 @@ func _s_post_pencil(W: float, H: float, k: float) -> void:
 	if e >= 1:
 		Spr.glow(px, py, 40 + sin(t * 4) * 6, Color(1, .5, .4, .4))
 	_vignette(W, H, .75)
+
+## o Vargas no esconderijo, rindo, com o lampião (fundo pintado do esconderijo)
+func _s_vargas_plan(W: float, H: float, k: float) -> void:
+	var bg: Texture2D = Spr.tex.get("bg_esconderijo")
+	if bg:
+		var sc: float = H / bg.get_height() * 1.15
+		var bw: float = bg.get_width() * sc
+		Spr.img(bg, (W - bw) / 2 - k * 40, -H * .08, bw, bg.get_height() * sc)
+	Spr.rect(0, 0, W, H, Color(0, 0, 0, .35))
+	var z: float = 1.0 + k * .08
+	var vx: float = W * .42
+	var by: float = H * .96
+	Spr.glow(vx + 70 * z, by - H * .32, H * .35, Color(1, .75, .35, .35))
+	Spr.ellipse(vx, by, 120 * z, 16 * z, Color(0, 0, 0, .45))
+	Spr.sheet("vargas_pe", 7 if int(t * 2.2) % 3 != 2 else 4, 200, 200, vx, by, H * .82 * z, false)
+	# o bilhete da passagem do trem na mão
+	if k > .35:
+		var a: float = clamp((k - .35) * 4, 0, 1)
+		Spr.save()
+		Spr.translate(W * .66, H * .38)
+		Spr.rotate(-.18)
+		Spr.rr(-70, -40, 140, 80, 8, Color(.93, .86, .66, a))
+		Spr.rr(-70, -40, 140, 18, 6, Color(.55, .2, .15, a))
+		Spr.text("CARGA · MONTANHAS", 0, -26, 12, Color(1, .95, .85, a), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b)
+		Spr.text("Partida 5h", 0, 6, 18, Color(.3, .2, .1, a), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_title)
+		Spr.text("1 vagão fechado", 0, 28, 11, Color(.3, .2, .1, a), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_i)
+		Spr.restore()
+	_vignette(W, H, .75)
+
+## o trem de carga saindo da mina de madrugada, rumo às montanhas; um lápis cai da janela
+func _s_train(W: float, H: float, k: float) -> void:
+	Spr.vgrad(0, 0, W, H * .8, Color("#0e1430"), Color("#4a3a5c"))
+	Spr.circle(W * .78, H * .18, H * .07, Color(.95, .93, .82))
+	Spr.glow(W * .78, H * .18, H * .22, Color(.8, .85, 1, .22))
+	for i in 46:
+		var sx: float = fposmod(i * 197.3, W)
+		var sy: float = fposmod(i * 71.9, H * .42)
+		Spr.circle(sx, sy, 1.2, Color(1, 1, 1, .45 + .4 * sin(t * 2 + i)))
+	# cordilheira: picos com neve (luz da lua do lado direito)
+	var peaks := [[.05, .48, .14], [.2, .36, .16], [.36, .44, .13], [.52, .3, .18], [.7, .4, .15], [.86, .33, .17], [1.0, .45, .14]]
+	for pk in peaks:
+		var px: float = W * float(pk[0])
+		var py: float = H * float(pk[1])
+		var hw: float = W * float(pk[2])
+		Spr.poly(PackedVector2Array([Vector2(px - hw, H * .66), Vector2(px, py), Vector2(px + hw, H * .66)]), Color("#2c3152"))
+		Spr.poly(PackedVector2Array([Vector2(px, py), Vector2(px + hw, H * .66), Vector2(px + hw * .35, H * .66)]), Color("#363c63"))
+		var cap: float = H * .07
+		Spr.poly(PackedVector2Array([Vector2(px - hw * cap / (H * .66 - py), py + cap), Vector2(px, py), Vector2(px + hw * cap / (H * .66 - py), py + cap)]), Color(.86, .9, .98, .9))
+	# morro da mina (mais perto) com a passagem secreta
+	Spr.poly(PackedVector2Array([Vector2(0, H), Vector2(0, H * .46), Vector2(W * .12, H * .42), Vector2(W * .26, H * .5), Vector2(W * .36, H * .68), Vector2(W * .38, H)]), Color("#191410"))
+	Spr.rr(W * .2, H * .6, W * .11, H * .2, 34, Color("#040302"))
+	Spr.rect(W * .195, H * .6, W * .012, H * .2, Color("#3a2614"))
+	Spr.rect(W * .303, H * .6, W * .012, H * .2, Color("#3a2614"))
+	# aterro e trilho
+	var ty: float = H * .8
+	Spr.vgrad(0, ty - 6, W, H - ty + 6, Color("#241c1a"), Color("#0b0909"))
+	var sx2: float = fposmod(-k * 30.0, 26.0)
+	while sx2 < W:
+		Spr.rect(sx2, ty - 3, 14, 5, Color("#3a2a1c"))
+		sx2 += 26
+	Spr.rect(0, ty - 7, W, 3, Color("#8a8a94"))
+	# o trem: locomotiva na frente, vagões de carga e o vagão fechado (a janelinha acesa) no fim
+	var tx: float = lerp(W * .45, W * 1.05, k)
+	var cw: float = W * .12
+	var gap: float = W * .127
+	for c in 4:
+		var cx: float = tx - c * gap
+		var top: float = ty - H * .17
+		if c == 0:
+			# locomotiva virada para a direita: cabine atrás, caldeira, chaminé e farol na frente
+			Spr.rr(cx - cw, top - H * .02, cw * .32, H * .16, 4, Color("#2a2522"))
+			Spr.rect(cx - cw * .96, top + H * .01, cw * .24, H * .04, Color(1, .8, .45, .8))
+			Spr.rr(cx - cw * .7, top + H * .03, cw * .66, H * .11, 10, Color("#1e1b1a"))
+			Spr.rect(cx - cw * .25, top - H * .05, cw * .1, H * .08, Color("#1e1b1a"))
+			Spr.rect(cx - cw * .28, top - H * .06, cw * .16, H * .02, Color("#141212"))
+			Spr.circle(cx - 8, top + H * .08, H * .018, Color(1, .92, .6))
+			Spr.glow(cx + cw * .5, top + H * .08, H * .16, Color(1, .85, .5, .25))
+			for sm in 7:
+				var u: float = fposmod(t * .5 + sm / 7.0, 1.0)
+				Spr.circle(cx - cw * .2 - u * W * .22, top - H * .06 - u * H * .22, H * (.025 + u * .07), Color(.72, .72, .78, .5 * (1.0 - u)))
+		else:
+			var col := Color("#3a2a20") if c < 3 else Color("#2c2a30")
+			Spr.rr(cx - cw, top + H * .02, cw - 6, H * .12, 4, col)
+			Spr.rect(cx - cw, top + H * .02, cw - 6, 5, Color(0, 0, 0, .35))
+			for pl in 4:
+				Spr.rect(cx - cw + 6 + pl * (cw - 18) / 4.0, top + H * .03, 2, H * .1, Color(0, 0, 0, .25))
+			if c == 3:
+				# o vagão fechado: a janelinha com grade, acesa
+				Spr.rect(cx - cw * .62, top + H * .04, cw * .2, H * .045, Color(1, .8, .45, .85))
+				for gb in 3:
+					Spr.rect(cx - cw * .6 + gb * cw * .07, top + H * .04, 2, H * .045, Color("#1a1414"))
+		Spr.rect(cx - cw - 4, ty - H * .035, 6, 4, Color("#141212"))
+		for wv in 2:
+			var wx: float = cx - cw * (.25 + .5 * wv)
+			Spr.circle(wx, ty - H * .025, H * .028, Color("#0e0c0c"))
+			Spr.circle(wx, ty - H * .025, H * .01, Color("#5a5a60"))
+	# o lápis que cai da janelinha do vagão fechado e fica brilhando nos trilhos
+	var x_drop: float = lerp(W * .45, W * 1.05, .3) - 3 * gap - cw * .52
+	if k > .3:
+		var e: float = clamp((k - .3) * 3, 0, 1)
+		var px2: float = x_drop - e * 30
+		var py2: float = lerp(ty - H * .12, ty - 10, e * e)
+		Spr.save()
+		Spr.translate(px2, py2)
+		Spr.rotate(e * 6.0)
+		Spr.A("pen_amarelo", 0, 0, .9)
+		Spr.restore()
+		Spr.glow(px2, py2, 24 + sin(t * 4) * 4, Color(1, .9, .4, .5))
+	_vignette(W, H, .55)
+
+func _s_ep3_card(W: float, H: float, k: float) -> void:
+	Spr.rect(0, 0, W, H, Color(0, 0, 0))
+	_s_post_card3(W, H, k)
+	var a: float = clamp(k * 3 - .6, 0, 1)
+	Spr.text("A trilha de lápis continua...", W / 2, H * .36 + 110, 22, Color(.9, .85, .75, a), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_i, 4)
 
 func _s_ep1_card(W: float, H: float, k: float) -> void:
 	Spr.vgrad(0, 0, W, H, Color(.08, .06, .04), Color(0, 0, 0))
