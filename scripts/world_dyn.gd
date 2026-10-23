@@ -414,7 +414,7 @@ func _draw_front_node(n: CanvasItem) -> void:
 			Spr.ci.draw_arc(Vector2(p.x, p.y), p.ring * u, PI, TAU, 28, Color(1, .93, .75, .6 * (1.0 - u)), 3, true)
 			Spr.ellipse(p.x, p.y, p.ring * u, 4, Color(1, .95, .8, .18 * (1.0 - u)))
 		else:
-			Spr.rect(p.x, p.y, 3, 3, Color(c.r, c.g, c.b, pa))
+			Spr.circle(p.x + 1.5, p.y + 1.5, 1.9, Color(c.r, c.g, c.b, pa))
 
 # ---------- cenário com estado ----------
 var cabins: Array = []

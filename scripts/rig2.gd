@@ -270,7 +270,8 @@ static func draw(p: Dictionary, cx: float, by: float, T: int, live: bool = true)
 	var hand: Vector2 = shL + D.hand.rotated(la)
 	_part("lanterna", hand, swing - body_rot, white)
 	_part("braco_lamp", shL, la, white)
-	rg.lampw = Spr.M * (hand + Vector2(0, 110))
+	if live:
+		rg.lampw = Spr.M * (hand + Vector2(0, 105))
 	# pernas: a de trás mais escura; a calça estica/encolhe entre o quadril e o tornozelo
 	_leg(hb, fb, tB, far)
 	_leg(hf, ff, tF, white)
@@ -278,8 +279,10 @@ static func draw(p: Dictionary, cx: float, by: float, T: int, live: bool = true)
 	# braço de perto, por cima do casaco
 	_part("braco", shN, lean + aN, white)
 	# onde ficou a cabeça (no mundo): para o capacete de mergulho e outros acessórios
-	rg.headw = Spr.M * rot.call(D.head)
-	rg.heada = (lean + body_rot) * p.face
+	if live:
+		rg.headw = Spr.M * rot.call(D.head)
+		rg.heada = (lean + body_rot) * p.face
+		rg.lampT = T
 	Spr.restore()
 
 static func _leg(hip: Vector2, sole: Vector2, tilt: float, tint: Color) -> void:

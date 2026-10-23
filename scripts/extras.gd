@@ -228,6 +228,10 @@ func swim() -> void:
 # ======================================================================
 func lamp() -> Vector2:
 	var p: Dictionary = g.player
+	# com o Tomé em peças: a luz sai da lanterna de verdade (onde ela está pendurada na mão)
+	var rg: Dictionary = p.get("rg", {})
+	if rg.has("lampw") and g.T - int(rg.get("lampT", -99)) < 3 and not p.get("dog"):
+		return rg.lampw
 	return Vector2(p.x + p.w / 2 + p.face * 14, p.y + (6 if p.crouch else 12))
 
 func in_cone(x: float, y: float, rng: float = BEAM_LEN) -> bool:
