@@ -292,7 +292,7 @@ func ground(s: Dictionary) -> void:
 	var orr: bool = _open_end(s, true) and s.w > 60
 	# as pontas abertas ficam por conta do contorno arredondado
 	var cut_a: float = s.x + (ROUND if ol else 0.0)
-	var cut_b: float = s.x + s.w - (ROUND if orr else 0.0)
+	var cut_b: float = s.x + s.w - (ROUND if orr else -1.5)
 	# alinhado ao início do bloco para não "pular" entre pedaços
 	var tw: float = t.get_width() - 1
 	var start: float = ox + floor((x_a - ox) / tw) * tw
@@ -344,9 +344,45 @@ func _dirt_fill(xa: float, xb: float, ya: float, yb: float, ox: float, k0: float
 		return
 	_dirt_fill_t(xa, xb, ya, yb, ox, k0, gtex(game, (xa + xb) * .5), 1.0)
 
+## cor da terra no pé da textura do chão (média das últimas linhas), para a terra continuar lisa embaixo
+static var _dcol := {}
+static func dirt_color(t: Texture2D) -> Color:
+	var id := t.get_rid().get_id()
+	if not _dcol.has(id):
+		var im: Image = t.get_image()
+		if im.is_compressed():
+			im.decompress()
+		var acc := Color(0, 0, 0, 0)
+		var n := 0
+		for y in range(im.get_height() - 6, im.get_height()):
+			for x in range(0, im.get_width(), 3):
+				var c: Color = im.get_pixel(x, y)
+				if c.a > .5:
+					acc += c
+					n += 1
+		_dcol[id] = Color(acc.r / max(n, 1), acc.g / max(n, 1), acc.b / max(n, 1), 1)
+	return _dcol[id]
+
 func _dirt_fill_t(xa: float, xb: float, ya: float, yb: float, ox: float, k0: float, t: Texture2D, alpha: float) -> void:
+	# terra lisa: a mesma cor do pé da textura, escurecendo com a profundidade (sem emendas nem listras)
+	var dc: Color = dirt_color(t)
+	var tint0 := _ground_tint((xa + xb) * .5)
+	var base := Color(dc.r * tint0.r, dc.g * tint0.g, dc.b * tint0.b)
+	var d1: float = min(yb - ya, 600.0)
+	var c0 := Color(base.r * k0, base.g * k0, base.b * k0, alpha)
+	var m1: float = k0 * .42 / .92
+	var under: float = float(game.L.get("under", -1.0))
+	if under > ya and k0 > .6:
+		# chega embaixo do bloco já na cor da terra funda (que continua sem degrau até o fundo)
+		var u: float = clamp((min(yb, ya + d1) - ya) / max(1.0, under - ya), 0.0, 1.0)
+		m1 = lerpf(k0, .5, u)
+	var c1 := Color(base.r * m1, base.g * m1, base.b * m1, alpha)
+	Spr.vgrad(xa, ya, xb - xa, d1, c0, c1)
+	if yb - ya > d1:
+		Spr.rect(xa, ya + d1, xb - xa, yb - ya - d1, c1)
+	return
 	var ts := t.get_size()
-	var v0: float = 74.0
+	var v0: float = round(ts.y * .64)
 	var th: float = ts.y - v0
 	var tw: float = ts.x - 1
 	var yend: float = min(yb, ya + 900.0)
@@ -469,11 +505,13 @@ func _pit_wall(e: float, y0: float, dir: float) -> void:
 func _earth_detail(xa: float, xb: float, ya: float, yb: float, base: Color) -> void:
 	xa = max(xa, x0)
 	xb = min(xb, x1)
-	if xb <= xa or yb <= ya:
+	if xb <= xa or yb <= ya or game.L.has("under"):
 		return
 	Spr.vgrad(xa, ya, xb - xa, min(yb - ya, 260.0), Color(0, 0, 0, 0), Color(0, 0, 0, .28))
 	if yb - ya > 260:
 		Spr.rect(xa, ya + 260, xb - xa, yb - ya - 260, Color(0, 0, 0, .28))
+	# só a terra escurecendo para baixo: nada de pedras ou raízes desenhadas na terra
+	return
 	var gx: float = floor(xa / 46.0) * 46.0
 	while gx < xb:
 		var gy: float = floor(ya / 40.0) * 40.0
@@ -615,8 +653,8 @@ func _ground_deco(s: Dictionary) -> void:
 						Spr.ellipse(sxp, s.y - 2, w2, 4 + 3 * dens, Color(.95, .97, 1, .95))
 					sxp += 34
 				break
-	# raízes saindo da beira do barranco (embaixo da grama)
-	if not s.get("snow") and not under:
+	# (sem raízes embaixo da grama: abaixo do chão só terra lisa)
+	if false:
 		var rx: float = s.x + 70 + fposmod(-(s.x + 70), 170.0)
 		while rx < s.x + s.w - 70:
 			if rx >= x0 and rx < x1 and hh(rx, 14) < .45:

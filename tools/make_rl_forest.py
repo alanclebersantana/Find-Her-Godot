@@ -72,6 +72,20 @@ for y in range(100, 140):
     m = ca[y, :, :3].mean()
     ca[y, :, :3] *= min(1.6, ref / max(m, 1.0)) ** min(1.0, (y - 100) / 12.0)
 crop = Image.fromarray(np.clip(ca, 0, 255).astype(np.uint8), 'RGBA')
+# embaixo da grama só terra lisa (sem raízes, pedras ou cogumelos)
+import sys as _s
+_s.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from plain_dirt import plain
+ca = np.asarray(crop).astype(int)
+yy = np.arange(ca.shape[0])[:, None]
+green = (ca[..., 1] > ca[..., 0] + 6) & (ca[..., 1] > ca[..., 2]) & (ca[..., 3] > 10)
+keep = (ca[..., 3] > 10) & ((yy < 40) | (green & (yy < 96)))
+keep = nd.binary_closing(keep, iterations=2) & (ca[..., 3] > 10)
+# só o que está ligado à faixa de grama de cima (musgo solto nas raízes sai)
+lb, nlb = nd.label(keep)
+top_ids = set(np.unique(lb[:36])) - {0}
+keep = np.isin(lb, list(top_ids)) & (yy < 84)
+crop = plain(crop, keep, (92, 60, 38))
 old = Image.open(os.path.join(ROOT, 'assets', 'sprites', 'chao.png'))
 if not os.path.exists(os.path.join(A, 'chao_antigo.png')):
     old.save(os.path.join(A, 'chao_antigo.png'))
