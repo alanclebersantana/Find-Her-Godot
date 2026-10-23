@@ -100,4 +100,4 @@ func _icon(n: String, c: Vector2, hgt: float) -> void:
 	if r == null:
 		return
 	var ww: float = hgt * r[2] / r[3]
-	draw_texture_rect_region(Spr.atlas_tex(r), Rect2(c.x - ww / 2, c.y - hgt / 2, ww, hgt), Spr.src(r))
+	draw_texture_rect_region(Spr.atlas_tex(r), Rect2(c.x - ww / 2, c.y - hgt / 2, ww, hgt), Rect2(r[0], r[1], r[2], r[3]))

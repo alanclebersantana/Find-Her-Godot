@@ -48,15 +48,13 @@ func _icons(t: String) -> String:
 	return r.replace(" ,", ",").replace(" .", ".").replace(" !", "!").strip_edges()
 
 ## quebra de linha com ícones: cada linha é uma lista de palavras ("[G]" vira um ícone)
-func _rlines(t: String, maxw: float, fs: int, f: Font = null) -> Array:
-	if f == null:
-		f = Spr.font_i
+func _rlines(t: String, maxw: float, fs: int) -> Array:
 	var out: Array = []
 	var cur: Array = []
 	var cw := 0.0
-	var sp: float = f.get_string_size(" ", HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var sp: float = Spr.font_i.get_string_size(" ", HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 	for wd in t.split(" "):
-		var ww: float = _wwidth(wd, fs, f)
+		var ww: float = _wwidth(wd, fs)
 		if cw + ww > maxw and not cur.is_empty():
 			out.append(cur)
 			cur = []
@@ -70,27 +68,23 @@ func _rlines(t: String, maxw: float, fs: int, f: Font = null) -> Array:
 func _is_icon(wd: String) -> bool:
 	return wd.length() >= 3 and wd[0] == "[" and wd[2] == "]" and ICON.has(wd[1])
 
-func _wwidth(wd: String, fs: int, f: Font = null) -> float:
-	if f == null:
-		f = Spr.font_i
+func _wwidth(wd: String, fs: int) -> float:
 	if _is_icon(wd):
-		return fs * 1.7 + f.get_string_size(wd.substr(3), HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-	return f.get_string_size(wd, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		return fs * 1.7 + Spr.font_i.get_string_size(wd.substr(3), HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	return Spr.font_i.get_string_size(wd, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 
-func _rwidth(ln: Array, fs: int, f: Font = null) -> float:
-	if f == null:
-		f = Spr.font_i
-	var sp: float = f.get_string_size(" ", HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+func _rwidth(ln: Array, fs: int) -> float:
+	var sp: float = Spr.font_i.get_string_size(" ", HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 	var w := 0.0
 	for wd in ln:
-		w += _wwidth(wd, fs, f) + sp
+		w += _wwidth(wd, fs) + sp
 	return w - sp
 
 func _rdraw(ln: Array, cx: float, y: float, fs: int, c: Color, f: Font) -> void:
 	var sp: float = f.get_string_size(" ", HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-	var x: float = cx - _rwidth(ln, fs, f) / 2
+	var x: float = cx - _rwidth(ln, fs) / 2
 	for wd in ln:
-		var ww: float = _wwidth(wd, fs, f)
+		var ww: float = _wwidth(wd, fs)
 		if _is_icon(wd):
 			var isz: float = fs * 1.6
 			Spr.ci.draw_texture_rect(ICON[wd[1]], Rect2(x, y - fs * 1.15, isz, isz), false, Color(1, 1, 1, c.a))
@@ -262,11 +256,11 @@ func __draw_raw() -> void:
 	# aviso (flash)
 	if game.flash_t > 0 and game.flash_msg != "":
 		var a: float = clamp(game.flash_t / 40.0, 0, 1)
-		var lines := _rlines(_icons(game.flash_msg), min(W - 80, 760), 17, Spr.font)
+		var lines := _rlines(_icons(game.flash_msg), min(W - 80, 760), 17)
 		var bh := 16 + lines.size() * 23
 		var bw := 0.0
 		for ln in lines:
-			bw = max(bw, _rwidth(ln, 17, Spr.font))
+			bw = max(bw, _rwidth(ln, 17))
 		bw += 36
 		# aviso no alto, abaixo da dica: nunca em cima das setas e dos botões de baixo
 		var by: float = (150.0 if hint_alpha > .05 else 104.0) - (1.0 - clamp(game.flash_t / 10.0, 0, 1)) * 10.0
@@ -364,4 +358,4 @@ func _portrait(n: String, cx: float, cy: float, h: float, al: float) -> void:
 	if w > 64:
 		w = 64
 		h = w * r[3] / r[2]
-	Spr.ci.draw_texture_rect_region(Spr.atlas_tex(r), Rect2(cx - w / 2, cy - h / 2, w, h), Spr.src(r), Color(1, 1, 1, al))
+	Spr.ci.draw_texture_rect_region(Spr.atlas_tex(r), Rect2(cx - w / 2, cy - h / 2, w, h), Rect2(r[0], r[1], r[2], r[3]), Color(1, 1, 1, al))

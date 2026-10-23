@@ -318,14 +318,6 @@ func draw(T: int) -> void:
 		_tile(t, T)
 	if g.L.has("isisExit"):
 		_exit(float(g.L.isisExit.x))
-	for d in DROPS:
-		if d.done:
-			_pencil(float(d.x), float(d.y), str(d.get("c", "#e04a3a")))
-
-## gente e bichos da vila (desenhados no nó dos atores, com luz de volume)
-func draw_actors(T: int) -> void:
-	var c0: float = g.cam - 300
-	var c1: float = g.cam + g.W + 300
 	for d in DOGS:
 		if d.x > c1 or d.x < c0:
 			continue
@@ -339,6 +331,9 @@ func draw_actors(T: int) -> void:
 			_watchman(w, T)
 			if w.get("bribed"):
 				_bribe(w, T)
+	for d in DROPS:
+		if d.done:
+			_pencil(float(d.x), float(d.y), str(d.get("c", "#e04a3a")))
 	if not CATCH.is_empty() and int(CATCH.t) >= 0:
 		var near: bool = float(CATCH.vx) <= g.player.x + g.player.w + 27
 		vargas_fig(float(CATCH.vx), 500.0, -1.0, T, int(CATCH.t), 6 if near else -1)

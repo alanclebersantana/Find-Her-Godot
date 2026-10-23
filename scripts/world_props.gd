@@ -68,11 +68,6 @@ static func _table(t: Dictionary) -> void:
 	Spr.translate(pvx, pvy)
 	Spr.rotate(t.ang)
 	Spr.translate(-pvx + t.x, -pvy + t.y)
-	if Spr.has("p_mesa"):
-		# mesa rústica pintada (com os desenhos e lápis em cima), do tamanho da mesa de verdade
-		Spr.P("mesa", W / 2, H + 2, W + 16)
-		Spr.restore()
-		return
 	# pernas e travessa
 	Spr.rect(8, 9, 8, H - 9, WOOD_D)
 	Spr.rect(W - 16, 9, 8, H - 9, WOOD_D)

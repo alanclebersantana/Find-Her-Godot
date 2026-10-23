@@ -6,8 +6,6 @@ const WS = preload("res://scripts/world_static.gd")
 var game: Game
 var T := 0
 var pl_node: Node2D
-var act_node: Node2D
-var sh_node: Node2D
 var front_node: Node2D
 
 class _Sub extends Node2D:
@@ -16,24 +14,10 @@ class _Sub extends Node2D:
 		cb.call(self)
 
 func _ready() -> void:
-	# sombras projetadas no chão (embaixo de todos os personagens)
-	sh_node = _Sub.new()
-	sh_node.cb = _draw_shadow_node
-	var msh := ShaderMaterial.new()
-	msh.shader = preload("res://scripts/shadow.gdshader")
-	sh_node.material = msh
-	add_child(sh_node)
-	# nó dos atores (inimigos, chefes, vigias, cães, Pipoca, bichos): luz de volume como o Tomé
-	act_node = _Sub.new()
-	act_node.cb = _draw_actors_node
-	var ma := ShaderMaterial.new()
-	ma.shader = preload("res://scripts/volume.gdshader")
-	act_node.material = ma
-	add_child(act_node)
 	pl_node = _Sub.new()
 	pl_node.cb = _draw_player_node
 	var m := ShaderMaterial.new()
-	m.shader = preload("res://scripts/volume.gdshader")
+	m.shader = preload("res://scripts/depth.gdshader")
 	pl_node.material = m
 	add_child(pl_node)
 	front_node = _Sub.new()
@@ -122,6 +106,17 @@ func __draw_raw() -> void:
 	var __d_Vehicles_draw := Time.get_ticks_usec()
 	WorldVehicles.draw(g, T)
 	Spr.pt("d_Vehicles_draw", __d_Vehicles_draw)
+	var __d_Extras_boss := Time.get_ticks_usec()
+	WorldExtras.boss(g, T)
+	Spr.pt("d_Extras_boss", __d_Extras_boss)
+	var __d_Kings_draw := Time.get_ticks_usec()
+	WorldKings.draw(g, T)
+	Spr.pt("d_Kings_draw", __d_Kings_draw)
+	if g.VIL and g.VIL.go and not g.VIL.gone:
+		var v: Dictionary = g.VIL
+		var f: int = (T / max(3, int(10 - v.get("spd", 3.3)))) % 2
+		Spr.A("lia_scared", v.x + 44, v.y - 58, .5)
+		Spr.A("vg_cart1" if f else "vg_cart2", v.x, v.y + 2, 1)
 	_levers(g)
 	for v in g.VINES:
 		if v.x + v.len < cx0 or v.x - v.len > cx1:
@@ -136,174 +131,6 @@ func __draw_raw() -> void:
 	for c in g.CR:
 		if not c.dead and c.t != "push" and c.x > cx0 and c.x < cx1:
 			_crate(c)
-	if not g.low_fx:
-		_reflection(g)
-	# o Tomé é desenhado num nó só dele (com o sombreado de volume) e o que fica na frente dele
-	# (capim, faíscas, poeira) num terceiro nó por cima
-	sh_node.queue_redraw()
-	act_node.queue_redraw()
-	pl_node.queue_redraw()
-	front_node.queue_redraw()
-
-## luz de volume do trecho: sol (manhã, tarde, neve), céu nublado, lanterna no escuro, água por cima
-func _set_light(mat: ShaderMaterial, g: Game) -> void:
-	if mat == null:
-		return
-	var p: Dictionary = g.player
-	var ws: Dictionary = g.section_weights()
-	var tw: float = ws.get("tarde", 0.0)
-	var nw: float = ws.get("neve", 0.0)
-	var rain: float = g.AMB.get("rain", 0.0)
-	var dark: float = g.AMB.dark
-	if g.L.has("under") and p.y > g.L.under:
-		dark = 1.0
-	if g.indoors():
-		dark = max(dark, .6)
-	# sol: alto e frio de manhã, baixo e alaranjado no fim da tarde
-	var ld := Vector3(-.5, -.82, .58).lerp(Vector3(-.85, -.42, .5), tw)
-	var lc := Color(1, .97, .9).lerp(Color(1, .8, .55), tw).lerp(Color(.95, .98, 1.05), nw)
-	var sc := Color(.5, .58, .8).lerp(Color(.55, .45, .62), tw).lerp(Color(.6, .7, .9), nw)
-	var dif := .8 - rain * .3
-	if p.swim:
-		ld = Vector3(-.15, -1, .5)
-		lc = Color(.85, 1, 1)
-		sc = Color(.3, .5, .65)
-	var lm: float = clamp((dark - .25) * 1.8, 0, 1)
-	if lm > 0:
-		lc = lc.lerp(Color(1, .82, .55), lm)
-		sc = sc.lerp(Color(.22, .26, .45), lm)
-		dif = lerp(dif, 1.0, lm)
-	var lp: Vector2 = g.X.lamp() if g.X else Vector2(p.x, p.y)
-	var vt: Transform2D = get_viewport().get_final_transform() * get_global_transform_with_canvas()
-	mat.set_shader_parameter("light_dir", ld)
-	mat.set_shader_parameter("light_col", lc)
-	mat.set_shader_parameter("shade_col", sc)
-	mat.set_shader_parameter("rim_col", lc.lerp(Color(1, 1, 1), .3))
-	mat.set_shader_parameter("diffuse", dif)
-	mat.set_shader_parameter("lamp_mix", lm)
-	mat.set_shader_parameter("lamp_px", vt * lp)
-	var k: float = vt.get_scale().y
-	mat.set_shader_parameter("radius", 13.0 * k)
-	# a pintura já tem sombreado: a luz só reforça o volume, sem escurecer demais
-	mat.set_shader_parameter("strength", .62)
-	mat.set_shader_parameter("ao", .2)
-
-## chão embaixo de (x, y): o topo do sólido mais alto que fica abaixo
-func _ground_below(g: Game, x: float, y: float) -> float:
-	var best := 1e9
-	for so in g.SOL:
-		if x >= so.x and x <= so.x + so.w and so.y >= y - 4 and so.y < best and not so.get("ghost", false):
-			best = so.y
-	return best
-
-## sombras projetadas: cada personagem desenhado de novo como mancha escura, achatado no chão e
-## esticado para o lado contrário da luz (sol baixo = sombra comprida; à noite, para longe da lanterna)
-var _sh_k := .5
-var _sh_sy := .2
-var _sh_a := .3
-var _sh_lamp := 0.0
-var _sh_lx := 0.0
-func _cast(fx: float, gy: float, h: float, fn: Callable) -> void:
-	if gy > 1e8:
-		return
-	var a: float = _sh_a * clamp(1.0 - h / 260.0, 0, 1)
-	if a <= .01:
-		return
-	var k: float = _sh_k
-	if _sh_lamp > 0:
-		var dx: float = fx - _sh_lx
-		var kl: float = clamp(dx / 60.0, -1.6, 1.6)
-		k = lerp(k, kl, _sh_lamp)
-	Spr.save()
-	Spr.alpha = a
-	Spr.project(fx, gy, k, _sh_sy)
-	fn.call()
-	Spr.restore()
-
-func _draw_shadow_node(n: CanvasItem) -> void:
-	var g := game
-	if g == null or not g.L or g.low_fx:
-		return
-	Spr.begin(n)
-	Spr.shadow_pass = true
-	var ws: Dictionary = g.section_weights()
-	var tw: float = ws.get("tarde", 0.0)
-	var dark: float = g.AMB.dark
-	var p: Dictionary = g.player
-	if (g.L.has("under") and p.y > g.L.under) or g.indoors():
-		dark = max(dark, .7)
-	_sh_lamp = clamp((dark - .3) * 2.0, 0, 1)
-	_sh_k = lerp(.55, 1.5, tw)
-	_sh_sy = lerp(.22, .14, tw)
-	_sh_a = (.34 + .1 * tw) * (1.0 - g.AMB.get("rain", 0.0) * .45) * (1.0 - .35 * _sh_lamp)
-	var lp: Vector2 = g.X.lamp() if g.X else Vector2(p.x, p.y)
-	_sh_lx = lp.x
-	var n_mat: ShaderMaterial = n.material
-	n_mat.set_shader_parameter("soft", (2.0 + 2.5 * tw) * get_viewport().get_final_transform().get_scale().y)
-	# o Tomé (ou a Isis)
-	if not p.swim and p.dyingT == 0 and not (g.RD and g.RD.riding) and not (g.VH and g.VH.active()):
-		var cx: float = p.x + p.w / 2
-		var by: float = p.y + p.h
-		var gy: float = by if p.onGround else _ground_below(g, cx, by)
-		if not p.vine and not p.ladder and not p.get("bar"):
-			_cast(cx, gy, gy - by, func(): _player_draw(g))
-	# inimigos
-	for e in g.EN:
-		if e.dead or e.x < g.cam - 200 or e.x > g.cam + g.W + 200:
-			continue
-		if e.k in ["leech", "plant", "piranha"]:
-			continue
-		var base: float = e.get("base", e.y)
-		var egy: float = base if not Game.FLY.has(e.k) else _ground_below(g, e.x, e.y)
-		var eo := g.e_off(e)
-		_cast(e.x, egy + 3, egy - e.y, func():
-			Spr.translate(eo.x, eo.y)
-			_enemy(e))
-	# chefes
-	var B: Dictionary = g.X.BOSS if g.X else {}
-	if not B.is_empty() and not B.done and B.st != "wait":
-		_cast(B.x, 502, 0, func(): WorldExtras.boss(g, T))
-	if g.K and not g.K.BEAR.is_empty() and not g.K.BEAR.done and g.K.BEAR.st != "wait":
-		_cast(g.K.BEAR.x, g.K.BEAR.gy + 2, 0, func(): WorldKings._bear(g, g.K, T))
-	# gente e bichos da vila
-	if g.VL:
-		for w in g.VL.WATCH:
-			if w.x > g.cam - 300 and w.x < g.cam + g.W + 300:
-				if w.get("vargas"):
-					_cast(w.x, 502, 0, func(): Village.vargas_fig(w.x, 500.0, float(w.dir), T, w.t if w.wait == 0 else 0))
-				else:
-					_cast(w.x, 502, 0, func(): g.VL._watchman(w, T))
-		for d in g.VL.DOGS:
-			if d.x > g.cam - 300 and d.x < g.cam + g.W + 300:
-				_cast(d.x, 502, 0, func(): g.VL._dog(d, T))
-	# o Pipoca
-	var D: Dictionary = g.X.DOG if g.X else {}
-	if not D.is_empty() and D.st != "in_toca" and D.st != "ride":
-		_cast(D.x, D.y + 1, -D.get("hy", 0.0), func(): WorldExtras.dog(g, T))
-	Spr.shadow_pass = false
-
-## nó dos atores: tudo o que tem corpo e se mexe (menos o Tomé), com a mesma luz de volume
-func _draw_actors_node(n: CanvasItem) -> void:
-	var g := game
-	if g == null or not g.L:
-		return
-	Spr.begin(n)
-	_set_light(n.material, g)
-	var cx0: float = g.cam - 400
-	var cx1: float = g.cam + g.W + 400
-	if g.VL:
-		g.VL.draw_actors(T)
-	var __d_Extras_boss := Time.get_ticks_usec()
-	WorldExtras.boss(g, T)
-	Spr.pt("d_Extras_boss", __d_Extras_boss)
-	var __d_Kings_draw := Time.get_ticks_usec()
-	WorldKings.draw(g, T)
-	Spr.pt("d_Kings_draw", __d_Kings_draw)
-	if g.VIL and g.VIL.go and not g.VIL.gone:
-		var v: Dictionary = g.VIL
-		var f: int = (T / max(3, int(10 - v.get("spd", 3.3)))) % 2
-		Spr.A("lia_scared", v.x + 44, v.y - 58, .5)
-		Spr.A("vg_cart1" if f else "vg_cart2", v.x, v.y + 2, 1)
 	for e in g.EN:
 		if e.dead > 50:
 			continue
@@ -360,6 +187,12 @@ func _draw_actors_node(n: CanvasItem) -> void:
 		Spr.restore()
 	else:
 		WorldExtras.dog(g, T)
+	if not g.low_fx:
+		_reflection(g)
+	# o Tomé é desenhado num nó só dele (com o sombreado de volume) e o que fica na frente dele
+	# (capim, faíscas, poeira) num terceiro nó por cima
+	pl_node.queue_redraw()
+	front_node.queue_redraw()
 
 ## nó do Tomé: volume com luz do sol (de cima, atrás) ou da lanterna (da frente)
 func _draw_player_node(n: CanvasItem) -> void:
@@ -369,7 +202,21 @@ func _draw_player_node(n: CanvasItem) -> void:
 	Spr.begin(n)
 	var __d__player := Time.get_ticks_usec()
 	var p: Dictionary = g.player
-	_set_light(n.material, g)
+	var mat: ShaderMaterial = n.material
+	var dark: float = g.AMB.dark
+	if g.L.has("under") and p.y > g.L.under:
+		dark = 1.0
+	var face: float = 1.0 if p.face > 0 else -1.0
+	if dark > .3:
+		mat.set_shader_parameter("light_uv", Vector2(1.0, -.35).normalized())
+		mat.set_shader_parameter("rim_col", Color(1, .78, .45))
+		mat.set_shader_parameter("rim_amt", .4 * clamp((dark - .3) * 3.0, 0, 1))
+	else:
+		var tw: float = g.section_weights().get("tarde", 0.0)
+		mat.set_shader_parameter("light_uv", Vector2(-.7 * face, -.75).normalized())
+		mat.set_shader_parameter("rim_col", Color(1, .95, .8).lerp(Color(1, .74, .42), tw))
+		mat.set_shader_parameter("rim_amt", .34)
+	mat.set_shader_parameter("shade_amt", .55 if p.swim else .32)
 	# cor do ambiente: mais quente no fim da tarde, mais azulada na neve e à noite
 	var ws: Dictionary = g.section_weights()
 	var env := Color(1, 1, 1)
@@ -414,7 +261,7 @@ func _draw_front_node(n: CanvasItem) -> void:
 			Spr.ci.draw_arc(Vector2(p.x, p.y), p.ring * u, PI, TAU, 28, Color(1, .93, .75, .6 * (1.0 - u)), 3, true)
 			Spr.ellipse(p.x, p.y, p.ring * u, 4, Color(1, .95, .8, .18 * (1.0 - u)))
 		else:
-			Spr.circle(p.x + 1.5, p.y + 1.5, 1.9, Color(c.r, c.g, c.b, pa))
+			Spr.rect(p.x, p.y, 3, 3, Color(c.r, c.g, c.b, pa))
 
 # ---------- cenário com estado ----------
 var cabins: Array = []
@@ -1196,25 +1043,11 @@ func _player(g: Game) -> void:
 		if g.NT and g.NT.helmet and p.swim and not p.get("dog") and p.dyingT == 0 and not (p.iframe > 0 and (T / 4) % 2 == 0):
 			var hx: float = p.x + p.w / 2 + p.face * 3
 			var hb: float = p.y + p.h - 34
-			var rgd: Dictionary = p.get("rg", {})
-			if Rig2.ready() and rgd.has("headw"):
-				# com o Tomé em peças: o capacete vai exatamente onde a cabeça está, girado junto
-				var hw: Vector2 = rgd.headw
-				Spr.save()
-				Spr.M = Transform2D.IDENTITY
-				Spr.translate(hw.x, hw.y)
-				Spr.rotate(rgd.get("heada", 0.0))
-				WorldNature.prop("capacete", 0, 24, 50, p.face < 0)
-				Spr.restore()
-				hb = -9999
-			if hb == -9999:
-				pass
-			elif p.crouch:
+			if p.crouch:
 				# deitado (rastejando no fundo): a cabeça fica na frente, perto do chão
 				hx = p.x + p.w / 2 + p.face * 20
 				hb = p.y + p.h - 2
-			if hb != -9999:
-				WorldNature.prop("capacete", hx, hb, 46, p.face < 0)
+			WorldNature.prop("capacete", hx, hb, 46, p.face < 0)
 		WorldExtras.tool_fx(g, T)
 	Spr.alpha = a0
 	Spr.restore()
@@ -1257,7 +1090,7 @@ func _isis_draw(p: Dictionary) -> void:
 	var st := Vector2.ONE
 	if fr <= 6:
 		st = _body_flex(p, "isis", fr, 4)
-		rot = p.get("lean", 0.0)
+		rot = p.lean
 		if fr < 4:
 			# passada: o corpo sobe um tiquinho no quadro de apoio (1 e 3)
 			st.y *= 1 + (.012 if fr % 2 == 1 else -.008) * clamp(abs(p.vx) / 4.3, 0, 1)
@@ -1311,7 +1144,6 @@ func _warp_pose(p: Dictionary) -> void:
 			Spr.ci.draw_texture(t3, Vector2(-t3.get_width() / 2.0, -t3.get_height()), Color(1, 1, 1, Spr.alpha))
 			Spr.restore()
 
-var _turn_tick := -1
 func _player_draw(g: Game) -> void:
 	var p: Dictionary = g.player
 	if p.iframe > 0 and (T / 4) % 2 == 0 and p.dyingT == 0:
@@ -1325,8 +1157,7 @@ func _player_draw(g: Game) -> void:
 	if p.lastFace != p.face:
 		p.turnT = 6
 		p.lastFace = p.face
-	if p.turnT > 0 and _turn_tick != T and not Spr.shadow_pass:
-		_turn_tick = T
+	if p.turnT > 0:
 		p.turnT -= 1
 	var pai: Texture2D = Spr.tex.pai
 	var pai2: Texture2D = Spr.tex.pai2
@@ -1347,11 +1178,6 @@ func _player_draw(g: Game) -> void:
 		Spr.translate(0, 30)
 		Spr.frame(pai2, 8, 170, 160, 85, 156, 0, 0, .48, p.face < 0)
 		Spr.restore()
-		return
-	# Tomé em peças com ossos (estilo novo)
-	if not (p.iframe > 40) and Rig2.ready():
-		Rig2.draw(p, cx, by, T, not Spr.shadow_pass)
-		_armor(p, cx, by)
 		return
 	# pendurado na corda esticada: mão sobre mão
 	if p.get("bar"):
@@ -1445,8 +1271,7 @@ func _player_draw(g: Game) -> void:
 			var ar = Spr.AR.get(n)
 			if ar != null:
 				_pose(n, Spr.atlas_tex(ar), Rect2(ar[0], ar[1], ar[2], ar[3]), Rect2(-ar[4], -ar[5], ar[2], ar[3]), cx, by, 0.0, -.56 if p.face < 0 else .56, .56)
-			if not Spr.shadow_pass:
-				p.lean = lerp(float(p.get("lean", 0.0)), 0.0, .3)
+			p.lean = lerp(float(p.get("lean", 0.0)), 0.0, .3)
 			Spr.A(n, cx, by, .56, p.face < 0)
 			_armor(p, cx, by)
 			return
@@ -1461,8 +1286,7 @@ func _player_draw(g: Game) -> void:
 		var tgt: float = 0.0
 		if abs(p.vx) > .3:
 			tgt = sign(p.vx) * mvk * .95 + p.vy * .05 * sign(p.vx)
-		if not Spr.shadow_pass:
-			p.swr = lerp(float(p.get("swr", 0.0)), tgt, .1)
+		p.swr = lerp(float(p.get("swr", 0.0)), tgt, .1)
 		var stroke: float = sin(T * (.12 + mvk * .1))
 		var sbob: float = sin(T * .06) * 2.0 * (1.0 - mvk)
 		_ppos = Vector2(p.x, p.y)
@@ -1515,10 +1339,10 @@ func _player_draw(g: Game) -> void:
 			var sy3: float = k2 * (1 - sq3 * .25) * st.y
 			var src3 := Rect2(f * sz, 0, sz, sz)
 			var dst3 := Rect2(-sz / 2, -sz, sz, sz)
-			_pose(key, a.tex, src3, dst3, cx, by, p.get("lean", 0.0), sx3, sy3)
+			_pose(key, a.tex, src3, dst3, cx, by, p.lean, sx3, sy3)
 			Spr.save()
 			Spr.translate(cx, by)
-			Spr.rotate(p.get("lean", 0.0))
+			Spr.rotate(p.lean)
 			Spr.scale(sx3, sy3)
 			Spr.ci.draw_texture_rect_region(a.tex, dst3, src3, Color(1, 1, 1, Spr.alpha))
 			Spr.restore()
@@ -1560,7 +1384,7 @@ func _player_draw(g: Game) -> void:
 	var turn: float = .65 + .35 * (1 - p.turnT / 6.0) if p.turnT > 0 else 1.0
 	var rim2 := _rim(g, p)
 	_body_flex(p, "old", fr, 4)
-	var rot0: float = p.get("lean", 0.0) + (p.face * .06 * pant if (pant > 0 and fr == 0 and tex == pai) else 0.0)
+	var rot0: float = p.lean + (p.face * .06 * pant if (pant > 0 and fr == 0 and tex == pai) else 0.0)
 	var sx0: float = p.face * sc * (1 + sq * .25) * turn
 	var sy0: float = sc * (1 - sq * .3 + idle)
 	_pose("old%d_%d" % [tex.get_instance_id(), fr], tex, Rect2(fr * 170, 0, 170, 160), Rect2(-85, -156, 170, 160), cx, by, rot0, sx0, sy0)
@@ -1586,9 +1410,6 @@ func _player_draw(g: Game) -> void:
 ## corpo vivo: inclinação suave (acompanha a velocidade, sem tranco), esticar no pulo,
 ## sobe-e-desce do passo (sem tirar o pé do chão: estica/encolhe a partir da sola)
 func _body_flex(p: Dictionary, key: String, f: int, n: int) -> Vector2:
-	if Spr.shadow_pass:
-		var sf: float = p.get("flex", 1.0)
-		return Vector2(1 - (sf - 1) * .8, sf)
 	var lt: float = 0.0
 	if p.onGround:
 		lt = p.vx / 6.6 * (.075 if p.run else .05)
@@ -1619,8 +1440,6 @@ var _ghost_tick := -1
 var _ppos := Vector2.ZERO
 const GHOST_N := 5
 func _pose(key: String, tex: Texture2D, src: Rect2, dst: Rect2, x: float, y: float, rot: float, sx: float, sy: float) -> void:
-	if Spr.shadow_pass:
-		return
 	if _ghost_tick != T:
 		_ghost_tick = T
 		if _ghostT > 0:

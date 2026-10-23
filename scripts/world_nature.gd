@@ -107,8 +107,7 @@ static func _roof_line(n: String) -> PackedFloat32Array:
 	var x := 0
 	while x < int(r[2]):
 		var y := 0
-		var sr: Rect2 = Spr.src(r)
-		while y < int(r[3]) and im.get_pixel(int(sr.position.x + x * sr.size.x / r[2]), int(sr.position.y + y * sr.size.y / r[3])).a < .5:
+		while y < int(r[3]) and im.get_pixel(int(r[0]) + x, int(r[1]) + y).a < .5:
 			y += 1
 		out.push_back(float(y))
 		x += 3

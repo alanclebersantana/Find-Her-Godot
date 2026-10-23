@@ -64,17 +64,6 @@ static func _bounce(g: Game, TR: Traps, o: Dictionary, T: int) -> void:
 		tilt = clamp((float(to[0]) - x) / 900.0, -.35, .35)
 	Spr.glow(x, y - 30, 46, Color(1, .75, .55, .25 + sin(T * .08 + x) * .08))
 	Spr.ellipse(x, y + 1, 22, 4, Color(0, 0, 0, .25))
-	if Spr.has("p_cog_pulo"):
-		# cogumelo pintado: amassa e estica a partir do pé, inclinado para onde lança
-		var cw: float = 74.0
-		var azul: bool = o.get("c", "") == "azul"
-		Spr.save()
-		Spr.translate(x, y + 2)
-		Spr.rotate(tilt * .6)
-		Spr.scale(1 + sq * .3, 1 - sq * .38)
-		Spr.P("cog_pulo", 0, 0, cw, false, 0.0, Color(.55, .75, 1.25) if azul else Color.WHITE)
-		Spr.restore()
-		return
 	# caule
 	Spr.poly(PackedVector2Array([Vector2(x - 8, y), Vector2(x - 6, y - 24 + sq * 6), Vector2(x + 6, y - 24 + sq * 6), Vector2(x + 9, y)]), Color("#efe2c4"))
 	Spr.seg(x - 8, y, x - 6, y - 22 + sq * 6, Color("#c9b48a"), 2)
@@ -172,13 +161,15 @@ static func _spikes(TR: Traps, o: Dictionary, T: int) -> void:
 		var ns: int = max(1, int(round(tw / 110.0)))
 		var sgw: float = tw / ns
 		var rt: Array = Spr.AR["p_spiketop"]
-		var full: float = sgw * rt[3] / rt[2] * .9
+		var rb: Array = Spr.AR["p_spikebase"]
+		var full: float = 30.0
 		var f: float = clamp(max(h, 0.0) / 26.0, 0.0, 1.0)
 		for i in ns:
 			var sx0: float = x - 6 + i * sgw + sh
 			if f > .02:
 				Spr.PB("spiketop", sx0, y + 1 - full * f, sgw, full * f, 0.0, f)
-			Spr.PR("plank", x - 6 + i * sgw, y - 5, sgw, 10)
+			var bh: float = sgw * rb[3] / rb[2]
+			Spr.PR("spikebase", x - 6 + i * sgw, y - 4, sgw, bh)
 		if h > 4:
 			Spr.rr(x - 6, y - 2 - h - 3, w + 12, h + 6, 6, Color(1, .3, .2, .06 + .04 * sin(T * .1)))
 		return

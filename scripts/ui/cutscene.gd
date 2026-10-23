@@ -333,7 +333,7 @@ func _s_villain_face(W: float, H: float, k: float) -> void:
 		var ww: float = hh * r[2] / r[3]
 		var cy := H * .44
 		Spr.glow(W / 2, cy, hh * .8, Color(1, .25, .15, .35))
-		draw_texture_rect_region(Spr.atlas_tex(r), Rect2(W / 2 - ww / 2, cy - hh / 2, ww, hh), Spr.src(r), Color(1, .85, .8))
+		draw_texture_rect_region(Spr.atlas_tex(r), Rect2(W / 2 - ww / 2, cy - hh / 2, ww, hh), Rect2(r[0], r[1], r[2], r[3]), Color(1, .85, .8))
 	var ta: float = clamp(k * 3 - .3, 0, 1)
 	Spr.text("ADEMAR VARGAS", W * .5, H - 112, 34, Color(1, .8, .6, ta), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_title, 6)
 	_vignette(W, H, .85)

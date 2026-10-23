@@ -101,14 +101,6 @@ func _ready() -> void:
 		var key := "paint%d" % (pg + 1)
 		if not tex.has(key):
 			tex[key] = load("res://assets/sprites/%s.png" % key)
-		if n.begins_with("A:"):
-			# peça nova pintada no lugar de uma do atlas antigo: guarda o tamanho antigo (de desenho)
-			# e o recorte novo na textura (r[7])
-			var on: String = n.substr(2)
-			if AR.has(on):
-				var o = AR[on]
-				AR[on] = [r[0], r[1], o[2], o[3], o[4], o[5], 3 + pg, Rect2(r[0], r[1], r[2], r[3])]
-			continue
 		AR["p_" + n] = [r[0], r[1], r[2], r[3], r[4], r[5], 3 + pg]
 		# ícones pintados de objetos e pistas novos: valem também pelo nome antigo (it_x, cl_7, clb_7)
 		if (n.begins_with("it_") or n.begins_with("cl_") or n.begins_with("clb_")) and not AR.has(n):
@@ -136,12 +128,6 @@ func opt(n: String) -> Texture2D:
 		var pth := "res://assets/sprites/%s.png" % n
 		tex[n] = load(pth) if ResourceLoader.exists(pth) else null
 	return tex[n]
-
-## recorte da peça na textura (peças antigas: o próprio retângulo; trocadas: o recorte novo)
-func src(r) -> Rect2:
-	if r.size() > 7:
-		return r[7]
-	return Rect2(r[0], r[1], r[2], r[3])
 
 func atlas_tex(r) -> Texture2D:
 	if r[6] >= 3:
@@ -264,11 +250,6 @@ func rotate(a: float) -> void:
 	M = M * Transform2D(a, Vector2.ZERO)
 	ci.draw_set_transform_matrix(M)
 
-## projeção de sombra no chão: em volta do pé (fx, fy), achata a altura (sy) e inclina (kx por pixel de altura)
-func project(fx: float, fy: float, kx: float, sy: float) -> void:
-	M = M * Transform2D(0, Vector2(fx, fy)) * Transform2D(Vector2(1, 0), Vector2(-kx, sy), Vector2.ZERO) * Transform2D(0, Vector2(-fx, -fy))
-	ci.draw_set_transform_matrix(M)
-
 func scale(sx: float, sy: float) -> void:
 	M = M * Transform2D(Vector2(sx, 0), Vector2(0, sy), Vector2.ZERO)
 	ci.draw_set_transform_matrix(M)
@@ -283,9 +264,9 @@ func A(n: String, x: float, y: float, sc: float = 1.0, flip: bool = false, al: f
 	translate(x, y)
 	scale(-sc if flip else sc, sc)
 	if sil_c.a > 0:
-		ci.draw_texture_rect_region(sil(atlas_tex(r)), Rect2(-r[4], -r[5], r[2], r[3]), src(r), Color(sil_c.r, sil_c.g, sil_c.b, sil_c.a * alpha * al))
+		ci.draw_texture_rect_region(sil(atlas_tex(r)), Rect2(-r[4], -r[5], r[2], r[3]), Rect2(r[0], r[1], r[2], r[3]), Color(sil_c.r, sil_c.g, sil_c.b, sil_c.a * alpha * al))
 	else:
-		ci.draw_texture_rect_region(atlas_tex(r), Rect2(-r[4], -r[5], r[2], r[3]), src(r), Color(1, 1, 1, alpha * al))
+		ci.draw_texture_rect_region(atlas_tex(r), Rect2(-r[4], -r[5], r[2], r[3]), Rect2(r[0], r[1], r[2], r[3]), Color(1, 1, 1, alpha * al))
 	restore()
 
 ## silhueta branca da textura (mesmo alfa) — para o contorno de luz (rim light) dos personagens
@@ -320,7 +301,7 @@ func A_sil(n: String, x: float, y: float, sc: float, flip: bool, c: Color) -> vo
 	save()
 	translate(x, y)
 	scale(-sc if flip else sc, sc)
-	ci.draw_texture_rect_region(sil(atlas_tex(r)), Rect2(-r[4], -r[5], r[2], r[3]), src(r), Color(c.r, c.g, c.b, c.a * alpha))
+	ci.draw_texture_rect_region(sil(atlas_tex(r)), Rect2(-r[4], -r[5], r[2], r[3]), Rect2(r[0], r[1], r[2], r[3]), Color(c.r, c.g, c.b, c.a * alpha))
 	restore()
 
 ## Peça esticada num retângulo
@@ -328,7 +309,7 @@ func AB(n: String, x: float, y: float, w: float, h: float, al: float = 1.0) -> v
 	var r = AR.get(n)
 	if r == null:
 		return
-	ci.draw_texture_rect_region(atlas_tex(r), Rect2(x, y, w, h), src(r), Color(1, 1, 1, alpha * al))
+	ci.draw_texture_rect_region(atlas_tex(r), Rect2(x, y, w, h), Rect2(r[0], r[1], r[2], r[3]), Color(1, 1, 1, alpha * al))
 
 ## Peça com base no chão (centro x, base y) e largura w
 func ABb(n: String, cx: float, by: float, w: float, al: float = 1.0) -> void:
@@ -350,10 +331,9 @@ func strip_at(n: String, ox: float, x0: float, x1: float, y: float, h: float, al
 		var a: float = max(xx, x0)
 		var b: float = min(xx + tw + 1, x1)
 		if b > a:
-			var sr: Rect2 = src(r)
-			var u0: float = (a - xx) / (tw + 1) * sr.size.x
-			var u1: float = (b - xx) / (tw + 1) * sr.size.x
-			ci.draw_texture_rect_region(t, Rect2(a, y, b - a, h), Rect2(sr.position.x + u0, sr.position.y, u1 - u0, sr.size.y), Color(1, 1, 1, alpha * al))
+			var u0: float = (a - xx) / (tw + 1) * r[2]
+			var u1: float = (b - xx) / (tw + 1) * r[2]
+			ci.draw_texture_rect_region(t, Rect2(a, y, b - a, h), Rect2(r[0] + u0, r[1], u1 - u0, r[3]), Color(1, 1, 1, alpha * al))
 		xx += tw
 
 ## Faixa repetida na vertical (escadas, redes)
@@ -366,9 +346,8 @@ func strip_v(n: String, x: float, y: float, w: float, h: float, al: float = 1.0)
 	var yy := y
 	while yy < y + h:
 		var b: float = min(yy + th + 1, y + h)
-		var sr: Rect2 = src(r)
-		var v: float = (b - yy) / (th + 1) * sr.size.y
-		ci.draw_texture_rect_region(t, Rect2(x, yy, w, b - yy), Rect2(sr.position, Vector2(sr.size.x, v)), Color(1, 1, 1, alpha * al))
+		var v: float = (b - yy) / (th + 1) * r[3]
+		ci.draw_texture_rect_region(t, Rect2(x, yy, w, b - yy), Rect2(r[0], r[1], r[2], v), Color(1, 1, 1, alpha * al))
 		yy += th
 
 ## Textura (ou recorte dela) num retângulo
@@ -403,8 +382,6 @@ func ring(x: float, y: float, r: float, c: Color, w: float = 2.0, a0: float = 0.
 	ci.draw_arc(Vector2(x, y), r, a0, a1, 24, col(c), w, true)
 
 func ellipse(x: float, y: float, rx: float, ry: float, c: Color, rot: float = 0.0) -> void:
-	if shadow_pass and c.r + c.g + c.b < .3:
-		return
 	# elipse muito pequena vira círculo (polígono minúsculo não triangula)
 	if rx < 3.5 or ry < 2.0:
 		if rx >= 3.5:
@@ -459,11 +436,7 @@ func sheet(name: String, fr: int, cw: float, ch: float, x: float, by: float, hgt
 	ci.draw_texture_rect_region(t, Rect2(-cw / 2, -ch, cw, ch), Rect2(fr * cw, 0, cw, ch), Color(mod.r, mod.g, mod.b, mod.a * alpha))
 	restore()
 
-## passada de sombra (nó das sombras projetadas): brilhos, textos e as sombrinhas redondas não entram
-var shadow_pass := false
 func glow(x: float, y: float, r: float, c: Color) -> void:
-	if shadow_pass:
-		return
 	ci.draw_texture_rect(glow_tex, Rect2(x - r, y - r, r * 2, r * 2), false, col(c))
 
 func vgrad(x: float, y: float, w: float, h: float, c0: Color, c1: Color) -> void:
@@ -475,8 +448,6 @@ func hgrad(x: float, y: float, w: float, h: float, c0: Color, c1: Color) -> void
 	ci.draw_polygon(pts, PackedColorArray([col(c0), col(c1), col(c1), col(c0)]))
 
 func text(s: String, x: float, y: float, size: int, c: Color, align: int = HORIZONTAL_ALIGNMENT_LEFT, f: Font = null, outline: int = 0, oc: Color = Color(0, 0, 0, .8)) -> void:
-	if shadow_pass:
-		return
 	var ff: Font = f if f else font
 	var w := -1.0
 	var px := x
@@ -497,8 +468,6 @@ func hexc(h: String, a: float = 1.0) -> Color:
 
 ## distância andada pelo bicho (para o passo acompanhar o chão, sem patinar)
 func edist(e: Dictionary) -> float:
-	if shadow_pass:
-		return e.get("_dd", 0.0)
 	var lx: float = e.get("_lx", e.x)
 	e._dd = float(e.get("_dd", 0.0)) + abs(e.x - lx)
 	e._lx = e.x
@@ -507,7 +476,7 @@ func edist(e: Dictionary) -> float:
 ## virada macia: o bicho gira (estreita e abre) em vez de espelhar de um quadro para o outro
 func eturn(e: Dictionary, k: float = .2) -> float:
 	var d: float = 1.0 if e.dir > 0 else -1.0
-	var fs: float = float(e.get("_fs", d)) if shadow_pass else move_toward(float(e.get("_fs", d)), d, k)
+	var fs: float = move_toward(float(e.get("_fs", d)), d, k)
 	e._fs = fs
 	return sign(fs) * max(abs(fs), .18) if fs != 0 else d * .18
 

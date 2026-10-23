@@ -286,13 +286,12 @@ func ground(s: Dictionary) -> void:
 	# a textura é a do trecho onde este pedaço do chão está (não a do meio do bloco inteiro)
 	var t: Texture2D = gtex(game, (x_a + x_b) * .5)
 	# chão de pedra/mina: textura alinhada ao mundo (dois blocos vizinhos emendam sem costura)
-	# textura alinhada ao mundo: dois blocos vizinhos emendam sem costura
-	var ox: float = 0.0
+	var ox: float = 0.0 if gt_at(game, (x_a + x_b) * .5) != "" else s.x
 	var ol: bool = _open_end(s, false) and s.w > 60
 	var orr: bool = _open_end(s, true) and s.w > 60
 	# as pontas abertas ficam por conta do contorno arredondado
 	var cut_a: float = s.x + (ROUND if ol else 0.0)
-	var cut_b: float = s.x + s.w - (ROUND if orr else -1.5)
+	var cut_b: float = s.x + s.w - (ROUND if orr else 0.0)
 	# alinhado ao início do bloco para não "pular" entre pedaços
 	var tw: float = t.get_width() - 1
 	var start: float = ox + floor((x_a - ox) / tw) * tw
@@ -344,45 +343,9 @@ func _dirt_fill(xa: float, xb: float, ya: float, yb: float, ox: float, k0: float
 		return
 	_dirt_fill_t(xa, xb, ya, yb, ox, k0, gtex(game, (xa + xb) * .5), 1.0)
 
-## cor da terra no pé da textura do chão (média das últimas linhas), para a terra continuar lisa embaixo
-static var _dcol := {}
-static func dirt_color(t: Texture2D) -> Color:
-	var id := t.get_rid().get_id()
-	if not _dcol.has(id):
-		var im: Image = t.get_image()
-		if im.is_compressed():
-			im.decompress()
-		var acc := Color(0, 0, 0, 0)
-		var n := 0
-		for y in range(im.get_height() - 6, im.get_height()):
-			for x in range(0, im.get_width(), 3):
-				var c: Color = im.get_pixel(x, y)
-				if c.a > .5:
-					acc += c
-					n += 1
-		_dcol[id] = Color(acc.r / max(n, 1), acc.g / max(n, 1), acc.b / max(n, 1), 1)
-	return _dcol[id]
-
 func _dirt_fill_t(xa: float, xb: float, ya: float, yb: float, ox: float, k0: float, t: Texture2D, alpha: float) -> void:
-	# terra lisa: a mesma cor do pé da textura, escurecendo com a profundidade (sem emendas nem listras)
-	var dc: Color = dirt_color(t)
-	var tint0 := _ground_tint((xa + xb) * .5)
-	var base := Color(dc.r * tint0.r, dc.g * tint0.g, dc.b * tint0.b)
-	var d1: float = min(yb - ya, 600.0)
-	var c0 := Color(base.r * k0, base.g * k0, base.b * k0, alpha)
-	var m1: float = k0 * .42 / .92
-	var under: float = float(game.L.get("under", -1.0))
-	if under > ya and k0 > .6:
-		# chega embaixo do bloco já na cor da terra funda (que continua sem degrau até o fundo)
-		var u: float = clamp((min(yb, ya + d1) - ya) / max(1.0, under - ya), 0.0, 1.0)
-		m1 = lerpf(k0, .5, u)
-	var c1 := Color(base.r * m1, base.g * m1, base.b * m1, alpha)
-	Spr.vgrad(xa, ya, xb - xa, d1, c0, c1)
-	if yb - ya > d1:
-		Spr.rect(xa, ya + d1, xb - xa, yb - ya - d1, c1)
-	return
 	var ts := t.get_size()
-	var v0: float = round(ts.y * .64)
+	var v0: float = 60.0
 	var th: float = ts.y - v0
 	var tw: float = ts.x - 1
 	var yend: float = min(yb, ya + 900.0)
@@ -505,13 +468,11 @@ func _pit_wall(e: float, y0: float, dir: float) -> void:
 func _earth_detail(xa: float, xb: float, ya: float, yb: float, base: Color) -> void:
 	xa = max(xa, x0)
 	xb = min(xb, x1)
-	if xb <= xa or yb <= ya or game.L.has("under"):
+	if xb <= xa or yb <= ya:
 		return
 	Spr.vgrad(xa, ya, xb - xa, min(yb - ya, 260.0), Color(0, 0, 0, 0), Color(0, 0, 0, .28))
 	if yb - ya > 260:
 		Spr.rect(xa, ya + 260, xb - xa, yb - ya - 260, Color(0, 0, 0, .28))
-	# só a terra escurecendo para baixo: nada de pedras ou raízes desenhadas na terra
-	return
 	var gx: float = floor(xa / 46.0) * 46.0
 	while gx < xb:
 		var gy: float = floor(ya / 40.0) * 40.0
@@ -653,8 +614,8 @@ func _ground_deco(s: Dictionary) -> void:
 						Spr.ellipse(sxp, s.y - 2, w2, 4 + 3 * dens, Color(.95, .97, 1, .95))
 					sxp += 34
 				break
-	# (sem raízes embaixo da grama: abaixo do chão só terra lisa)
-	if false:
+	# raízes saindo da beira do barranco (embaixo da grama)
+	if not s.get("snow") and not under:
 		var rx: float = s.x + 70 + fposmod(-(s.x + 70), 170.0)
 		while rx < s.x + s.w - 70:
 			if rx >= x0 and rx < x1 and hh(rx, 14) < .45:
@@ -784,7 +745,7 @@ func _ground_end(s: Dictionary, t: Texture2D, tw: float, right: bool) -> void:
 	var top: float = s.y - 10
 	var fy: float = s.y - 34 + t.get_height()
 	var bot: float = s.y + min(s.h, 900.0)
-	var tile_x: float = floor(min(inner, e) / tw) * tw
+	var tile_x: float = s.x + floor((min(inner, e) - s.x) / tw) * tw
 	var t2: Texture2D = _chao2(t, tw)
 	var seed_v: float = e * .013
 	var inset := func(y: float) -> float:
@@ -869,11 +830,6 @@ static func plat(s: Dictionary) -> void:
 			Spr.rect(lx, s.y + 10, 8, 700 - s.y, wood)
 		Spr.seg(s.x + 12, s.y + 30, s.x + s.w - 12, s.y + 120, wood, 5)
 		Spr.seg(s.x + s.w - 12, s.y + 30, s.x + 12, s.y + 120, wood, 5)
-	if Spr.has("p_plataforma"):
-		_plat_art(s)
-		if s.get("hatch"):
-			return
-		return
 	# tábuas separadas (cada uma com veio e prego), pontas arredondadas e um pouco irregulares
 	var bx: float = s.x
 	var bi := 0
@@ -895,42 +851,7 @@ static func plat(s: Dictionary) -> void:
 	Spr.seg(s.x + 10, s.y + 16, s.x + 4, s.y + 40, Color(0, 0, 0, .35), 2)
 	Spr.seg(s.x + s.w - 10, s.y + 16, s.x + s.w - 4, s.y + 40, Color(0, 0, 0, .35), 2)
 
-## passarela de tábuas pintada: as pontas da arte ficam nas pontas e o meio se repete (sem esticar)
-static func _plat_art(s: Dictionary) -> void:
-	var r: Array = Spr.AR["p_plataforma"]
-	var t: Texture2D = Spr.atlas_tex(r)
-	var sr: Rect2 = Spr.src(r)
-	# só a faixa das tábuas e da viga (o pé do meio da arte fica de fora)
-	var band: float = sr.size.y * .66
-	var hgt: float = 30.0
-	var k: float = hgt / band
-	var ew: float = sr.size.x * .1
-	var x0: float = s.x - 6
-	var x1: float = s.x + s.w + 6
-	var ewp: float = min(ew * k, (x1 - x0) * .5)
-	var y: float = s.y - 4
-	var c := Color(1, 1, 1, Spr.alpha)
-	Spr.ci.draw_texture_rect_region(t, Rect2(x0, y, ewp, hgt), Rect2(sr.position, Vector2(ewp / k, band)), c)
-	Spr.ci.draw_texture_rect_region(t, Rect2(x1 - ewp, y, ewp, hgt), Rect2(sr.position.x + sr.size.x - ewp / k, sr.position.y, ewp / k, band), c)
-	var mw: float = (sr.size.x - 2 * ew) * k
-	var xx: float = x0 + ewp
-	var i := 0
-	while xx < x1 - ewp - .5:
-		var ww: float = min(mw, x1 - ewp - xx)
-		var u0: float = sr.position.x + ew + fmod(i * 97.0, sr.size.x - 2 * ew - ww / k + 1.0)
-		Spr.ci.draw_texture_rect_region(t, Rect2(xx, y, ww, hgt), Rect2(u0, sr.position.y, ww / k, band), c)
-		xx += ww
-		i += 1
-	# sombra embaixo da passarela
-	Spr.rect(x0 + 6, y + hgt - 2, x1 - x0 - 12, 3, Color(0, 0, 0, .18 * Spr.alpha))
-
 static func branch(s: Dictionary) -> void:
-	if Spr.has("p_galho2"):
-		# galho grosso pintado: o tronco do galho sai da esquerda, as folhas na ponta da direita
-		var gw: float = s.w + 60
-		var gh: float = clamp(Spr.PH("galho2", gw), 50.0, 96.0)
-		Spr.PR("galho2", s.x - 34, s.y - gh * .38, gw, gh, Color.WHITE, int(s.x) % 2 == 1)
-		return
 	Spr.img(Spr.tex.galho, s.x - 12, s.y - 14, s.w + 24, 60)
 
 func trunk(s: Dictionary) -> void:
@@ -957,14 +878,6 @@ func treehouse(s: Dictionary) -> void:
 	Spr.AB("o_treehouse", s.x + s.w / 2 - w / 2, s.y + s.h + 8 - hh, w, hh)
 
 func root_log(s: Dictionary) -> void:
-	if Spr.has("p_pilha_toras"):
-		# pilha de toras amarrada, apoiada em duas pedras no chão: o vão embaixo é por onde se passa agachado
-		var gy: float = _floor_below(s.x + s.w / 2, s.y + s.h)
-		var pw: float = s.w + 70
-		var ph: float = gy - s.y + 18
-		Spr.ellipse(s.x + s.w / 2, gy + 2, pw * .5, 7, Color(0, 0, 0, .28))
-		Spr.PR("pilha_toras", s.x - 35, s.y - 14, pw, ph)
-		return
 	var x: float = s.x
 	var y: float = s.y
 	var w: float = s.w
@@ -1220,13 +1133,8 @@ func stone(s: Dictionary) -> void:
 		if fy - gy > 30:
 			# pedra no alto: é o topo de um pilar de rocha que vem do chão (um pouco atrás, mais escuro)
 			var pw: float = s.w * .8
-			if Spr.has("p_pilar"):
-				# coluna de pedras empilhadas com musgo (um pouco atrás, mais escura) do chão até a laje
-				var ph: float = fy - gy + 14
-				Spr.PR("pilar", cx - pw * .85, gy - 10, pw * 1.7, ph, Color(.8, .78, .76), int(s.x) % 2 == 1)
-			else:
-				var pil := {"x": cx - pw / 2, "y": gy - 4, "w": pw, "h": fy - gy + 8}
-				_masonry(pil, Color(.62, .58, .54), Color(.3, .25, .2), Color(.1, .08, .06, .97), gy - 4)
+			var pil := {"x": cx - pw / 2, "y": gy - 4, "w": pw, "h": fy - gy + 8}
+			_masonry(pil, Color(.62, .58, .54), Color(.3, .25, .2), Color(.1, .08, .06, .97), gy - 4)
 			Spr.ellipse(cx, fy + 2, pw * .7, 6, Color(0, 0, 0, .25))
 			Spr.PR("slab%d" % (hash(int(s.x)) % 3), s.x - 10, s.y - 4, s.w + 20, s.h + 6)
 			return
