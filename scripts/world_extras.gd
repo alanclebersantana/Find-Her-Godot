@@ -85,7 +85,9 @@ static func flowers(g: Game, T: int) -> void:
 			else:
 				_fspring[key] = sp
 			var sway: float = sin(T * (.035 + wind * .05) + fx * .05) * (1.4 + wind * 4.0) + wind * 3.0
-			Spr.P(f[1], fx, s.y + 2, f[2], f[3], sway + sp.x, WSt.tint_at(g, fx))
+			if f.size() < 5:
+				f.append(WSt.tint_at(g, fx))
+			Spr.P(f[1], fx, s.y + 2, f[2], f[3], sway + sp.x, f[4])
 
 # ---------------------------------------------------------------- passagens baixas
 static func crawl(g: Game, T: int) -> void:
