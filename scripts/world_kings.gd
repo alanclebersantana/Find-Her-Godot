@@ -57,18 +57,32 @@ static func _hawk(g: Game, K: Kings, T: int) -> void:
 			bf = 0
 		# o corpo sobe a cada batida de asa (para baixo) e vira girando no ar
 		var flap: float = 0.0 if h.st in ["stuck", "dive"] else -sin(T * PI / 8.0) * 5.0
+		var mrt: Texture2D = Spr.opt("morcego_rei")
 		Spr.save()
 		Spr.translate(h.x, y - 34 + flap)
 		Spr.rotate(rot * .6)
 		Spr.scale(Spr.eturn(h, .12), 1)
-		var bn: String = "bat%d" % bf
-		var bh: float = Spr.PH(bn, 230)
-		Spr.PR(bn, -115, -bh / 2, 230, bh, tint)
-		Spr.restore()
-		for ex in [-12, 12]:
-			Spr.glow(h.x + ex, y - 40, 16, Color(1, .2, .1, .55))
-			Spr.circle(h.x + ex, y - 40, 3, Color(1, .35, .25))
-		_crown(h.x, y - 96, 1.2)
+		if mrt:
+			# arte própria: 0-2 batendo as asas, 3 mergulho, 4 tonto (coroa e olhos já desenhados)
+			var mf: int = bf
+			if h.st == "dive":
+				mf = 3
+			elif h.st == "stuck":
+				mf = 4
+			var MW := 270.0
+			var MH := 306.0
+			Spr.ci.draw_texture_rect_region(mrt, Rect2(-.55 * MW, -62 - .41 * MH, MW, MH), Rect2(mf * 300, 0, 300, 340), Color(tint.r, tint.g, tint.b, Spr.alpha))
+			Spr.restore()
+			Spr.glow(h.x, y - 92, 40, Color(1, .2, .1, .12))
+		else:
+			var bn: String = "bat%d" % bf
+			var bh: float = Spr.PH(bn, 230)
+			Spr.PR(bn, -115, -bh / 2, 230, bh, tint)
+			Spr.restore()
+			for ex in [-12, 12]:
+				Spr.glow(h.x + ex, y - 40, 16, Color(1, .2, .1, .55))
+				Spr.circle(h.x + ex, y - 40, 3, Color(1, .35, .25))
+			_crown(h.x, y - 96, 1.2)
 	else:
 		Spr.save()
 		Spr.translate(h.x, y)
@@ -120,8 +134,13 @@ static func _fish(g: Game, K: Kings, T: int) -> void:
 		var ff: int = 0 if f.st in ["tired", "down"] else (3 if f.st == "suck" and f.mouth > .3 else [1, 2][(T / 8) % 2])
 		var kick: float = sin(T * .25) * .06 if f.st != "tired" else 0.0
 		Spr.rotate(kick)
-		Spr.ci.draw_texture_rect_region(Spr.tex.en_frog2, Rect2(-150, -95, 300, 162), Rect2(ff * 130, 0, 130, 70), Color(tint.r * .8, tint.g, tint.b * .75, Spr.alpha * a))
-		_crown(18, -88, 1.1)
+		var srt: Texture2D = Spr.opt("sapo_rei")
+		if srt:
+			# arte própria do Sapo-Rei (coroa já desenhada); as pernas batem trocando os quadros 1 e 2
+			Spr.ci.draw_texture_rect_region(srt, Rect2(-160, -104, 320, 180), Rect2(ff * 320, 0, 320, 180), Color(tint.r, tint.g, tint.b, Spr.alpha * a))
+		else:
+			Spr.ci.draw_texture_rect_region(Spr.tex.en_frog2, Rect2(-150, -95, 300, 162), Rect2(ff * 130, 0, 130, 70), Color(tint.r * .8, tint.g, tint.b * .75, Spr.alpha * a))
+			_crown(18, -88, 1.1)
 	else:
 		Spr.ci.draw_texture_rect_region(Spr.tex.bagre, Rect2(-140, -80, 280, 160), Rect2(fr * 280, 0, 280, 160), Color(tint.r, tint.g, tint.b, Spr.alpha * a))
 	Spr.restore()
