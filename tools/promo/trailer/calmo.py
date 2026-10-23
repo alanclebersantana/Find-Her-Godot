@@ -64,7 +64,32 @@ def c_final_calmo(dur):
     return fr
 
 
+def c_final_destaque(dur):
+    base = cover(R + 'assets/bg/noite.jpg', int(W * 1.06), int(H * 1.03), 6, .6)
+    B = text_layer([('QUEM LEVOU A ISIS?', font('Cinzel-Bold', 100), YEL, 920, 6, 960)])
+    C = text_layer([('ENCONTRE-A', font('Cinzel-Bold', 124), GOLD, 620, 6),
+                    ('EPISÓDIO 1 · O BOSQUE', font('Cinzel-Bold', 50), (232, 201, 138), 735, 4)])
+    D1 = text_layer([('O CLÁSSICO GÊNERO', font('Cinzel-Bold', 70), YEL, 930, 5),
+                     ('DE PLATAFORMA', font('Cinzel-Bold', 70), YEL, 1015, 5)])
+    D2 = text_layer([('O BÁSICO BEM FEITO.', font('Cinzel-Bold', 70), YEL, 1150, 5)])
+    E = text_layer([('A seguir: Episódio 2 · As Profundezas da Mina', font('Lora-Bold', 36), (255, 214, 120), 1320, 2, 1000),
+                    ('Para Android', font('Lora-Italic', 40), (225, 215, 195), 1410, 0)])
+    a1 = dur * .26
+
+    def fr(t):
+        ox = int(W * .05 * t / dur)
+        im = over(base.crop((ox, 20, ox + W, 20 + H)), V.VIG, 1)
+        im = over(im, B, ramp(t, .2, a1, .45))
+        im = over(im, C, ease((t - a1 - .2) / .7))
+        im = over(im, D1, ease((t - a1 - .9) / .6))
+        im = over(im, D2, ease((t - a1 - 1.8) / .6))
+        im = over(im, E, ease((t - a1 - 2.6) / .6))
+        return im
+    return fr
+
+
 V.CARDS['classico'] = c_classico
+V.CARDS['final_destaque'] = c_final_destaque
 V.CARDS['final_calmo'] = c_final_calmo
 
 
@@ -102,7 +127,7 @@ def calm_path(seg, st, cnt, n, cw_n):
 
 
 def tomada(seg, st, du, fase, layout, frase=None, z0=1.0, z1=1.08, gm=None, fixed=None, bias=(0, .02), trilha=False):
-    key = repr((seg, st, du, fase, layout, frase, z0, z1, gm, fixed, bias, trilha))
+    key = repr((seg, st, du, fase, layout, frase, z0, z1, gm, fixed, bias, trilha, 'leg4' if layout != 'cheia' else ''))
     path = OUT + 't_%s_%s.mp4' % (seg, hashlib.md5(key.encode()).hexdigest()[:8])
     if os.path.exists(path):
         return path
@@ -116,8 +141,20 @@ def tomada(seg, st, du, fase, layout, frase=None, z0=1.0, z1=1.08, gm=None, fixe
     enc = writer(path)
     fcol = FASE_COR[fase]
     tag = V.pill('%d · %s' % (fase + 1, FASES[fase]), 36, (14, 10, 6, 150), fcol, 'Cinzel-Bold')
-    fl = text_layer([(frase, font('Lora-Italic', 60), CREAM, 1520 if layout == 'cheia' else 1700, 3, 960)]) if frase else None
+    fl = text_layer([(frase, font('Lora-Italic', 60), CREAM, 1520, 3, 960)]) if (frase and layout == 'cheia' and isinstance(frase, str)) else None
     band = soft_band(1330, 1750, 150) if layout == 'cheia' else None
+    jl = jd = None
+    if frase and layout != 'cheia':
+        if isinstance(frase, tuple):  # (frase pequena, DESTAQUE)
+            peq, big = frase
+            bl = big.split('|')  # '|' marca a quebra de linha do destaque
+            nb = len(bl)
+            y0 = 1640 - (nb - 1) * 76
+            jl = text_layer([(peq, font('Lora-Italic', 46), CREAM, y0 - 72, 3, 1000)])
+            jd = text_layer([(ln, font('Cinzel-Bold', 62), YEL, y0 + k * 76, 5, 1060) for k, ln in enumerate(bl)])
+        else:
+            jl = text_layer([(frase, font('Lora-Italic', 50), CREAM, 1640, 3, 1000)])
+    jband = soft_band(1330, 1830, 175)
     logo = text_layer([('ENCONTRE-A', font('Cinzel-Bold', 60), GOLD, 215, 4)])
     last = None
     for i in range(cnt):
@@ -158,12 +195,19 @@ def tomada(seg, st, du, fase, layout, frase=None, z0=1.0, z1=1.08, gm=None, fixe
             d = ImageDraw.Draw(fr)
             d.line([(0, 370), (W, 370)], fill=fcol + (230,), width=3)
             d.line([(0, 1719), (W, 1719)], fill=fcol + (230,), width=3)
-            if fl:
-                fl2 = text_layer([(frase, font('Lora-Italic', 50), CREAM, 1810, 2, 1000)])
-                fr = over(fr.convert('RGB'), fl2, ramp(i / FPS, .6, du - .3, .6)).convert('RGBA')
+            if jl:
+                ta = ramp(i / FPS, .5, du - .3, .6)
+                if ta > 0:
+                    sub = jband.crop((0, 370, W, 1720))
+                    sub.putalpha(sub.getchannel('A').point(lambda v: int(v * ta)))
+                    fr.alpha_composite(sub, (0, 370))
+                fr = over(fr.convert('RGB'), jl, ta).convert('RGBA')
+                if jd:
+                    fr = over(fr.convert('RGB'), jd, ramp(i / FPS, 1.0, du - .3, .5)).convert('RGBA')
+                d = ImageDraw.Draw(fr)
             if trilha:
                 xs = [140 + k * 160 for k in range(6)]
-                yy = 1630
+                yy = 1785
                 for k in range(5):
                     d.line([(xs[k] + 16, yy), (xs[k + 1] - 16, yy)], fill=(230, 220, 200, 170) if k < fase else (60, 58, 55, 170), width=4)
                 for k, xk in enumerate(xs):
@@ -215,6 +259,17 @@ ROT = {
         t('a_noite', 0.0, 5.6, 4, 'O dia vira noite enquanto você joga.', z0=1.05, z1=1.12, gm=1.15, trilha=True),
         t('a_noite', 4.6, 4.8, 4, 'O clássico de plataforma ainda vive.', z0=1.1, z1=1.16, gm=1.2, trilha=True),
         c('final_calmo', 6.0)]),
+    'cB2': ('janela', [
+        c('abertura', 6.4), c('sumiu', 3.0), c('titulo', 3.0),
+        t('manha', 0.0, 4.0, 0, ('Pular, correr, subir na casa da árvore...', 'O BÁSICO BEM FEITO.'), z0=1.1, z1=1.18, trilha=True),
+        t('a_galho', 0.0, 5.4, 1, 'Um bosque de outono desenhado com capricho.', z0=1.1, z1=1.18, trilha=True),
+        t('a_regias', 0.2, 5.4, 1, ('Ele está de volta:', 'O CLÁSSICO GÊNERO|DE PLATAFORMA'), z0=1.1, z1=1.16, trilha=True),
+        t('corda', 0.2, 4.2, 2, 'Chuva, sapos e cipós no pântano.', z0=1.1, z1=1.16, trilha=True),
+        t('jangada', 1.0, 5.0, 2, ('Sem truques, sem pressa.', 'O BÁSICO BEM FEITO.'), z0=1.05, z1=1.12, trilha=True),
+        t('vento', 2.0, 5.2, 3, 'Neve caindo sobre a montanha.', z0=1.1, z1=1.16, trilha=True),
+        t('a_noite', 0.0, 5.6, 4, 'O dia vira noite enquanto você joga.', z0=1.05, z1=1.12, gm=1.15, trilha=True),
+        t('a_noite', 4.6, 4.8, 4, ('Feito com capricho, como antigamente:', 'O CLÁSSICO GÊNERO|DE PLATAFORMA'), z0=1.1, z1=1.16, gm=1.2, trilha=True),
+        c('final_destaque', 7.0)]),
     'cC': ('cheia', [
         c('classico', 4.2),
         c('abertura', 4.6), c('sumiu', 2.4),
