@@ -214,6 +214,8 @@ def c_ep2_final(dur):
 
 V.CARDS.update({'ep2_abertura': c_ep2_abertura, 'ep2_isis': c_ep2_isis, 'ep2_titulo': c_ep2_titulo,
                 'ep2_final': c_ep2_final})
+V.CARDS['q_mergulho'] = V.c_quadro('mergulho', 'assets/bg/pantano.jpg', 'Lá no fundo tem alguma coisa brilhando...')
+V.CARDS['q_jangada'] = V.c_quadro('jangada', 'assets/bg/pantano.jpg', 'Segura firme... que correnteza!')
 V.CARDS['classico'] = c_classico
 V.CARDS['final_destaque'] = c_final_destaque
 V.CARDS['final_calmo'] = c_final_calmo
@@ -430,15 +432,42 @@ ROT = {
         t('a_noite', 4.6, 4.6, 4, ('Sem truques, só capricho:', 'O BÁSICO BEM FEITO.'), z0=1.1, z1=1.16, gm=1.2, trilha=True),
         t('a_tabuas', 0.2, 3.6, 5, 'E a trilha de cores segue para dentro da mina...', z0=1.1, z1=1.16, gm=1.45, trilha=True),
         c('final_simples', 5.4)]),
+    'cB4': ('janela', [
+        c('abertura', 6.4), c('sumiu', 3.0), c('titulo', 3.0),
+        t('manha', 0.0, 4.0, 0, 'A casa na árvore, as flores, as folhas no vento...', z0=1.1, z1=1.18, trilha=True),
+        t('a_galho', 0.0, 4.2, 1, 'Um bosque de outono desenhado com capricho.', z0=1.1, z1=1.18, trilha=True),
+        c('q_cipo', 2.6),
+        t('a_regias', 0.2, 5.0, 1, ('Ele está de volta:', 'O CLÁSSICO GÊNERO|DE PLATAFORMA'), z0=1.1, z1=1.16, trilha=True),
+        t('javali', 0.3, 3.9, 1, 'O Javali-Rei guarda a trilha do bosque.', fixed=(.55, .52), z0=1.0, z1=1.05, trilha=True),
+        t('a_colmeia', 0.0, 3.6, 2, 'Abaixe devagar... para não acordar a colmeia.', z0=1.1, z1=1.16, trilha=True),
+        c('q_mergulho', 2.6),
+        t('mergulho', 11.0, 4.2, 2, 'Mergulhe nas águas do pântano.', z0=1.05, z1=1.12, bias=(0, 0), trilha=True),
+        t('bagre', 0.6, 4.0, 2, 'Lá no fundo, o Bagre-Rei espera.', fixed=(.6, .55), z0=1.0, z1=1.04, trilha=True),
+        t('corda', 0.2, 3.8, 2, 'Chuva, sapos e cipós no pântano.', z0=1.1, z1=1.16, trilha=True),
+        c('q_jangada', 2.6),
+        t('jangada', 1.0, 4.0, 2, 'A correnteza leva a jangada rio abaixo.', z0=1.05, z1=1.12, trilha=True),
+        c('q_neve', 2.6),
+        t('bolaneve', 0.0, 4.4, 3, 'Neve: role bolas de neve gigantes.', z0=1.1, z1=1.16, trilha=True),
+        t('cavalo', 0.6, 4.4, 3, 'Uma cavalgada pela trilha nevada.', fixed=(.36, .55), z0=1.0, z1=1.05, trilha=True),
+        t('urso', 0.6, 4.4, 3, 'O Urso-Rei acorda na toca.', fixed=(.5, .55), z0=1.0, z1=1.05, trilha=True),
+        t('vento', 2.0, 5.0, 3, ('Jogue no toque ou no controle:', '100% COMPATÍVEL|COM GAMEPAD', '🎮'), z0=1.1, z1=1.16, trilha=True),
+        c('q_aviao', 2.6),
+        t('voo', 18.0, 4.6, 3, 'De biplano, por cima das montanhas.', bias=(.05, .02), z0=1.0, z1=1.05, trilha=True),
+        t('a_noite', 0.0, 4.6, 4, 'O dia vira noite enquanto você joga.', z0=1.05, z1=1.12, gm=1.15, trilha=True),
+        t('a_noite', 4.6, 4.6, 4, ('Sem truques, só capricho:', 'O BÁSICO BEM FEITO.'), z0=1.1, z1=1.16, gm=1.2, trilha=True),
+        c('q_mina', 2.8),
+        t('a_tabuas', 0.2, 3.6, 5, 'E a trilha de cores segue para dentro da mina...', z0=1.1, z1=1.16, gm=1.45, trilha=True),
+        c('final_simples', 5.4)]),
     'e2': ('janela', [
         c('ep2_abertura', 7.0), c('ep2_titulo', 3.2),
         t('e2_boca', 0.5, 4.6, 0, 'A trilha de cores desce pelas galerias da mina.', z0=1.1, z1=1.16, gm=1.35, trilha=True),
         t('e2_boca', 4.4, 4.2, 0, ('Ele está de volta:', 'O CLÁSSICO GÊNERO|DE PLATAFORMA'), z0=1.1, z1=1.16, gm=1.35, trilha=True),
         t('e2_estaca', 0.3, 4.4, 0, 'Mergulhe na estaca e a ponte desce sobre o veneno.', z0=1.1, z1=1.16, gm=1.35, trilha=True),
         t('e2_elevador', 0.6, 4.2, 0, 'Um elevador velho range até as galerias de cima.', z0=1.05, z1=1.12, gm=1.35, trilha=True),
-        t('e2_degraus', 0.4, 4.4, 0, 'Pedra por pedra, sem pressa.', z0=1.1, z1=1.16, gm=1.35, trilha=True),
+        t('e2_degraus', 0.4, 4.0, 0, 'Pedra por pedra, sem pressa.', z0=1.1, z1=1.16, gm=1.35, trilha=True),
         t('e2_flor', 0.4, 4.8, 1, 'Lá fora, o vale do moinho ao entardecer.', z0=1.05, z1=1.12, trilha=True),
         t('e2_pedras', 0.3, 5.0, 1, 'Trigo, pedras no riacho e o moinho no alto do morro.', z0=1.05, z1=1.12, trilha=True),
+        t('e2_moinho', 3.0, 5.4, 1, 'As pás voltam a girar... e levam o Tomé lá para cima.', z0=1.0, z1=1.05, trilha=True),
         t('e2_celeiro', 0.5, 4.2, 1, ('Jogue no toque ou no controle:', '100% COMPATÍVEL|COM GAMEPAD', '🎮'), z0=1.05, z1=1.1, trilha=True),
         t('e2_telhados1', 0.3, 4.8, 2, 'À noite, pelos telhados da vila dos mineiros.', z0=1.05, z1=1.1, gm=1.15, trilha=True),
         t('e2_telhados2', 0.3, 5.0, 2, ('Chaminés, fumaça e lua cheia:', 'O BÁSICO BEM FEITO.'), z0=1.05, z1=1.1, gm=1.15, trilha=True),
@@ -447,8 +476,8 @@ ROT = {
         t('e2_isis_quarto', 0.5, 2.6, 4, 'Agora é a vez dela: jogue com a Isis.', z0=1.2, z1=1.25, gm=1.3, trilha=True),
         t('e2_isis_poco', 0.6, 3.6, 4, 'Pequena e leve, ela passa por onde o pai não passa.', z0=1.2, z1=1.25, gm=1.3, trilha=True),
         t('e2_isis_corda', 0.5, 3.6, 4, 'E vai deixando lápis pelo caminho.', z0=1.2, z1=1.25, gm=1.3, trilha=True),
-        t('e2_isis_corda', 6.0, 4.0, 4, None, z0=1.2, z1=1.25, gm=1.3, trilha=True),
-        c('ep2_final', 6.0)]),
+        t('e2_isis_corda', 6.0, 3.8, 4, None, z0=1.2, z1=1.25, gm=1.3, trilha=True),
+        c('ep2_final', 5.4)]),
     'cC': ('cheia', [
         c('classico', 4.2),
         c('abertura', 4.6), c('sumiu', 2.4),
@@ -541,6 +570,9 @@ def montar(ver):
                     '-shortest', '-movflags', '+faststart', out], check=True)
     if D > 60.5:
         corte = next((s[2] for s in segs if s[0] == 't' and s[3] == (2 if ver.startswith('e2') else 3)), D / 2)
+        if corte > 60 or D - corte > 60:  # escolhe o começo de tomada mais perto do meio
+            cands = [s[2] for s in segs if s[2] > 5]
+            corte = min(cands, key=lambda c_: abs(c_ - D / 2))
         for k, (a0, a1) in enumerate([(0, corte), (corte, D)]):
             pp = '/tmp/vid/encontre-a_calmo_%s_parte%d.mp4' % (ver, k + 1)
             fade = 'afade=t=in:st=0:d=0.6,' if k else ''

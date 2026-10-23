@@ -1194,3 +1194,46 @@ func e2_isis_corda() -> void:
 	await walk_to(IX + 4280)
 	await crawl(IX + 4820)
 	await hold({}, 12)
+
+## o moinho girando: põe a vela nova, sobe numa tábua das pás e vai lá para cima
+func e2_moinho() -> void:
+	kill_enemies()
+	put(13420, 500)
+	g.give_item("vela")
+	await hold({}, 8)
+	await walk_to(13620)
+	await use_k()
+	await hold({}, 30)
+	await walk_to(13600)
+	var wh: Dictionary = {}
+	for o in g.MV.MV:
+		if o.k == "wheel":
+			wh = o
+	var target = null
+	for i in 1500:
+		for s in wh.plats:
+			if s.y > 360 and abs(s.x + s.w / 2 - px()) < 140 and s.dx < 0:
+				target = s
+		if target != null:
+			break
+		await fr()
+	if target == null:
+		return
+	press("J")
+	for i in 120:
+		var d := {"J": i < 16}
+		if px() < target.x + target.w / 2 - 6:
+			d["R"] = true
+		elif px() > target.x + target.w / 2 + 6:
+			d["L"] = true
+		await fr(d)
+		if g.player.onGround and g.player.get("_g") == target:
+			break
+	for i in 1400:
+		await fr()
+		if g.player.get("_g") != target:
+			break
+		if target.y < -150 + 40 and target.x + target.w > 14000 - 260 and target.dx > 0:
+			break
+	await glide_to(14080)
+	await hold({}, 20)
