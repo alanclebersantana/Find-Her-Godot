@@ -19,20 +19,20 @@ def C(name):
 INI_CASA = G('a_inicio', 0.2, 2.0, 1.3, 1.5, 'trilha')
 INI_RASTEJA = G('a_inicio', 2.3, 2.0, 1.5, 1.5, 'inicio')
 INI_PEDRAS = G('a_inicio', 4.5, 2.2, 1.45, 1.45, None)
-ESTACA = G('a_estaca', 0.6, 3.2, 1.45, 1.35, 'estaca')
+ESTACA = G('a_estaca', 0.3, 3.6, 1.45, 1.35, 'estaca')
 ESCADA = G('a_escada', 7.0, 2.6, 1.5, 1.5, 'escada')
-GALHO = G('a_galho', 0.4, 2.4, 1.35, 1.35, 'galho')
-CIPO1 = G('a_galho', 3.4, 2.4, 1.35, 1.35, None)
-CHAO = G('a_chao', 2.6, 3.0, 1.45, 1.45, 'chao')
+GALHO = G('a_galho', 0.2, 2.6, 1.35, 1.35, 'galho')
+CIPO1 = G('a_galho', 3.4, 2.2, 1.35, 1.35, None)
+CHAO = G('a_chao', 0.6, 3.4, 1.45, 1.45, 'chao')
 FLOR = G('flor', 0.6, 2.2, 1.5, 1.5, 'flor')
 COPAS = G('copas', 3.0, 2.2, 1.35, 1.35, 'copas')
-PLANAR = G('a_planar', 0.8, 3.0, 1.3, 1.3, 'planar')
-REGIAS = G('a_regias', 0.4, 2.8, 1.35, 1.35, 'regias')
-COLMEIA = G('a_colmeia', 0.2, 2.8, 1.6, 1.6, 'colmeia2')
-TUNEL = G('a_colmeia', 4.0, 2.2, 1.4, 1.4, 'tunel', bias=(0, 0))
+PLANAR = G('a_planar', 1.0, 3.2, 1.3, 1.3, 'planar')
+REGIAS = G('a_regias', 0.3, 3.0, 1.35, 1.35, 'regias')
+COLMEIA = G('a_colmeia', 0.0, 3.0, 1.6, 1.6, 'colmeia2')
+TUNEL = G('a_colmeia', 3.4, 2.6, 1.4, 1.4, 'tunel', bias=(0, 0))
 REGIAS2 = G('regias', 2.0, 2.2, 1.3, 1.3, None)
 CIPOS = G('regias', 7.6, 3.0, 1.35, 1.35, 'cipos2')
-CORDA = G('corda', 3.0, 2.6, 1.35, 1.35, 'corda')
+CORDA = G('corda', 1.4, 2.8, 1.35, 1.35, 'corda')
 JANGADA = G('jangada', 1.5, 2.4, 1.3, 1.3, 'jangada')
 JAVALI = G('javali', 1.8, 1.6, 1.2, 1.2, None)
 GAVIAO = G('gaviao', 1.6, 1.6, 1.15, 1.15, None)
@@ -45,7 +45,7 @@ VOO = G('voo', 19.0, 2.4, 1.15, 1.15, 'voo', fixed=(.45, .5))
 MACHADO = G('a_noite', 0.2, 2.2, 1.35, 1.35, 'machado', 1.25)
 SALTA1 = G('a_noite', 4.4, 3.4, 1.25, 1.25, 'saltador', 1.25)
 SALTA2 = G('a_noite', 8.0, 3.0, 1.2, 1.2, None, 1.25)
-TABUAS = G('a_tabuas', 0.4, 2.6, 1.35, 1.35, 'tabuas', 1.45)
+TABUAS = G('a_tabuas', 0.3, 2.8, 1.35, 1.35, 'tabuas', 1.45)
 PEDRA = G('pedra', 26.0, 1.7, 1.25, 1.25, 'pedra', 1.5, bias=(-.12, .05))
 PEDRA2 = G('pedra', 33.4, 2.2, 1.25, 1.25, 'pedra2', 1.5, bias=(-.06, .05))
 
@@ -92,8 +92,13 @@ V = {
 }
 
 # na v2 as cartelas de quadrinho ficam mais curtas (cortadas no fim)
-CARD_TRIM = {'v2': {'q_cipo': 1.7, 'q_toxico': 1.8, 'q_pipoca': 1.8, 'q_aviao': 1.6, 'q_mina': 1.9,
-                    'p_quem': 1.5, 'p_onde': 1.5, 'p_porque': 1.5, 'reis': 2.4, 'pista': 3.2}}
+BASE_TRIM = {'sumiu': 3.3, 'titulo': 3.8, 'pista': 3.2, 'q_cipo': 1.8, 'q_toxico': 1.9, 'q_neve': 1.8,
+             'q_pipoca': 1.9, 'q_aviao': 1.8, 'q_mina': 2.0, 'p_quem': 1.5, 'p_onde': 1.5, 'p_porque': 1.5,
+             'reis': 2.4}
+CARD_TRIM = {'v1': BASE_TRIM, 'v3': BASE_TRIM,
+             'v2': dict(BASE_TRIM, q_cipo=1.6, q_toxico=1.7, q_pipoca=1.7, q_aviao=1.5, q_mina=1.8,
+                        p_quem=1.3, p_onde=1.3, p_porque=1.3, reis=2.2, pista=3.0, titulo=3.6)}
+ALVO = 90.0
 
 
 def dur(path):
@@ -123,9 +128,29 @@ def card_file(ver, name):
     return out
 
 
+def ajusta(ver):
+    """encolhe os trechos de jogo por igual para o vídeo dar 90 s (mínimo 1,1 s por cena)"""
+    cards = sum(dur(card_file(ver, e[1])) for e in V[ver] if e[0] == 'c')
+    gs = [e for e in V[ver] if e[0] == 'g']
+    alvo = ALVO - cards
+    f = alvo / sum(e[3] for e in gs)
+    for _ in range(6):
+        ds = [max(1.1, e[3] * f) for e in gs]
+        f *= alvo / sum(ds)
+    out, i = [], 0
+    for e in V[ver]:
+        if e[0] == 'g':
+            d = round(max(1.1, e[3] * f) * 30) / 30
+            out.append(e[:3] + (d,) + e[4:])
+        else:
+            out.append(e)
+    print(ver, 'cartelas %.1f s, jogo %.1f s (fator %.2f)' % (cards, alvo, f))
+    return out
+
+
 def montar(ver):
     files, marks, t = [], {}, 0.0
-    for e in V[ver]:
+    for e in ajusta(ver):
         f = clip_file(e) if e[0] == 'g' else card_file(ver, e[1])
         d = dur(f)
         if e[0] == 'c':
@@ -156,7 +181,7 @@ def montar(ver):
         fc += ('[%d:a]atrim=0:%.3f,asetpts=PTS-STARTPTS,afade=t=in:st=0:d=%.2f%s,adelay=%d|%d[p%d];'
                % (i, L, fi, (',afade=t=out:st=%.3f:d=%.2f' % (L - fo, fo)) if fo else '', int(a * 1000), int(a * 1000), i))
         labs.append('[p%d]' % i)
-    fc += '%samix=inputs=%d:normalize=0,atrim=0:%.3f,afade=t=out:st=%.3f:d=2.5,volume=0.85,alimiter=limit=0.85:level=0[a]' % (
+    fc += '%samix=inputs=%d:normalize=0,atrim=0:%.3f,afade=t=out:st=%.3f:d=2.5,volume=0.8,alimiter=limit=0.8:level=0[a]' % (
         ''.join(labs), len(labs), D, D - 2.5)
     trilha = '/tmp/vid/trilha_%s.m4a' % ver
     subprocess.run(['ffmpeg', '-v', 'error', '-y'] + ins + ['-filter_complex', fc, '-map', '[a]', '-c:a', 'aac',
