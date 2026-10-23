@@ -1327,7 +1327,7 @@ func _player_draw(g: Game) -> void:
 				"fall":
 					f = int(clamp(p.vy / 10.0, 0, .999) * n)
 				"land":
-					f = int((1 - p.landT / 8.0) * (n - 1))
+					f = min(n - 1, int((1 - p.landT / 8.0) * n))
 			var sz: float = a.s
 			var k2 := 78.0 / sz
 			var air3: float = clamp(1 - abs(p.vy) / 16.0, .35, 1) if not p.onGround else 1.0
