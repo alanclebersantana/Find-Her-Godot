@@ -281,8 +281,9 @@ static func _bear(g: Game, K: Kings, T: int) -> void:
 		Spr.seg(b.x + b.dir * 100, b.gy - 2, b.x + b.dir * 420, b.gy - 2, Color(1, .3, .15, k), 5)
 	Spr.ellipse(b.x, b.gy + 2, 100, 12, Color(0, 0, 0, .28))
 	# inclinação e agachar com peso (sem estalar de uma pose para a outra)
-	b._rot = lerpf(float(b.get("_rot", 0.0)), rot, .18)
-	b._dy = lerpf(float(b.get("_dy", 0.0)), dy, .2)
+	if not Spr.shadow_pass:
+		b._rot = lerpf(float(b.get("_rot", 0.0)), rot, .18)
+		b._dy = lerpf(float(b.get("_dy", 0.0)), dy, .2)
 	rot = b._rot
 	dy = b._dy
 	if b.st in ["walk", "charge"]:

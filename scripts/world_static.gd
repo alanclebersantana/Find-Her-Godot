@@ -286,7 +286,8 @@ func ground(s: Dictionary) -> void:
 	# a textura é a do trecho onde este pedaço do chão está (não a do meio do bloco inteiro)
 	var t: Texture2D = gtex(game, (x_a + x_b) * .5)
 	# chão de pedra/mina: textura alinhada ao mundo (dois blocos vizinhos emendam sem costura)
-	var ox: float = 0.0 if gt_at(game, (x_a + x_b) * .5) != "" else s.x
+	# textura alinhada ao mundo: dois blocos vizinhos emendam sem costura
+	var ox: float = 0.0
 	var ol: bool = _open_end(s, false) and s.w > 60
 	var orr: bool = _open_end(s, true) and s.w > 60
 	# as pontas abertas ficam por conta do contorno arredondado
@@ -345,7 +346,7 @@ func _dirt_fill(xa: float, xb: float, ya: float, yb: float, ox: float, k0: float
 
 func _dirt_fill_t(xa: float, xb: float, ya: float, yb: float, ox: float, k0: float, t: Texture2D, alpha: float) -> void:
 	var ts := t.get_size()
-	var v0: float = 60.0
+	var v0: float = 74.0
 	var th: float = ts.y - v0
 	var tw: float = ts.x - 1
 	var yend: float = min(yb, ya + 900.0)
@@ -745,7 +746,7 @@ func _ground_end(s: Dictionary, t: Texture2D, tw: float, right: bool) -> void:
 	var top: float = s.y - 10
 	var fy: float = s.y - 34 + t.get_height()
 	var bot: float = s.y + min(s.h, 900.0)
-	var tile_x: float = s.x + floor((min(inner, e) - s.x) / tw) * tw
+	var tile_x: float = floor(min(inner, e) / tw) * tw
 	var t2: Texture2D = _chao2(t, tw)
 	var seed_v: float = e * .013
 	var inset := func(y: float) -> float:

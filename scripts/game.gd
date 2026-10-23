@@ -1139,7 +1139,7 @@ func step() -> void:
 					fx("fx_dust", player.x + player.w / 2, player.y + player.h - 4, 14, .12, -.3)
 			if player.onGround and want != 0 and abs(player.vx) >= TOP - .15 and not player.run:
 				player.holdT += 1
-				if player.holdT > 75:
+				if player.holdT > 50:
 					player.run = 1
 					player.rdir = want
 					burst(player.x + player.w / 2, player.y + player.h - 4, 6, Color("#e9dbb8"))
@@ -1188,7 +1188,7 @@ func step() -> void:
 			g *= .55
 		elif player.vy > 1.6 and not player.puff and not player.slam and player.wsl == 0 and player.wall == 0:
 			# a queda pesa um pouco mais que a subida (pulo com peso)
-			g *= 1.08
+			g *= 1.13
 		player.vy = clamp(player.vy + g, -34 if player.get("launchT", 0) > 0 else -20, maxv)
 		if player.wall != 0 and not player.onGround and player.vy > 1.5 and kd("R" if player.wall > 0 else "L") and player.wlock == 0:
 			player.vy = min(player.vy, 2.3)

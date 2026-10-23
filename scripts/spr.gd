@@ -250,6 +250,11 @@ func rotate(a: float) -> void:
 	M = M * Transform2D(a, Vector2.ZERO)
 	ci.draw_set_transform_matrix(M)
 
+## projeção de sombra no chão: em volta do pé (fx, fy), achata a altura (sy) e inclina (kx por pixel de altura)
+func project(fx: float, fy: float, kx: float, sy: float) -> void:
+	M = M * Transform2D(0, Vector2(fx, fy)) * Transform2D(Vector2(1, 0), Vector2(-kx, sy), Vector2.ZERO) * Transform2D(0, Vector2(-fx, -fy))
+	ci.draw_set_transform_matrix(M)
+
 func scale(sx: float, sy: float) -> void:
 	M = M * Transform2D(Vector2(sx, 0), Vector2(0, sy), Vector2.ZERO)
 	ci.draw_set_transform_matrix(M)
@@ -382,6 +387,8 @@ func ring(x: float, y: float, r: float, c: Color, w: float = 2.0, a0: float = 0.
 	ci.draw_arc(Vector2(x, y), r, a0, a1, 24, col(c), w, true)
 
 func ellipse(x: float, y: float, rx: float, ry: float, c: Color, rot: float = 0.0) -> void:
+	if shadow_pass and c.r + c.g + c.b < .3:
+		return
 	# elipse muito pequena vira círculo (polígono minúsculo não triangula)
 	if rx < 3.5 or ry < 2.0:
 		if rx >= 3.5:
@@ -436,7 +443,11 @@ func sheet(name: String, fr: int, cw: float, ch: float, x: float, by: float, hgt
 	ci.draw_texture_rect_region(t, Rect2(-cw / 2, -ch, cw, ch), Rect2(fr * cw, 0, cw, ch), Color(mod.r, mod.g, mod.b, mod.a * alpha))
 	restore()
 
+## passada de sombra (nó das sombras projetadas): brilhos, textos e as sombrinhas redondas não entram
+var shadow_pass := false
 func glow(x: float, y: float, r: float, c: Color) -> void:
+	if shadow_pass:
+		return
 	ci.draw_texture_rect(glow_tex, Rect2(x - r, y - r, r * 2, r * 2), false, col(c))
 
 func vgrad(x: float, y: float, w: float, h: float, c0: Color, c1: Color) -> void:
@@ -448,6 +459,8 @@ func hgrad(x: float, y: float, w: float, h: float, c0: Color, c1: Color) -> void
 	ci.draw_polygon(pts, PackedColorArray([col(c0), col(c1), col(c1), col(c0)]))
 
 func text(s: String, x: float, y: float, size: int, c: Color, align: int = HORIZONTAL_ALIGNMENT_LEFT, f: Font = null, outline: int = 0, oc: Color = Color(0, 0, 0, .8)) -> void:
+	if shadow_pass:
+		return
 	var ff: Font = f if f else font
 	var w := -1.0
 	var px := x
@@ -468,6 +481,8 @@ func hexc(h: String, a: float = 1.0) -> Color:
 
 ## distância andada pelo bicho (para o passo acompanhar o chão, sem patinar)
 func edist(e: Dictionary) -> float:
+	if shadow_pass:
+		return e.get("_dd", 0.0)
 	var lx: float = e.get("_lx", e.x)
 	e._dd = float(e.get("_dd", 0.0)) + abs(e.x - lx)
 	e._lx = e.x
@@ -476,7 +491,7 @@ func edist(e: Dictionary) -> float:
 ## virada macia: o bicho gira (estreita e abre) em vez de espelhar de um quadro para o outro
 func eturn(e: Dictionary, k: float = .2) -> float:
 	var d: float = 1.0 if e.dir > 0 else -1.0
-	var fs: float = move_toward(float(e.get("_fs", d)), d, k)
+	var fs: float = float(e.get("_fs", d)) if shadow_pass else move_toward(float(e.get("_fs", d)), d, k)
 	e._fs = fs
 	return sign(fs) * max(abs(fs), .18) if fs != 0 else d * .18
 

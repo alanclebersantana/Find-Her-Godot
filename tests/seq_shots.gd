@@ -46,6 +46,9 @@ func _initialize() -> void:
 					if sw.get("id") == "canal":
 						sw.y = 640
 						sw.drain = true
+			"helmet":
+				if g.NT:
+					g.NT.helmet = true
 			"noen":
 				for e in g.EN:
 					e.dead = 99

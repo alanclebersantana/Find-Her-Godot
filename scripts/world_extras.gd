@@ -535,16 +535,18 @@ static func dog(g: Game, T: int) -> void:
 		nf = 13
 	# corpo vivo: inclina para a frente na corrida (suave), respira parado, vira girando
 	var dvx: float = x - float(d.get("_lx", x))
-	d._lx = x
-	d._lean = lerp(float(d.get("_lean", 0.0)), clamp(dvx / 5.0, -1, 1) * .07, .15)
-	var dfs: float = move_toward(float(d.get("_fs", d.face)), d.face, .2)
-	d._fs = dfs
+	var dfs: float = float(d.get("_fs", d.face))
+	if not Spr.shadow_pass:
+		d._lx = x
+		d._lean = lerp(float(d.get("_lean", 0.0)), clamp(dvx / 5.0, -1, 1) * .07, .15)
+		dfs = move_toward(dfs, d.face, .2)
+		d._fs = dfs
 	var ns: float = sign(dfs) * max(abs(dfs), .2) if dfs != 0 else float(d.face)
 	var breath: float = 0.0 if d.moving else sin(T * .09) * .018
 	var gal: float = abs(sin(d.anim * PI / 3.0)) * 1.4 if d.moving else 0.0
 	Spr.save()
 	Spr.translate(0, -gal)
-	Spr.rotate(d._lean)
+	Spr.rotate(d.get("_lean", 0.0))
 	Spr.scale(abs(ns), 1.0 + breath)
 	var drew: bool = Spr.novo("pipoca", nf, 54, ns < 0)
 	Spr.restore()
