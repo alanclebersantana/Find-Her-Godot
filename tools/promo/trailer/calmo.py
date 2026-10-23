@@ -13,6 +13,12 @@ from vertical import (font, ease, ramp, cover, text_layer, over, paste_a, writer
 from build import load_pos, nframes, HI
 
 OUT = '/tmp/vid/cseg/'
+FASES1, COR1 = list(FASES), list(FASE_COR)
+FASES2 = ['MINA', 'MOINHO', 'VILA', 'PROFUNDEZAS', 'A FUGA DA ISIS']
+COR2 = [(210, 170, 110), (240, 190, 90), (150, 160, 240), (200, 140, 90), (240, 150, 170)]
+AMB2 = {0: ('amb_caverna.ogg', .5), 1: ('amb_passaros.ogg', .5), 2: ('amb_grilos.ogg', .5),
+        3: ('amb_caverna.ogg', .55), 4: ('amb_caverna.ogg', .45)}
+MUS2 = {0: 'tunel', 1: 'tarde', 2: 'noite', 3: 'tunel', 4: 'noite'}
 AMB = {0: ('amb_passaros.ogg', .55), 1: ('amb_passaros.ogg', .45), 2: ('amb_sapos.ogg', .6),
        3: ('amb_vento.ogg', .45), 4: ('amb_grilos.ogg', .45), 5: ('amb_caverna.ogg', .5)}
 
@@ -128,6 +134,86 @@ def c_final_simples(dur):
 
 
 V.CARDS['final_simples'] = c_final_simples
+def _pan2(imgs, textos, dur, band_y=(1100, 1700)):
+    """pan vertical por uma ou duas ilustrações (fundindo uma na outra), com textos em sequência"""
+    srcs = [Image.open(R + 'assets/ui/%s.jpg' % n).convert('RGB') for n in imgs]
+    lays = [text_layer([(t_, font('Lora-Italic', 56), CREAM, 1380, 3, 940)]) for t_ in textos]
+    band = soft_band(band_y[0], band_y[1], 170)
+    n = len(srcs)
+
+    def view(src, k, xa, xb):
+        ch = 760 - 90 * k
+        cw = ch * W / H
+        x = xa + (min(xb, src.width - cw - 10) - xa) * ease(k)
+        y = 4 + 60 * k
+        return src.crop((int(x), int(y), int(x + cw), int(y + ch))).resize((W, H), Image.LANCZOS)
+
+    def fr(t):
+        seg_d = dur / n
+        j = min(n - 1, int(t / seg_d))
+        k = (t - j * seg_d) / seg_d
+        im = view(srcs[j], k, *PAN2[imgs[j]])
+        if j + 1 < n and k > .82:  # fusão para a próxima
+            nx = view(srcs[j + 1], 0, *PAN2[imgs[j + 1]])
+            im = Image.blend(im, nx, ease((k - .82) / .18))
+        im = over(im, V.VIG, 1)
+        im = over(im, band, 1)
+        tl = dur / len(lays)
+        for q, L in enumerate(lays):
+            im = over(im, L, ramp(t, q * tl + .4, (q + 1) * tl - .1, .45))
+        return im
+    return fr
+
+
+PAN2 = {'cut_ep2_a': (250, 620), 'cut_ep2_b': (600, 300), 'cut_isis_a': (180, 520), 'cut_isis_b': (380, 700)}
+
+
+def c_ep2_abertura(dur):
+    return _pan2(['cut_ep2_a', 'cut_ep2_b'], ['A trilha de lápis entra mina adentro...',
+                                              'E o Tomé desce atrás dela, com a lanterna acesa.'], dur)
+
+
+def c_ep2_isis(dur):
+    return _pan2(['cut_isis_a', 'cut_isis_b'], ['Lá no fundo, a Isis não desiste.',
+                                                'Cada lápis no chão é um recado para o pai.'], dur)
+
+
+def c_ep2_titulo(dur):
+    base = cover(R + 'assets/bg/mina.jpg', int(W * 1.08), int(H * 1.04), 7, .5)
+    L = text_layer([('ENCONTRE-A', font('Cinzel-Bold', 128), GOLD, 820, 6)])
+    L2 = text_layer([('EPISÓDIO 2', font('Cinzel-Bold', 58), (232, 201, 138), 950, 4),
+                     ('AS PROFUNDEZAS DA MINA', font('Cinzel-Bold', 52), (232, 201, 138), 1025, 4, 1000)])
+
+    def fr(t):
+        ox = int(W * .08 * ease(t / dur))
+        im = over(base.crop((ox, 30, ox + W, 30 + H)), V.VIG, 1)
+        im = over(im, L, ease((t - .1) / .6))
+        im = over(im, L2, ease((t - .6) / .6))
+        return im
+    return fr
+
+
+def c_ep2_final(dur):
+    base = cover(R + 'assets/bg/esconderijo.jpg', int(W * 1.06), int(H * 1.03), 6, .62)
+    B = text_layer([('Ela está cada vez mais perto.', font('Lora-Italic', 66), CREAM, 920, 3, 960)])
+    C = text_layer([('ENCONTRE-A', font('Cinzel-Bold', 124), GOLD, 800, 6),
+                    ('EPISÓDIO 2', font('Cinzel-Bold', 54), (232, 201, 138), 915, 4),
+                    ('AS PROFUNDEZAS DA MINA', font('Cinzel-Bold', 48), (232, 201, 138), 985, 4, 1000)])
+    E = text_layer([('Para Android', font('Lora-Italic', 42), (225, 215, 195), 1150, 0)])
+    a1 = dur * .36
+
+    def fr(t):
+        ox = int(W * .05 * t / dur)
+        im = over(base.crop((ox, 20, ox + W, 20 + H)), V.VIG, 1)
+        im = over(im, B, ramp(t, .2, a1, .45))
+        im = over(im, C, ease((t - a1 - .2) / .7))
+        im = over(im, E, ease((t - a1 - 1.0) / .7))
+        return im
+    return fr
+
+
+V.CARDS.update({'ep2_abertura': c_ep2_abertura, 'ep2_isis': c_ep2_isis, 'ep2_titulo': c_ep2_titulo,
+                'ep2_final': c_ep2_final})
 V.CARDS['classico'] = c_classico
 V.CARDS['final_destaque'] = c_final_destaque
 V.CARDS['final_calmo'] = c_final_calmo
@@ -258,9 +344,11 @@ def tomada(seg, st, du, fase, layout, frase=None, z0=1.0, z1=1.08, gm=None, fixe
                         paste_a(fr, e2, (W // 2 - e2.width // 2, 1340 - e2.height // 2), ea)
                 d = ImageDraw.Draw(fr)
             if trilha:
-                xs = [140 + k * 160 for k in range(6)]
+                nf_ = len(FASES)
+                sp_ = 800 / (nf_ - 1)
+                xs = [140 + k * sp_ for k in range(nf_)]
                 yy = 1785
-                for k in range(5):
+                for k in range(nf_ - 1):
                     d.line([(xs[k] + 16, yy), (xs[k + 1] - 16, yy)], fill=(230, 220, 200, 170) if k < fase else (60, 58, 55, 170), width=4)
                 for k, xk in enumerate(xs):
                     r = 15 if k == fase else 10
@@ -358,6 +446,8 @@ def dur(p):
 
 
 def montar(ver):
+    global FASES, FASE_COR
+    FASES, FASE_COR = (FASES2, COR2) if ver.startswith('e2') else (FASES1, COR1)
     layout, items = ROT[ver]
     files, segs, tt = [], [], 0.0
     for e in items:
@@ -378,7 +468,7 @@ def montar(ver):
     subprocess.run(['ffmpeg', '-v', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', lst, '-c', 'copy', mudo], check=True)
     D = dur(mudo)
     first_t = next(s[2] for s in segs if s[0] == 't')
-    t_tit = next((s[2] for s in segs if s[1] == 'titulo'), first_t - 1.0)
+    t_tit = next((s[2] for s in segs if s[1] in ('titulo', 'ep2_titulo')), first_t - 1.0)
     noite_t = next((s[2] for s in segs if s[0] == 't' and s[3] >= 4), D)
     t_fim = next(s[2] for s in segs if s[1].startswith('final'))
     # música calma: noite no mistério -> manhã nas fases de dia -> noite no fim
@@ -387,14 +477,31 @@ def montar(ver):
     if not parts:  # cC: abre com a frase
         parts = [('mus_tema.ogg', 0, first_t + 1.5, .8, 1.6, .9),
                  ('mus_noite.ogg', next(s[2] for s in segs if s[1] == 'abertura'), first_t + .8, 1.0, 1.2, .8)]
-    parts += [('mus_manha.ogg', first_t, noite_t + 2.0, 1.4, 2.4, 1.0),
-              ('mus_noite.ogg', noite_t - .4, D, 2.0, 0, 1.0)]
+    if ver.startswith('e2'):
+        # uma música por fase, cruzando devagar na troca
+        blocos, cur = [], None
+        for s_ in segs:
+            if s_[0] != 't':
+                continue
+            m = MUS2[s_[3]]
+            if cur and cur[0] == m:
+                cur[2] = s_[4]
+            else:
+                cur = [m, s_[2], s_[4]]
+                blocos.append(cur)
+        blocos[-1][2] = D
+        for k, (m, a0, a1) in enumerate(blocos):
+            parts.append(('mus_%s.ogg' % m, max(0, a0 - .8), a1 + (1.6 if k + 1 < len(blocos) else 0), 1.6,
+                          2.4 if k + 1 < len(blocos) else 0, .95))
+    else:
+        parts += [('mus_manha.ogg', first_t, noite_t + 2.0, 1.4, 2.4, 1.0),
+                  ('mus_noite.ogg', noite_t - .4, D, 2.0, 0, 1.0)]
     # sons de ambiente de cada fase, baixinho, entrando e saindo com a tomada
     for s in segs:
         if s[0] == 't':
-            f, g = AMB[s[3]]
+            f, g = (AMB2 if ver.startswith('e2') else AMB)[s[3]]
             parts.append((f, s[2], s[4], .8, .8, g * .55))
-            if s[3] == 2:
+            if s[3] == 2 and not ver.startswith('e2'):
                 parts.append(('rain.wav', s[2], s[4], .8, .8, .35))
     ins, fc, labs = [], '', []
     for i, (f, a, b, fi, fo, gain) in enumerate(parts):

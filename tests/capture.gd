@@ -12,9 +12,11 @@ func _initialize() -> void:
 	for i in 3:
 		await process_frame
 	var sv = root.get_node("Save")
-	for id in ["cipo", "mergulho", "neve", "pipoca", "picareta", "cavalo", "mina", "toxico", "javali", "gaviao", "bagre", "urso", "vargas", "bola", "aviao", "jangada", "colmeia", "carrinho"]:
+	for id in ["cipo", "mergulho", "neve", "pipoca", "picareta", "cavalo", "mina", "toxico", "javali", "gaviao", "bagre", "urso", "vargas", "bola", "aviao", "jangada", "colmeia", "carrinho", "moinho", "telhados"]:
 		sv.setv("comic", id, true)
-	main.start_level(false)
+	sv.setv("opt", "tut_asked", true)
+	var seg0: String = OS.get_cmdline_user_args()[0]
+	main.start_level(false, 1 if seg0.begins_with("e2_") else 0)
 	await process_frame
 	if main.panel and main.panel.has_meta("ok"):
 		main.panel.get_meta("ok").call()
@@ -930,3 +932,265 @@ func a_tabuas() -> void:
 	await jump_to(73000)
 	await walk_to(73040)
 	await hold({}, 10)
+
+
+# ---------- Episódio 2 (As Profundezas da Mina) ----------
+func use_k() -> void:
+	press("A")
+	await fr()
+	await hold({}, 6)
+
+## pula segurando PULAR (pulo duplo e plana até pousar)
+func glide_to(x: float, mx: int = 400) -> void:
+	press("J")
+	var used := false
+	for i in mx:
+		var d := {}
+		if px() < x - 5:
+			d = {"R": true}
+		elif px() > x + 5:
+			d = {"L": true}
+		if not used and i > 14 and g.player.vy > -1:
+			press("J")
+			used = true
+		d["J"] = true
+		await fr(d)
+		if g.player.onGround and i > 3:
+			return
+
+func e2_boca() -> void:
+	kill_enemies()
+	put(380, 500)
+	g.lantern_lit = true
+	await hold({}, 6)
+	await walk_to(600)
+	await jump_to(720)
+	await walk_to(1230)
+	await walk_to(1385)
+	for x in [1498, 1648, 1808, 1960]:
+		await jump_to(x)
+	await walk_to(2200)
+
+func e2_estaca() -> void:
+	kill_enemies()
+	put(5700, 500)
+	g.lantern_lit = true
+	await hold({}, 8)
+	await stake_cross(5800)
+	await walk_to(6460)
+	await jump_to(6560)
+	await jump_to(6800, true)
+	await hold({}, 10)
+
+func e2_degraus() -> void:
+	kill_enemies()
+	put(7300, 500)
+	g.lantern_lit = true
+	await hold({}, 6)
+	for x in [7540, 7700, 7850, 8000, 8120]:
+		await jump_to(x)
+	await walk_to(8500)
+
+func e2_elevador() -> void:
+	kill_enemies()
+	put(4300, 500)
+	g.lantern_lit = true
+	await hold({}, 6)
+	await walk_to(4328)
+	var lf: Dictionary = g.MV.MV[0]
+	await use_k()
+	await until({}, func(): return lf.pos == lf.goal and lf.pos == 0.0, 600)
+	await walk_to(4780)
+	await hold({}, 10)
+
+func e2_flor() -> void:
+	kill_enemies()
+	put(10780, 500)
+	await hold({}, 6)
+	await walk_to(10900)
+	await jump_to(10950)
+	await until({}, func(): return g.player.onGround and g.player.y < 250, 300)
+	await walk_to(11235)
+	await walk_to(11420)
+	await hold({}, 10)
+
+func e2_celeiro() -> void:
+	kill_enemies()
+	put(11400, 500)
+	await hold({}, 6)
+	await crawl(11660)
+	await crawl(11840)
+	await walk_to(12110)
+	await hold({}, 10)
+
+func e2_pedras() -> void:
+	kill_enemies()
+	put(12560, 500)
+	await hold({}, 6)
+	await walk_to(12640)
+	for x in [12760, 12910, 13110]:
+		await jump_to(x)
+	await walk_to(13560)
+	await hold({}, 20)
+
+func house_list() -> Array:
+	var out: Array = []
+	for s in g.L.solids:
+		if s.t == "house":
+			var parts: Array = []
+			var chims: Array = []
+			for r in g.L.solids:
+				if r.x < s.x - 2 or r.x + r.w > s.x + s.w + 2:
+					continue
+				if r.t == "roof" and r.get("chim"):
+					chims.append(r)
+				elif r.t == "roof" and r.get("walk"):
+					parts.append(r)
+				elif r.t == "plat" and r.get("roofhole"):
+					chims.append({"x": r.x, "w": r.w, "h": 0})
+			var x0: float = 1e9
+			var x1: float = -1e9
+			for r in parts:
+				x0 = min(x0, float(r.x))
+				x1 = max(x1, float(r.x) + float(r.w))
+			var obs: Array = []
+			var loose: Array = chims.filter(func(c): return not c.has("t"))
+			if not loose.is_empty():
+				var lx0: float = loose.map(func(c): return float(c.x)).min()
+				var lx1: float = loose.map(func(c): return float(c.x) + float(c.w)).max()
+				obs.append({"x": lx0, "w": lx1 - lx0, "h": 0})
+			for c in chims:
+				if c.has("t"):
+					obs.append(c)
+			obs.sort_custom(func(a, b): return float(a.x) < float(b.x))
+			if not parts.is_empty():
+				out.append({"h": s, "walk": {"x": x0, "w": x1 - x0, "y": float(parts[0].y)}, "chims": obs})
+	return out
+
+func roof_walk(x: float, chims: Array) -> void:
+	for c in chims:
+		var cx0: float = float(c.x)
+		var cx1: float = float(c.x) + float(c.w)
+		if cx0 > px() and cx0 < x:
+			await walk_to(cx0 - 24)
+			if c.get("hot"):
+				var hc: Dictionary = {}
+				for h in g.VL.HOT:
+					if abs(float(h.x) - cx0) < 3:
+						hc = h
+				if not hc.is_empty():
+					await until({}, func(): return g.VL.hot_phase(hc) == 0 and int((g.T + int(hc.get("ph", 0))) % int(hc.per)) < 20, 400)
+			await jump_to(cx1 + 26, c.get("hot", 0) == 1 or float(c.get("h", 0)) > 50)
+	await walk_to(x)
+
+## telhados da vila: da casa a até a casa b (pulando de um telhado para o outro)
+func roofs(a: int, b: int) -> void:
+	kill_enemies()
+	var HS := house_list()
+	var w0: Dictionary = HS[a].walk
+	put(float(w0.x) + 50, float(w0.y))
+	await hold({}, 10)
+	for i in range(a, b + 1):
+		var hs: Dictionary = HS[i]
+		var w: Dictionary = hs.walk
+		var endx: float = w.x + w.w - 14
+		for c in hs.chims:
+			if float(c.x) + float(c.w) > endx - 40:
+				endx = float(c.x) - 24
+		await roof_walk(endx, hs.chims)
+		if i == b or i + 1 >= HS.size():
+			break
+		var nw: Dictionary = HS[i + 1].walk
+		if float(nw.y) < float(w.y) - 150:
+			break
+		var land: float = nw.x + 40
+		for c in HS[i + 1].chims:
+			if float(c.x) < land + 30 and float(c.x) + float(c.w) > nw.x:
+				land = float(c.x) + float(c.w) + 30
+		if nw.x - px() < 250:
+			await jump_to(land, true)
+		else:
+			await glide_to(land + 20)
+		var bb = g.player.get("bar")
+		if bb != null:
+			await until({"R": true}, func(): return px() > float(bb.x1) - 40, 400)
+			press("J")
+			await jump_to(nw.x + 50)
+		var gs = g.player.get("_g")
+		if gs is Dictionary and gs.get("tile"):
+			await jump_to(nw.x + 40)
+	await hold({}, 12)
+
+func e2_telhados1() -> void:
+	await roofs(0, 2)
+
+func e2_telhados2() -> void:
+	await roofs(3, 6)
+
+func e2_fundo() -> void:
+	kill_enemies()
+	var D0: float = float(g.L.sections[3].x) - 420.0
+	put(D0 + 300, 500)
+	g.lantern_lit = true
+	await hold({}, 6)
+	await walk_to(D0 + 800)
+	await jump_to(D0 + 900)
+	await walk_to(D0 + 1100)
+	await hold({}, 10)
+
+## a fuga da Isis (sem o lampião do Vargas por perto)
+func isis_start(x: float) -> void:
+	kill_enemies()
+	g.begin_isis()
+	await fr()
+	g.player.x = x - 10
+	g.player.y = 500 - 26 - 2
+	g.player.vx = 0
+	g.player.vy = 0
+	g.player.spawnX = g.player.x
+	g.player.spawnY = g.player.y
+	g.snap_camera()
+	g.lantern_lit = true
+	await hold({}, 8)
+
+func e2_isis_quarto() -> void:
+	var IX: float = float(g.L.isisPart.spawn[0]) - 170.0
+	kill_enemies()
+	g.begin_isis()
+	await hold({}, 20)
+	await walk_to(IX + 650)
+	await hold({}, 10)
+
+func e2_isis_poco() -> void:
+	var IX: float = float(g.L.isisPart.spawn[0]) - 170.0
+	await isis_start(IX + 2120)
+	await walk_to(IX + 2140)
+	for x in [2216, 2336, 2456, 2610]:
+		await jump_to(IX + x)
+	await walk_to(IX + 2785)
+	var mv: Dictionary = {}
+	for o in g.MV.MV:
+		if o.k == "path" and absf(float(o.x0) - (IX + 2815)) < 3:
+			mv = o
+	if not mv.is_empty():
+		var pl: Dictionary = mv.plats[0]
+		await until({}, func(): return float(pl.x) < IX + 2830 and float(pl.dx) >= 0, 900)
+		await jump_to(float(pl.x) + 50)
+		await until({}, func(): return float(pl.x) + float(pl.w) > IX + 3240, 600)
+		await jump_to(IX + 3400)
+	await hold({}, 10)
+
+func e2_isis_corda() -> void:
+	var IX: float = float(g.L.isisPart.spawn[0]) - 170.0
+	await isis_start(IX + 3420)
+	await walk_to(IX + 3488)
+	press("J")
+	await until({"J": true}, func(): return g.player.get("bar") != null, 60)
+	var bb = g.player.get("bar")
+	if bb != null:
+		await until({"R": true}, func(): return px() > float(bb.x1) - 40, 500)
+		press("J")
+		await jump_to(IX + 3960)
+	await walk_to(IX + 4280)
+	await crawl(IX + 4820)
+	await hold({}, 12)
