@@ -13,6 +13,7 @@ static func h(x: float, k: int = 0) -> float:
 	return v - floor(v)
 
 # ---------------------------------------------------------------- capim
+static var _gspring := {}
 static func grass(g: Game, T: int) -> void:
 	## tufos de grama pintados (mesma arte do cenário): balançam com o vento e abrem quando o Tomé passa
 	var x0: float = g.cam - 40
@@ -34,7 +35,18 @@ static func grass(g: Game, T: int) -> void:
 			if r > .3:
 				var by: float = s.y + 4
 				var near: float = clamp(1.0 - abs(x - pcx) / 34.0, 0, 1) if abs(p.y + p.h - s.y) < 40 else 0.0
-				var push: float = sign(x - pcx) * near * 8.0
+				# o capim abre quando o Tomé passa e volta balançando como mola (não estala de volta)
+				var gkey: int = int(x)
+				var gs: Vector2 = _gspring.get(gkey, Vector2.ZERO)
+				var gt: float = sign(x - pcx) * near * (7.0 + abs(p.vx) * 1.0)
+				gs.y += (gt - gs.x) * .2
+				gs.y *= .8
+				gs.x += gs.y
+				if abs(gs.x) < .02 and abs(gs.y) < .02 and near == 0.0:
+					_gspring.erase(gkey)
+				else:
+					_gspring[gkey] = gs
+				var push: float = gs.x
 				var sway: float = sin(T * (.03 + wind * .05) + x * .03) * (1.2 + wind * 4.0) + wind * 3.0
 				var kind: int = int(h(x, 3) * 5)
 				var w: float = [22.0, 30.0, 30.0, 30.0, 28.0][kind] * (.85 + h(x, 4) * .35)
@@ -68,11 +80,12 @@ static func flowers(g: Game, T: int) -> void:
 			sp.y += (tgt - sp.x) * .18
 			sp.y *= .78
 			sp.x += sp.y
-			_fspring[key] = sp
+			if abs(sp.x) < .02 and abs(sp.y) < .02 and near == 0.0:
+				_fspring.erase(key)
+			else:
+				_fspring[key] = sp
 			var sway: float = sin(T * (.035 + wind * .05) + fx * .05) * (1.4 + wind * 4.0) + wind * 3.0
 			Spr.P(f[1], fx, s.y + 2, f[2], f[3], sway + sp.x, WSt.tint_at(g, fx))
-	if _fspring.size() > 400:
-		_fspring.clear()
 
 # ---------------------------------------------------------------- passagens baixas
 static func crawl(g: Game, T: int) -> void:
