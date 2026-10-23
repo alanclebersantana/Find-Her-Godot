@@ -45,7 +45,13 @@ static func draw(g: Game, T: int) -> void:
 
 # ---------- cogumelo saltador ----------
 static func _bounce(g: Game, TR: Traps, o: Dictionary, T: int) -> void:
-	var sq: float = o.get("squash", 0.0)
+	# o chapéu segue o amassado como uma mola: afunda, estica de volta passando do ponto e assenta
+	var sv: Vector2 = o.get("_sqs", Vector2.ZERO)
+	sv.y += (float(o.get("squash", 0.0)) - sv.x) * .3
+	sv.y *= .74
+	sv.x += sv.y
+	o._sqs = sv
+	var sq: float = clamp(sv.x, -.45, 1.2)
 	var x: float = o.x
 	var y: float = o.y
 	# inclina o chapéu para onde ele vai lançar
