@@ -430,6 +430,25 @@ ROT = {
         t('a_noite', 4.6, 4.6, 4, ('Sem truques, só capricho:', 'O BÁSICO BEM FEITO.'), z0=1.1, z1=1.16, gm=1.2, trilha=True),
         t('a_tabuas', 0.2, 3.6, 5, 'E a trilha de cores segue para dentro da mina...', z0=1.1, z1=1.16, gm=1.45, trilha=True),
         c('final_simples', 5.4)]),
+    'e2': ('janela', [
+        c('ep2_abertura', 7.0), c('ep2_titulo', 3.2),
+        t('e2_boca', 0.5, 4.6, 0, 'A trilha de cores desce pelas galerias da mina.', z0=1.1, z1=1.16, gm=1.35, trilha=True),
+        t('e2_boca', 4.4, 4.2, 0, ('Ele está de volta:', 'O CLÁSSICO GÊNERO|DE PLATAFORMA'), z0=1.1, z1=1.16, gm=1.35, trilha=True),
+        t('e2_estaca', 0.3, 4.4, 0, 'Mergulhe na estaca e a ponte desce sobre o veneno.', z0=1.1, z1=1.16, gm=1.35, trilha=True),
+        t('e2_elevador', 0.6, 4.2, 0, 'Um elevador velho range até as galerias de cima.', z0=1.05, z1=1.12, gm=1.35, trilha=True),
+        t('e2_degraus', 0.4, 4.4, 0, 'Pedra por pedra, sem pressa.', z0=1.1, z1=1.16, gm=1.35, trilha=True),
+        t('e2_flor', 0.4, 4.8, 1, 'Lá fora, o vale do moinho ao entardecer.', z0=1.05, z1=1.12, trilha=True),
+        t('e2_pedras', 0.3, 5.0, 1, 'Trigo, pedras no riacho e o moinho no alto do morro.', z0=1.05, z1=1.12, trilha=True),
+        t('e2_celeiro', 0.5, 4.2, 1, ('Jogue no toque ou no controle:', '100% COMPATÍVEL|COM GAMEPAD', '🎮'), z0=1.05, z1=1.1, trilha=True),
+        t('e2_telhados1', 0.3, 4.8, 2, 'À noite, pelos telhados da vila dos mineiros.', z0=1.05, z1=1.1, gm=1.15, trilha=True),
+        t('e2_telhados2', 0.3, 5.0, 2, ('Chaminés, fumaça e lua cheia:', 'O BÁSICO BEM FEITO.'), z0=1.05, z1=1.1, gm=1.15, trilha=True),
+        t('e2_fundo', 0.3, 3.8, 3, 'E a trilha desce ainda mais fundo...', z0=1.1, z1=1.16, gm=1.45, trilha=True),
+        c('ep2_isis', 6.4),
+        t('e2_isis_quarto', 0.5, 2.6, 4, 'Agora é a vez dela: jogue com a Isis.', z0=1.2, z1=1.25, gm=1.3, trilha=True),
+        t('e2_isis_poco', 0.6, 3.6, 4, 'Pequena e leve, ela passa por onde o pai não passa.', z0=1.2, z1=1.25, gm=1.3, trilha=True),
+        t('e2_isis_corda', 0.5, 3.6, 4, 'E vai deixando lápis pelo caminho.', z0=1.2, z1=1.25, gm=1.3, trilha=True),
+        t('e2_isis_corda', 6.0, 4.0, 4, None, z0=1.2, z1=1.25, gm=1.3, trilha=True),
+        c('ep2_final', 6.0)]),
     'cC': ('cheia', [
         c('classico', 4.2),
         c('abertura', 4.6), c('sumiu', 2.4),
@@ -470,7 +489,7 @@ def montar(ver):
     first_t = next(s[2] for s in segs if s[0] == 't')
     t_tit = next((s[2] for s in segs if s[1] in ('titulo', 'ep2_titulo')), first_t - 1.0)
     noite_t = next((s[2] for s in segs if s[0] == 't' and s[3] >= 4), D)
-    t_fim = next(s[2] for s in segs if s[1].startswith('final'))
+    t_fim = next(s[2] for s in segs if 'final' in s[1])
     # música calma: noite no mistério -> manhã nas fases de dia -> noite no fim
     parts = [('mus_noite.ogg', 0, t_tit + .8, 1.2, 1.2, 1.0),
              ('mus_tema.ogg', t_tit, first_t + 1.5, .6, 1.6, .9)] if t_tit > 0.5 else []
@@ -521,7 +540,7 @@ def montar(ver):
     subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', mudo, '-i', trilha, '-c:v', 'copy', '-c:a', 'copy',
                     '-shortest', '-movflags', '+faststart', out], check=True)
     if D > 60.5:
-        corte = next((s[2] for s in segs if s[0] == 't' and s[3] == 3), D / 2)
+        corte = next((s[2] for s in segs if s[0] == 't' and s[3] == (2 if ver.startswith('e2') else 3)), D / 2)
         for k, (a0, a1) in enumerate([(0, corte), (corte, D)]):
             pp = '/tmp/vid/encontre-a_calmo_%s_parte%d.mp4' % (ver, k + 1)
             fade = 'afade=t=in:st=0:d=0.6,' if k else ''
