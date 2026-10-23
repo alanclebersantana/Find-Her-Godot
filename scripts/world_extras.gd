@@ -41,6 +41,39 @@ static func grass(g: Game, T: int) -> void:
 				Spr.P("grass%d" % kind, x + (h(x, 5) - .5) * 10, by, w, h(x, 6) > .5, sway + push, tc)
 			x += 34
 
+## flores do chão: balançam com a brisa (cada uma no seu ritmo), deitam quando o Tomé passa
+## e voltam com um balanço de mola
+static var _fspring := {}
+static func flowers(g: Game, T: int) -> void:
+	var x0: float = g.cam - 40
+	var x1: float = g.cam + g.W + 40
+	var p: Dictionary = g.player
+	var pcx: float = p.x + p.w / 2
+	var wind: float = g.AMB.get("wind", 0.0)
+	for s in g.SOL:
+		if s.t != "ground" or s.x > x1 or s.x + s.w < x0:
+			continue
+		var fl: Array = WSt.flowers_of(g, s)
+		if fl.is_empty():
+			continue
+		for f in fl:
+			var fx: float = f[0]
+			if fx < x0 or fx > x1:
+				continue
+			var near: float = clamp(1.0 - abs(fx - pcx) / 30.0, 0, 1) if abs(p.y + p.h - s.y) < 40 else 0.0
+			# mola: o empurrão decai e a flor volta balançando
+			var key: int = int(fx)
+			var sp: Vector2 = _fspring.get(key, Vector2.ZERO)
+			var tgt: float = sign(fx - pcx) * near * (6.0 + abs(p.vx) * 1.2)
+			sp.y += (tgt - sp.x) * .18
+			sp.y *= .78
+			sp.x += sp.y
+			_fspring[key] = sp
+			var sway: float = sin(T * (.035 + wind * .05) + fx * .05) * (1.4 + wind * 4.0) + wind * 3.0
+			Spr.P(f[1], fx, s.y + 2, f[2], f[3], sway + sp.x, WSt.tint_at(g, fx))
+	if _fspring.size() > 400:
+		_fspring.clear()
+
 # ---------------------------------------------------------------- passagens baixas
 static func crawl(g: Game, T: int) -> void:
 	var p: Dictionary = g.player
@@ -243,6 +276,7 @@ static func boss(g: Game, T: int) -> void:
 		return
 	var fr := 0
 	var shake_x := 0.0
+	var bd: float = Spr.edist(b)
 	match b.st:
 		"idle":
 			fr = 4
@@ -250,20 +284,24 @@ static func boss(g: Game, T: int) -> void:
 			fr = 4
 			shake_x = sin(T * 1.3) * 2
 		"charge", "flee":
-			fr = 5 if (T / 4) % 2 == 0 else 3
+			fr = 5 if int(bd / 16.0) % 2 == 0 else 3
 		"stun", "down":
 			fr = 6
 		"trot":
-			fr = [0, 1, 2, 3][(T / 6) % 4]
+			fr = int(bd / 16.0) % 4
 		_:
 			fr = 0
 	if b.get("skin", "boar") == "dog":
-		_brutus(b, T)
+		_brutus(b, T, bd)
 		return
 	var sc := 1.12
 	Spr.ellipse(b.x, 502, 90, 12, Color(0, 0, 0, .3))
 	Spr.save()
 	Spr.translate(b.x + shake_x, b.y)
+	if b.st in ["charge", "trot", "flee"]:
+		# galope: o corpo sobe e desce com a passada e inclina para a frente na investida
+		Spr.translate(0, -abs(sin(bd * PI / 32.0)) * (4.0 if b.st == "charge" else 2.5))
+		Spr.rotate(b.dir * (.05 if b.st == "charge" else .02))
 	if b.st == "down":
 		# tomba de lado e some devagar
 		Spr.rotate(-b.dir * min(1.0, b.t / 30.0) * 1.35)
@@ -288,7 +326,7 @@ static func boss(g: Game, T: int) -> void:
 		Spr.text("!", b.x + b.dir * 30, b.y - 150, 32, Color("#ff6a4a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 5)
 
 ## Brutus, o cão de guarda do Vargas (arte do Gemini: cao.png bem grande, com coleira de pregos)
-static func _brutus(b: Dictionary, T: int) -> void:
+static func _brutus(b: Dictionary, T: int, bd: float = 0.0) -> void:
 	var fr := 4
 	match b.st:
 		"idle":
@@ -296,9 +334,9 @@ static func _brutus(b: Dictionary, T: int) -> void:
 		"paw":
 			fr = 5
 		"charge":
-			fr = [0, 1, 2, 3][(T / 3) % 4]
+			fr = int(bd / 14.0) % 4
 		"trot":
-			fr = [0, 1, 2, 3][(T / 6) % 4]
+			fr = int(bd / 15.0) % 4
 		"stun":
 			fr = 6
 		"down":
@@ -315,7 +353,8 @@ static func _brutus(b: Dictionary, T: int) -> void:
 		a = clamp(1.0 - (b.t - 90) / 60.0, 0.0, 1.0)
 	var flip: bool = b.dir < 0 if b.st != "down" else b.dir > 0
 	Spr.ellipse(b.x + dx, 502, 92, 12, Color(0, 0, 0, .3 * a))
-	Spr.sheet("cao", fr, 200, 150, b.x + dx, b.y + 4, 210.0, flip, Color(tint.r, tint.g, tint.b, a))
+	var gb: float = -abs(sin(bd * PI / 28.0)) * (4.0 if b.st == "charge" else 2.5) if b.st in ["charge", "trot"] else 0.0
+	Spr.sheet("cao", fr, 200, 150, b.x + dx, b.y + 4 + gb, 210.0, flip, Color(tint.r, tint.g, tint.b, a))
 	if b.st == "stun":
 		for i in 4:
 			var a2 := T * .12 + TAU * i / 4.0
@@ -467,7 +506,22 @@ static func dog(g: Game, T: int) -> void:
 		nf = 12
 	if d.st == "tied" and not d.moving:
 		nf = 13
-	if not Spr.novo("pipoca", nf, 54, d.face < 0):
+	# corpo vivo: inclina para a frente na corrida (suave), respira parado, vira girando
+	var dvx: float = x - float(d.get("_lx", x))
+	d._lx = x
+	d._lean = lerp(float(d.get("_lean", 0.0)), clamp(dvx / 5.0, -1, 1) * .07, .15)
+	var dfs: float = move_toward(float(d.get("_fs", d.face)), d.face, .2)
+	d._fs = dfs
+	var ns: float = sign(dfs) * max(abs(dfs), .2) if dfs != 0 else float(d.face)
+	var breath: float = 0.0 if d.moving else sin(T * .09) * .018
+	var gal: float = abs(sin(d.anim * PI / 3.0)) * 1.4 if d.moving else 0.0
+	Spr.save()
+	Spr.translate(0, -gal)
+	Spr.rotate(d._lean)
+	Spr.scale(abs(ns), 1.0 + breath)
+	var drew: bool = Spr.novo("pipoca", nf, 54, ns < 0)
+	Spr.restore()
+	if not drew:
 		if d.st == "dig":
 			Spr.rotate(d.face * .25)
 		# parado: de vez em quando fareja o chão ou coça a orelha

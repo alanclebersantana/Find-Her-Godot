@@ -19,7 +19,7 @@ const DJUMP := -10.8
 const TOP := 4.3
 const ACCg := .9
 const ACCa := .52
-const FRIC := .70
+const FRIC := .74
 const COY := 10
 const BUF := 11
 const PUFF_GRAV := .10
@@ -1160,6 +1160,8 @@ func step() -> void:
 			if wet and want == 0:
 				# escorrega um pouco e para: gelo desliza mais que o tronco molhado
 				player.vx *= (.955 if player._g.t == "ice" else .88) / FRIC
+			if player.onGround and abs(player.vx) < 1.4 and not player.run and not player.puff:
+				acc *= .78
 			if kd("L") and not player.slam:
 				player.vx = min(-top2, player.vx * .985) if player.vx < -top2 else max(player.vx - acc, -top2)
 				player.face = -1
@@ -1217,8 +1219,6 @@ func step() -> void:
 			Audio.vib(18)
 		burst(player.x + player.w / 2, player.y + player.h, 5, Color("#b7a77f"))
 		fx("fx_dust", player.x + player.w / 2, player.y + player.h - 6, 16, .08 + prev_vy * .01, -.2)
-	if player.run and player.onGround and T % 8 == 0:
-		fx("fx_dust", player.x + player.w / 2 - player.face * 14, player.y + player.h - 5, 14, .09, -.25)
 	player.squash *= .78
 	if player.landT > 0:
 		player.landT -= 1
@@ -1255,19 +1255,32 @@ func step() -> void:
 		player.idleT = player.get("idleT", 0) + 1
 	else:
 		player.idleT = 0
-	# passos: um som a cada pisada (nos quadros em que o pé encosta no chão)
-	if player.onGround and abs(player.vx) > .8 and not player.crouch and not player.swim:
-		var ph: int = int(player.anim * (1.6 if player.run else 1.2)) % 4
-		if ph != player.get("stepPh", -1) and (ph == 1 or ph == 3):
-			Audio.step(ground_kind(), -15.0 if player.run else -18.0)
-		player.stepPh = ph
-	if player.onGround and abs(player.vx) > 2.4 and T % (2 if player.run else 4) == 0:
-		PARTS.append({"x": player.x + player.w / 2 - player.face * 8, "y": player.y + player.h - 2, "vx": -player.face * 1.2, "vy": -.6, "life": 14, "col": Color(.59, .55, .43, .5)})
 	if player.blink > 0:
 		player.blink -= 1
 	elif rng.randf() < .004:
 		player.blink = 8
 	player.anim += abs(player.vx) * .06
+	# compasso do passo: o quadro da perna segue a distância andada (sem patinar)
+	var gm: float = 1.35 if player.run else 1.2
+	if player.get("gm", gm) != gm:
+		# troca andar/correr sem pular de quadro: ajusta a contagem para manter a fase
+		player.anim = player.get("gait", 0.0) / gm
+	player.gm = gm
+	player.gait = player.anim * gm
+	# passos: som e poeirinha no instante em que o pé da frente pousa (quadros 3 e 7 da folha)
+	if player.onGround and abs(player.vx) > .8 and not player.crouch and not player.swim:
+		var ph: int = int(player.gait * 2.0) % 4
+		if ph != player.get("stepPh", -1) and ph == 3:
+			Audio.step(ground_kind(), -15.0 if player.run else -18.0)
+			var fx0: float = player.x + player.w / 2 + player.face * 12
+			var fy0: float = player.y + player.h - 1
+			var gk2 := ground_kind()
+			var dc := Color(.95, .97, 1, .7) if gk2 == "snow" else (Color(.45, .6, .32, .45) if gk2 == "grass" else Color(.59, .55, .43, .5))
+			for k in (3 if player.run else 2):
+				PARTS.append({"x": fx0 - player.face * k * 3, "y": fy0, "vx": -player.face * randf_range(.4, 1.4), "vy": -randf_range(.3, .9), "life": 12 + k * 2, "col": dc})
+			if player.run and abs(player.vx) > 4:
+				fx("fx_dust", fx0 - player.face * 6, fy0 - 4, 14, .08, -.25)
+		player.stepPh = ph
 	# agarrar cipó
 	if player.onGround or player.swim:
 		player.lastVine = null
@@ -2815,6 +2828,10 @@ func update_enemy(e: Dictionary) -> void:
 		e.charge = abs(dx2) < 230 and abs(dy2) < 40 and dx2 * e.dir > 0
 		if e.charge:
 			spd = 2.7
+	# arranca e freia com peso (não muda de 1 para 2,7 num quadro só)
+	var cs: float = move_toward(float(e.get("cs", spd)), spd, .12)
+	e.cs = cs
+	spd = cs
 	e.x += e.dir * spd
 	if e.x < e.r[0]:
 		e.x = e.r[0]

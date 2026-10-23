@@ -592,12 +592,12 @@ func _ground_deco(s: Dictionary) -> void:
 					if kind < 45:
 						_leaves(gx, y, [Color(.86, .5, .16), Color(.72, .32, .12), Color(.9, .7, .2)])
 					elif kind < 65:
-						_flower(gx, y, Color(1, .82, .3))
+						pass   # flor: desenhada no quadro dinâmico (balança e abre quando o Tomé passa)
 					elif kind < 85:
 						_pebbles(gx, y, Color(.55, .48, .4))
 				else:
 					if kind < 50:
-						_flower(gx, y, [Color(1, .55, .7), Color(1, .95, .55), Color(.98, .98, 1), Color(.6, .7, 1)][int(hh(gx, 13) * 4)])
+						pass   # flor (quadro dinâmico)
 					elif kind < 75:
 						_pebbles(gx, y, Color(.58, .55, .5))
 		gx += 58
@@ -621,6 +621,59 @@ func _ground_deco(s: Dictionary) -> void:
 			if rx >= x0 and rx < x1 and hh(rx, 14) < .45:
 				_root_curl(rx, y + 14 + hh(rx, 15) * 10)
 			rx += 170
+
+## flores do chão (mesmo sorteio dos enfeites): lista [x, espécie, largura, vira] guardada no bloco de chão
+static func flowers_of(g: Game, s: Dictionary) -> Array:
+	if s.has("_fl"):
+		return s._fl
+	var out: Array = []
+	if s.w >= 120 and not s.get("snow") and s.get("t", "") == "ground":
+		var y: float = s.y
+		var under: bool = g.L.has("under") and y > g.L.under
+		var gx: float = s.x + 40 + fposmod(-(s.x + 40), 58.0)
+		while gx < s.x + s.w - 40:
+			if hh(gx, 11) < .5:
+				var th := theme_at(g, gx)
+				var kind := int(hh(gx, 12) * 100)
+				var c := Color(0, 0, 0, 0)
+				if th == "neve" or under or th in ["noite", "perseguicao", "tunel", "chuva"]:
+					pass
+				elif th == "tarde":
+					if kind >= 45 and kind < 65:
+						c = Color(1, .82, .3)
+				elif kind < 50:
+					c = [Color(1, .55, .7), Color(1, .95, .55), Color(.98, .98, 1), Color(.6, .7, 1)][int(hh(gx, 13) * 4)]
+				if c.a > 0 and not covered(g, gx, y):
+					var n := "fl_yellow"
+					if c.b > .9 and c.r < .8:
+						n = "fl_blue"
+					elif c.r > .95 and c.g < .7:
+						n = "fl_lilac"
+					elif c.r > .95 and c.g > .95 and c.b > .95:
+						n = "fl_white"
+					elif hh(gx, 16) > .6:
+						n = "fl_dande"
+					out.append([gx, n, 20 + hh(gx, 17) * 8, hh(gx, 18) > .5])
+					if hh(gx, 19) > .55:
+						out.append([gx + 12, n, 15 + hh(gx, 20) * 5, hh(gx, 21) > .5])
+			gx += 58
+	s._fl = out
+	return out
+
+static func theme_at(g: Game, x: float) -> String:
+	var th := "manha"
+	for sc in g.L.get("sections", []):
+		if sc.x <= x:
+			th = "neve" if sc.get("bg", "") == "neve" else sc.get("song", "manha")
+	return th
+
+static func covered(g: Game, x: float, y: float) -> bool:
+	for o in g.L.solids:
+		if o.t in ["ground", "dirt", "cliff", "hill"]:
+			continue
+		if x > o.x - 14 and x < o.x + o.get("w", 0) + 14 and y > o.y - 4 and y < o.y + o.get("h", 0) + 30:
+			return true
+	return false
 
 ## não enfeita onde tem outra coisa em cima do chão (parede, caixa fixa, pedra...)
 func _covered(x: float, y: float) -> bool:

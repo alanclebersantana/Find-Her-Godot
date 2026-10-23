@@ -465,3 +465,31 @@ func hexc(h: String, a: float = 1.0) -> Color:
 	var c := Color(h)
 	c.a = a
 	return c
+
+## distância andada pelo bicho (para o passo acompanhar o chão, sem patinar)
+func edist(e: Dictionary) -> float:
+	var lx: float = e.get("_lx", e.x)
+	e._dd = float(e.get("_dd", 0.0)) + abs(e.x - lx)
+	e._lx = e.x
+	return e._dd
+
+## virada macia: o bicho gira (estreita e abre) em vez de espelhar de um quadro para o outro
+func eturn(e: Dictionary, k: float = .2) -> float:
+	var d: float = 1.0 if e.dir > 0 else -1.0
+	var fs: float = move_toward(float(e.get("_fs", d)), d, k)
+	e._fs = fs
+	return sign(fs) * max(abs(fs), .18) if fs != 0 else d * .18
+
+
+## ciclo de poucos quadros (andar/correr) com transição: perto da troca, o próximo quadro
+## aparece por cima aos poucos — os 4 quadros da arte viram um movimento contínuo
+## fpos: posição contínua no ciclo (ex.: distância / passo); quadros base .. base + n - 1
+func sheet_cycle(name: String, fpos: float, n: int, base: int, cw: float, ch: float, x: float, by: float, hgt: float, flip: bool = false, mod: Color = Color(1, 1, 1)) -> void:
+	var f0: int = int(floor(fpos))
+	var fr: float = fpos - f0
+	var a: int = base + posmod(f0, n)
+	var b: int = base + posmod(f0 + 1, n)
+	sheet(name, a, cw, ch, x, by, hgt, flip, mod)
+	var k: float = smoothstep(.55, 1.0, fr) * .7
+	if k > .02:
+		sheet(name, b, cw, ch, x, by, hgt, flip, Color(mod.r, mod.g, mod.b, mod.a * k))

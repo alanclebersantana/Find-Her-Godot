@@ -390,9 +390,12 @@ func _pencil(x: float, y: float, c: String) -> void:
 ## 6 abaixado agarrando, 7 rindo). fr < 0: escolhe pelo passo (wt = quadros andando; 0 = parado)
 const VG_H := 124.0
 static func vargas_fig(x: float, y: float, d: float, T: int, wt: int, fr: int = -1) -> void:
-	if fr < 0:
-		fr = (wt / 9) % 4 if wt > 0 else 4
 	Spr.ellipse(x, y + 1, 26, 5, Color(0, 0, 0, .35))
+	if fr < 0 and wt > 0:
+		Spr.sheet_cycle("vargas_pe", wt / 9.0, 4, 0, 200, 200, x, y + 2 - abs(sin(wt / 9.0 * PI / 2.0)) * 1.5, VG_H, d < 0)
+		return
+	if fr < 0:
+		fr = 4
 	Spr.sheet("vargas_pe", fr, 200, 200, x, y + 2, VG_H, d < 0)
 
 ## o facho do lampião (por cima do escuro)
@@ -417,11 +420,20 @@ const VIGIA_H := 115.0
 func _watchman(w: Dictionary, T: int) -> void:
 	var x: float = float(w.x)
 	var d: float = float(w.dir)
-	var fr: int = (int(w.t) / 10) % 4
-	if w.wait > 0:
-		fr = 6 if int(w.get("alarm", 0)) > 0 else (5 if w.wait > 30 else 4)
+	var wd: float = Spr.edist(w)
 	Spr.ellipse(x, 501, 28, 5, Color(0, 0, 0, .32))
-	Spr.sheet("vigia", fr, 220, 200, x, 502, VIGIA_H, d < 0)
+	if w.wait > 0:
+		var fr: int = 6 if int(w.get("alarm", 0)) > 0 else (5 if w.wait > 30 else 4)
+		# parado: respira (o peito sobe e desce de leve)
+		Spr.save()
+		Spr.translate(x, 502)
+		Spr.scale(1, 1 + sin(T * .07 + x) * .012)
+		Spr.sheet("vigia", fr, 220, 200, 0, 0, VIGIA_H, d < 0)
+		Spr.restore()
+	else:
+		# andando: o quadro segue a distância (passo de ~16 px por quadro, sem patinar)
+		var bob: float = -abs(sin(wd / 16.0 * PI / 2.0)) * 1.5
+		Spr.sheet_cycle("vigia", wd / 16.0, 4, 0, 220, 200, x, 502 + bob, VIGIA_H, d < 0)
 	if w.wait > 40:
 		Spr.text("?", x, 380 + sin(T * .2) * 2, 18, Color(1, .9, .6), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3)
 
@@ -448,15 +460,24 @@ func _bribe(w: Dictionary, T: int) -> void:
 ## cão de guarda (arte do Gemini: cao.png — 0-3 correndo, 4 rosnando, 5 latindo, 6 farejando, 7 pulando)
 const CAO_H := 73.0
 func _dog(d: Dictionary, T: int) -> void:
-	var fr: int
-	if d.st == "chase":
-		fr = 7 if d.bark > 20 else [0, 1, 2, 3][(T / 4) % 4]
-	elif d.bark > 0:
-		fr = 5
-	else:
-		fr = 6 if (T / 90) % 3 == 0 else 4
+	var dd: float = Spr.edist(d)
 	Spr.ellipse(d.x, 501, 26, 5, Color(0, 0, 0, .3))
-	Spr.sheet("cao", fr, 200, 150, d.x, 502, CAO_H, d.dir < 0)
+	if d.st == "chase" and d.bark <= 20:
+		var gb: float = -abs(sin(dd / 13.0 * PI / 2.0)) * 2.0
+		Spr.sheet_cycle("cao", dd / 13.0, 4, 0, 200, 150, d.x, 502 + gb, CAO_H, d.dir < 0)
+	else:
+		var fr: int
+		if d.st == "chase":
+			fr = 7
+		elif d.bark > 0:
+			fr = 5
+		else:
+			fr = 6 if (T / 90) % 3 == 0 else 4
+		Spr.save()
+		Spr.translate(d.x, 502)
+		Spr.scale(1, 1 + sin(T * .1 + d.x) * .015)
+		Spr.sheet("cao", fr, 200, 150, 0, 0, CAO_H, d.dir < 0)
+		Spr.restore()
 	if d.bark > 0:
 		Spr.text("AU!", d.x + d.dir * 34, 440, 15, Color(1, .9, .6), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3)
 

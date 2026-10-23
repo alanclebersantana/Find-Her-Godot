@@ -59,6 +59,7 @@ func __draw_raw() -> void:
 		g.VL.draw(T)
 	var __d__deco := Time.get_ticks_usec()
 	_deco(g)
+	WorldExtras.flowers(g, T)
 	Spr.pt("d__deco", __d__deco)
 	var __d__climb := Time.get_ticks_usec()
 	_climb(g)
@@ -136,6 +137,8 @@ func __draw_raw() -> void:
 		if e.x < g.cam - 200 or e.x > g.cam + g.W + 200:
 			continue
 		var eo := g.e_off(e)
+		Spr.edist(e)
+		Spr.eturn(e)
 		_enemy_fx_under(g, e, eo)
 		Spr.save()
 		Spr.translate(eo.x, eo.y)
@@ -643,8 +646,10 @@ func _enemy(e: Dictionary) -> void:
 	Spr.save()
 	if e.dead:
 		Spr.alpha = clamp(1 - (e.dead - 24) / 14.0, 0, 1) if e.dk == "flat" else clamp(1 - (e.dead - 34) / 16.0, 0, 1)
+	var dist: float = e.get("_dd", 0.0)
+	var fs: float = e.get("_fs", 1.0 if e.dir > 0 else -1.0)
 	Spr.translate(e.x, e.y)
-	Spr.scale(1 if e.dir > 0 else -1, 1)
+	Spr.scale((sign(fs) * max(abs(fs), .18) if fs != 0 else 1.0) if not e.dead else (1.0 if e.dir > 0 else -1.0), 1)
 	if e.dead:
 		if e.dk == "flat":
 			var q: float = min(1, e.dead / 4.0)
@@ -655,8 +660,9 @@ func _enemy(e: Dictionary) -> void:
 			Spr.translate(0, m)
 			Spr.rotate(min(PI, e.dead * .25))
 			Spr.translate(0, -m)
-	elif not Game.FLY.has(e.k) and not e.k in ["spider", "mole"]:
-		Spr.translate(0, -abs(sin(T * .3 + e.x * .01)) * 1.5)
+	elif not Game.FLY.has(e.k) and not e.k in ["spider", "mole", "frog", "plant", "leech"]:
+		# sobe-e-desce do passo, só quando anda (parado fica no chão, respirando)
+		Spr.translate(0, -abs(sin(dist * .14)) * 1.6)
 	match e.k:
 		"frog":
 			if e.dead:
@@ -671,6 +677,18 @@ func _enemy(e: Dictionary) -> void:
 					ff = 3
 				if e.leap:
 					ff = 4
+				# estica no salto (subindo), achata ao cair no chão, papo respira parado
+				var fsq := 1.0
+				var lt: int = jt - 100
+				if e.leap:
+					fsq = 1.0 + .12 * cos(clamp(lt / 30.0, 0, 1) * PI)
+				elif jt < 8:
+					fsq = 1.0 - .18 * (1.0 - jt / 8.0)
+				elif jt >= 86:
+					fsq = 1.0 - .1 * sin(clamp((jt - 86) / 14.0, 0, 1) * PI * .5)
+				else:
+					fsq = 1.0 + sin(T * .09 + e.x) * .015
+				Spr.scale(1.0 / sqrt(fsq), fsq)
 				Spr.frame(Spr.tex.en_frog2, ff, 130, 70, 65, 68, 0, 3, .82)
 			else:
 				Spr.A("en_frog_jump" if e.leap else "en_frog", 0, 3, .9 if e.leap else .82 + sin(T * .12) * .02)
@@ -720,7 +738,7 @@ func _enemy(e: Dictionary) -> void:
 				fr = [0, 1, 2, 3][(T / 8) % 4]
 			if fr < 4 and Spr.tex.has("en_boar"):
 				# andando: 6 quadros novos, pernas alternando
-				Spr.frame(Spr.tex.en_boar, (T / 6 + int(e.x * .1)) % 6, 210, 140, 105, 136, 0, 3, .46)
+				Spr.frame(Spr.tex.en_boar, int(dist / 6.6) % 6, 210, 140, 105, 136, 0, 3, .46)
 			else:
 				Spr.frame(Spr.tex.javali, fr, 210, 140, 105, 136, 0, 3, .46)
 	Spr.restore()
@@ -826,6 +844,7 @@ func _ride_world(g: Game) -> void:
 			if ft:
 				Spr.frame(ft, 3, 260, 250, 130, 244, H.hx, 503, RS, true)
 
+var _hpitch := 0.0
 func _rider(g: Game) -> void:
 	var RD: Ride = g.RD
 	var p: Dictionary = g.player
@@ -856,6 +875,10 @@ func _rider(g: Game) -> void:
 	Spr.translate(RD.hx, RD.hy + 3)
 	if RD.stumble > 0:
 		Spr.rotate(sin(T * .6) * .06)
+	# no salto o cavalo empina subindo e abaixa o focinho descendo (gira em volta das patas)
+	var pt: float = clamp(RD.vy * .014, -.12, .1) if RD.hy < 497.0 else 0.0
+	_hpitch = lerp(_hpitch, pt, .2)
+	Spr.rotate(_hpitch)
 	if RD.hy < 497.0 and jt:
 		var jf: int = 0 if RD.vy < -3.0 else (1 if RD.vy < 3.0 else 2)
 		Spr.frame(jt, jf, 260, 250, 130, 244, 0, 0, RS)
@@ -1046,17 +1069,51 @@ func _isis_draw(p: Dictionary) -> void:
 		if p.ladder.kind == "ladder":
 			cx = p.ladder.x + p.ladder.w / 2
 	elif not p.onGround:
-		fr = 5 if p.vy < 1.0 else 6
+		# braços para cima subindo e no começo da descida; a pose de tombo só numa queda longa
+		fr = 6 if p.vy > 7.5 else 5
 	elif p.crouch:
 		if abs(p.vx) > .4:
 			fr = 11 + int(p.anim * .5) % 2
 		else:
 			fr = 9 if game.VL and game.VL.hidden(p) else 7
 	elif abs(p.vx) > .5:
-		fr = int(p.anim * .7) % 4
+		fr = int(p.anim * .78) % 4
+	_ppos = Vector2(p.x, p.y)
+	var air: float = clamp(1 - abs(p.vy) / 16.0, .35, 1) if not p.onGround else 1.0
 	if fr != 10 and fr != 8:
-		Spr.ellipse(cx, p.y + p.h + 1, 13, 3, Color(0, 0, 0, .3))
-	Spr.sheet("isis2", fr, 150, 150, cx, by, ISIS_H, flip)
+		Spr.ellipse(cx, p.y + p.h + 1, 13 * air, 3 * air, Color(0, 0, 0, .3 * air))
+	var t: Texture2D = Spr.tex.get("isis2")
+	if t == null:
+		return
+	var s: float = ISIS_H / 150.0
+	var rot := 0.0
+	var st := Vector2.ONE
+	if fr <= 6:
+		st = _body_flex(p, "isis", fr, 4)
+		rot = p.lean
+		if fr < 4:
+			# passada: o corpo sobe um tiquinho no quadro de apoio (1 e 3)
+			st.y *= 1 + (.012 if fr % 2 == 1 else -.008) * clamp(abs(p.vx) / 4.3, 0, 1)
+	elif fr == 10:
+		rot = float(p.get("bsw", 0.0))
+	var sq: float = p.squash
+	var sx: float = (-s if flip else s) * st.x * (1 + sq * .2)
+	var sy: float = s * st.y * (1 - sq * .25)
+	var src := Rect2(fr * 150, 0, 150, 150)
+	var dst := Rect2(-75, -150, 150, 150)
+	_pose("isis%d" % (fr if fr >= 4 else 0), t, src, dst, cx, by, rot, sx, sy)
+	Spr.save()
+	Spr.translate(cx, by)
+	Spr.rotate(rot)
+	Spr.scale(sx, sy)
+	Spr.ci.draw_texture_rect_region(t, dst, src, Color(1, 1, 1, Spr.alpha))
+	if fr < 4 and p.onGround and not p.crouch:
+		# só 4 quadros de corrida: perto da troca o próximo aparece por cima (movimento contínuo)
+		var fp: float = p.anim * .78
+		var kk: float = smoothstep(.55, 1.0, fp - floor(fp)) * .7
+		if kk > .02:
+			Spr.ci.draw_texture_rect_region(t, dst, Rect2(((fr + 1) % 4) * 150, 0, 150, 150), Color(1, 1, 1, Spr.alpha * kk))
+	Spr.restore()
 
 ## poses da animação de entrar/sair dos esconderijos
 func _warp_pose(p: Dictionary) -> void:
@@ -1085,6 +1142,7 @@ func _player_draw(g: Game) -> void:
 		return
 	var cx: float = p.x + p.w / 2
 	var by: float = p.y + p.h
+	_ppos = Vector2(p.x, p.y)
 	if p.lastFace != p.face:
 		p.turnT = 6
 		p.lastFace = p.face
@@ -1115,9 +1173,12 @@ func _player_draw(g: Game) -> void:
 		# mão sobre mão: troca de mão a cada palmo; o corpo balança como um pêndulo preso às mãos
 		var bt: Texture2D = Spr.tex.pai_vine_a if int(p.get("bfr", 0)) == 0 else Spr.tex.pai_vine_b
 		var bax := 63.0 if bt == Spr.tex.pai_vine_a else 60.0
+		var bty: float = g.NT.bar_y(p.bar, cx) + 1
+		var brot: float = float(p.get("bsw", 0.0)) + sin(T * .05) * .02
+		_pose("bar%d" % int(p.get("bfr", 0)), bt, Rect2(Vector2.ZERO, bt.get_size()), Rect2(Vector2(-bax, -2), bt.get_size()), cx, bty, brot, -.56 if p.face < 0 else .56, .56)
 		Spr.save()
-		Spr.translate(cx, g.NT.bar_y(p.bar, cx) + 1)
-		Spr.rotate(float(p.get("bsw", 0.0)) + sin(T * .05) * .02)
+		Spr.translate(cx, bty)
+		Spr.rotate(brot)
 		Spr.scale(-.56 if p.face < 0 else .56, .56)
 		Spr.ci.draw_texture(bt, Vector2(-bax, -2))
 		Spr.restore()
@@ -1138,6 +1199,7 @@ func _player_draw(g: Game) -> void:
 			p.vstill = still
 			var t: Texture2D = Spr.tex.pai_vine_b if still else Spr.tex.pai_vine_a
 			var ax := 63.0 if t == Spr.tex.pai_vine_a else 60.0
+			_pose("vine" + str(still), t, Rect2(Vector2.ZERO, t.get_size()), Rect2(Vector2(-ax, -2), t.get_size()), hx, hy, -p.get("vang", v.th), -.56 if p.face < 0 else .56, .56)
 			Spr.save()
 			Spr.translate(hx, hy)
 			Spr.rotate(-p.get("vang", v.th))
@@ -1148,6 +1210,7 @@ func _player_draw(g: Game) -> void:
 			var t2: Texture2D = Spr.tex.pai_rope_a if mv else Spr.tex.pai_rope_b
 			var rx := 46.0 if mv else 52.0
 			var lx: float = p.ladder.x + p.ladder.w / 2
+			_pose("rope%d" % mv, t2, Rect2(Vector2.ZERO, t2.get_size()), Rect2(Vector2(-rx, -t2.get_height()), t2.get_size()), lx, by + 4, 0.0, .56, .56)
 			Spr.save()
 			Spr.translate(lx, by + 4)
 			Spr.scale(.56, .56)
@@ -1157,6 +1220,7 @@ func _player_draw(g: Game) -> void:
 			var t3: Texture2D = Spr.tex.pai_climb
 			var lx2: float = p.ladder.x + p.ladder.w / 2 if p.ladder.kind == "ladder" else cx
 			var bob := -2.0 if mv else 0.0
+			_pose("ladder%d" % mv, t3, Rect2(Vector2.ZERO, t3.get_size()), Rect2(Vector2(-t3.get_width() / 2.0, -t3.get_height()), t3.get_size()), lx2, by + 6 + bob, 0.0, -.56 if mv else .56, .56)
 			Spr.save()
 			Spr.translate(lx2, by + 6 + bob)
 			Spr.scale(-.56 if mv else .56, .56)
@@ -1193,9 +1257,10 @@ func _player_draw(g: Game) -> void:
 		if n != "":
 			if p.onGround:
 				Spr.ellipse(cx, by + 1, 18, 4, Color(0, 0, 0, .22))
-			var rim := _rim(g, p)
-			if rim.a > 0:
-				Spr.A_sil(n, cx + rim_off.x, by + rim_off.y, .56, p.face < 0, rim)
+			var ar = Spr.AR.get(n)
+			if ar != null:
+				_pose(n, Spr.atlas_tex(ar), Rect2(ar[0], ar[1], ar[2], ar[3]), Rect2(-ar[4], -ar[5], ar[2], ar[3]), cx, by, 0.0, -.56 if p.face < 0 else .56, .56)
+			p.lean = lerp(float(p.get("lean", 0.0)), 0.0, .3)
 			Spr.A(n, cx, by, .56, p.face < 0)
 			_armor(p, cx, by)
 			return
@@ -1220,7 +1285,7 @@ func _player_draw(g: Game) -> void:
 				"lantern":
 					f = (T / 40) % n
 				"walk", "run":
-					f = int(p.anim * (1.6 if p.run else 1.2) * n / 4.0) % n
+					f = int(p.get("gait", p.anim * 1.2) * n / 4.0) % n
 				"idle":
 					f = (T / 7) % n
 				"jump":
@@ -1231,21 +1296,22 @@ func _player_draw(g: Game) -> void:
 					f = int((1 - p.landT / 8.0) * (n - 1))
 			var sz: float = a.s
 			var k2 := 78.0 / sz
-			Spr.ellipse(cx, by + 1, 16, 4, Color(0, 0, 0, .25 if p.onGround else .12))
-			var rim3 := _rim(g, p)
+			var air3: float = clamp(1 - abs(p.vy) / 16.0, .35, 1) if not p.onGround else 1.0
+			Spr.ellipse(cx, by + 1, 16 * air3, 4 * air3, Color(0, 0, 0, .25 * air3))
 			var sq3: float = p.squash
-			for pass3 in (2 if rim3.a > 0 else 1):
-				var rp: bool = pass3 == 0 and rim3.a > 0
-				Spr.save()
-				Spr.translate(cx + (rim_off.x if rp else 0.0), by + (rim_off.y if rp else 0.0))
-				if key == "run":
-					Spr.rotate(p.face * .04)
-				Spr.scale(p.face * k2 * (1 + sq3 * .2), k2 * (1 - sq3 * .25))
-				if rp:
-					Spr.ci.draw_texture_rect_region(Spr.sil(a.tex), Rect2(-sz / 2, -sz, sz, sz), Rect2(f * sz, 0, sz, sz), Color(rim3.r, rim3.g, rim3.b, rim3.a * Spr.alpha))
-				else:
-					Spr.ci.draw_texture_rect_region(a.tex, Rect2(-sz / 2, -sz, sz, sz), Rect2(f * sz, 0, sz, sz), Color(1, 1, 1, Spr.alpha))
-				Spr.restore()
+			var st: Vector2 = _body_flex(p, key, f, n)
+			var turn3: float = .7 + .3 * (1 - p.turnT / 6.0) if p.turnT > 0 else 1.0
+			var sx3: float = p.face * k2 * (1 + sq3 * .2) * st.x * turn3
+			var sy3: float = k2 * (1 - sq3 * .25) * st.y
+			var src3 := Rect2(f * sz, 0, sz, sz)
+			var dst3 := Rect2(-sz / 2, -sz, sz, sz)
+			_pose(key, a.tex, src3, dst3, cx, by, p.lean, sx3, sy3)
+			Spr.save()
+			Spr.translate(cx, by)
+			Spr.rotate(p.lean)
+			Spr.scale(sx3, sy3)
+			Spr.ci.draw_texture_rect_region(a.tex, dst3, src3, Color(1, 1, 1, Spr.alpha))
+			Spr.restore()
 			_armor(p, cx, by)
 			return
 	# folhas de sprites antigas (parado, andar, pulo, planar, mergulho)
@@ -1283,17 +1349,17 @@ func _player_draw(g: Game) -> void:
 		idle = sin(T * .32) * .05 * pant - .02 * pant
 	var turn: float = .65 + .35 * (1 - p.turnT / 6.0) if p.turnT > 0 else 1.0
 	var rim2 := _rim(g, p)
+	_body_flex(p, "old", fr, 4)
+	var rot0: float = p.lean + (p.face * .06 * pant if (pant > 0 and fr == 0 and tex == pai) else 0.0)
+	var sx0: float = p.face * sc * (1 + sq * .25) * turn
+	var sy0: float = sc * (1 - sq * .3 + idle)
+	_pose("old%d_%d" % [tex.get_instance_id(), fr], tex, Rect2(fr * 170, 0, 170, 160), Rect2(-85, -156, 170, 160), cx, by, rot0, sx0, sy0)
 	for pass_i in (2 if rim2.a > 0 else 1):
 		var rimp: bool = pass_i == 0 and rim2.a > 0
 		Spr.save()
 		Spr.translate(cx + (rim_off.x if rimp else 0.0), by + (rim_off.y if rimp else 0.0))
-		if pant > 0 and fr == 0 and tex == pai:
-			Spr.rotate(p.face * .06 * pant)
-		if p.skidT > 0 and p.onGround:
-			Spr.rotate(-p.face * .18)
-		elif p.run and p.onGround:
-			Spr.rotate(p.face * .07)
-		Spr.scale(p.face * sc * (1 + sq * .25) * turn, sc * (1 - sq * .3 + idle))
+		Spr.rotate(rot0)
+		Spr.scale(sx0, sy0)
 		if rimp:
 			Spr.ci.draw_texture_rect_region(Spr.sil(tex), Rect2(-85, -156, 170, 160), Rect2(fr * 170, 0, 170, 160), Color(rim2.r, rim2.g, rim2.b, rim2.a * Spr.alpha))
 		else:
@@ -1306,6 +1372,56 @@ func _player_draw(g: Game) -> void:
 	_armor(p, cx, by)
 	if not p.onGround and not p.vine and not p.ladder and p.airJumps > 0:
 		Spr.ring(cx, by + 7, 4, Color(.92, .88, .76, .55), 1.5)
+
+## corpo vivo: inclinação suave (acompanha a velocidade, sem tranco), esticar no pulo,
+## sobe-e-desce do passo (sem tirar o pé do chão: estica/encolhe a partir da sola)
+func _body_flex(p: Dictionary, key: String, f: int, n: int) -> Vector2:
+	var lt: float = 0.0
+	if p.onGround:
+		lt = p.vx / 6.6 * (.075 if p.run else .05)
+		if p.skidT > 0:
+			lt = p.vx / 6.6 * .2
+	else:
+		lt = p.vx / 6.6 * .07 + clamp(p.vy / 13.0, -1, 1) * .025 * sign(p.vx)
+	p.lean = lerp(float(p.get("lean", 0.0)), lt, .16)
+	var sy: float = 1.0
+	if not p.onGround and not p.vine and not p.ladder:
+		if p.vy < 0:
+			sy = 1 + clamp(-p.vy / 12.0, 0, 1) * .07
+		else:
+			sy = 1 + clamp((p.vy - 5) / 8.0, 0, 1) * .05
+	elif (key == "walk" or key == "run") and n == 8:
+		# quadros 1-2 e 5-6: perna de apoio esticada (corpo mais alto); 0, 3, 4, 7: pés abertos (mais baixo)
+		var amp: float = clamp(abs(p.vx) / 4.3, 0, 1) * (.022 if key == "run" else .016)
+		sy = 1 + amp * [-1.0, .8, 1.0, -.4, -1.0, .8, 1.0, -.4][f % 8]
+	var st: float = lerp(float(p.get("flex", 1.0)), sy, .35)
+	p.flex = st
+	return Vector2(1 - (st - 1) * .8, st)
+
+## troca de pose sem salto: a pose anterior some aos poucos por baixo da nova (alguns quadros)
+var _pose_last := {}
+var _ghost := {}
+var _ghostT := 0
+var _ghost_tick := -1
+var _ppos := Vector2.ZERO
+const GHOST_N := 5
+func _pose(key: String, tex: Texture2D, src: Rect2, dst: Rect2, x: float, y: float, rot: float, sx: float, sy: float) -> void:
+	if _ghost_tick != T:
+		_ghost_tick = T
+		if _ghostT > 0:
+			_ghostT -= 1
+		if _pose_last.has("key") and _pose_last.key != key and T - int(_pose_last.t) <= 2:
+			_ghost = _pose_last
+			_ghostT = GHOST_N
+	if _ghostT > 0 and not _ghost.is_empty():
+		var a: float = float(_ghostT) / (GHOST_N + 1) * .6
+		Spr.save()
+		Spr.translate(_ppos.x + _ghost.off.x, _ppos.y + _ghost.off.y)
+		Spr.rotate(_ghost.rot)
+		Spr.scale(_ghost.sx, _ghost.sy)
+		Spr.ci.draw_texture_rect_region(_ghost.tex, _ghost.dst, _ghost.src, Color(1, 1, 1, a * Spr.alpha))
+		Spr.restore()
+	_pose_last = {"key": key, "tex": tex, "src": src, "dst": dst, "rot": rot, "sx": sx, "sy": sy, "t": T, "off": Vector2(x, y) - _ppos}
 
 ## ponta do cachecol esvoaçando para trás quando corre ou pula (atrás do corpo)
 func _scarf(p: Dictionary) -> void:

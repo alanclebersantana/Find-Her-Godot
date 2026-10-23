@@ -126,8 +126,9 @@ static func _bird(g: Game, c: Dictionary, px: float, py: float, T: int) -> void:
 			c.vx = sign(c.x - px) * 3.0 if c.x != px else 3.0
 			c.vy = -3.4
 			c.f = sign(c.vx)
-		elif int(c.t) % 90 == 60:
-			c.x += c.f * 8
+		elif int(c.t) % 90 >= 60 and int(c.t) % 90 < 68:
+			# pulinho: anda 8 px num arco curto (em vez de teletransportar)
+			c.x += c.f * 1.0
 		elif int(c.t) % 200 == 0:
 			c.f = -c.f
 	elif c.st == "fly":
@@ -144,11 +145,20 @@ static func _bird(g: Game, c: Dictionary, px: float, py: float, T: int) -> void:
 			_respawn(c)
 		return
 	var fly: bool = c.st == "fly"
-	var peck: float = 0.0 if fly else (2.0 if int(c.t) % 50 < 8 else 0.0)
+	var pk: int = int(c.t) % 50
+	# bicada: abaixa e volta suave (curva), não num estalo
+	var peck: float = 0.0 if fly else (sin(pk / 8.0 * PI) * 2.0 if pk < 8 else 0.0)
+	var hop_ph: int = int(c.t) % 90 - 60
+	var hop: float = sin(hop_ph / 8.0 * PI) * 5.0 if (not fly and hop_ph >= 0 and hop_ph < 8) else 0.0
 	Spr.save()
-	Spr.translate(c.x, c.y)
+	Spr.translate(c.x, c.y - hop)
 	if fly:
-		Spr.P("bird_fly", 0, 4 + sin(T * .8) * 2, 22, c.f < 0, 0.0, SOFT)
+		# bate as asas: o corpo sobe na batida para baixo e as asas "fecham" (achata na vertical)
+		var fl: float = sin(T * .8 + c.x0)
+		Spr.translate(0, 4 - fl * 2)
+		Spr.rotate(clamp(c.vy * -.05, -.25, .25) * -c.f)
+		Spr.scale(1, .8 + .2 * abs(fl))
+		Spr.P("bird_fly", 0, 0, 22, c.f < 0, 0.0, SOFT)
 	else:
 		Spr.rotate(peck * .12 * c.f)
 		Spr.P("bird_sit", 0, 1, 17, c.f < 0, 0.0, SOFT)

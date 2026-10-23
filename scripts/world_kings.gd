@@ -55,10 +55,12 @@ static func _hawk(g: Game, K: Kings, T: int) -> void:
 			bf = 2
 		elif h.st == "dive":
 			bf = 0
+		# o corpo sobe a cada batida de asa (para baixo) e vira girando no ar
+		var flap: float = 0.0 if h.st in ["stuck", "dive"] else -sin(T * PI / 8.0) * 5.0
 		Spr.save()
-		Spr.translate(h.x, y - 34)
+		Spr.translate(h.x, y - 34 + flap)
 		Spr.rotate(rot * .6)
-		Spr.scale(h.dir, 1)
+		Spr.scale(Spr.eturn(h, .12), 1)
 		var bn: String = "bat%d" % bf
 		var bh: float = Spr.PH(bn, 230)
 		Spr.PR(bn, -115, -bh / 2, 230, bh, tint)
@@ -111,8 +113,8 @@ static func _fish(g: Game, K: Kings, T: int) -> void:
 	var a: float = f.al * (clamp(1.0 - f.t / 160.0, 0, 1) if f.st == "down" else 1.0)
 	var tint := Color(1, .55, .5) if f.red > 0 and (T / 3) % 2 == 0 else Color(1, 1, 1)
 	Spr.save()
-	Spr.translate(f.x, f.y)
-	Spr.scale(f.dir, 1)
+	Spr.translate(f.x, f.y + (sin(T * .06) * 3.0 if f.st != "down" else 0.0))
+	Spr.scale(Spr.eturn(f, .1), 1)
 	if f.get("skin", "fish") == "frog" and Spr.tex.has("en_frog2"):
 		# Sapo-Rei nadando: o sapo pintado bem grande, pernas batendo; boca aberta quando suga
 		var ff: int = 0 if f.st in ["tired", "down"] else (3 if f.st == "suck" and f.mouth > .3 else [1, 2][(T / 8) % 2])

@@ -83,12 +83,17 @@ func __draw_raw() -> void:
 		nleaves = max(nleaves, min(int(sl), leaves.size()))
 	for k in nleaves:
 		var l: Dictionary = leaves[k]
-		l.vx = lerpf(l.vx, -1.2 - wind * 5.5 + sin(t * .01 + k) * .8, .02)
-		l.vy = lerpf(l.vy, .6 + sin(t * .05 + k * 2.0) * .9, .05)
-		l.vr = sin(t * .03 + k) * .08
+		# folha caindo de verdade: balança como um pêndulo (desce mais rápido no meio do arco,
+		# quase para nas pontas), inclina para o lado do balanço e vira no ar mostrando o avesso
+		l.ph = float(l.get("ph", k * 1.7)) + .035 + l.s * .012 + wind * .03
+		var sw: float = sin(l.ph)
+		l.vx = lerpf(l.vx, -1.2 - wind * 5.5 + sw * (1.3 - wind * .6), .06)
+		l.vy = lerpf(l.vy, .35 + (1.0 - abs(sw)) * .9 + sin(t * .05 + k * 2.0) * .15, .08)
+		l.vr = lerpf(float(l.vr), sw * .5 - wind * .3, .1)
 		l.x += l.vx - (g.rcam - g.prev_cam) * .3
 		l.y += l.vy
-		l.r += l.vr
+		l.r = float(l.get("r0", l.r)) + l.vr
+		l.r0 = float(l.get("r0", l.r)) + sin(t * .007 + k) * .004
 		if l.x < -40:
 			l.x = vs.x + 30
 			l.y = randf() * vs.y * .7
@@ -110,7 +115,8 @@ func __draw_raw() -> void:
 		var lc: Color = [Color(.42, .6, .2), Color(.75, .5, .15), Color(.6, .3, .12)][l.c]
 		if song in ["noite", "perseguicao", "tunel"]:
 			lc = lc.darkened(.65)
-		_leaf(l.x, l.y, l.r, l.s, lc)
+		var flip: float = cos(l.ph * 1.35 + k)
+		_leaf(l.x, l.y, l.r, l.s, lc if flip > 0 else lc.darkened(.22), clamp(abs(flip), .25, 1.0))
 	# neblina
 	var fa: float = g.AMB.get("fog", 0.0)
 	if fa > 0:
@@ -124,11 +130,11 @@ func __draw_raw() -> void:
 				f.x = -f.w
 			draw_texture_rect(Spr.glow_tex, Rect2(f.x, f.y - g.rcam_y * .05, f.w, f.h), false, Color(fc.r, fc.g, fc.b, .6 * f.a * fa))
 
-func _leaf(x: float, y: float, r: float, s: float, c: Color) -> void:
+func _leaf(x: float, y: float, r: float, s: float, c: Color, wf: float = 1.0) -> void:
 	var pts := PackedVector2Array()
 	for i in 9:
 		var a := TAU * i / 8.0
-		var p := Vector2(cos(a) * 7 * s, sin(a) * 3 * s * (1.0 + .4 * cos(a)))
+		var p := Vector2(cos(a) * 7 * s, sin(a) * 3 * s * wf * (1.0 + .4 * cos(a)))
 		pts.push_back(Vector2(x, y) + p.rotated(r))
 	draw_colored_polygon(pts, c)
 	draw_line(Vector2(x, y) + Vector2(-7 * s, 0).rotated(r), Vector2(x, y) + Vector2(7 * s, 0).rotated(r), c.darkened(.4), 1)
