@@ -23,7 +23,7 @@ L = {
              "telhados da vila dos mineiros. O Vargas está levando a Isis para o fundo da mina.",
     "introImg": "res://assets/ui/cut_ep2_a.jpg",
     "endTitle": "FIM DAS PROFUNDEZAS",
-    "periods": ["Boca da mina", "Vale do moinho", "Telhados da vila", "Profundezas"],
+    "periods": ["Boca da mina", "Vale do moinho", "Telhados da vila", "Profundezas", "A fuga da Isis"],
     "clueIds": [7, 8, 9, 10, 11, 12],
     "rests": {
         "1": ["FIM DA BOCA DA MINA", "Ela tinha medo do escuro. Eu deixava a lanterna acesa na porta do quarto.", "Estou com a lanterna, filha. O escuro não vence a gente."],
@@ -444,7 +444,7 @@ for i, u in [(2, .2), (6, .93), (9, .8)]:
 
 # fim da vila: desce para a rua, porteira da mina (chave) na boca da mina
 check(round(VILLAGE_END + 140), GY, 3)
-S.append({"t": "portal", "x": gx - 90, "y": GY, "w": 260, "deco": 1})
+S.append({"t": "portal", "x": gx - 90, "y": GY, "w": 260, "tun": 560, "deco": 1})   # túnel até as galerias
 S.append({"t": "pgate", "id": "vgate", "x": gx, "y": -700, "w": 22, "h": 1200, "crank": 1})
 L["locks"].append({"x": gx - 60, "y": 380, "w": 80, "h": 120, "id": "vgate", "kind": "gate", "gate": "vgate",
                    "need": "chave", "parts": ["chave_a", "chave_b"],
@@ -492,8 +492,117 @@ L["clues"].append({"x": E0 + 400, "y": 470, "id": 12})
 coins_line(E0 + 100, E0 + 600, 470)
 L["door"] = {"x": E0 + 700, "y": 410, "kind": "vault"}
 L["rails"] = [E0 - 200, E0 + 900]
-L["spanX"] = E0 + 900
 hint(E0, E0 + 600, "A porta de ferro do Vargas... Pegue a pista e vá até a porta.")
+
+# ======================================================================
+#  E · A FUGA DA ISIS  (do outro lado da porta de ferro: joga-se com a Isis)
+#  A Isis é pequena (cabe nos buracos), pula mais baixo e não tem pulo duplo nem planar.
+#  Quarto de pedra → depósito (lampião do Vargas, caixote para empurrar) → poço (telhas, tábua
+#  que vai e vem, corda) → túnel baixo → prateleiras e passarela → saída... e o Vargas.
+# ======================================================================
+IX = E0 + 2300
+rock(E0 + 900, IX - 140, -620, 640)                   # rocha maciça entre o cofre e o esconderijo
+L["sections"].append({"x": IX - 140, "song": "tunel", "bg": "esconderijo", "gt": "mina", "dark": .5, "night": 1,
+                      "per": 4, "map": "isis", "tint": "rgba(60,35,10,.16)"})
+L["darkZones"].append({"x": IX - 140, "w": 7800, "dark": .72})
+L["isisPart"] = {"x0": IX - 140, "spawn": [IX + 170, GY]}
+L.setdefault("shafts", [])
+L["watchmen"] = L.get("watchmen", [])
+L["hides"] = []
+L["drops"] = []
+rock(IX - 140, IX + 7780, -620, 130, True)
+
+
+def ihide(x, w, k="crate", h=48):
+    L["hides"].append({"x": IX + x, "w": w, "k": k, "h": h})
+
+
+def idrop(x, c, msg):
+    L["drops"].append({"x": IX + x, "c": c, "msg": msg})
+
+
+def brick(x0, x1, y0, y1):
+    S.append({"t": "brickw", "x": IX + x0, "y": y0, "w": x1 - x0, "h": y1 - y0})
+
+
+# E1 · o quarto de pedra: desenhos de giz da Isis e uma fresta embaixo da parede
+ground(IX - 140, IX + 2150)
+brick(-140, 40, 130, GY)
+for x, k in [(90, "papai"), (170, "coracao"), (250, "sol"), (330, "estrela"), (400, "flor")]:
+    L["chalk"].append({"x": IX + x, "y": 400 if k != "sol" else 360, "k": k, "d": 1})
+brick(480, 560, 130, GY - 30)                         # 30 px: a Isis passa em pé, um adulto não
+hint(IX + 200, IX + 480, "Uma fresta embaixo da parede! A Isis é pequena: ela cabe. Vá para a direita.", yl=200)
+idrop(610, "#e04a3a", "A Isis deixou cair um lápis vermelho: o papai vai achar a trilha.")
+check(IX + 650)
+coins_line(IX + 700, IX + 900, 470)
+
+# E2 · o depósito: o Vargas faz a ronda com o lampião; caixote para empurrar até a parede alta
+L["watchmen"].append({"x0": IX + 980, "x1": IX + 1500, "spd": .9, "any": 1, "vargas": 1})
+ihide(760, 66)
+ihide(1080, 46, "barrel", 54)
+ihide(1330, 70)
+hint(IX + 700, IX + 980, "O Vargas está fazendo a ronda. Quando a luz vier, segure ↓ atrás de um caixote ou barril: escondida, ele não vê.", yl=200)
+L["crates"].append({"t": "push", "x": IX + 1640, "y": GY - 56, "w": 56, "h": 56})
+S.append({"t": "wall", "x": IX + 1820, "y": GY - 84, "w": 130, "h": 84})
+hint(IX + 1560, IX + 1820, "Alto demais para a Isis! Empurre o caixote até a parede e suba nele.", yl=200)
+coins_line(IX + 1835, IX + 1935, GY - 114, 34)
+idrop(2010, "#e8a030", "Um lápis laranja no chão. A Isis está deixando uma trilha.")
+
+# o primeiro poço: telhas de madeira podre, cada uma numa altura
+L["shafts"].append([IX + 2150, IX + 2560, GY])
+for x, y in [(2180, 470), (2300, 445), (2420, 470)]:
+    S.append({"t": "plat", "x": IX + x, "y": y, "w": 72, "crumble": 1})
+coins_arc(IX + 2170, IX + 2540, 420, 40, 6)
+hint(IX + 2060, IX + 2150, "Tábuas podres! Elas despencam logo depois que você pisa: pule de uma para a outra sem parar.", yl=200)
+ground(IX + 2560, IX + 2800)
+check(IX + 2620)
+
+# E3 · o poço grande: tábua que vai e vem e uma corda para atravessar pendurada
+L["shafts"].append([IX + 2800, IX + 3350, GY])
+L["movers"].append({"k": "path", "x0": IX + 2815, "x1": IX + 3250, "y0": 470, "y1": 470, "w": 90, "per": 380})
+hint(IX + 2700, IX + 2800, "Espere a tábua chegar e pule nela.", yl=200)
+ground(IX + 3350, IX + 3500)
+L["shafts"].append([IX + 3500, IX + 3900, GY])
+L["bars"].append({"x0": IX + 3470, "x1": IX + 3930, "y": 432})
+hint(IX + 3360, IX + 3500, "Uma corda esticada: pule nela e vá pendurada até o outro lado.", yl=200)
+coins_line(IX + 3540, IX + 3860, 400, 40)
+ground(IX + 3900, IX + 7780)
+idrop(3960, "#3a7ad8", "Mais um lápis no chão, o azul. Siga a trilha, papai!")
+check(IX + 4020)
+
+# E4 · o túnel baixo: só engatinhando (↓)
+brick(4300, 4780, 130, GY - 24)
+hint(IX + 4180, IX + 4320, "Um túnel bem baixinho: segure ↓ e passe engatinhando.", yl=200)
+coins_line(IX + 4340, IX + 4740, 485, 50)
+
+# E5 · prateleiras e a passarela: lá em cima o lampião não alcança
+L["watchmen"].append({"x0": IX + 5330, "x1": IX + 5900, "spd": 1.0, "any": 1, "vargas": 1})
+for x, y, w, kw in [(5000, 455, 100, {}), (5090, 410, 100, {}), (5180, 365, 290, {}), (5470, 365, 90, {"crumble": 1}),
+                    (5560, 365, 240, {}), (5800, 260, 300, {}), (6100, 320, 90, {}), (6180, 380, 90, {}), (6260, 440, 90, {})]:
+    d = {"t": "plat", "x": IX + x, "y": y, "w": w, "trestle": 1}
+    d.update(kw)
+    S.append(d)
+L["climb"].append({"x": IX + 5770, "y": 260, "w": 30, "h": 105, "kind": "ladder"})
+ihide(5420, 46, "barrel", 54)
+ihide(5700, 66)
+hint(IX + 4900, IX + 5100, "Suba nas prateleiras: lá em cima a luz do lampião não chega. Cuidado com a prateleira podre!", yl=200)
+coins_line(IX + 5200, IX + 5440, 335, 40)
+coins_line(IX + 5820, IX + 6080, 230, 40)
+idrop(5950, "#3aa04a", "Lápis verde: ela deixou um em cada lugar por onde passou.")
+check(IX + 6420)
+
+# E6 · a saída... o último lampião e o Vargas
+L["watchmen"].append({"x0": IX + 6760, "x1": IX + 7020, "spd": 1.2, "any": 1, "vargas": 1})
+ihide(6600, 66)
+ihide(6880, 46, "barrel", 54)
+ihide(7080, 70)
+hint(IX + 6450, IX + 6600, "O ar fresco da noite... a saída está perto! Mais um lampião: esconda-se e espere a hora certa.", yl=200)
+L["chalk"].append({"x": IX + 7230, "y": 420, "k": "seta", "d": 1})
+coins_line(IX + 7160, IX + 7360, 470)
+L["isisCatch"] = {"x": IX + 7390}
+L["isisExit"] = {"x": IX + 7500}
+brick(7700, 7780, 130, GY)
+L["spanX"] = IX + 7780
 
 # ----------------------------------------------------------------------
 L["solids"] = [s for s in S if s]

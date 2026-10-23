@@ -86,7 +86,7 @@ func _draw_raw() -> void:
 		WorldNature.clip_x0 = -1e9
 		WorldNature.clip_x1 = 1e9
 	for s in L.solids:
-		var pad := 140.0
+		var pad := 140.0 + float(s.get("tun", 0))
 		if s.x + s.get("w", 0) + pad < x0 or s.x - pad > x1:
 			continue
 		# morros e paredões grandes: só o pedaço onde eles começam desenha (os pedaços seguintes
@@ -201,6 +201,64 @@ static func gt_at(g, x: float) -> String:
 			k = str(sc.get("gt", ""))
 	return k
 
+const MIX_W := 420.0     # largura da mistura entre dois chãos diferentes
+const MIX_STRIP := 14.0
+
+## [chão de antes, chão de depois, peso do de depois] em x (perto da divisa de dois trechos)
+static func mix_at(g, x: float) -> Array:
+	var prev := ""
+	for sc in g.L.get("sections", []):
+		var k := str(sc.get("gt", ""))
+		if k != prev:
+			var bx: float = float(sc.x)
+			if x < bx - MIX_W / 2:
+				break
+			if x < bx + MIX_W / 2:
+				var u: float = clamp((x - (bx - MIX_W / 2)) / MIX_W, 0.0, 1.0)
+				return [prev, k, u * u * (3.0 - 2.0 * u)]
+			prev = k
+		else:
+			prev = k
+	return [prev, prev, 0.0]
+
+## o trecho [a, b] cruza a divisa de dois chãos?
+func _mix_span(a: float, b: float) -> bool:
+	var prev := ""
+	var first := true
+	for sc in game.L.get("sections", []):
+		var k := str(sc.get("gt", ""))
+		if not first and k != prev:
+			var bx: float = float(sc.x)
+			if b > bx - MIX_W / 2 and a < bx + MIX_W / 2:
+				return true
+		prev = k
+		first = false
+	return false
+
+## chão misturado: tiras finas com a textura de antes e a de depois por cima (transparência pelo peso)
+func _ground_mixed(s: Dictionary, xa: float, xb: float) -> void:
+	var x: float = xa
+	while x < xb:
+		var e: float = min(x + MIX_STRIP, xb)
+		var m: Array = mix_at(game, (x + e) * .5)
+		var tc := _ground_tint((x + e) * .5)
+		for j in 2:
+			var w: float = 1.0 if j == 0 else float(m[2])
+			if w <= 0.0 or (j == 0 and float(m[2]) >= 1.0):
+				continue
+			var key: String = str(m[j])
+			var t: Texture2D = Spr.tex.get("chao_" + key, Spr.tex.chao) if key != "" else Spr.tex.chao
+			var tw: float = t.get_width() - 1
+			var th: float = min(float(t.get_height()), s.h + 32.0)
+			var u0: float = fposmod(x, tw)
+			var ww: float = e - x
+			if u0 + ww > tw:
+				ww = tw - u0
+			Spr.ci.draw_texture_rect_region(t, Rect2(x, s.y - 32, ww, th), Rect2(u0, 0, ww, th), Color(tc.r, tc.g, tc.b, w))
+			if ww < e - x:
+				Spr.ci.draw_texture_rect_region(t, Rect2(x + ww, s.y - 32, e - x - ww, th), Rect2(0, 0, e - x - ww, th), Color(tc.r, tc.g, tc.b, w))
+		x = e
+
 static func gtex(g, x: float) -> Texture2D:
 	var k := gt_at(g, x)
 	if k != "" and Spr.tex.has("chao_" + k):
@@ -221,11 +279,14 @@ func _chao2(t: Texture2D, tw: float) -> Texture2D:
 		_c2s[t.get_rid().get_id()] = _c2
 	return _c2
 func ground(s: Dictionary) -> void:
-	var t: Texture2D = gtex(game, s.x + s.w / 2)
 	var x_a: float = max(s.x, x0 - 4)
 	var x_b: float = min(s.x + s.w, x1 + 4)
 	if x_b <= x_a:
 		return
+	# a textura é a do trecho onde este pedaço do chão está (não a do meio do bloco inteiro)
+	var t: Texture2D = gtex(game, (x_a + x_b) * .5)
+	# chão de pedra/mina: textura alinhada ao mundo (dois blocos vizinhos emendam sem costura)
+	var ox: float = 0.0 if gt_at(game, (x_a + x_b) * .5) != "" else s.x
 	var ol: bool = _open_end(s, false) and s.w > 60
 	var orr: bool = _open_end(s, true) and s.w > 60
 	# as pontas abertas ficam por conta do contorno arredondado
@@ -233,11 +294,15 @@ func ground(s: Dictionary) -> void:
 	var cut_b: float = s.x + s.w - (ROUND if orr else 0.0)
 	# alinhado ao início do bloco para não "pular" entre pedaços
 	var tw: float = t.get_width() - 1
-	var start: float = s.x + floor((x_a - s.x) / tw) * tw
+	var start: float = ox + floor((x_a - ox) / tw) * tw
 	var x := start
 	# nada passa do fundo do bloco (senão a terra cobre a caverna que fica embaixo)
 	var th: float = min(float(t.get_height()), s.h + 32.0)
-	while x < x_b:
+	var mixed: bool = _mix_span(x_a, x_b)
+	if mixed:
+		# divisa entre dois chãos (vila → mina): as duas texturas se misturam aos poucos
+		_ground_mixed(s, max(x_a, cut_a), min(x_b, cut_b))
+	while x < x_b and not mixed:
 		var xa2: float = max(x, cut_a)
 		var xb2: float = min(x + tw + 1, cut_b)
 		if xb2 > xa2:
@@ -248,7 +313,7 @@ func ground(s: Dictionary) -> void:
 	var fy: float = s.y - 34 + t.get_height()
 	if s.y + s.h > fy:
 		# a terra continua para baixo com a mesma textura (raízes, pedras), escurecendo aos poucos
-		_dirt_fill(max(x_a, cut_a), min(x_b, cut_b), fy - 2, s.y + s.h, s.x)
+		_dirt_fill(max(x_a, cut_a), min(x_b, cut_b), fy - 2, s.y + s.h, ox)
 		_earth_detail(max(x_a, cut_a + 6), min(x_b, cut_b - 6), fy + 4, s.y + min(s.h, 700.0), Color("#34200f"))
 	if ol and s.x >= x0 - ROUND and s.x < x1:
 		_ground_end(s, t, tw, false)
@@ -265,7 +330,20 @@ func _dirt_fill(xa: float, xb: float, ya: float, yb: float, ox: float, k0: float
 	xb = min(xb, x1 + 2)
 	if xb <= xa or yb <= ya:
 		return
-	var t: Texture2D = gtex(game, (xa + xb) * .5)
+	if _mix_span(xa, xb):
+		# na divisa de dois chãos: faixas finas, cada uma com a mistura das duas texturas
+		var sx: float = xa
+		while sx < xb:
+			var ex: float = min(sx + MIX_STRIP, xb)
+			var m: Array = mix_at(game, (sx + ex) * .5)
+			_dirt_fill_t(sx, ex, ya, yb, ox, k0, Spr.tex.get("chao_" + str(m[0]), Spr.tex.chao) if m[0] != "" else Spr.tex.chao, 1.0)
+			if float(m[2]) > 0.0:
+				_dirt_fill_t(sx, ex, ya, yb, ox, k0, Spr.tex.get("chao_" + str(m[1]), Spr.tex.chao) if m[1] != "" else Spr.tex.chao, float(m[2]))
+			sx = ex
+		return
+	_dirt_fill_t(xa, xb, ya, yb, ox, k0, gtex(game, (xa + xb) * .5), 1.0)
+
+func _dirt_fill_t(xa: float, xb: float, ya: float, yb: float, ox: float, k0: float, t: Texture2D, alpha: float) -> void:
 	var ts := t.get_size()
 	var v0: float = 60.0
 	var th: float = ts.y - v0
@@ -278,7 +356,7 @@ func _dirt_fill(xa: float, xb: float, ya: float, yb: float, ox: float, k0: float
 		var hh_: float = min(th, yend - y)
 		var u: float = clamp((y - ya) / 600.0, 0, 1)
 		var m: float = k0 * lerpf(.92, .42, u)
-		var col := Color(tint.r * m, tint.g * m, tint.b * m)
+		var col := Color(tint.r * m, tint.g * m, tint.b * m, alpha)
 		var x: float = ox + floor((xa - ox) / tw) * tw
 		while x < xb:
 			var a: float = max(x, xa)
@@ -1107,43 +1185,90 @@ func portal(s: Dictionary) -> void:
 	var op0: float = x + 50          # vão da entrada
 	var op1: float = x + w - 30
 	var top: float = gy - 268
-	# o escuro lá dentro
-	Spr.rect(op0, top, op1 - op0, gy - top, Color("#0c0907"))
-	Spr.ellipse((op0 + op1) / 2, top + 40, (op1 - op0) * .5, 50, Color("#0c0907"))
-	# paredão de pedra em volta (até lá em cima)
-	_dirt_fill(x - 40, op0, -760, gy, x, .62)
-	_dirt_fill(op0, op1 + 10, -760, top + 6, x, .62)
-	_dirt_fill(op1, x + w + 80, -760, gy, x, .62)
-	var rim := Color("#4a3a2c")
-	var rim2 := Color("#2a2018")
-	# borda irregular de pedras no paredão (lado da vila)
-	var yy: float = -740
-	while yy < gy:
-		var r := hh(yy + x, 17)
-		Spr.ellipse(x - 40, yy + 16, 14 + r * 10, 20, rim2)
-		Spr.ellipse(x - 36, yy + 14, 10 + r * 8, 15, rim)
-		yy += 36
+	var mt: Texture2D = Spr.tex.get("chao_mina", Spr.tex.chao)
+	var tun: float = float(s.get("tun", 0))
+	var tx1: float = x + w + tun           # fim do túnel (dali para frente, as galerias da mina)
+	# o túnel lá dentro: escurece para o fundo, com escoras e trilhos sumindo no escuro
+	Spr.vgrad(op0, top, tx1 - op0, gy - top, Color("#2a1e14"), Color("#0c0806"))
+	var cx: float = (op0 + op1) / 2
+	for k in 3:
+		var sc: float = .78 - k * .2
+		var fw: float = (op1 - op0) * sc
+		var fh: float = (gy - top) * sc
+		var fy: float = gy - 6 - k * 14
+		var c := Color(.32 - k * .08, .21 - k * .05, .11 - k * .03)
+		Spr.rect(cx - fw / 2, fy - fh, 8 * sc + 2, fh, c)
+		Spr.rect(cx + fw / 2 - 8 * sc - 2, fy - fh, 8 * sc + 2, fh, c)
+		Spr.rect(cx - fw / 2 - 4, fy - fh - 6 * sc, fw + 8, 9 * sc + 2, c)
+	# escoras do túnel (dentro, depois da porteira)
+	var ex: float = op1 + 150
+	while ex < tx1 - 40:
+		Spr.rect(ex, top + 8, 14, gy - top - 8, Color("#3e2914"))
+		Spr.rect(ex + 3, top + 8, 4, gy - top - 8, Color(1, .8, .5, .1))
+		Spr.rect(ex - 30, top + 4, 74, 14, Color("#4a3018"))
+		Spr.glow(ex + 7, top + 60, 34, Color(1, .7, .35, .14))
+		Spr.circle(ex + 7, top + 60, 2.5, Color(1, .85, .5, .7))
+		ex += 170
+	Spr.glow(cx + 10, gy - 120, 60, Color(1, .7, .35, .18))
+	Spr.circle(cx + 10, gy - 120, 3, Color(1, .85, .5, .8))
+	# paredão de rocha da mina em volta (a mesma terra pedregosa das galerias)
+	for band in [[-760.0, -100.0], [-100.0, gy]]:
+		_dirt_fill_t(x - 70, op0, band[0], band[1], 0.0, 1.15, mt, 1.0)
+		_dirt_fill_t(op0, tx1 + 60, band[0], min(band[1], top + 6), 0.0, 1.15, mt, 1.0)
+	if tun <= 0:
+		for band in [[-760.0, -100.0], [-100.0, gy]]:
+			_dirt_fill_t(op1, x + w + 90, band[0], band[1], 0.0, 1.15, mt, 1.0)
+	# teto do túnel: pedras irregulares na borda de baixo
+	var bx2: float = op1 + 12
+	while bx2 < tx1 + 40:
+		var r2 := hh(bx2, 23)
+		Spr.ellipse(bx2 + 12, top + 6, 16 + r2 * 6, 8 + r2 * 4, Color("#2a2018"))
+		Spr.ellipse(bx2 + 10, top + 3, 12 + r2 * 5, 5 + r2 * 3, Color("#4a3a2c"))
+		bx2 += 28
+	# saída do túnel para as galerias: a rocha some aos poucos
+	if tun > 0:
+		Spr.hgrad(tx1 - 10, -760, 90, top + 766, Color(.08, .06, .04, .0), Color(.08, .06, .04, 0))
+	# borda irregular do lado da vila: a rocha recortada, com luz de lua nas quinas
+	var edge := PackedVector2Array()
+	var yy: float = -760
+	while yy <= gy:
+		edge.push_back(Vector2(x - 70 + sin(yy * .021 + x) * 9 + sin(yy * .07) * 5, yy))
+		yy += 20
+	Spr.line(edge, Color("#140e0a"), 6)
+	for i in range(0, edge.size(), 4):
+		var e2: Vector2 = edge[i]
+		var r3 := hh(e2.y + x, 11)
+		if r3 > .45:
+			Spr.ellipse(e2.x + 4, e2.y + 6, 9 + r3 * 8, 6 + r3 * 4, Color("#5a4a3c"))
+			Spr.seg(e2.x - 2, e2.y + 2, e2.x + 10, e2.y, Color(.75, .8, .95, .35), 2)
+	# pedrinhas e musgo no pé do paredão
+	for k in 5:
+		var px: float = x - 80 + k * 14 + hh(x + k, 5) * 8
+		Spr.ellipse(px, gy - 3, 8 + hh(px, 3) * 6, 5, Color("#5a4c40"))
+	Spr.ellipse(x - 50, gy - 2, 26, 5, Color(.3, .45, .2, .7))
 	# vigas: dois esteios e a travessa
-	var wood := Color("#5a3a1e")
+	var wood := Color("#6b4524")
 	var wood2 := Color("#2e1c0c")
 	for px in [op0 - 6, op1 - 16]:
 		Spr.rect(px, top, 22, gy - top, wood2)
 		Spr.rect(px + 3, top, 15, gy - top, wood)
-		Spr.rect(px + 6, top, 3, gy - top, Color(1, .85, .6, .15))
+		Spr.rect(px + 6, top, 3, gy - top, Color(1, .85, .6, .22))
+		for k in 5:
+			Spr.seg(px + 5, top + 30 + k * 50, px + 15, top + 42 + k * 50, Color(0, 0, 0, .3), 1.2)
 	Spr.rect(op0 - 26, top - 26, op1 - op0 + 52, 28, wood2)
 	Spr.rect(op0 - 22, top - 22, op1 - op0 + 44, 20, wood)
-	Spr.rect(op0 - 22, top - 22, op1 - op0 + 44, 4, Color(1, .85, .6, .18))
+	Spr.rect(op0 - 22, top - 22, op1 - op0 + 44, 4, Color(1, .85, .6, .22))
 	for k in 2:
 		Spr.seg(op0 + 16 + k * (op1 - op0 - 52), top, op0 + 46 + k * (op1 - op0 - 112), top + 32, wood, 6)
 	# placa
-	var sx: float = (op0 + op1) / 2
-	Spr.rect(sx - 46, top - 62, 92, 30, wood2)
-	Spr.rect(sx - 43, top - 59, 86, 24, Color("#7a5530"))
-	Spr.text("MINA", sx, top - 41, 16, Color("#f0dcb0"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 2, Color(0, 0, 0, .7))
+	Spr.rect(cx - 46, top - 62, 92, 30, wood2)
+	Spr.rect(cx - 43, top - 59, 86, 24, Color("#8a6036"))
+	Spr.text("MINA", cx, top - 41, 16, Color("#f0dcb0"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 2, Color(0, 0, 0, .7))
 	# lanterninha pendurada
 	Spr.seg(op0 + 4, top - 2, op0 + 4, top + 26, Color("#222"), 1.5)
 	Spr.circle(op0 + 4, top + 32, 7, Color("#3a2a18"))
 	Spr.circle(op0 + 4, top + 32, 4, Color(1, .8, .4))
+	Spr.glow(op0 + 4, top + 32, 40, Color(1, .75, .35, .3))
 
 func rockw(s: Dictionary) -> void:
 	var xa: float = max(s.x, x0 - 4)

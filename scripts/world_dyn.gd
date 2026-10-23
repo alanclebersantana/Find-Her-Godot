@@ -1029,35 +1029,35 @@ func _player(g: Game) -> void:
 	Spr.alpha = a0
 	Spr.restore()
 
-## a Isis (fase da fuga): quadros do filha.png — parada, acenando, pulando, mãos à frente
+## a Isis (fase da fuga) — arte do Gemini, isis2.png: 0-3 correndo, 4 parada, 5 pulando, 6 caindo,
+## 7 ajoelhada (shh), 8 subindo escada, 9 agachada escondida, 10 pendurada, 11-12 engatinhando
+const ISIS_H := 76.0
 func _isis_draw(p: Dictionary) -> void:
-	var t2: Texture2D = Spr.tex.filha
-	var fw: float = t2.get_width() / 4.0
-	var fh: float = t2.get_height()
 	var cx: float = p.x + p.w / 2
 	var by: float = p.y + p.h + 2
-	var hgt: float = 56.0
-	var fr := 0
-	var sy := 1.0
-	var rot := 0.0
-	var bob := 0.0
-	if not p.onGround:
-		fr = 2
+	var fr := 4
+	var flip: bool = p.face < 0
+	if p.get("bar"):
+		fr = 10
+		by = float(p.bar.y) + ISIS_H * .66
+		cx = p.x + p.w / 2
+	elif p.ladder:
+		fr = 8
+		flip = false
+		if p.ladder.kind == "ladder":
+			cx = p.ladder.x + p.ladder.w / 2
+	elif not p.onGround:
+		fr = 5 if p.vy < 1.0 else 6
 	elif p.crouch:
-		fr = 3
-		sy = .62
+		if abs(p.vx) > .4:
+			fr = 11 + int(p.anim * .5) % 2
+		else:
+			fr = 9 if game.VL and game.VL.hidden(p) else 7
 	elif abs(p.vx) > .5:
-		fr = 0 if int(p.anim * .6) % 2 == 0 else 3
-		bob = -abs(sin(p.anim * .6 * PI)) * 3.0
-		rot = sin(p.anim * .6 * PI) * .06
-	var s: float = hgt / fh
-	Spr.ellipse(cx, p.y + p.h + 1, 11, 2.5, Color(0, 0, 0, .3))
-	Spr.save()
-	Spr.translate(cx, by + bob)
-	Spr.rotate(rot * p.face)
-	Spr.scale(-s if p.face < 0 else s, s * sy)
-	Spr.ci.draw_texture_rect_region(t2, Rect2(-fw / 2, -fh, fw, fh), Rect2(fr * fw, 0, fw, fh), Color(1, 1, 1, Spr.alpha))
-	Spr.restore()
+		fr = int(p.anim * .7) % 4
+	if fr != 10 and fr != 8:
+		Spr.ellipse(cx, p.y + p.h + 1, 13, 3, Color(0, 0, 0, .3))
+	Spr.sheet("isis2", fr, 150, 150, cx, by, ISIS_H, flip)
 
 ## poses da animação de entrar/sair dos esconderijos
 func _warp_pose(p: Dictionary) -> void:

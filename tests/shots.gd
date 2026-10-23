@@ -65,7 +65,13 @@ func _initialize() -> void:
 		g.player.spawnY = g.player.y
 		if p.size() > 2:
 			for k in p[2].split("+"):
-				if k == "nocatch":
+				if k == "isis":
+					g.begin_isis()
+					g.player.x = x - 10
+					g.player.y = y - 26
+					g.player.spawnX = g.player.x
+					g.player.spawnY = g.player.y
+				elif k == "nocatch":
 					g.VL.no_catch = true
 				elif k == "lit":
 					g.lantern_lit = true

@@ -72,6 +72,7 @@ func _ready() -> void:
 	game.clue_opened.connect(_on_clue)
 	game.bag_wanted.connect(func(l): open_bag(l))
 	game.results_ready.connect(_on_level_end)
+	game.isis_start.connect(_on_isis_start)
 	game.game_over.connect(_on_over)
 	game.level_won.connect(_on_results)
 	game.rest_reached.connect(_on_rest)
@@ -299,7 +300,7 @@ func _process(_d: float) -> void:
 			if tb.texture_normal != want_t:
 				tb.texture_normal = want_t
 			# a Isis não tem picareta
-			tb.visible = not (game.L and game.L.get("isis"))
+			tb.visible = not (game.player and game.player.get("isis"))
 	if hint_btn:
 		hint_btn.visible = top_buttons.visible and hud.can_replay()
 		hint_btn.position = Vector2(352, 8)
@@ -992,7 +993,7 @@ func show_title() -> void:
 	panel.set_meta("ok", func(): start_level(not run.is_empty()))
 
 ## escolher o episódio (aparece depois de terminar o primeiro)
-const EPISODES := [["EPISÓDIO 1 · O BOSQUE", "Do bosque até a boca da mina."], ["EPISÓDIO 2 · AS PROFUNDEZAS DA MINA", "Túneis, o moinho, os telhados da vila e o carrinho nos trilhos."]]
+const EPISODES := [["EPISÓDIO 1 · O BOSQUE", "Do bosque até a boca da mina."], ["EPISÓDIO 2 · AS PROFUNDEZAS DA MINA", "Túneis, o moinho, os telhados da vila, o carrinho nos trilhos e a fuga da Isis."]]
 func _choose_episode() -> void:
 	var vb := _overlay(.9)
 	vb.add_child(_label("ESCOLHA O EPISÓDIO", 30, GOLD, Spr.font_title))
@@ -1006,13 +1007,6 @@ func _choose_episode() -> void:
 			panel = null
 			start_level(false, lv)))
 		vb.add_child(_label(EPISODES[i][1], 13, Color(.8, .75, .65), Spr.font_i))
-	# o epílogo jogável do Episódio 2 (liberado depois de jogar até o fim, ou na versão de teste)
-	if eps >= 2 and (OS.has_feature("teste") or Save.getv("prog", "isis", false) or not Save.best(1).is_empty()):
-		vb.add_child(_button("EPÍLOGO · A FUGA DA ISIS", func():
-			panel.queue_free()
-			panel = null
-			start_level(false, 2)))
-		vb.add_child(_label("Do outro lado da porta de ferro: jogue com a Isis.", 13, Color(.8, .75, .65), Spr.font_i))
 	var back := func():
 		panel.queue_free()
 		panel = null
@@ -1196,7 +1190,7 @@ func start_level(cont: bool, lvl: int = 0) -> void:
 	if cont:
 		show_intro(true)
 	else:
-		var cut: String = ["abertura", "ep2", "isis"][clamp(game.level_idx, 0, 2)]
+		var cut: String = "abertura" if game.level_idx == 0 else "ep2"
 		if game.level_idx > 0 and Save.getv("opt", "tut_asked", false):
 			play_cut(cut, func(): show_intro(false))
 		else:
@@ -1562,13 +1556,20 @@ func play_cut(id: String, after: Callable) -> void:
 	c.finished.connect(after)
 
 func _on_level_end() -> void:
-	if game.level_idx == 2:
-		# fim da fuga da Isis: o Vargas a pegou (gancho para o Episódio 3)
-		Save.setv("prog", "isis", true)
-		Save.clear_run()
-		play_cut("isis_fim", show_title)
+	if game.player.get("isis"):
+		# fim da fuga da Isis (último trecho do Episódio 2): o Vargas a pegou — gancho para o Episódio 3
+		play_cut("isis_fim", _on_results)
 		return
 	play_cut("mina" if game.level_idx == 0 else "ep2fim", _on_results)
+
+## Episódio 2: o Tomé chegou à porta de ferro. Cena da porta, cena da Isis do outro lado,
+## e o último trecho do episódio é jogado com ela
+func _on_isis_start() -> void:
+	play_cut("ep2fim", func(): play_cut("isis", func():
+		game.begin_isis()
+		state = S.PLAY
+		_show_hud(true)
+		game.flash_tut("A Isis!", "Agora você joga com a Isis. Ela é pequena: cabe nos buracos, mas pula mais baixo. Fuja sem o Vargas ver: ↓ atrás de caixotes para se esconder.", 300)))
 
 # ---------- mapa da fase ----------
 ## from_pause: volta ao menu de pausa; from_bag: volta à mochila; senão volta ao jogo
@@ -1776,8 +1777,8 @@ func _on_results() -> void:
 		Save.setv("prog", "eps", max(2, int(Save.getv("prog", "eps", 1))))
 		vb.add_child(_button("CONTINUAR", func(): play_cut("posfinal", func(): start_level(false, 1))))
 	else:
-		vb.add_child(_label("Enquanto isso, do outro lado da porta de ferro...", 13, Color(.75, .7, .6), Spr.font_i))
-		vb.add_child(_button("CONTINUAR", func(): start_level(false, 2)))
+		vb.add_child(_label("O Episódio 3 chega em breve.", 13, Color(.75, .7, .6)))
+		vb.add_child(_button("CONTINUAR", show_title))
 
 class _FinalDrawing extends Control:
 	## O desenho da Isis, colorido com os lápis especiais encontrados

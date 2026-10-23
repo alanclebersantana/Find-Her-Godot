@@ -213,8 +213,14 @@ func _shatter(t: Dictionary) -> void:
 		g.PARTS.append({"x": float(t.x), "y": t.y, "vx": randf_range(-3, 3), "vy": randf_range(-5, -1), "life": 30, "col": Color("#b4502e")})
 	Audio.play("stomp", -10)
 
+## onde fica o lampião (na mão, à frente do corpo)
+static func lamp_pos(w: Dictionary) -> Vector2:
+	if w.get("vargas"):
+		return Vector2(float(w.x) + float(w.dir) * 34.0, 466.0)
+	return Vector2(float(w.x) + float(w.dir) * 40.0, 458.0)
+
 func in_cone(w: Dictionary, pc: Vector2) -> bool:
-	var lp := Vector2(float(w.x) + float(w.dir) * 16.0, 446.0)
+	var lp := lamp_pos(w)
 	var v: Vector2 = pc - lp
 	if v.length() > CONE_LEN or v.x * float(w.dir) < 0:
 		return false
@@ -226,7 +232,7 @@ func hidden(p: Dictionary) -> bool:
 		return false
 	var cx: float = p.x + p.w / 2
 	for h in HIDES:
-		if cx > float(h.x) + 4 and cx < float(h.x) + float(h.w) - 4:
+		if cx > float(h.x) - 8 and cx < float(h.x) + float(h.w) + 8:
 			return true
 	return false
 
@@ -244,7 +250,8 @@ func isis_step() -> void:
 	if int(CATCH.t) < 0:
 		if p.x > float(CATCH.x) and p.onGround:
 			CATCH.t = 0
-			CATCH.vx = float(CATCH.x) + 520.0
+			# o Vargas sai da própria saída, contra o luar
+			CATCH.vx = float(g.L.isisExit.x) + 50.0 if g.L.has("isisExit") else float(CATCH.x) + 520.0
 			Audio.play("door", -4, .6)
 		return
 	CATCH.t = int(CATCH.t) + 1
@@ -267,10 +274,20 @@ func _caught(w: Dictionary) -> void:
 	Audio.vib(120)
 	g.shake = 6
 	g.iris_t = 30
-	p.x = p.spawnX
-	p.y = p.spawnY
+	# volta para a última fogueira (não para o último lugar seguro, que pode estar na frente do lampião)
+	var k: int = int(g.cur_chk)
+	if k >= 0 and k < g.CHK.size():
+		p.x = float(g.CHK[k].x) - p.w / 2
+		p.y = float(g.CHK[k].y) - p.h
+		p.spawnX = p.x
+		p.spawnY = p.y
+	else:
+		p.x = p.spawnX
+		p.y = p.spawnY
 	p.vx = 0.0
 	p.vy = 0.0
+	p.crouch = false
+	p.h = g.body_h()
 	p.iframe = 60
 	w.wait = 90
 	if p.get("isis"):
@@ -296,6 +313,8 @@ func draw(T: int) -> void:
 		if float(t.x) > c1 or float(t.x) < c0:
 			continue
 		_tile(t, T)
+	if g.L.has("isisExit"):
+		_exit(float(g.L.isisExit.x))
 	for d in DOGS:
 		if d.x > c1 or d.x < c0:
 			continue
@@ -311,7 +330,8 @@ func draw(T: int) -> void:
 		if d.done:
 			_pencil(float(d.x), float(d.y), str(d.get("c", "#e04a3a")))
 	if not CATCH.is_empty() and int(CATCH.t) >= 0:
-		vargas_fig(float(CATCH.vx), 500.0, -1.0, T, int(CATCH.t) if float(CATCH.vx) > g.player.x + g.player.w + 27 else 0)
+		var near: bool = float(CATCH.vx) <= g.player.x + g.player.w + 27
+		vargas_fig(float(CATCH.vx), 500.0, -1.0, T, int(CATCH.t), 6 if near else -1)
 
 ## por cima da Isis: os caixotes e barris do esconderijo
 func draw_front(T: int) -> void:
@@ -335,6 +355,21 @@ func draw_front(T: int) -> void:
 		if behind and p.crouch:
 			Spr.text("escondida", x + w / 2, 500 - hh - 12, 12, Color(.85, 1, .85, .9), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_i, 2)
 
+## a saída do esconderijo: o luar entrando por uma abertura na rocha
+func _exit(ex: float) -> void:
+	if ex < g.cam - 300 or ex > g.cam + g.W + 300:
+		return
+	Spr.rect(ex - 90, 120, 300, 382, Color("#2a1d14"))
+	for st in 9:
+		Spr.ellipse(ex - 90, 140 + st * 42, 16, 24, Color("#3a2a1c"))
+		Spr.ellipse(ex + 140 + (st % 3) * 20, 150 + st * 38, 22, 14, Color("#3a2a1c"))
+	Spr.rr(ex - 10, 330, 120, 172, 50, Color("#1a2a44"))
+	Spr.rr(ex, 342, 100, 160, 44, Color("#3a5a86"))
+	Spr.circle(ex + 66, 380, 12, Color(.95, .95, .85))
+	for st in 5:
+		Spr.circle(ex + 14 + st * 19, 360 + (st * 37) % 50, 1.4, Color(1, 1, 1, .8))
+	Spr.glow(ex + 50, 430, 120, Color(.6, .75, 1, .25))
+
 func _pencil(x: float, y: float, c: String) -> void:
 	Spr.save()
 	Spr.translate(x, y - 4)
@@ -346,34 +381,21 @@ func _pencil(x: float, y: float, c: String) -> void:
 	Spr.restore()
 	Spr.glow(x, y - 4, 16, Color(1, .95, .7, .25))
 
-## o Vargas a pé: capacete de mineiro com lampião, bigode e capote
-static func vargas_fig(x: float, y: float, d: float, T: int, wt: int) -> void:
-	var st: float = sin(wt * .3) * 5.0 if wt > 0 else 0.0
-	Spr.ellipse(x, y, 22, 4, Color(0, 0, 0, .35))
-	var dark := Color("#2a2420")
-	var coat := Color("#5a3a22")
-	Spr.rr(x - 11 + st, y - 34, 10, 34, 3, dark)
-	Spr.rr(x + 1 - st, y - 34, 10, 34, 3, dark)
-	Spr.poly(PackedVector2Array([Vector2(x - 18, y - 30), Vector2(x - 14, y - 86), Vector2(x + 14, y - 86), Vector2(x + 20, y - 30)]), coat)
-	Spr.rect(x - 17, y - 52, 36, 5, Color("#2a1a0e"))
-	Spr.circle(x + d * 3, y - 96, 12, Color("#c99a78"))
-	Spr.rr(x + d * 2 - (14.0 if d < 0 else 0.0), y - 92, 14, 4, 2, Color("#3a2a1e"))
-	Spr.circle(x + d * 8, y - 99, 1.8, Color(0, 0, 0))
-	Spr.rr(x - 12, y - 114, 26, 12, 6, Color("#6a5a3a"))
-	Spr.rect(x - 14, y - 104, 30, 4, Color("#4a3e28"))
-	Spr.circle(x + d * 12, y - 108, 4.5, Color(1, .9, .55))
-	# braço com o lampião na frente
-	Spr.seg(x + d * 6, y - 74, x + d * 16, y - 60, coat, 6)
-	Spr.seg(x + d * 16, y - 64, x + d * 16, y - 56, Color(.2, .2, .2), 1.5)
-	Spr.rr(x + d * 16 - 5, y - 57, 10, 12, 2, Color("#b08a3a"))
-	Spr.circle(x + d * 16, y - 51, 3.5, Color(1, .92, .6))
+## o Vargas a pé (arte do Gemini: vargas_pe.png — 0-3 andando, 4 erguendo o lampião, 5 correndo,
+## 6 abaixado agarrando, 7 rindo). fr < 0: escolhe pelo passo (wt = quadros andando; 0 = parado)
+const VG_H := 124.0
+static func vargas_fig(x: float, y: float, d: float, T: int, wt: int, fr: int = -1) -> void:
+	if fr < 0:
+		fr = (wt / 9) % 4 if wt > 0 else 4
+	Spr.ellipse(x, y + 1, 26, 5, Color(0, 0, 0, .35))
+	Spr.sheet("vargas_pe", fr, 200, 200, x, y + 2, VG_H, d < 0)
 
 ## o facho do lampião (por cima do escuro)
 func draw_glow(T: int) -> void:
 	for w in WATCH:
 		if w.x > g.cam + g.W + 400 or w.x < g.cam - 400:
 			continue
-		var lp := Vector2(float(w.x) + float(w.dir) * 16.0, 446.0)
+		var lp := lamp_pos(w)
 		var dirv := Vector2(float(w.dir), .12).normalized()
 		var pts := PackedVector2Array([lp])
 		var cols := PackedColorArray([Color(1, .85, .45, .38)])
@@ -384,56 +406,34 @@ func draw_glow(T: int) -> void:
 		Spr.ci.draw_polygon(pts, cols)
 		Spr.glow(lp.x, lp.y, 46, Color(1, .8, .4, .5))
 
+## vigia noturno (arte do Gemini: vigia.png — 0-3 andando, 4 parado, 5 erguendo o lampião,
+## 6 apitando e apontando, 7 correndo)
+const VIGIA_H := 115.0
 func _watchman(w: Dictionary, T: int) -> void:
 	var x: float = float(w.x)
 	var d: float = float(w.dir)
-	var step: float = sin(w.t * .18) * 3.0 if w.wait == 0 else 0.0
-	var dark := Color("#3a3a4a")
-	var coat := Color("#5a4632")
-	Spr.ellipse(x, 501, 20, 4, Color(0, 0, 0, .3))
-	# pernas
-	Spr.rr(x - 9 + step, 470, 8, 30, 3, dark)
-	Spr.rr(x + 1 - step, 470, 8, 30, 3, dark)
-	# capote
-	Spr.poly(PackedVector2Array([Vector2(x - 14, 474), Vector2(x - 10, 428), Vector2(x + 10, 428), Vector2(x + 14, 474)]), coat)
-	Spr.rect(x - 13, 452, 26, 4, Color("#4a3a22"))
-	# cabeça e quepe
-	Spr.circle(x + d * 2, 418, 9, Color("#c9a080"))
-	Spr.circle(x + d * 6, 416, 1.6, Color(0, 0, 0))
-	Spr.rr(x - 10, 404, 20, 9, 3, Color("#26304a"))
-	Spr.rect(x - 10, 410, 20, 2, Color("#c8a040"))
-	Spr.rect(x + d * 6 - (12.0 if d < 0 else 0.0), 411, 12, 3, Color("#26304a"))
-	# botões e apito dourados
-	for k in 3:
-		Spr.circle(x + d * 2, 436 + k * 9, 1.6, Color("#e0c060"))
-	# braço com o lampião levantado
-	Spr.seg(x + d * 6, 434, x + d * 16, 440, coat, 6)
-	Spr.seg(x + d * 16, 436, x + d * 16, 444, Color(.2, .2, .2), 1.5)
-	Spr.rr(x + d * 16 - 5, 443, 10, 12, 2, Color("#b08a3a"))
-	Spr.circle(x + d * 16, 449, 3.5, Color(1, .92, .6))
-	# apito quando para
+	var fr: int = (int(w.t) / 10) % 4
+	if w.wait > 0:
+		fr = 6 if int(w.get("alarm", 0)) > 0 else (5 if w.wait > 30 else 4)
+	Spr.ellipse(x, 501, 28, 5, Color(0, 0, 0, .32))
+	Spr.sheet("vigia", fr, 220, 200, x, 502, VIGIA_H, d < 0)
 	if w.wait > 40:
-		Spr.text("?", x, 392 + sin(T * .2) * 2, 16, Color(1, .9, .6), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3)
+		Spr.text("?", x, 380 + sin(T * .2) * 2, 18, Color(1, .9, .6), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3)
 
+## cão de guarda (arte do Gemini: cao.png — 0-3 correndo, 4 rosnando, 5 latindo, 6 farejando, 7 pulando)
+const CAO_H := 73.0
 func _dog(d: Dictionary, T: int) -> void:
-	var run: bool = d.st == "chase"
-	var fr: int = (T / (3 if run else 7)) % 4
-	var ok := false
-	Spr.ellipse(d.x, 501, 22, 4, Color(0, 0, 0, .3))
-	Spr.save()
-	Spr.translate(d.x, 500)
-	Spr.scale(.42 * (-1.0 if d.dir < 0 else 1.0), .42)
-	if Spr.has("dog%d" % fr):
-		Spr.A_sil("dog%d" % fr, 0, 0, 1.0, false, Color("#2a2018"))
-		ok = true
-	Spr.restore()
-	if not ok:
-		Spr.rr(d.x - 20, 478, 40, 18, 7, Color("#2a2018"))
-	# olhos vermelhos e coleira de pregos
-	Spr.circle(d.x + d.dir * 16, 474, 2.2, Color(1, .25, .15))
-	Spr.rect(d.x + d.dir * 8 - 4, 480, 8, 3, Color("#b03020"))
+	var fr: int
+	if d.st == "chase":
+		fr = 7 if d.bark > 20 else [0, 1, 2, 3][(T / 4) % 4]
+	elif d.bark > 0:
+		fr = 5
+	else:
+		fr = 6 if (T / 90) % 3 == 0 else 4
+	Spr.ellipse(d.x, 501, 26, 5, Color(0, 0, 0, .3))
+	Spr.sheet("cao", fr, 200, 150, d.x, 502, CAO_H, d.dir < 0)
 	if d.bark > 0:
-		Spr.text("AU!", d.x + d.dir * 30, 452, 14, Color(1, .9, .6), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3)
+		Spr.text("AU!", d.x + d.dir * 34, 440, 15, Color(1, .9, .6), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3)
 
 func _hot(h: Dictionary, T: int) -> void:
 	var x: float = float(h.x)

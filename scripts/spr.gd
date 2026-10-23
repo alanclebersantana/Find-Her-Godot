@@ -48,9 +48,9 @@ func _ready() -> void:
 		var ep := "res://assets/sprites/%s.png" % k
 		if ResourceLoader.exists(ep):
 			tex[k] = load(ep)
-	for k in ["pai", "pai2", "javali", "chao", "tronco", "galho", "filha", "pai_climb", "pai_rope_a", "pai_rope_b", "pai_vine_a", "pai_vine_b", "gaviao", "bagre"]:
+	for k in ["pai", "pai2", "javali", "chao", "tronco", "galho", "filha", "vigia", "cao", "vargas_pe", "isis2", "pai_climb", "pai_rope_a", "pai_rope_b", "pai_vine_a", "pai_vine_b", "gaviao", "bagre"]:
 		tex[k] = load("res://assets/sprites/%s.png" % k)
-	for k in ["bosque", "tarde", "pantano", "noite", "neve", "mina", "moinho", "vila"]:
+	for k in ["bosque", "tarde", "pantano", "noite", "neve", "mina", "moinho", "vila", "esconderijo"]:
 		tex["bg_" + k] = load("res://assets/bg/%s.jpg" % k)
 		# cenário em camadas pintadas (opcional): assets/bg/<trecho>/1_ceu.jpg, 2_longe.png, 3_meio.png, 4_perto.png
 		var layers: Array = []
@@ -422,6 +422,19 @@ func rr(x: float, y: float, w: float, h: float, r: float, c: Color) -> void:
 			var a: float = cc[2] + PI / 2 * i / 5.0
 			pts.push_back(Vector2(cc[0] + cos(a) * r, cc[1] + sin(a) * r))
 	ci.draw_colored_polygon(pts, col(c))
+
+## quadro de uma folha de sprites em linha (células cw x ch, pés no fundo da célula):
+## desenhado com a base em (x, by), a célula inteira com altura hgt; flip vira para a esquerda
+func sheet(name: String, fr: int, cw: float, ch: float, x: float, by: float, hgt: float, flip: bool = false, mod: Color = Color(1, 1, 1)) -> void:
+	var t: Texture2D = tex.get(name)
+	if t == null:
+		return
+	var s: float = hgt / ch
+	save()
+	translate(x, by)
+	scale(-s if flip else s, s)
+	ci.draw_texture_rect_region(t, Rect2(-cw / 2, -ch, cw, ch), Rect2(fr * cw, 0, cw, ch), Color(mod.r, mod.g, mod.b, mod.a * alpha))
+	restore()
 
 func glow(x: float, y: float, r: float, c: Color) -> void:
 	ci.draw_texture_rect(glow_tex, Rect2(x - r, y - r, r * 2, r * 2), false, col(c))

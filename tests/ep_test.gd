@@ -62,39 +62,43 @@ func _initialize() -> void:
 	if m.panel and m.panel.has_meta("ok"):
 		m.panel.get_meta("ok").call()
 	await process_frame
-	# fim do Ep. 2
+	# a porta de ferro: cenas e o último trecho do Ep. 2 é jogado com a Isis
 	m.game.running = false
-	m._on_results()
-	await process_frame
-	if not _press("CONTINUAR"):
-		fails.append("sem CONTINUAR no fim do Ep. 2")
+	m._on_isis_start()
 	for i in 6:
 		await process_frame
 		_end_cuts()
 	await process_frame
-	# o epílogo: a fuga da Isis (jogável) começa depois da cena
-	if m.game.level_idx != 2 or not m.game.player.get("isis"):
-		fails.append("a fase da Isis não começou (nível %d)" % m.game.level_idx)
+	if m.game.level_idx != 1 or not m.game.player.get("isis") or not m.game.running:
+		fails.append("a fuga da Isis não começou dentro do Ep. 2 (nível %d)" % m.game.level_idx)
+	# salvar numa fogueira do trecho da Isis e continuar: volta como a Isis
+	var ik := -1
+	for i in m.game.CHK.size():
+		if ik < 0 and m.game.CHK[i].x > float(m.game.L.isisPart.x0):
+			ik = i
+	m.game.save_checkpoint(ik)
+	m.start_level(true)
+	await process_frame
+	if not m.game.player.get("isis"):
+		fails.append("continuar no trecho da Isis voltou com o Tomé")
 	if m.panel and m.panel.has_meta("ok"):
 		m.panel.get_meta("ok").call()
 	await process_frame
+	# o Vargas a pega: cena e depois os resultados do Ep. 2
 	m.game.running = false
 	m._on_level_end()
 	for i in 6:
 		await process_frame
 		_end_cuts()
 	await process_frame
+	if not _press("CONTINUAR"):
+		fails.append("sem CONTINUAR no fim do Ep. 2")
+	await process_frame
 	if m.state != m.S.TITLE:
-		fails.append("depois da Isis não voltou ao início (estado %d)" % m.state)
+		fails.append("depois do Ep. 2 não voltou ao início (estado %d)" % m.state)
 	if not _press("ESCOLHER EPISÓDIO"):
 		fails.append("sem ESCOLHER EPISÓDIO no início")
 	await process_frame
-	var has_epi := false
-	for b in m._joy_buttons():
-		if b is Button and b.text.begins_with("EPÍLOGO"):
-			has_epi = true
-	if not has_epi:
-		fails.append("sem o botão do epílogo da Isis")
 	if not _press("EPISÓDIO 2"):
 		fails.append("sem botão do Episódio 2")
 	await process_frame

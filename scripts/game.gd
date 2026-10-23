@@ -6,6 +6,7 @@ class_name Game
 signal clue_opened(id: int)
 signal bag_wanted(l: Dictionary)   # perto de uma trava com as peças soltas: abrir a mochila para juntar
 signal results_ready
+signal isis_start      # Episódio 2: o Tomé chegou à porta de ferro — agora se joga com a Isis
 signal game_over
 signal level_won
 signal rest_reached(n: int)
@@ -386,9 +387,19 @@ func _p1_load() -> void:
 	look_y = 0
 	STATS = {"pen": 0, "penTotal": L.get("coins", []).size(), "pdeath": [0, 0, 0, 0, 0, 0]}
 
+## Episódio 2: depois da porta de ferro, a fuga da Isis (o último trecho do episódio)
+func begin_isis() -> void:
+	var sp: Array = L.isisPart.spawn
+	_reset_player(float(sp[0]) - 12, float(sp[1]) - 34)
+	VH.mode = ""
+	flash_t = 0
+	snap_camera()
+	iris_t = 30
+	running = true
+
 func _reset_player(x: float, y: float) -> void:
 	player = make_body(x, y)
-	if L and L.get("isis"):
+	if L and (L.get("isis") or (L.has("isisPart") and x >= float(L.isisPart.x0))):
 		# fase da Isis: ela é menor (cabe nos buracos) e pula mais baixo
 		player.isis = true
 		player.w = 20.0
@@ -881,6 +892,9 @@ func step() -> void:
 		_tick_fx()
 		if player.exitT == 0:
 			running = false
+			if L.has("isisPart") and not player.get("isis"):
+				isis_start.emit()
+				return
 			if L.get("results"):
 				results_ready.emit()
 			else:
@@ -1031,7 +1045,7 @@ func step() -> void:
 		var mudF := .78 if player.mud else 1.0
 		if player.jbuf > 0:
 			if player.onGround or player.coyote > 0:
-				player.vy = (JUMP * .9 if player.dog else (JUMP * .72 if player.get("isis") else JUMP)) * mudF
+				player.vy = (JUMP * .9 if player.dog else (JUMP * .76 if player.get("isis") else JUMP)) * mudF
 				Audio.play("jump", -6)
 				player.onGround = false
 				player.coyote = 0
@@ -2190,7 +2204,7 @@ func _p1_pre(pcx: float) -> void:
 		player.crouch = true
 		player.y += body_h() - crouch_h()
 		player.h = crouch_h()
-		if abs(player.vx) > 3.1:
+		if abs(player.vx) > 3.1 and not player.get("isis"):
 			player.slideT = 1
 			Audio.play("slide")
 			fx("fx_dust", pcx, player.y + player.h - 4, 16, .14, -.2)
@@ -2624,8 +2638,8 @@ func _fuel_step() -> void:
 					flash("Óleo para a lanterna: a luz vai crescendo. No escuro ela gasta devagar.")
 				else:
 					flash("Um pote de vaga-lumes! Eles clareiam um pouco o caminho.")
-	if chase_on():
-		# perseguição do Vargas: lanterna cheia o tempo todo (o foco é correr atrás dele)
+	if chase_on() or player.get("isis"):
+		# perseguição do Vargas (e a fuga da Isis): luz cheia o tempo todo
 		FUEL = 1.0
 		fuel_vis = min(1.0, fuel_vis + .02)
 		return

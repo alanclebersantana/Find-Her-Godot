@@ -961,30 +961,14 @@ static func _empty_cart(x: float, y: float) -> void:
 
 ## o Vargas a pé (capacete de mineiro com lampião, capote marrom) carregando a Isis
 static func _vargas_walk(x: float, y: float, T: int, el: int) -> void:
-	var st: float = sin(el * .45) * 6.0
-	Spr.ellipse(x, y, 22, 4, Color(0, 0, 0, .35))
-	var dark := Color("#2a2420")
-	var coat := Color("#5a3a22")
-	Spr.rr(x - 11 + st, y - 34, 10, 34, 3, dark)
-	Spr.rr(x + 1 - st, y - 34, 10, 34, 3, dark)
-	Spr.rr(x - 13 + st, y - 6, 14, 6, 2, Color("#1a1410"))
-	Spr.rr(x - 1 - st, y - 6, 14, 6, 2, Color("#1a1410"))
-	Spr.poly(PackedVector2Array([Vector2(x - 18, y - 30), Vector2(x - 14, y - 86), Vector2(x + 14, y - 86), Vector2(x + 20, y - 30)]), coat)
-	Spr.rect(x - 17, y - 52, 36, 5, Color("#2a1a0e"))
-	# a Isis debaixo do braço, esperneando
+	# o Vargas correndo (arte do Gemini) com a Isis debaixo do braço, esperneando
+	Spr.ellipse(x, y + 1, 26, 5, Color(0, 0, 0, .35))
+	Spr.sheet("vargas_pe", 5, 200, 200, x, y + 2, 124.0, false)
 	Spr.save()
-	Spr.translate(x + 4, y - 48)
-	Spr.rotate(-1.25 + sin(T * .5) * .12)
-	Spr.A("lia_scared", 0, 0, .5)
+	Spr.translate(x + 2, y - 50)
+	Spr.rotate(-.2 + sin(T * .5) * .1)
+	Spr.sheet("isis2", 6, 150, 150, 0, 22, 70.0, false)
 	Spr.restore()
-	# cabeça, bigode e o capacete com a luz
-	Spr.circle(x + 4, y - 96, 12, Color("#c99a78"))
-	Spr.rr(x + 2, y - 92, 14, 4, 2, Color("#3a2a1e"))
-	Spr.circle(x + 10, y - 99, 1.8, Color(0, 0, 0))
-	Spr.rr(x - 11, y - 114, 26, 12, 6, Color("#6a5a3a"))
-	Spr.rect(x - 13, y - 104, 30, 4, Color("#4a3e28"))
-	Spr.circle(x + 13, y - 108, 4.5, Color(1, .9, .55))
-	Spr.glow(x + 13, y - 108, 28, Color(1, .85, .45, .5))
 
 static func _cart_track(g: Game, VH: Vehicles, T: int) -> void:
 	var t0: float = VH.sled_tx0()

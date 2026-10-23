@@ -173,7 +173,7 @@ func __draw_raw() -> void:
 	Spr.text("%d/%d" % [nd, game.DRWS.size()], px0 + 78, 31, 16, Color("#8a5a10") if nd == game.DRWS.size() else Color("#3a2410"), HORIZONTAL_ALIGNMENT_LEFT, Spr.font_b)
 	Spr.text(game.period_label(), px0 + 88, 50, 12, Color("#5a3a1c"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_i)
 	# óleo da lanterna: medidor pequeno só no escuro
-	if game.AMB.dark > .45 and not (game.M and game.M.ctrl) and not game.chase_on():
+	if game.AMB.dark > .45 and not (game.M and game.M.ctrl) and not game.chase_on() and not game.player.get("isis"):
 		var fv: float = game.fuel_vis
 		_plaque(8, 54, 132, 30)
 		Spr.A("hud_lantern_full" if game.lantern_lit else "hud_lantern_empty", 26, 69, .34)
