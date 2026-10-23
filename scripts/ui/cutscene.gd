@@ -260,7 +260,7 @@ func _tome(x: float, by: float, sc: float, fr: int = 0, flip: bool = false, lamp
 
 # ---------- abertura ----------
 func _s_porch(W: float, H: float, k: float) -> void:
-	_kb(cena, W, H, k, Vector2(.36, .62), Vector2(.4, .6), 1.6, 1.35)
+	_kb(cena, W, H, k, Vector2(.3, .58), Vector2(.34, .57), 1.6, 1.35)
 	_vignette(W, H, .5)
 
 func _s_shadow(W: float, H: float, k: float) -> void:

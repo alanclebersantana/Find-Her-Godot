@@ -1104,7 +1104,7 @@ func _isis_draw(p: Dictionary) -> void:
 	# folha de corrida completa (assets/sprites/isis_run.png, quadros 150x150 na mesma escala), se existir
 	var rt: Texture2D = Spr.opt("isis_run")
 	var rn: int = int(rt.get_width() / 150) if rt else 0
-	var fp2: float = p.anim * .78 * rn / 4.0
+	var fp2: float = p.anim * .78
 	if fr < 4 and rt and rn > 0:
 		t = rt
 		src = Rect2((int(fp2) % rn) * 150, 0, 150, 150)

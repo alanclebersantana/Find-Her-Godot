@@ -48,6 +48,19 @@ def put(name, src):
         at.save(p)
 
 
-put('lia_draw', cell(7))
-put('lia_scared', cell(9))
+# poses próprias (Gemini: tools/art_src/isis_poses2.jpg — sentada desenhando e assustada de joelhos)
+import subprocess, sys, tempfile
+pp = os.path.join(ROOT, 'tools', 'art_src', 'isis_poses2.jpg')
+if os.path.exists(pp):
+    tmp = tempfile.mkdtemp()
+    out = subprocess.run([sys.executable, os.path.join(ROOT, 'tools', 'cut_sheet.py'), pp, os.path.join(tmp, 'f'), '236', '14'],
+                         check=True, capture_output=True, text=True).stdout
+    ps = sorted((int(l.split()[1]), int(l.split()[0])) for l in out.strip().splitlines())
+    big = [Image.open(os.path.join(tmp, 'f_%d.png' % k)).convert('RGBA') for _, k in ps]
+    big = [b for b in big if b.width * b.height > 40000]
+    put('lia_draw', big[0])
+    put('lia_scared', big[1])
+else:
+    put('lia_draw', cell(7))
+    put('lia_scared', cell(9))
 print('ok')
