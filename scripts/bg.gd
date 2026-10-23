@@ -147,7 +147,8 @@ func _layers(k: String, w: float, al: float) -> void:
 		var lh: float = H * (1.12 + i * .04)
 		var sc: float = lh / t.get_height()
 		var tw: float = t.get_width() * sc
-		var y: float = H - lh + clamp(-(game.rcam_y - 140.0) * f * .35, -60.0, 140.0)
+		# a camada nunca sobe a ponto de mostrar o pé dela (o chão das árvores fica sempre na tela ou abaixo)
+		var y: float = H - lh + clamp(-(game.rcam_y - 140.0) * f * .35, 0.0 if i > 0 else -60.0, 140.0)
 		var x: float = fposmod(-game.rcam * f, tw - 1) - (tw - 1)
 		var m: float = LAYER_SH[min(i, 3)]
 		var mc := Color(m, m, m * 1.04, Spr.alpha * al)

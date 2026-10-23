@@ -197,7 +197,7 @@ func _wheel(o: Dictionary, T: int) -> void:
 		Spr.save()
 		Spr.translate(cx, cy)
 		Spr.rotate(float(o.ang))
-		Spr.ci.draw_texture_rect_region(Spr.atlas_tex(rr), Rect2(-sz / 2, -sz / 2, sz, sz), Rect2(rr[0], rr[1], rr[2], rr[3]), Color(1, 1, 1, Spr.alpha))
+		Spr.ci.draw_texture_rect_region(Spr.atlas_tex(rr), Rect2(-sz / 2, -sz / 2, sz, sz), Spr.src(rr), Color(1, 1, 1, Spr.alpha))
 		Spr.restore()
 	# tábuas penduradas nas pontas (ficam sempre na horizontal)
 	for i in o.plats.size():

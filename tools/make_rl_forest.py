@@ -27,6 +27,9 @@ def key_white(im, thr=232):
     lab, n = nd.label(white)
     border = set(np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]]))) - {0}
     bg = np.isin(lab, list(border))
+    # buracos brancos entre galhos e folhas (céu aparecendo por dentro da copa) também são fundo
+    sizes = nd.sum(white, lab, index=np.arange(n + 1))
+    bg |= white & (sizes[lab] > 40)
     fg = ~bg
     dist = nd.distance_transform_edt(fg)
     alpha = np.clip(dist / 2.0, 0, 1) * 255
@@ -73,4 +76,29 @@ old = Image.open(os.path.join(ROOT, 'assets', 'sprites', 'chao.png'))
 if not os.path.exists(os.path.join(A, 'chao_antigo.png')):
     old.save(os.path.join(A, 'chao_antigo.png'))
 crop.save(os.path.join(ROOT, 'assets', 'sprites', 'chao.png'))
+
+# chão de floresta embaixo das árvores do fundo (sem isso as árvores ficam flutuando):
+# a própria faixa de grama e terra, repetida, escurecida para baixo e com a névoa da camada
+def floor_strip(width, hgt, fogk, fogc, dark):
+    t = crop.resize((round(crop.width * hgt / crop.height), hgt), Image.LANCZOS)
+    st = Image.new('RGBA', (width, hgt), (0, 0, 0, 0))
+    x = 0
+    while x < width:
+        st.alpha_composite(t, (x, 0))
+        x += t.width - 2
+    a = np.asarray(st).astype(float)
+    ys = np.linspace(0, 1, hgt)[:, None, None]
+    a[..., :3] *= (1 - dark * ys)
+    a[..., :3] = a[..., :3] * (1 - fogk) + np.array(fogc, float) * fogk
+    return Image.fromarray(np.clip(a, 0, 255).astype(np.uint8), 'RGBA')
+
+meio = Image.open(os.path.join(OUT, '3_meio.png')).convert('RGBA')
+st = floor_strip(meio.width, 120, .18, [60, 80, 60], .55)
+meio.alpha_composite(st, (0, meio.height - 96))
+meio.save(os.path.join(OUT, '3_meio.png'))
+longe = Image.open(os.path.join(OUT, '2_longe.png')).convert('RGBA')
+st = floor_strip(longe.width, 90, .55, [170, 205, 225], .25)
+st = st.filter(ImageFilter.GaussianBlur(1.6))
+longe.alpha_composite(st, (0, longe.height - 74))
+longe.save(os.path.join(OUT, '2_longe.png'))
 print('ok', crop.size)

@@ -101,6 +101,14 @@ func _ready() -> void:
 		var key := "paint%d" % (pg + 1)
 		if not tex.has(key):
 			tex[key] = load("res://assets/sprites/%s.png" % key)
+		if n.begins_with("A:"):
+			# peça nova pintada no lugar de uma do atlas antigo: guarda o tamanho antigo (de desenho)
+			# e o recorte novo na textura (r[7])
+			var on: String = n.substr(2)
+			if AR.has(on):
+				var o = AR[on]
+				AR[on] = [r[0], r[1], o[2], o[3], o[4], o[5], 3 + pg, Rect2(r[0], r[1], r[2], r[3])]
+			continue
 		AR["p_" + n] = [r[0], r[1], r[2], r[3], r[4], r[5], 3 + pg]
 		# ícones pintados de objetos e pistas novos: valem também pelo nome antigo (it_x, cl_7, clb_7)
 		if (n.begins_with("it_") or n.begins_with("cl_") or n.begins_with("clb_")) and not AR.has(n):
@@ -128,6 +136,12 @@ func opt(n: String) -> Texture2D:
 		var pth := "res://assets/sprites/%s.png" % n
 		tex[n] = load(pth) if ResourceLoader.exists(pth) else null
 	return tex[n]
+
+## recorte da peça na textura (peças antigas: o próprio retângulo; trocadas: o recorte novo)
+func src(r) -> Rect2:
+	if r.size() > 7:
+		return r[7]
+	return Rect2(r[0], r[1], r[2], r[3])
 
 func atlas_tex(r) -> Texture2D:
 	if r[6] >= 3:
@@ -269,9 +283,9 @@ func A(n: String, x: float, y: float, sc: float = 1.0, flip: bool = false, al: f
 	translate(x, y)
 	scale(-sc if flip else sc, sc)
 	if sil_c.a > 0:
-		ci.draw_texture_rect_region(sil(atlas_tex(r)), Rect2(-r[4], -r[5], r[2], r[3]), Rect2(r[0], r[1], r[2], r[3]), Color(sil_c.r, sil_c.g, sil_c.b, sil_c.a * alpha * al))
+		ci.draw_texture_rect_region(sil(atlas_tex(r)), Rect2(-r[4], -r[5], r[2], r[3]), src(r), Color(sil_c.r, sil_c.g, sil_c.b, sil_c.a * alpha * al))
 	else:
-		ci.draw_texture_rect_region(atlas_tex(r), Rect2(-r[4], -r[5], r[2], r[3]), Rect2(r[0], r[1], r[2], r[3]), Color(1, 1, 1, alpha * al))
+		ci.draw_texture_rect_region(atlas_tex(r), Rect2(-r[4], -r[5], r[2], r[3]), src(r), Color(1, 1, 1, alpha * al))
 	restore()
 
 ## silhueta branca da textura (mesmo alfa) — para o contorno de luz (rim light) dos personagens
@@ -306,7 +320,7 @@ func A_sil(n: String, x: float, y: float, sc: float, flip: bool, c: Color) -> vo
 	save()
 	translate(x, y)
 	scale(-sc if flip else sc, sc)
-	ci.draw_texture_rect_region(sil(atlas_tex(r)), Rect2(-r[4], -r[5], r[2], r[3]), Rect2(r[0], r[1], r[2], r[3]), Color(c.r, c.g, c.b, c.a * alpha))
+	ci.draw_texture_rect_region(sil(atlas_tex(r)), Rect2(-r[4], -r[5], r[2], r[3]), src(r), Color(c.r, c.g, c.b, c.a * alpha))
 	restore()
 
 ## Peça esticada num retângulo
@@ -314,7 +328,7 @@ func AB(n: String, x: float, y: float, w: float, h: float, al: float = 1.0) -> v
 	var r = AR.get(n)
 	if r == null:
 		return
-	ci.draw_texture_rect_region(atlas_tex(r), Rect2(x, y, w, h), Rect2(r[0], r[1], r[2], r[3]), Color(1, 1, 1, alpha * al))
+	ci.draw_texture_rect_region(atlas_tex(r), Rect2(x, y, w, h), src(r), Color(1, 1, 1, alpha * al))
 
 ## Peça com base no chão (centro x, base y) e largura w
 func ABb(n: String, cx: float, by: float, w: float, al: float = 1.0) -> void:
@@ -336,9 +350,10 @@ func strip_at(n: String, ox: float, x0: float, x1: float, y: float, h: float, al
 		var a: float = max(xx, x0)
 		var b: float = min(xx + tw + 1, x1)
 		if b > a:
-			var u0: float = (a - xx) / (tw + 1) * r[2]
-			var u1: float = (b - xx) / (tw + 1) * r[2]
-			ci.draw_texture_rect_region(t, Rect2(a, y, b - a, h), Rect2(r[0] + u0, r[1], u1 - u0, r[3]), Color(1, 1, 1, alpha * al))
+			var sr: Rect2 = src(r)
+			var u0: float = (a - xx) / (tw + 1) * sr.size.x
+			var u1: float = (b - xx) / (tw + 1) * sr.size.x
+			ci.draw_texture_rect_region(t, Rect2(a, y, b - a, h), Rect2(sr.position.x + u0, sr.position.y, u1 - u0, sr.size.y), Color(1, 1, 1, alpha * al))
 		xx += tw
 
 ## Faixa repetida na vertical (escadas, redes)
@@ -351,8 +366,9 @@ func strip_v(n: String, x: float, y: float, w: float, h: float, al: float = 1.0)
 	var yy := y
 	while yy < y + h:
 		var b: float = min(yy + th + 1, y + h)
-		var v: float = (b - yy) / (th + 1) * r[3]
-		ci.draw_texture_rect_region(t, Rect2(x, yy, w, b - yy), Rect2(r[0], r[1], r[2], v), Color(1, 1, 1, alpha * al))
+		var sr: Rect2 = src(r)
+		var v: float = (b - yy) / (th + 1) * sr.size.y
+		ci.draw_texture_rect_region(t, Rect2(x, yy, w, b - yy), Rect2(sr.position, Vector2(sr.size.x, v)), Color(1, 1, 1, alpha * al))
 		yy += th
 
 ## Textura (ou recorte dela) num retângulo

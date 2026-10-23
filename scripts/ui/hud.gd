@@ -364,4 +364,4 @@ func _portrait(n: String, cx: float, cy: float, h: float, al: float) -> void:
 	if w > 64:
 		w = 64
 		h = w * r[3] / r[2]
-	Spr.ci.draw_texture_rect_region(Spr.atlas_tex(r), Rect2(cx - w / 2, cy - h / 2, w, h), Rect2(r[0], r[1], r[2], r[3]), Color(1, 1, 1, al))
+	Spr.ci.draw_texture_rect_region(Spr.atlas_tex(r), Rect2(cx - w / 2, cy - h / 2, w, h), Spr.src(r), Color(1, 1, 1, al))

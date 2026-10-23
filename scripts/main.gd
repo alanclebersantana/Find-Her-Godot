@@ -939,7 +939,7 @@ func _atlas_icon(n: String, h: float) -> TextureRect:
 		return tr
 	var at := AtlasTexture.new()
 	at.atlas = Spr.atlas_tex(r)
-	at.region = Rect2(r[0], r[1], r[2], r[3])
+	at.region = Spr.src(r)
 	tr.texture = at
 	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED

@@ -15,6 +15,10 @@ MAXS = [
     ('tuc', 128), ('goose', 72), ('rab', 96), ('bfly', 48), ('frog', 72), ('owl', 96), ('bird', 64),
     ('spider', 120), ('logend', 110), ('hive', 130), ('bee', 40), ('web', 200), ('sign', 120), ('apple', 48), ('icicle', 90), ('alga', 170), ('boat', 300), ('raft', 320), ('moinho_pas', 900), ('moinho', 620), ('casa', 520), ('it_', 72), ('relic_', 64), ('clb_', 220), ('cl_', 64), ('bolt', 160), ('crankpost', 220), ('crankarm', 220), ('snowpile', 300), ('sledp', 260), ('windsock', 200), ('icecube', 200), ('stormcloud', 360), ('birdp', 120), ('hawkp', 200), ('fenda', 400), ('signup', 200), ('signdown', 200), ('flagred', 160), ('galhoneve2', 360), ('galhorio', 380), ('plant', 240), ('logroll', 220), ('stoneball', 200), ('plank', 160), ('snapbranch', 300), ('spiketop', 360), ('spikebase', 360), ('net', 220), ('cage', 220), ('hatch', 220), ('bearden', 900), ('riacho', 420), ('saltador', 260), ('pier', 300), ('dockpost', 200), ('sluicepost', 220), ('bat', 110), ('fly', 72), ('leech', 96), ('piranha', 110),
 ]
+MAXS = [('tronco_caido', 640), ('plataforma', 600), ('galho2', 600), ('mesa', 320), ('pilar', 300), ('pedra_flut', 320),
+        ('orelha', 120), ('cog_pulo', 320), ('crate_broken', 160)] + MAXS
+OVER = os.path.join(ROOT, 'art_src', 'atlas_over')
+ATL = json.load(open(os.path.join(ROOT, 'assets', 'data', 'atlas.json')))
 PAGE = 2048
 PAD = 2
 
@@ -31,11 +35,25 @@ for f in sorted(glob.glob(os.path.join(SRC, '*.png'))):
     bb = im.getbbox()
     if bb:
         im = im.crop(bb)
-    m = maxs(n)
+    m = maxs(n) * 1.25
     k = min(1.0, m / max(im.size))
     if k < 1:
         im = im.resize((max(1, round(im.width * k)), max(1, round(im.height * k))), Image.LANCZOS)
     items.append((n, im))
+
+# peças novas no lugar das do atlas antigo: guardadas com ~2x o tamanho antigo (o celular desenha em ~2x)
+over_anchor = {}
+for f in sorted(glob.glob(os.path.join(OVER, '*.png'))):
+    n = os.path.splitext(os.path.basename(f))[0]
+    r = ATL['atlas1'].get(n) or ATL['atlas2'].get(n)
+    if r is None:
+        continue
+    im = Image.open(f).convert('RGBA')
+    tw = min(560, max(8, round(r[2] * 2.2)))
+    if im.width > tw:
+        im = im.resize((tw, max(1, round(im.height * tw / im.width))), Image.LANCZOS)
+    items.append(('A:' + n, im))
+    over_anchor['A:' + n] = (r[4] / r[2], r[5] / r[3])
 
 items.sort(key=lambda t: -t[1].height)
 pages = [Image.new('RGBA', (PAGE, PAGE), (0, 0, 0, 0))]
@@ -50,7 +68,11 @@ for n, im in items:
         pages.append(Image.new('RGBA', (PAGE, PAGE), (0, 0, 0, 0)))
         x = y = rowh = 0
     pages[-1].paste(im, (x, y))
-    out[n] = [x, y, im.width, im.height, im.width // 2, im.height, len(pages) - 1]
+    if n in over_anchor:
+        fx, fy = over_anchor[n]
+        out[n] = [x, y, im.width, im.height, round(im.width * fx), round(im.height * fy), len(pages) - 1]
+    else:
+        out[n] = [x, y, im.width, im.height, im.width // 2, im.height, len(pages) - 1]
     x += im.width + PAD
     rowh = max(rowh, im.height)
 

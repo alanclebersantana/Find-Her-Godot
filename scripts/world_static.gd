@@ -831,6 +831,11 @@ static func plat(s: Dictionary) -> void:
 			Spr.rect(lx, s.y + 10, 8, 700 - s.y, wood)
 		Spr.seg(s.x + 12, s.y + 30, s.x + s.w - 12, s.y + 120, wood, 5)
 		Spr.seg(s.x + s.w - 12, s.y + 30, s.x + 12, s.y + 120, wood, 5)
+	if Spr.has("p_plataforma"):
+		_plat_art(s)
+		if s.get("hatch"):
+			return
+		return
 	# tábuas separadas (cada uma com veio e prego), pontas arredondadas e um pouco irregulares
 	var bx: float = s.x
 	var bi := 0
@@ -852,7 +857,42 @@ static func plat(s: Dictionary) -> void:
 	Spr.seg(s.x + 10, s.y + 16, s.x + 4, s.y + 40, Color(0, 0, 0, .35), 2)
 	Spr.seg(s.x + s.w - 10, s.y + 16, s.x + s.w - 4, s.y + 40, Color(0, 0, 0, .35), 2)
 
+## passarela de tábuas pintada: as pontas da arte ficam nas pontas e o meio se repete (sem esticar)
+static func _plat_art(s: Dictionary) -> void:
+	var r: Array = Spr.AR["p_plataforma"]
+	var t: Texture2D = Spr.atlas_tex(r)
+	var sr: Rect2 = Spr.src(r)
+	# só a faixa das tábuas e da viga (o pé do meio da arte fica de fora)
+	var band: float = sr.size.y * .66
+	var hgt: float = 30.0
+	var k: float = hgt / band
+	var ew: float = sr.size.x * .1
+	var x0: float = s.x - 6
+	var x1: float = s.x + s.w + 6
+	var ewp: float = min(ew * k, (x1 - x0) * .5)
+	var y: float = s.y - 4
+	var c := Color(1, 1, 1, Spr.alpha)
+	Spr.ci.draw_texture_rect_region(t, Rect2(x0, y, ewp, hgt), Rect2(sr.position, Vector2(ewp / k, band)), c)
+	Spr.ci.draw_texture_rect_region(t, Rect2(x1 - ewp, y, ewp, hgt), Rect2(sr.position.x + sr.size.x - ewp / k, sr.position.y, ewp / k, band), c)
+	var mw: float = (sr.size.x - 2 * ew) * k
+	var xx: float = x0 + ewp
+	var i := 0
+	while xx < x1 - ewp - .5:
+		var ww: float = min(mw, x1 - ewp - xx)
+		var u0: float = sr.position.x + ew + fmod(i * 97.0, sr.size.x - 2 * ew - ww / k + 1.0)
+		Spr.ci.draw_texture_rect_region(t, Rect2(xx, y, ww, hgt), Rect2(u0, sr.position.y, ww / k, band), c)
+		xx += ww
+		i += 1
+	# sombra embaixo da passarela
+	Spr.rect(x0 + 6, y + hgt - 2, x1 - x0 - 12, 3, Color(0, 0, 0, .18 * Spr.alpha))
+
 static func branch(s: Dictionary) -> void:
+	if Spr.has("p_galho2"):
+		# galho grosso pintado: o tronco do galho sai da esquerda, as folhas na ponta da direita
+		var gw: float = s.w + 60
+		var gh: float = clamp(Spr.PH("galho2", gw), 50.0, 96.0)
+		Spr.PR("galho2", s.x - 34, s.y - gh * .38, gw, gh, Color.WHITE, int(s.x) % 2 == 1)
+		return
 	Spr.img(Spr.tex.galho, s.x - 12, s.y - 14, s.w + 24, 60)
 
 func trunk(s: Dictionary) -> void:
@@ -879,6 +919,14 @@ func treehouse(s: Dictionary) -> void:
 	Spr.AB("o_treehouse", s.x + s.w / 2 - w / 2, s.y + s.h + 8 - hh, w, hh)
 
 func root_log(s: Dictionary) -> void:
+	if Spr.has("p_pilha_toras"):
+		# pilha de toras amarrada, apoiada em duas pedras no chão: o vão embaixo é por onde se passa agachado
+		var gy: float = _floor_below(s.x + s.w / 2, s.y + s.h)
+		var pw: float = s.w + 70
+		var ph: float = gy - s.y + 18
+		Spr.ellipse(s.x + s.w / 2, gy + 2, pw * .5, 7, Color(0, 0, 0, .28))
+		Spr.PR("pilha_toras", s.x - 35, s.y - 14, pw, ph)
+		return
 	var x: float = s.x
 	var y: float = s.y
 	var w: float = s.w
@@ -1134,8 +1182,13 @@ func stone(s: Dictionary) -> void:
 		if fy - gy > 30:
 			# pedra no alto: é o topo de um pilar de rocha que vem do chão (um pouco atrás, mais escuro)
 			var pw: float = s.w * .8
-			var pil := {"x": cx - pw / 2, "y": gy - 4, "w": pw, "h": fy - gy + 8}
-			_masonry(pil, Color(.62, .58, .54), Color(.3, .25, .2), Color(.1, .08, .06, .97), gy - 4)
+			if Spr.has("p_pilar"):
+				# coluna de pedras empilhadas com musgo (um pouco atrás, mais escura) do chão até a laje
+				var ph: float = fy - gy + 14
+				Spr.PR("pilar", cx - pw * .85, gy - 10, pw * 1.7, ph, Color(.8, .78, .76), int(s.x) % 2 == 1)
+			else:
+				var pil := {"x": cx - pw / 2, "y": gy - 4, "w": pw, "h": fy - gy + 8}
+				_masonry(pil, Color(.62, .58, .54), Color(.3, .25, .2), Color(.1, .08, .06, .97), gy - 4)
 			Spr.ellipse(cx, fy + 2, pw * .7, 6, Color(0, 0, 0, .25))
 			Spr.PR("slab%d" % (hash(int(s.x)) % 3), s.x - 10, s.y - 4, s.w + 20, s.h + 6)
 			return
