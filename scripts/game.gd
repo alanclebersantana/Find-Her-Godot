@@ -801,6 +801,15 @@ func amb_x() -> float:
 		return float(VH.SL.x)
 	return player.x + player.w / 2
 
+## valor de um parâmetro do trecho onde o jogador está (ex.: "leaves", "flock", "toucans")
+func sec_param(k: String, def = null):
+	var v = def
+	var px: float = amb_x()
+	for sc in L.get("sections", []):
+		if sc.x <= px:
+			v = sc.get(k, def)
+	return v
+
 func section_weights() -> Dictionary:
 	## peso de cada cenário de fundo conforme a posição (para o fundo trocar suavemente)
 	var S: Array = L.get("sections", [])
@@ -1277,6 +1286,7 @@ func step() -> void:
 			var perp: float = abs(dx * cy - dy * sx)
 			if t > 24 and t < v.len + 22 and perp < 30:
 				player.vine = v
+				player.erase("voff")
 				player.vr = clamp(t, 40.0, v.len)
 				# conserva um pouco do embalo, sem disparar o balanço
 				v.om = clamp((player.vx * cy - player.vy * sx) / player.vr * .6, -.02, .02)
@@ -1774,8 +1784,16 @@ func _vine_step() -> void:
 		v.bend *= .93
 	# o corpo inclina só uma parte do ângulo do cipó, com atraso (fica "pendurado" pelas mãos)
 	player.vang = lerpf(player.get("vang", 0.0), v.th * .42 + v.om * 3.0, .18)
-	player.x = v.x + sin(v.th) * r - player.w / 2
-	player.y = v.y + cos(v.th) * r - 6
+	var tx: float = v.x + sin(v.th) * r - player.w / 2
+	var ty: float = v.y + cos(v.th) * r - 6
+	# agarrou agora: as mãos deslizam até o cipó em vez de pular para ele
+	var off: Vector2 = player.get("voff", Vector2(player.x - tx, player.y - ty))
+	off *= .7
+	if off.length() < .5:
+		off = Vector2.ZERO
+	player.voff = off
+	player.x = tx + off.x
+	player.y = ty + off.y
 	player.vx = 0
 	player.vy = 0
 	player.onGround = false
@@ -2348,7 +2366,11 @@ func _p1_post(pcx: float, _pcy: float) -> void:
 			nearL = l
 			break
 	player.nearL = nearL
-	if nearL and keys.get("Ap", false):
+	# já tem o objeto certo: chegando na trava, ele é usado sozinho (sem botão)
+	if nearL and not nearL.done and not nearL.get("crank") and has_item(nearL.need) and not X.boss_active() \
+			and hit(player, R(nearL.x - 12, nearL.y - 12, nearL.w + 24, nearL.h + 24)):
+		use_lock(nearL)
+	elif nearL and keys.get("Ap", false):
 		keys.Ap = false
 		if X.boss_active():
 			flash("Agora não dá: o javali está em cima de você!", 120)
@@ -2390,6 +2412,7 @@ func _p1_post(pcx: float, _pcy: float) -> void:
 	var __qVH := Time.get_ticks_usec()
 	VH.check_river()
 	VH.check_plane()
+	VH.check_sled()
 	Spr.pt("p_VH", __qVH)
 	WV.step()
 	var __qZN := Time.get_ticks_usec()

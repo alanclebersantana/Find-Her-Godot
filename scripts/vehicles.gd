@@ -68,6 +68,7 @@ func _end_fence() -> void:
 ## voltou da morte (ou da fogueira): passeio interrompido é cancelado e o veículo volta ao ponto de saída
 func on_respawn() -> void:
 	var was: String = mode
+	auto_cd = 120
 	if mode != "":
 		mode = ""
 		stumble = 0
@@ -104,6 +105,19 @@ func check_plane() -> void:
 	if near_plane() and g.player.onGround and g.player.dyingT == 0:
 		g.want_comic("aviao")
 		_start_plane()
+
+## chegou no trenó / carrinho: abre o quadrinho (só na primeira vez) e já parte, sem botão
+var auto_cd := 0
+func check_sled() -> void:
+	if auto_cd > 0:
+		auto_cd -= 1
+		return
+	# só quando ele anda até o trenó (voltando da fogueira parado ao lado, não parte sozinho)
+	if near_sled() and g.player.onGround and g.player.dyingT == 0 and abs(g.player.vx) > .5 and (g.kd("R") or g.kd("L")) \
+			and abs(float(g.player.x + g.player.w / 2) - float(SL.x)) < 40:
+		if is_cart():
+			g.want_comic("carrinho")
+		_start_sled()
 
 ## caiu no rio sem estar na jangada: a correnteza leva
 func check_river() -> void:

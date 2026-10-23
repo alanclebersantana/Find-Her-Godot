@@ -32,6 +32,7 @@ static func draw(g: Game, T: int) -> void:
 		TU = {}
 		level_ref = g.L
 	_toucans(g, T)
+	_flock(g, T)
 	g.bird_near = false
 	var p: Dictionary = g.player
 	var px: float = p.x + p.w / 2
@@ -76,6 +77,35 @@ static func draw(g: Game, T: int) -> void:
 				_frog(g, c, px, py, T)
 			"owl":
 				_owl(c, T, i)
+
+## bando de passarinhos (ou morcegos, à noite) cruzando o céu de vez em quando, lá no alto
+static func _flock(g: Game, T: int) -> void:
+	var kind = g.sec_param("flock", null)
+	if kind == null or g.indoors():
+		return
+	var per: int = 900
+	var ph: int = T % per
+	if ph > 520:
+		return
+	var cyc: int = T / per
+	var dir: float = 1.0 if cyc % 2 == 0 else -1.0
+	var u: float = ph / 520.0
+	var x0: float = g.cam - 200 if dir > 0 else g.cam + g.W + 200
+	var bx: float = x0 + dir * u * (g.W + 400)
+	var by: float = g.cam_y + 70 + hh(cyc, 4) * 90 + sin(u * 6.0) * 10
+	var n: int = 5 + int(hh(cyc, 5) * 5)
+	var bat: bool = str(kind) == "bats"
+	for k in n:
+		var row: int = (k + 1) / 2
+		var side: float = -1.0 if k % 2 == 0 else 1.0
+		var px: float = bx - dir * row * 26
+		var py: float = by + side * row * 12 * (0.0 if k == 0 else 1.0) + sin(T * .2 + k) * 2
+		var fl: float = sin(T * (.45 if bat else .3) + k * 1.3)
+		var w: float = 9.0 if not bat else 8.0
+		var c := Color(.12, .1, .14, .85) if bat else Color(.18, .14, .12, .75)
+		Spr.line(PackedVector2Array([Vector2(px - w, py - fl * 5), Vector2(px - 2, py), Vector2(px, py + 1), Vector2(px + 2, py), Vector2(px + w, py - fl * 5)]), c, 2.0)
+		if bat:
+			Spr.circle(px, py + 1, 2.2, c)
 
 ## cor dos bichinhos do cenário: um pouco mais clara e suave
 const SOFT := Color(1.08, 1.08, 1.1, .92)
@@ -209,7 +239,8 @@ static func _toucans(g: Game, T: int) -> void:
 		if not TU.has(i):
 			var cx: float = i * 900 + 450
 			var th := _theme(g, cx)
-			if not th in ["manha", "tarde", "chuva"] or hh(i, 21) < .35:
+			var many: bool = g.sec_param("toucans", 0) != 0
+			if not th in ["manha", "tarde", "chuva"] or hh(i, 21) < (0.0 if many else .35):
 				TU[i] = {"k": ""}
 				continue
 			var perch = null

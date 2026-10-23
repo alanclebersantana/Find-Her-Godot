@@ -48,13 +48,34 @@ static func _hawk(g: Game, K: Kings, T: int) -> void:
 			fr = (T / 4) % 3
 	var tint := Color(1, .5, .45) if h.red > 0 and (T / 3) % 2 == 0 else Color(1, 1, 1)
 	var y: float = h.y - (6 if h.st == "stuck" else 50)
-	Spr.save()
-	Spr.translate(h.x, y)
-	Spr.rotate(rot)
-	Spr.scale(h.dir * sc, sc)
-	Spr.ci.draw_texture_rect_region(Spr.tex.gaviao, Rect2(-66, -96, 132, 124), Rect2(fr * 132, 0, 132, 124), Color(tint.r, tint.g, tint.b, Spr.alpha))
-	Spr.restore()
-	_crown(h.x + h.dir * 14, y - 112, 1.2)
+	if h.get("skin", "hawk") == "bat":
+		# Morcego-Rei: o morcego pintado bem grande, asas batendo, olhos vermelhos brilhando
+		var bf: int = [0, 1, 2, 1][(T / 4) % 4]
+		if h.st == "stuck":
+			bf = 2
+		elif h.st == "dive":
+			bf = 0
+		Spr.save()
+		Spr.translate(h.x, y - 34)
+		Spr.rotate(rot * .6)
+		Spr.scale(h.dir, 1)
+		var bn: String = "bat%d" % bf
+		var bh: float = Spr.PH(bn, 230)
+		Spr.PR(bn, -115, -bh / 2, 230, bh, tint)
+		Spr.restore()
+		for ex in [-12, 12]:
+			Spr.glow(h.x + ex, y - 40, 16, Color(1, .2, .1, .55))
+			Spr.circle(h.x + ex, y - 40, 3, Color(1, .35, .25))
+		_crown(h.x, y - 96, 1.2)
+	else:
+		Spr.save()
+		Spr.translate(h.x, y)
+		Spr.rotate(rot)
+		Spr.scale(h.dir * sc, sc)
+		Spr.ci.draw_texture_rect_region(Spr.tex.gaviao, Rect2(-66, -96, 132, 124), Rect2(fr * 132, 0, 132, 124), Color(tint.r, tint.g, tint.b, Spr.alpha))
+		Spr.restore()
+	if h.get("skin", "hawk") != "bat":
+		_crown(h.x + h.dir * 14, y - 112, 1.2)
 	if h.st == "stuck":
 		# garras presas na madeira
 		for i in 3:
@@ -92,7 +113,15 @@ static func _fish(g: Game, K: Kings, T: int) -> void:
 	Spr.save()
 	Spr.translate(f.x, f.y)
 	Spr.scale(f.dir, 1)
-	Spr.ci.draw_texture_rect_region(Spr.tex.bagre, Rect2(-140, -80, 280, 160), Rect2(fr * 280, 0, 280, 160), Color(tint.r, tint.g, tint.b, Spr.alpha * a))
+	if f.get("skin", "fish") == "frog" and Spr.tex.has("en_frog2"):
+		# Sapo-Rei nadando: o sapo pintado bem grande, pernas batendo; boca aberta quando suga
+		var ff: int = 0 if f.st in ["tired", "down"] else (3 if f.st == "suck" and f.mouth > .3 else [1, 2][(T / 8) % 2])
+		var kick: float = sin(T * .25) * .06 if f.st != "tired" else 0.0
+		Spr.rotate(kick)
+		Spr.ci.draw_texture_rect_region(Spr.tex.en_frog2, Rect2(-150, -95, 300, 162), Rect2(ff * 130, 0, 130, 70), Color(tint.r * .8, tint.g, tint.b * .75, Spr.alpha * a))
+		_crown(18, -88, 1.1)
+	else:
+		Spr.ci.draw_texture_rect_region(Spr.tex.bagre, Rect2(-140, -80, 280, 160), Rect2(fr * 280, 0, 280, 160), Color(tint.r, tint.g, tint.b, Spr.alpha * a))
 	Spr.restore()
 	# escamas azuis = pontos fracos: brilham quando ele cansa; as que já caíram viram marca escura
 	if f.st != "down":

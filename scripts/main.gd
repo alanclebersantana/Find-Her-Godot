@@ -1355,16 +1355,56 @@ func open_bag(l = null) -> void:
 	_clear_keys()
 	_show_hud(false)
 	bag_sel = ""
-	if l is Dictionary and l.has("parts") and game.has_item(l.parts[0]) and game.has_item(l.parts[1]):
-		# veio do botão da mochila na trava: a primeira peça já fica escolhida
-		bag_sel = l.parts[0]
-		_render_bag("Toque em " + game.item_name(l.parts[1]).to_lower() + " para juntar com " + game.item_name(l.parts[0]).to_lower() + ". Depois feche a mochila e toque em ✔.")
-		return
 	_render_bag("")
+
+## pares de objetos da mochila que se juntam (receitas com as duas peças)
+func _bag_pairs() -> Array:
+	var out: Array = []
+	for r in GameData.RECIPES:
+		if game.has_item(r[0]) and game.has_item(r[1]):
+			out.append(r)
+	return out
+
+## juntou: fecha a mochila e já usa o objeto novo (na trava que está perto, ou chegando nela)
+func _bag_combined(res: String, msg: String) -> void:
+	close_panel()
+	var nl = game.player.nearL
+	if nl != null and not nl.done and nl.need == res:
+		if nl.get("crank"):
+			game.flash(msg + " Agora gire: toque várias vezes no botão da manivela!", 240)
+		else:
+			game.use_lock(nl)
+		return
+	for l in game.LOCKS:
+		if not l.done and l.need == res:
+			game.flash(msg + " Leve até " + str(l.get("short", "a trava")) + ": ao chegar perto, ele é usado sozinho.", 260)
+			return
+	game.flash(msg, 220)
 
 func _render_bag(msg: String) -> void:
 	var vb := _overlay(.82)
 	vb.add_child(_label("MOCHILA", 32, GOLD, Spr.font_title))
+	# peças que se encaixam: aviso bem claro e um botão grande para juntar
+	var pairs: Array = _bag_pairs()
+	var glow_ids := {}
+	for r in pairs:
+		glow_ids[r[0]] = 1
+		glow_ids[r[1]] = 1
+	if not pairs.is_empty():
+		vb.add_child(_label("✦ Estas peças se encaixam! Junte para usar. ✦", 20, Color("#ffd76a"), Spr.font_title, 700))
+		for r in pairs:
+			var rr: Array = r
+			var jb := _button("JUNTAR  " + game.item_name(rr[0]).to_upper() + "  +  " + game.item_name(rr[1]).to_upper(), func():
+				var m2 := game.try_combine(rr[0], rr[1])
+				if m2 != "":
+					_bag_combined(rr[2], m2))
+			jb.custom_minimum_size = Vector2(420, 58)
+			jb.modulate = Color(1.15, 1.05, .8)
+			var tw := jb.create_tween().set_loops()
+			tw.tween_property(jb, "scale", Vector2(1.04, 1.04), .45)
+			tw.tween_property(jb, "scale", Vector2(1, 1), .45)
+			jb.pivot_offset = Vector2(210, 29)
+			vb.add_child(jb)
 	var items := HBoxContainer.new()
 	items.alignment = BoxContainer.ALIGNMENT_CENTER
 	items.add_theme_constant_override("separation", 10)
@@ -1389,9 +1429,13 @@ func _render_bag(msg: String) -> void:
 		inner.add_child(nl)
 		b.add_child(inner)
 		var iid: String = id
+		if glow_ids.has(id):
+			b.modulate = Color(1.25, 1.1, .7)
 		b.pressed.connect(func(): _bag_tap(iid))
 		items.add_child(b)
 	var m := msg
+	if m == "" and not pairs.is_empty():
+		m = "Toque em JUNTAR: o objeto novo já é usado sozinho."
 	if m == "":
 		if game.INV.size() > 1:
 			m = "Toque num objeto e depois em outro para combinar."
@@ -1456,16 +1500,29 @@ func _render_bag(msg: String) -> void:
 	fb.custom_minimum_size = Vector2(150, 46)
 	row.add_child(fb)
 	vb.add_child(row)
-	panel.set_meta("ok", close_panel)
+	if not pairs.is_empty():
+		# no controle/teclado, o botão de confirmar já junta o primeiro par
+		var r0: Array = pairs[0]
+		panel.set_meta("ok", func():
+			var m3 := game.try_combine(r0[0], r0[1])
+			if m3 != "":
+				_bag_combined(r0[2], m3))
+	else:
+		panel.set_meta("ok", close_panel)
 
 func _bag_tap(id: String) -> void:
 	if bag_sel != "" and bag_sel != id:
+		var a0: String = bag_sel
 		var r := game.try_combine(bag_sel, id)
 		bag_sel = ""
-		var nl = game.player.nearL
-		if r != "" and nl != null and not nl.done and game.has_item(nl.need):
-			r += " Feche a mochila e toque no botão " + ("da manivela" if nl.get("crank") else "✔") + " para usar."
-		_render_bag(r if r != "" else "Esses dois não combinam.")
+		if r != "":
+			var res := ""
+			for rc in GameData.RECIPES:
+				if (rc[0] == a0 and rc[1] == id) or (rc[0] == id and rc[1] == a0):
+					res = rc[2]
+			_bag_combined(res, r)
+			return
+		_render_bag("Esses dois não combinam.")
 	else:
 		bag_sel = "" if bag_sel == id else id
 		_render_bag(game.item_msg(bag_sel) if bag_sel != "" else "")

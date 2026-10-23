@@ -2446,7 +2446,8 @@
    "ground": 500,
    "topX": 5642,
    "topY": 100,
-   "hint": "Alto demais para pular. Uma corda com gancho chegaria na argola... (combine na mochila 🎒)"
+   "hint": "Alto demais para pular. Uma corda com gancho chegaria na argola... (combine na mochila 🎒)",
+   "short": "a argola lá no alto"
   },
   {
    "x": 15190,
@@ -2469,7 +2470,8 @@
    "water": "canal",
    "gate": "damgate",
    "hint": "A comporta está travada. Falta a manivela — e ela está quebrada sem uma engrenagem.",
-   "crank": 1
+   "crank": 1,
+   "short": "a comporta"
   },
   {
    "x": 71520,
@@ -2490,7 +2492,8 @@
    "use": "Toque em ✦ USAR na entrada do túnel.",
    "kind": "dark",
    "barrier": "darkwall",
-   "hint": "Escuro demais para entrar. A tempestade apagou a lanterna: falta óleo e um pavio novo."
+   "hint": "Escuro demais para entrar. A tempestade apagou a lanterna: falta óleo e um pavio novo.",
+   "short": "a passagem escura"
   }
  ],
  "clues": [

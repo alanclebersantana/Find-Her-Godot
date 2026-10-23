@@ -251,8 +251,7 @@ func _initialize() -> void:
 		g.load_level(0)
 		P = g.player
 		put(51860, 500)
-		walk_to(51880)
-		use()
+		until({"R": true}, func(): return g.VH.mode == "sled", 300)
 		S("trenó: embarque com animação", g.VH.mode == "sled" and g.VH.sboard > 0)
 		var sc: float = meas.call(80, {})
 		S("trenó: chegou na descida", g.VH.sboard == 0 and g.VH.su > 30)
@@ -590,8 +589,7 @@ func _initialize() -> void:
 		en.dead = 99
 	if all or args.has("treno"):
 		put(51860, 500)
-		walk_to(51880)
-		use()
+		until({"R": true}, func(): return g.VH.mode == "sled", 300)
 		S("subiu no trenó", g.VH.mode == "sled")
 		var VH = g.VH
 		S("descida comprida (>= 4080)", float(VH.SL.len) >= 4080)
@@ -639,8 +637,7 @@ func _initialize() -> void:
 		g.load_level(0)
 		P = g.player
 		put(51860, 500)
-		walk_to(51880)
-		use()
+		until({"R": true}, func(): return g.VH.mode == "sled", 300)
 		VH = g.VH
 		var back := false
 		var last_u := 0.0
@@ -681,8 +678,7 @@ func _initialize() -> void:
 		g.load_level(0)
 		P = g.player
 		put(51860, 500)
-		walk_to(51880)
-		use()
+		until({"R": true}, func(): return g.VH.mode == "sled", 300)
 		VH = g.VH
 		var lv0: int = g.lives
 		var died := false

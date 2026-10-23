@@ -100,7 +100,8 @@ func load_level() -> void:
 	if L.has("boss"):
 		var b: Dictionary = L.boss
 		BOSS = {"x": b.spawn, "y": 500.0, "st": "wait", "t": 0, "hp": b.hp, "maxhp": b.hp, "dir": -1, "spd": 0.0,
-			"vy": 0.0, "x0": b.x0, "x1": b.x1, "trig": b.trig, "spawn": b.spawn, "active": false, "done": false, "red": 0, "item": b.item}
+			"vy": 0.0, "x0": b.x0, "x1": b.x1, "trig": b.trig, "spawn": b.spawn, "active": false, "done": false, "red": 0, "item": b.item,
+			"skin": str(b.get("skin", "boar")), "open": b.get("open", ""), "ladder": b.get("ladder", null)}
 	broken = {}
 	opened = {}
 	found = {}
@@ -624,16 +625,21 @@ func _boss() -> void:
 				b.active = true
 				b.st = "intro"
 				b.x = b.spawn
-				b.y = 90.0
+				b.y = 500.0 if b.skin == "dog" else 90.0
 				b.vy = 0.0
 				b.hp = b.maxhp
 				b.dir = -1
 				_gate_on(true)
 				Audio.play("thunder", -6)
 				g.shake = 6
-				g.start_cine("boss", b.spawn - 60, 420, 260,
-					[[165, 250, "TOMÉ", "Um javali desse tamanho... Forte demais para enfrentar de frente. Vou fazer ele bater a cabeça!", "tome"]],
-					[75, 160, "JAVALI-REI", "o terror da clareira"])
+				if b.skin == "dog":
+					g.start_cine("brutus", b.spawn - 60, 420, 260,
+						[[165, 250, "TOMÉ", "O cão do Vargas! Grande demais para enfrentar de frente... Vou fazer ele bater a cabeça no muro!", "tome"]],
+						[75, 160, "BRUTUS", "o cão de guarda do Vargas"])
+				else:
+					g.start_cine("boss", b.spawn - 60, 420, 260,
+						[[165, 250, "TOMÉ", "Um javali desse tamanho... Forte demais para enfrentar de frente. Vou fazer ele bater a cabeça!", "tome"]],
+						[75, 160, "JAVALI-REI", "o terror da clareira"])
 			return
 		"intro":
 			b.vy += .7
@@ -653,7 +659,7 @@ func _boss() -> void:
 				b.t = 0
 			elif not on_floor and b.t > 240:
 				b.t = 0
-				g.tip("Desça ao chão para chamar a atenção dele. Quando ele vier, pule para um galho!", 180)
+				g.tip("Desça ao chão para chamar a atenção dele. Quando ele vier, pule para " + ("cima de uma banca!" if b.skin == "dog" else "um galho!"), 180)
 		"paw":
 			b.t += 1
 			b.dir = 1 if pcx > b.x else -1
@@ -721,7 +727,7 @@ func _boss() -> void:
 				p.y = bb.y - p.h - 1
 				p.cutOk = false
 				Audio.play("spring", -8)
-				g.tip("O couro dele é duro! Faça ele bater a cabeça na árvore ou no barranco.")
+				g.tip("Ele é forte demais! Faça ele bater a cabeça no muro." if b.skin == "dog" else "O couro dele é duro! Faça ele bater a cabeça na árvore ou no barranco.")
 			elif b.st == "charge" or b.st == "intro":
 				g.hurt(1, b.x)
 
@@ -737,8 +743,21 @@ func boss_damage(from_slam: bool = false) -> void:
 		b.st = "down"
 		b.t = 0
 		_gate_on(false)
-		g.flash("O Javali-Rei caiu! Você ganhou uma armadura de casca de árvore (aguenta 1 golpe).", 260)
-		g.player.armor = 1
+		if b.skin == "dog":
+			g.flash("O Brutus desistiu e fugiu com o rabo entre as pernas! O portão do quintal abriu.", 260)
+		else:
+			g.flash("O Javali-Rei caiu! Você ganhou uma armadura de casca de árvore (aguenta 1 golpe).", 260)
+			g.player.armor = 1
+		# arena com portão do outro lado e escada para voltar aos telhados
+		if str(b.get("open", "")) != "":
+			for so in g.SOL.duplicate():
+				if so.get("id", "") == b.open:
+					g.SOL.erase(so)
+					if g.K:
+						g.K.sink_gate(so)
+			g.blockers_dirty()
+		if b.get("ladder") != null:
+			g.CLIMB.append(b.ladder.duplicate())
 		for i in 12:
 			g.gain_coin(b.item[0], b.item[1] - 20, true)
 		Audio.play("door", -4)

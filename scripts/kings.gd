@@ -28,12 +28,13 @@ func load_level() -> void:
 		var h: Dictionary = L.hawk
 		HAWK = {"x0": h.x0, "x1": h.x1, "gy": h.y, "trig": h.trig, "maxhp": h.hp, "hp": h.hp, "st": "wait",
 			"x": (h.x0 + h.x1) / 2.0, "y": h.y - 340.0, "t": 0, "dir": 1, "tx": 0.0, "sx": 0.0, "sy": 0.0,
-			"red": 0, "active": false, "done": false, "conf": false, "second": false, "crows": false}
+			"red": 0, "active": false, "done": false, "conf": false, "second": false, "crows": false, "skin": str(h.get("skin", "hawk"))}
 	if L.has("fish"):
 		var f: Dictionary = L.fish
 		FISH = {"x0": f.x0, "x1": f.x1, "y0": f.y0, "y1": f.y1, "trig": f.trig, "maxhp": f.hp, "hp": f.hp,
 			"st": "wait", "x": f.x1 - 160.0, "y": (f.y0 + f.y1) / 2.0, "vx": 0.0, "dir": -1, "t": 0, "red": 0,
-			"active": false, "done": false, "cyc": 0, "mud": 0.0, "mouth": 0.0, "scales": [true, true, true, true], "al": 1.0}
+			"active": false, "done": false, "cyc": 0, "mud": 0.0, "mouth": 0.0, "scales": [true, true, true, true], "al": 1.0,
+			"skin": str(f.get("skin", "fish"))}
 
 func active() -> bool:
 	return (not HAWK.is_empty() and HAWK.active and not HAWK.done) or (not FISH.is_empty() and FISH.active and not FISH.done) or bear_on()
@@ -94,9 +95,14 @@ func _hawk() -> void:
 				_gate("hawkL", true, Rect2(h.x0 - 24, gy - 260, 24, 260))
 				_gate("hawkR", true, Rect2(h.x1, gy - 260, 24, 260))
 				Audio.play("thunder", -8)
-				g.start_cine("gaviao", (h.x0 + h.x1) / 2.0, gy - 160, 250,
-					[[150, 245, "TOMÉ", "Que gavião enorme! Preciso ficar longe da sombra dele...", "tome"]],
-					[60, 150, "GAVIÃO-REI", "o senhor das copas"])
+				if h.skin == "bat":
+					g.start_cine("morcego", (h.x0 + h.x1) / 2.0, gy - 160, 250,
+						[[150, 245, "TOMÉ", "Um morcego gigante! Ele mergulha onde a sombra marca... e a minha lanterna ofusca os olhos dele.", "tome"]],
+						[60, 150, "MORCEGO-REI", "o dono das profundezas"])
+				else:
+					g.start_cine("gaviao", (h.x0 + h.x1) / 2.0, gy - 160, 250,
+						[[150, 245, "TOMÉ", "Que gavião enorme! Preciso ficar longe da sombra dele...", "tome"]],
+						[60, 150, "GAVIÃO-REI", "o senhor das copas"])
 			return
 		"circle":
 			h.t += 1
@@ -118,7 +124,7 @@ func _hawk() -> void:
 				h.tx = away
 				g.burst(h.x, h.y - 30, 12, Color("#ffe9a0"))
 				Audio.play("dj", -6)
-				g.note("O facho ofuscou o Gavião-Rei!")
+				g.note("O facho ofuscou o Morcego-Rei!" if h.skin == "bat" else "O facho ofuscou o Gavião-Rei!")
 			if h.t > (26 if h.second else (40 if enraged else 52)):
 				h.st = "dive"
 				h.t = 0
@@ -218,11 +224,14 @@ func swing_hits(hb: Dictionary) -> void:
 			g.gain_coin(h.x, h.y - 40, true)
 		g.player.hp = Game.MAXHP
 		Audio.play("door", -4)
-		g.flash("O Gavião-Rei fugiu para as nuvens! O caminho está livre.", 240)
+		g.flash("O Morcego-Rei fugiu para o fundo da mina! O caminho está livre." if h.skin == "bat" else "O Gavião-Rei fugiu para as nuvens! O caminho está livre.", 240)
 		return
 	h.st = "rise"
 	h.t = 0
-	if h.hp == 2 and not h.crows:
+	if h.hp == 2 and not h.crows and h.skin == "bat":
+		h.crows = true
+		g.flash("Acertou! Agora ele mergulha duas vezes seguidas!", 200)
+	elif h.hp == 2 and not h.crows:
 		h.crows = true
 		for k in 1:
 			var cx: float = h.x0 + 150 + k * (h.x1 - h.x0 - 300)
@@ -655,9 +664,14 @@ func _fish() -> void:
 				_gate("fishL", true, Rect2(f.x0 - 24, f.y0, 24, f.y1 - f.y0))
 				_gate("fishR", true, Rect2(f.x1, f.y0, 24, f.y1 - f.y0))
 				Audio.play("thunder", -8)
-				g.start_cine("bagre", (f.x0 + f.x1) / 2.0 + 120, mid, 250,
-					[[150, 245, "TOMÉ", "Um bagre do tamanho de um barco! As escamas que brilham devem ser o ponto fraco.", "tome"]],
-					[60, 150, "BAGRE-REI", "o rei do lago escuro"])
+				if f.skin == "frog":
+					g.start_cine("sapo", (f.x0 + f.x1) / 2.0 + 120, mid, 250,
+						[[150, 245, "TOMÉ", "Um sapo do tamanho de uma carroça! As pintas que brilham devem ser o ponto fraco.", "tome"]],
+						[60, 150, "SAPO-REI", "o dono do lago do moinho"])
+				else:
+					g.start_cine("bagre", (f.x0 + f.x1) / 2.0 + 120, mid, 250,
+						[[150, 245, "TOMÉ", "Um bagre do tamanho de um barco! As escamas que brilham devem ser o ponto fraco.", "tome"]],
+						[60, 150, "BAGRE-REI", "o rei do lago escuro"])
 			return
 		"intro":
 			f.t += 1
@@ -801,11 +815,11 @@ func harpoon_hit(hp: Dictionary) -> bool:
 						g.gain_coin(f.x, f.y, true)
 					g.player.hp = Game.MAXHP
 					Audio.play("door", -4)
-					g.flash("O Bagre-Rei foi vencido! Uma corrente de bolhas se abriu à direita: entre nela para subir.", 280)
+					g.flash(("O Sapo-Rei" if f.skin == "frog" else "O Bagre-Rei") + " foi vencido! Uma corrente de bolhas se abriu à direita: entre nela para subir.", 280)
 				else:
 					f.st = "hurt"
 					f.t = 0
-					g.flash("Acertou a escama! Falta%s %d." % ["m" if f.hp > 1 else "", f.hp], 120)
+					g.flash(("Acertou a pinta! " if f.skin == "frog" else "Acertou a escama! ") + "Falta%s %d." % ["m" if f.hp > 1 else "", f.hp], 120)
 				return true
 	if Game.hit(g.R(tip.x - 6, tip.y - 4, 12, 8), fish_box()):
 		Audio.play("unlock", -10)
@@ -827,6 +841,10 @@ func cine_end(id: String) -> void:
 			g.tip("Fique longe da frente dele quando ele se erguer. Se a patada errar, pule na cabeça ou use a picareta (GOLPE).", 220)
 		"bagre":
 			g.tip("Com o capacete você não perde fôlego. Fuja das investidas e use o arpão (GOLPE) nas escamas brilhantes.", 220)
+		"sapo":
+			g.tip("Com o capacete você não perde fôlego. Fuja das investidas e da língua; quando ele cansar, arpão (GOLPE) nas pintas que brilham.", 240)
+		"morcego":
+			g.tip("Fuja da sombra! Se ele errar, as garras prendem no chão: acerte com a picareta. O facho (segure ✦) ofusca os olhos dele.", 240)
 
 func reset_on_respawn() -> void:
 	if not HAWK.is_empty() and HAWK.active and not HAWK.done:

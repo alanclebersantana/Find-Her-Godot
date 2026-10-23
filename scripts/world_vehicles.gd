@@ -1094,22 +1094,50 @@ static func _cart_track(g: Game, VH: Vehicles, T: int) -> void:
 					Spr.rr(-34, -9, 68, 5, 3, Color("#8a5e34"))
 					Spr.restore()
 			"branch":
-				# viga baixa atravessada no túnel (pendurada por correntes): abaixe!
+				# escora baixa do túnel: o teto de rocha desce até uma viga presa em dois esteios.
+				# Não dá para pular por cima (a rocha vai até o teto): só passa abaixado (↓)
 				var fall: float = 0.0
 				if ft >= 0:
 					fall = min(float(ft), 40.0)
 					fall = fall * fall * .25
+				var by: float = oy - 66
+				# o teto baixo de rocha em cima da viga (fica no lugar mesmo depois da batida)
+				var rk := PackedVector2Array([Vector2(o.x - 70, oy - 260), Vector2(o.x + 80, oy - 260), Vector2(o.x + 72, by - 30),
+					Vector2(o.x + 50, by - 6), Vector2(o.x - 40, by - 6), Vector2(o.x - 62, by - 28)])
+				Spr.poly(rk, Color("#2a1d14"))
+				Spr.line(PackedVector2Array([Vector2(o.x - 62, by - 28), Vector2(o.x - 40, by - 6), Vector2(o.x + 50, by - 6), Vector2(o.x + 72, by - 30)]), Color("#4a3a2c"), 4)
+				for k in 4:
+					Spr.ellipse(o.x - 40 + k * 28, by - 16 - (k % 2) * 10, 10, 7, Color("#3a2c20"))
+				# esteios dos dois lados do trilho
+				for px in [o.x - 50, o.x + 48]:
+					Spr.rect(px, by - 6, 12, oy - by + 6, Color("#4a3018"))
+					Spr.rect(px + 2, by - 6, 3, oy - by + 6, Color(1, .85, .6, .15))
 				if ft < 0 or ft < 40:
-					var by: float = oy - 66 + fall
-					Spr.seg(o.x - 30, oy - 250, o.x - 30, by, Color(.35, .35, .38), 2)
-					Spr.seg(o.x + 40, oy - 250, o.x + 40, by, Color(.35, .35, .38), 2)
-					Spr.rr(o.x - 48, by - 4, 110, 22, 4, Color("#6b4524"))
-					Spr.rr(o.x - 48, by - 4, 110, 6, 3, Color("#8a5e34"))
-					if ft < 0:
-						for k in 2:
-							var u2: float = fposmod(T * .025 + k * .5, 1.0)
-							var ay2: float = oy - 40 + u2 * 22
-							Spr.line(PackedVector2Array([Vector2(o.x - 12, ay2 - 11), Vector2(o.x + 5, ay2), Vector2(o.x + 22, ay2 - 11)]), Color(1, .5, .05, sin(u2 * PI)), 7)
+					Spr.save()
+					Spr.translate(0, fall)
+					Spr.rr(o.x - 56, by - 4, 122, 22, 4, Color("#6b4524"))
+					# faixas de perigo amarelas e pretas na viga
+					var stx: float = o.x - 52
+					while stx < o.x + 60:
+						Spr.poly(PackedVector2Array([Vector2(stx, by + 16), Vector2(stx + 8, by - 2), Vector2(stx + 16, by - 2), Vector2(stx + 8, by + 16)]), Color(1, .8, .1, .9))
+						stx += 16
+					Spr.restore()
+				if ft < 0:
+					# placa "ABAIXE" pendurada na viga e setas piscando para baixo
+					var pul2: float = .55 + .45 * sin(T * .2)
+					Spr.seg(o.x - 2, by + 18, o.x - 2, by + 26, Color("#222"), 2)
+					Spr.rr(o.x - 34, by + 26, 64, 20, 4, Color(1, .82, .15, .95))
+					Spr.text("↓ ABAIXE", o.x - 2, by + 41, 12, Color(.15, .1, .05), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b)
+					for k in 2:
+						var u2: float = fposmod(T * .025 + k * .5, 1.0)
+						var ay2: float = oy - 150 + u2 * 30
+						Spr.line(PackedVector2Array([Vector2(o.x - 210 - 14, ay2 - 12), Vector2(o.x - 210, ay2), Vector2(o.x - 210 + 14, ay2 - 12)]), Color(1, .6, .1, sin(u2 * PI) * pul2), 6)
+					# placa de aviso antes da viga, num poste
+					var wx: float = o.x - 210
+					var wy: float = VH.sled_y(float(o.u) - 210)
+					Spr.rect(wx - 3, wy - 92, 6, 92, Color("#4a3018"))
+					Spr.poly(PackedVector2Array([Vector2(wx, wy - 120), Vector2(wx + 24, wy - 96), Vector2(wx, wy - 72), Vector2(wx - 24, wy - 96)]), Color(1, .8, .1))
+					Spr.text("↓", wx, wy - 86, 22, Color(.1, .08, .05), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b)
 			"crack":
 				# trilho quebrado sobre um buraco escuro
 				var w: float = float(o.w)

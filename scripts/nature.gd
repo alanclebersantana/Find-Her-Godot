@@ -82,9 +82,13 @@ func pre() -> void:
 				continue
 			if pcx > b.x0 + 6 and pcx < b.x1 - 6 and p.y > b.y - 16 and p.y < b.y + 18:
 				p.bar = b
-				p.vx = 0.0
+				# pega a corda sem tranco: guarda o embalo e vai encaixando as mãos aos poucos
+				p.vx *= .45
+				p.bsw = clamp(p.vx * .05 + p.vy * .012, -.35, .35)
+				p.bsv = 0.0
+				p.bdist = 0.0
+				p.bfr = 0
 				p.vy = 0.0
-				p.y = b.y + 6
 				p.airJumps = 1
 				p.puff = false
 				p.slam = false
@@ -96,6 +100,18 @@ func pre() -> void:
 					g.tip("Na corda: ← → anda pendurado. PULAR dá um impulso para cima; ↓ solta.", 200)
 				break
 
+## altura da corda em x: barriga entre os postes + a parte que cede onde o jogador segura
+func bar_y(b: Dictionary, x: float) -> float:
+	var x0: float = float(b.x0) - 8
+	var x1: float = float(b.x1) + 12
+	var u: float = clamp((x - x0) / (x1 - x0), 0.0, 1.0)
+	var y: float = float(b.y) + sin(u * PI) * 10.0
+	var p: Dictionary = g.player
+	if p.get("bar") == b:
+		var pcx: float = p.x + p.w / 2
+		y += max(0.0, 1.0 - abs(x - pcx) / 160.0) * 14.0
+	return y
+
 ## andar pendurado na corda (no lugar da física normal)
 func bar_step() -> void:
 	var p: Dictionary = g.player
@@ -103,11 +119,25 @@ func bar_step() -> void:
 	var want := -1 if (g.kd("L") and not g.kd("R")) else (1 if (g.kd("R") and not g.kd("L")) else 0)
 	if want != 0:
 		p.face = want
-	p.vx += (want * 2.8 - p.vx) * .3
-	p.y = b.y + 6
-	p.vy = 0.0
+	var ovx: float = p.vx
+	# acelera e freia devagar (mão sobre mão), sem trancos
+	p.vx += (want * 2.6 - p.vx) * .12
 	var nx: float = clamp(p.x + p.vx, b.x0 - p.w / 2, b.x1 - p.w / 2)
 	g.move_x(nx - p.x)
+	# as mãos seguem a corda (que cede onde ele segura); o corpo encaixa aos poucos
+	var hy: float = bar_y(b, p.x + p.w / 2)
+	p.y = lerpf(p.y, hy + 6.0, .3)
+	p.vy = 0.0
+	# balanço do corpo: um pêndulo amortecido que reage a acelerar e frear
+	p.bsv = float(p.get("bsv", 0.0)) * .9 - float(p.get("bsw", 0.0)) * .07 - (p.vx - ovx) * .06
+	p.bsw = clamp(float(p.get("bsw", 0.0)) + p.bsv, -.4, .4)
+	# troca de mão a cada palmo andado (parado, fica com a última)
+	p.bdist = float(p.get("bdist", 0.0)) + abs(p.vx)
+	if p.bdist > 30.0:
+		p.bdist -= 30.0
+		p.bfr = 1 - int(p.get("bfr", 0))
+		if abs(p.vx) > 1.0:
+			Audio.play("climb", -16)
 	p.anim += abs(p.vx) * .07
 	if g.pressed("J"):
 		# PULAR: dá um impulso para cima (alcança o telhado ou a margem logo acima)

@@ -78,6 +78,9 @@ func __draw_raw() -> void:
 					_fern(x + off, vs.y + abs(off), cb, sway, i)
 	# folhas voando (sempre algumas; muitas com vento; nenhuma debaixo da terra)
 	var nleaves := 0 if under else (26 if wind > 0 or snow > .3 else (10 if song in ["tarde", "manha"] else 5))
+	var sl = g.sec_param("leaves", null)
+	if sl != null and not under and snow <= .3:
+		nleaves = max(nleaves, min(int(sl), leaves.size()))
 	for k in nleaves:
 		var l: Dictionary = leaves[k]
 		l.vx = lerpf(l.vx, -1.2 - wind * 5.5 + sin(t * .01 + k) * .8, .02)

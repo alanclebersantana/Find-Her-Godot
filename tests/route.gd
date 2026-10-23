@@ -487,6 +487,30 @@ func boss_fight():
 		hold({}, 4)
 	return "hp=%d st=%s" % [g.X.BOSS.hp, g.X.BOSS.st]
 
+## pilota o trenó/carrinho até o fim (pula pedras, troncos e rachaduras; abaixa nos galhos)
+func sled_drive():
+	var VH = g.VH
+	for i in 5000:
+		if VH.mode == "":
+			return true
+		if not ok():
+			return "state"
+		var d := {}
+		var ground: bool = VH.hy >= VH.sled_y(VH.su) - 1
+		for o in VH.OBS:
+			var dx: float = o.x - VH.hx
+			if o.hit or o.k == "bump" or dx < -140 or dx > 300:
+				continue
+			if o.k in ["rock", "log"] and ground and dx < VH.spd * 9.0 + 24 and dx > 30:
+				press("J")
+			if o.k == "crack" and ground and dx < 40 and dx > -5:
+				press("J")
+			if o.k == "branch" and dx < 110 and dx > -100:
+				d["S"] = true
+			break
+		frame(d)
+	return "timeout"
+
 func n_clues() -> int:
 	return g.CLUEGOT.size()
 
@@ -1092,6 +1116,9 @@ func _initialize() -> void:
 		if px() < bx:
 			walk_to(bx - 30)
 			jump_to(bx + 110)
+	# o trenó parte sozinho quando o Tomé chega nele
+	S("chega no trenó e parte sozinho", until({"R": true}, func(): return g.VH.mode == "sled", 600))
+	S("trenó chegou", sled_drive())
 	S("fogueira grande 4", walk_to(53090) and rests.has(4))
 	S("subida da montanha", climb_gusts(55630))
 	S("ponte de cordas", bridge_run(trap_at("bridge", 55660)))

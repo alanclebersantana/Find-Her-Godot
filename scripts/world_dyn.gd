@@ -1039,8 +1039,7 @@ func _isis_draw(p: Dictionary) -> void:
 	var flip: bool = p.face < 0
 	if p.get("bar"):
 		fr = 10
-		by = float(p.bar.y) + ISIS_H * .66
-		cx = p.x + p.w / 2
+		by = game.NT.bar_y(p.bar, cx) + ISIS_H * .66
 	elif p.ladder:
 		fr = 8
 		flip = false
@@ -1113,11 +1112,12 @@ func _player_draw(g: Game) -> void:
 		return
 	# pendurado na corda esticada: mão sobre mão
 	if p.get("bar"):
-		var bt: Texture2D = Spr.tex.pai_vine_a if int(p.anim) % 2 == 0 else Spr.tex.pai_vine_b
+		# mão sobre mão: troca de mão a cada palmo; o corpo balança como um pêndulo preso às mãos
+		var bt: Texture2D = Spr.tex.pai_vine_a if int(p.get("bfr", 0)) == 0 else Spr.tex.pai_vine_b
 		var bax := 63.0 if bt == Spr.tex.pai_vine_a else 60.0
 		Spr.save()
-		Spr.translate(cx, p.bar.y + 8)
-		Spr.rotate(sin(p.anim * PI) * .08)
+		Spr.translate(cx, g.NT.bar_y(p.bar, cx) + 1)
+		Spr.rotate(float(p.get("bsw", 0.0)) + sin(T * .05) * .02)
 		Spr.scale(-.56 if p.face < 0 else .56, .56)
 		Spr.ci.draw_texture(bt, Vector2(-bax, -2))
 		Spr.restore()
@@ -1129,7 +1129,14 @@ func _player_draw(g: Game) -> void:
 			var v: Dictionary = p.vine
 			var hx: float = v.x + sin(v.th) * p.vr
 			var hy: float = v.y + cos(v.th) * p.vr
-			var t: Texture2D = Spr.tex.pai_vine_a if abs(v.om) > .02 else Spr.tex.pai_vine_b
+			# pose firme enquanto balança; a outra só quando quase parado (sem ficar trocando)
+			var still: bool = p.get("vstill", false)
+			if still and abs(v.om) > .012:
+				still = false
+			elif not still and abs(v.om) < .004:
+				still = true
+			p.vstill = still
+			var t: Texture2D = Spr.tex.pai_vine_b if still else Spr.tex.pai_vine_a
 			var ax := 63.0 if t == Spr.tex.pai_vine_a else 60.0
 			Spr.save()
 			Spr.translate(hx, hy)

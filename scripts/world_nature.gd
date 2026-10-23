@@ -222,17 +222,13 @@ static func draw(g: Game, T: int) -> void:
 			Spr.rect(px, b.y - 30, 12, 1150 - b.y, Color("#5a3d22"))
 			Spr.rect(px + 2, b.y - 30, 3, 1150 - b.y, Color(1, 1, 1, .08))
 			Spr.ellipse(px + 6, b.y - 30, 9, 4, Color("#7a5532"))
-		var sag := 10.0
 		var pts := PackedVector2Array()
 		var p: Dictionary = g.player
 		var pcx: float = p.x + p.w / 2 if p.get("bar") == b else -9999.0
 		for k in 41:
 			var u := k / 40.0
 			var xx: float = lerpf(b.x0 - 8, b.x1 + 12, u)
-			var yy: float = b.y + sin(u * PI) * sag
-			if pcx > -9000:
-				yy += max(0.0, 1.0 - abs(xx - pcx) / 160.0) * 14
-			pts.push_back(Vector2(xx, yy))
+			pts.push_back(Vector2(xx, NT.bar_y(b, xx)))
 		Spr.ci.draw_polyline(pts, Color("#3a2414"), 6, true)
 		Spr.ci.draw_polyline(pts, Color("#c9a26a"), 3.5, true)
 		if b.get("clothes"):

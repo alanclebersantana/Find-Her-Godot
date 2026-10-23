@@ -172,6 +172,8 @@ check(4600, 60)
 ground(5700, 5860)
 lake(5860, 360, 5800)
 ground(6220, 7480)
+L["enemies"].append({"k": "fly", "x": 6040, "y": 380, "r": [5880, 6200], "cy": 380})
+L["enemies"].append({"k": "fly", "x": 7300, "y": 400, "r": [7150, 7450], "cy": 400})
 hint(5700, 5900, "Lago de veneno! Pule e mergulhe (↓ no ar) em cima da estaca: a ponte desce.")
 check(5740)
 coins_arc(5870, 6210, 450, 60, 7)
@@ -209,7 +211,8 @@ coins_line(9100, 9400, 470)
 # ======================================================================
 #  B · VALE DO MOINHO  (9800 .. 16800)
 # ======================================================================
-L["sections"].append({"x": 9800, "song": "tarde", "bg": "moinho", "per": 1, "tint": "rgba(255,160,70,.10)"})
+L["sections"].append({"x": 9800, "song": "tarde", "bg": "moinho", "per": 1, "tint": "rgba(255,160,70,.10)",
+                      "leaves": 24, "flock": "birds", "toucans": 1})
 ground(9800, 12650)
 for x, s in []:
     L["decor"].append({"k": "pine", "x": x, "y": GY, "s": s})
@@ -230,6 +233,9 @@ hint(11380, 11520, "O celeiro tem a porta baixa: segure ↓ para entrar abaixado
 coins_line(11540, 11760, 470, 55)
 L["clues"].append({"x": 12100, "y": 470, "id": 8})
 L["enemies"].append({"k": "frog", "x": 12300, "y": GY, "r": [12200, 12450]})
+L["enemies"].append({"k": "frog", "x": 10250, "y": GY, "r": [10120, 10380]})
+L["enemies"].append({"k": "fly", "x": 10450, "y": 400, "r": [10300, 10650], "cy": 400})
+L["enemies"].append({"k": "fly", "x": 12860, "y": 380, "r": [12700, 13020], "cy": 380})
 check(12000)
 # riacho: pedras para atravessar
 L["water"].append({"x": 12650, "y": 520, "w": 420, "h": 160})
@@ -243,7 +249,7 @@ L["enemies"].append({"k": "crow", "x": 13300, "y": 220, "cy": 220, "r": [13100, 
 MILL_X, MILL_HUB = 13620, 113
 L["movers"].append({"k": "wheel", "x": MILL_X, "y": MILL_HUB, "r": 300, "n": 4, "w": 96, "spd": .0075,
                     "a0": math.pi / 4, "lock": "mill1", "tower": 300, "gy": GY})
-L["locks"].append({"x": MILL_X - 40, "y": 380, "w": 80, "h": 120, "id": "mill1", "kind": "mill",
+L["locks"].append({"x": MILL_X - 40, "y": 380, "w": 80, "h": 120, "id": "mill1", "kind": "mill", "short": "a porta do moinho",
                    "need": "vela", "parts": ["lona", "corda"],
                    "where": {"lona": "dentro do celeiro do vale (entre abaixado pela porta baixa)",
                              "corda": "na galeria de cima da mina (suba pelo elevador)"},
@@ -259,21 +265,50 @@ for k in range(10):
     a = math.pi / 2 + k * 2 * math.pi / 10
     L["coins"].append([int(MILL_X + math.cos(a) * 300), int(MILL_HUB + math.sin(a) * 300 - 6)])
 # o alto do barranco (só se chega pelas pás)
-S.append({"t": "ground", "x": 14000, "y": -150, "w": 2820, "h": 650})
+PY = -150
+S.append({"t": "ground", "x": 14000, "y": PY, "w": 470, "h": 650})
+S.append({"t": "ground", "x": 14470, "y": PY + 20, "w": 70, "h": 630})       # o vão da placa: o caixote encaixa nele
+S.append({"t": "ground", "x": 14540, "y": PY, "w": 160, "h": 650})
 hint(13960, 14200, "Pule da tábua para o alto do barranco quando ela passar perto!", yl=-100)
-check(14100, -150)
-coins_line(14100, 16700, -180, 60)
-L["drawings"].append({"x": 14800, "y": -200, "txt": "Um desenho da Isis: o moinho girando, com o papai e ela de mãos dadas."})
-L["enemies"].append({"k": "crow", "x": 15300, "y": -330, "cy": -330, "r": [14900, 15700]})
-L["specials"].append({"x": 15900, "y": -260, "c": "verde"})
-S.append({"t": "stone", "x": 15860, "y": -230, "w": 80, "h": 80})
+check(14100, PY)
+# quebra-cabeça: o caixote na placa abre a cancela
+L["crates"].append({"t": "push", "x": 14220, "y": PY - 60, "w": 60, "h": 60})
+L["plates"].append({"x": 14470, "y": PY + 20, "w": 70, "gate": "gv1"})
+S.append({"t": "pgate", "id": "gv1", "x": 14630, "y": -700, "w": 22, "h": 550})
+hint(14150, 14450, "Uma cancela fechada... e uma placa no chão. Empurre o caixote até a placa para segurar a cancela aberta.", yl=-100)
+coins_line(14120, 14420, PY - 30, 50)
+L["enemies"].append({"k": "frog", "x": 14560, "y": PY, "r": [14480, 14620]})
+L["enemies"].append({"k": "fly", "x": 14350, "y": -300, "r": [14150, 14600], "cy": -300})
+check(14670, PY)
+# o lago do moinho: fundo, com uma laje de pedra por cima (só passa mergulhando)
+LK0, LK1 = 14700, 16000
+L["water"].append({"x": LK0, "y": PY + 20, "w": LK1 - LK0, "h": 600})
+L["caves"].append({"x": LK0, "y": PY + 20, "w": LK1 - LK0, "h": 600, "wet": 1})   # fundo de terra atrás da água
+S.append({"t": "dirt", "x": LK0, "y": PY + 620, "w": LK1 - LK0, "h": 60})
+S.append({"t": "dirt", "x": LK0 - 20, "y": PY + 140, "w": 20, "h": 480})
+S.append({"t": "rockw", "x": 14960, "y": -420, "w": 900, "h": 310})       # laje sobre a água
+S.append({"t": "dirt", "x": 14720, "y": 300, "w": 190, "h": 20})          # prateleira do equipamento
+L["gear"] = [{"id": "capacete", "x": 14770, "y": 292}, {"id": "arpao", "x": 14860, "y": 292}]
+L["vents"] = [{"x": 14760, "y": 470}]
+hint(14600, 14720, "Lago fundo! Lá embaixo, na prateleira de pedra, o velho equipamento de mergulho do moinheiro.", yl=-120)
+L["fish"] = {"x0": 15000, "x1": 15880, "y0": -60, "y1": 460, "trig": 15060, "hp": 4, "skin": "frog"}
+L["currents"] = [{"x": 15890, "w": 110, "y0": PY + 20, "y1": 470}]
+L["specials"].append({"x": 15440, "y": 420, "c": "verde"})
+coins_arc(14760, 14950, 180, 60, 5)
+# a margem de lá
+S.append({"t": "ground", "x": LK1, "y": PY, "w": 16820 - LK1, "h": 650})
+L["drawings"].append({"x": 16120, "y": PY - 50, "txt": "Um desenho da Isis: o moinho girando, com o papai e ela de mãos dadas."})
+coins_line(16050, 16700, PY - 30, 60)
+L["enemies"].append({"k": "crow", "x": 15300, "y": -560, "cy": -560, "r": [14900, 15700]})
+L["enemies"].append({"k": "frog", "x": 16480, "y": PY, "r": [16380, 16600]})
+L["enemies"].append({"k": "fly", "x": 16550, "y": -320, "r": [16350, 16750], "cy": -320})
 check(16300, -150, 2)
 
 # ======================================================================
 #  C · TELHADOS DA VILA  (16800 .. 27000)
 # ======================================================================
 L["sections"].append({"x": 16800, "song": "noite", "bg": "vila", "gt": "vila", "night": 1, "dark": .35, "per": 2,
-                      "tint": "rgba(20,28,70,.26)"})
+                      "tint": "rgba(20,28,70,.26)", "leaves": 8, "flock": "bats"})
 L["comics"].append({"id": "telhados", "x": 16700})
 
 # casas: (largura e altura da pintura, caminho do telhado [x0, x1, topo], abas [[x0, x1, topo]], chaminé)
@@ -344,7 +379,10 @@ for gap, v, sc, fl, sm, hot in plan:
     h = house(x, v, sc, fl, sm, hot)
     x += h["w"]
 VILLAGE_END = x
-gx = round(VILLAGE_END + 420)
+# o quintal do vigia-chefe: arena do Brutus, o cão do Vargas
+PZ0 = round(VILLAGE_END + 80)
+PZ1 = PZ0 + 1000
+gx = round(PZ1 + 460)
 S.append({"t": "ground", "x": 16860, "y": GY, "w": gx + 22 - 16860, "h": 140, "street": 1})    # a rua (pedras)
 # a beira do barranco desce um degrau até o primeiro telhado
 S.append({"t": "stone", "x": 16820, "y": -10, "w": 120, "h": 510})
@@ -411,7 +449,7 @@ hint(round(houses[3]["wx0"]), round(houses[3]["ch"][0] + 10), "Chaminé quente: 
 # vigias e cães na rua
 L["watchmen"].append({"x0": round(houses[1]["x"]), "x1": round(houses[3]["x"] + houses[3]["w"]), "spd": 1.1})
 L["watchmen"].append({"x0": round(houses[5]["x"]), "x1": round(houses[7]["x"] + houses[7]["w"]), "spd": 1.2})
-L["watchmen"].append({"x0": round(houses[9]["x"]), "x1": round(houses[11]["x"] + houses[11]["w"] - 60), "spd": 1.0})
+L["watchmen"].append({"x0": round(houses[9]["x"]), "x1": round(houses[11]["x"] - 20), "spd": 1.0})
 gx3a, gx3b = houses[3]["x"] + houses[3]["w"], houses[5]["x"] + 40
 L["dogs"].append({"x": round((gx3a + gx3b) / 2), "r": [round(gx3a - 40), round(gx3b + 200)]})
 L["dogs"].append({"x": round(houses[8]["x"] + houses[8]["w"] / 2), "r": [round(houses[8]["x"]), round(houses[9]["x"] + 200)]})
@@ -442,11 +480,21 @@ for i, u in [(2, .2), (6, .93), (9, .8)]:
     x, y = hpos(i, u)
     check(round(x), round(y))
 
-# fim da vila: desce para a rua, porteira da mina (chave) na boca da mina
-check(round(VILLAGE_END + 140), GY, 3)
+# fim dos telhados: o quintal do vigia-chefe, guardado pelo Brutus (o cão do Vargas)
+check(PZ0 + 60, GY)
+L["boss"] = {"x0": PZ0, "x1": PZ1, "trig": PZ0 + 160, "spawn": PZ1 - 220, "hp": 3, "item": [round((PZ0 + PZ1) / 2), 470],
+             "skin": "dog", "open": "plazaR"}
+S.append({"t": "wall", "x": PZ1, "y": 250, "w": 26, "h": 250, "id": "plazaR"})
+for bx in [PZ0 + 230, PZ1 - 370]:
+    plat(bx, 400, 140, trestle=1)                                       # bancas da feira (para fugir da investida)
+hint(PZ0 - 40, PZ0 + 160, "O quintal do vigia-chefe... e o cachorro dele. Suba nas bancas quando ele vier e faça ele bater no portão!")
+coins_line(PZ0 + 240, PZ0 + 360, 370, 40)
+coins_line(PZ1 - 360, PZ1 - 240, 370, 40)
+# fim da vila: a rua continua até a porteira da mina (chave) na boca da mina
+check(round(PZ1 + 140), GY, 3)
 S.append({"t": "portal", "x": gx - 90, "y": GY, "w": 260, "tun": 560, "deco": 1})   # túnel até as galerias
 S.append({"t": "pgate", "id": "vgate", "x": gx, "y": -700, "w": 22, "h": 1200, "crank": 1})
-L["locks"].append({"x": gx - 60, "y": 380, "w": 80, "h": 120, "id": "vgate", "kind": "gate", "gate": "vgate",
+L["locks"].append({"x": gx - 60, "y": 380, "w": 80, "h": 120, "id": "vgate", "kind": "gate", "gate": "vgate", "short": "a porteira da mina",
                    "need": "chave", "parts": ["chave_a", "chave_b"],
                    "where": {"chave_a": "num telhado no começo da vila", "chave_b": "num telhado depois do esgoto"},
                    "pre": "A porteira da mina está trancada.",
@@ -454,7 +502,7 @@ L["locks"].append({"x": gx - 60, "y": 380, "w": 80, "h": 120, "id": "vgate", "ki
                    "use": "Toque em ✦ USAR na porteira para destrancar.",
                    "msg": "A chave girou! A porteira da mina está subindo..."})
 hint(round(gx - 300), round(gx + 10), "A porteira da mina: junte as duas metades da chave na mochila.")
-coins_line(VILLAGE_END + 40, gx - 100, 470)
+coins_line(PZ1 + 40, gx - 100, 470)
 
 # ======================================================================
 #  D · PROFUNDEZAS E O CARRINHO
@@ -462,17 +510,23 @@ coins_line(VILLAGE_END + 40, gx - 100, 470)
 D0 = round(gx + 40)
 L["sections"].append({"x": D0 + 420, "song": "tunel", "bg": "mina", "gt": "mina", "dark": .6, "night": 1, "per": 3,
                       "tint": "rgba(60,35,10,.2)"})
-L["darkZones"].append({"x": D0 + 200, "w": 5800, "dark": .85})
-ground(round(gx + 22), D0 + 1500)
-rock(D0, D0 + 4000, -620, 120, True)
+L["darkZones"].append({"x": D0 + 200, "w": 7600, "dark": .85})
+ground(round(gx + 22), D0 + 2300)
+rock(D0, D0 + 760, -620, 120, True)
+rock(D0 + 760, D0 + 1960, -620, -120, True)                     # a caverna alta do Morcego-Rei
+rock(D0 + 1960, D0 + 4800, -620, 120, True)
 L["oil"].append([D0 + 200, 468])
 L["clues"].append({"x": D0 + 600, "y": 470, "id": 11})
-L["specials"].append({"x": D0 + 900, "y": 360, "c": "roxo"})
-plat(D0 + 840, 400, 120, trestle=1)
-coins_line(D0 + 80, D0 + 1100, 470)
-bat(D0 + 700, 260, [D0 + 400, D0 + 1100], 120)
 check(D0 + 150)
-CART_X = D0 + 1300
+# a caverna do Morcego-Rei: ele mergulha onde a sombra marca; errou, as garras prendem: picareta!
+L["hawk"] = {"x0": D0 + 820, "x1": D0 + 1900, "y": GY, "trig": D0 + 960, "hp": 4, "skin": "bat"}
+check(D0 + 760)
+hint(D0 + 640, D0 + 880, "Uma caverna enorme... algo grande dorme pendurado lá no alto.")
+L["specials"].append({"x": D0 + 1360, "y": 360, "c": "roxo"})
+plat(D0 + 1300, 400, 120, trestle=1)
+coins_line(D0 + 80, D0 + 700, 470)
+coins_line(D0 + 900, D0 + 1850, 470, 60)
+CART_X = D0 + 2100
 L["sled"] = {"x": CART_X, "x1": CART_X + 1500, "y": GY, "tx0": 60000, "len": 7000, "skin": "cart", "vargas": 1,
              "endMsg": "O carrinho bateu no fim dos trilhos. O Vargas sumiu por uma porta de ferro...",
              "pts": [[0, 300], [400, 300], [900, 380], [1300, 400], [1900, 470], [2300, 490], [2900, 560], [3300, 580],
@@ -480,11 +534,11 @@ L["sled"] = {"x": CART_X, "x1": CART_X + 1500, "y": GY, "tx0": 60000, "len": 700
              "obs": [{"k": "rock", "u": 900}, {"k": "branch", "u": 1800}, {"k": "crack", "u": 2700, "w": 90},
                      {"k": "log", "u": 3600}, {"k": "branch", "u": 4500}, {"k": "crack", "u": 5400, "w": 100},
                      {"k": "rock", "u": 6200}]}
-hint(CART_X - 300, CART_X + 60, "Um carrinho de mina! Toque em ✦ USAR para subir e ir atrás do Vargas.")
+hint(CART_X - 300, CART_X + 60, "Um carrinho de mina! Chegue nele para subir e ir atrás do Vargas.")
 check(CART_X - 120)
 # depois do carrinho: a porta do cofre
 E0 = CART_X + 1500
-rock(D0 + 1500, E0 - 200, -620, 500)          # rocha: até a porta do cofre, só pelos trilhos
+rock(CART_X + 200, E0 - 200, -620, 500)          # rocha: até a porta do cofre, só pelos trilhos
 ground(E0 - 200, E0 + 900)
 rock(E0 - 200, E0 + 900, -620, 100, True)
 check(E0 + 60)

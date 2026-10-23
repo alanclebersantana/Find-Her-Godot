@@ -28,11 +28,34 @@ def split_v(im):
     a = np.asarray(im)[..., 3]
     rows = a.max(axis=1)
     mid = len(rows) // 2
-    gaps = [y for y in range(int(len(rows) * .25), int(len(rows) * .75)) if rows[y] < 10]
-    y = gaps[len(gaps) // 2] if gaps else mid
-    top = im.crop((0, 0, im.width, y))
-    bot = im.crop((0, y, im.width, im.height))
+    # o vão vazio mais comprido entre as duas poses
+    best = (0, mid)
+    run = 0
+    for yy in range(int(len(rows) * .2), int(len(rows) * .8)):
+        if rows[yy] < 10:
+            run += 1
+            if run > best[0]:
+                best = (run, yy - run // 2)
+        else:
+            run = 0
+    y = best[1]
+    top = _main_part(im.crop((0, 0, im.width, y)))
+    bot = _main_part(im.crop((0, y, im.width, im.height)))
     return top.crop(top.getbbox()), bot.crop(bot.getbbox())
+
+
+def _main_part(im):
+    """só a maior mancha (tira pedacinhos da pose de baixo/de cima que sobraram no corte)"""
+    from scipy import ndimage as nd
+    a = np.asarray(im).copy()
+    m = a[..., 3] > 20
+    lab, n = nd.label(m)
+    if n <= 1:
+        return im
+    sizes = nd.sum(m, lab, range(1, n + 1))
+    keep = lab == (int(np.argmax(sizes)) + 1)
+    a[~keep] = 0
+    return Image.fromarray(a)
 
 
 def build(name, frames, scale, cw, ch, center='body'):

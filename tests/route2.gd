@@ -109,6 +109,66 @@ func mill_ride(cliff_x: float, cliff_y: float):
 			break
 	return glide_to(cliff_x + 80)
 
+## nada até (x, feet_y) até a condição (debaixo d'água: ↓ mergulha, PULAR dá braçada para cima)
+func swim_to(x: float, fy: float, cond: Callable, mx: int = 900):
+	for i in mx:
+		P = g.player
+		if not ok():
+			return "state"
+		if cond.call():
+			return true
+		var d := {}
+		if px() < x - 8:
+			d["R"] = true
+		elif px() > x + 8:
+			d["L"] = true
+		var feet: float = P.y + P.h
+		if feet < fy - 6:
+			d["S"] = true
+		elif feet > fy + 30 and i % 10 == 0:
+			press("J")
+		frame(d)
+	return "timeout@%d,%d" % [int(px()), int(P.y)]
+
+## Brutus (o cão do Vargas): fica no chão para chamar; quando ele investe, sobe na banca;
+## ele bate a cabeça no muro/portão; repete até ele fugir
+func brutus_fight():
+	var b: Dictionary = g.X.BOSS
+	var stalls: Array = []
+	for s in g.SOL:
+		if s.t == "plat" and s.get("trestle") and s.x > b.x0 and s.x < b.x1:
+			stalls.append(s)
+	until({"R": true}, func(): return b.active, 300)
+	for it in 40:
+		P = g.player
+		if b.done or b.st == "down":
+			hold({}, 160)
+			return true
+		if not ok():
+			return "state"
+		# desce da banca e espera no chão perto da banca mais próxima
+		var st: Dictionary = stalls[0]
+		var best: float = 1e9
+		for s2 in stalls:
+			var d2: float = abs(float(s2.x) + float(s2.w) / 2 - px())
+			if d2 < best:
+				best = d2
+				st = s2
+		var stand: float = float(st.x) + float(st.w) / 2
+		if P.y + P.h < 494:
+			until({}, func(): return b.st in ["idle", "paw", "down"], 400)
+			if b.st == "down":
+				continue
+			walk_to(float(st.x) - 30)
+			until({}, func(): return P.onGround and P.y + P.h >= 494, 60)
+		walk_to(stand)
+		until({}, func(): return b.st == "charge" and abs(b.x - px()) < 320 or b.st == "down", 500)
+		if b.st == "down":
+			continue
+		jump_to(stand, true)
+		hold({}, 4)
+	return "hp=%d st=%s" % [b.hp, b.st]
+
 func house_list() -> Array:
 	var out: Array = []
 	for s in g.L.solids:
@@ -231,10 +291,29 @@ func _initialize() -> void:
 	walk_to(13600)
 	S("sobe pelas pás", mill_ride(14000, -150))
 	S("alto do barranco", P.onGround and P.y < -150)
-	S("desenho 3", walk_to(14820))
-	walk_to(15800)
-	S("pedra do verde", jump_to(15900))
-	S("verde", spec("verde"))
+	# o caixote na placa abre a cancela
+	var cr: Dictionary = {}
+	for c in g.M.PUSH:
+		if absf(float(c.x) - 14220) < 5:
+			cr = c
+	walk_to(float(cr.x) - 22)
+	S("empurra o caixote para a placa", until({"R": true}, func(): return float(cr.y) > -150 - 60 + 10, 600))
+	hold({}, 30)
+	walk_to(float(cr.x) - 30)
+	jump_to(float(cr.x) + 30)
+	S("a cancela abriu", walk_to(14680))
+	# o lago: mergulha, pega o capacete e o arpão na prateleira
+	S("cai no lago", until({"R": true}, func(): return P.swim, 200))
+	S("desce até a prateleira", swim_to(14775, 292, func(): return g.NT.helmet))
+	S("pega o arpão", swim_to(14860, 292, func(): return g.NT.harpoon))
+	S("capacete e arpão", g.NT.helmet and g.NT.harpoon)
+	S("entra na arena do Sapo-Rei", until({"R": true}, func(): return g.K.FISH.active, 400))
+	S("vence o Sapo-Rei", fish_fight())
+	# o lápis verde no fundo e a corrente de bolhas
+	var vx: float = 15440.0
+	S("verde", until({"R": true, "S": true} if px() < vx else {"L": true, "S": true}, func(): return g.SPECGOT.has("verde"), 600))
+	S("corrente de bolhas", until({"R": true}, func(): return P.onGround and px() > 16000 and P.y < -100, 700))
+	S("desenho 3", walk_to(16120))
 	S("fogueira 2", walk_to(16300))
 	S("descansou 2", rests.has(2))
 	# ---------------- C · TELHADOS
@@ -331,7 +410,9 @@ func _initialize() -> void:
 			S("pula para o telhado %d (vão %d)" % [i + 1, int(gap)], r2 is bool and r2 and P.onGround and px() > hn.x and px() < hn.x + hn.w and P.y + P.h < 400)
 	S("pistas na vila (9 e 10)", n_clues() == 4)
 	S("azul", spec("azul"))
-	S("desce para a rua", until({"R": true}, func(): return P.onGround and P.y > 400, 300))
+	S("desce para o quintal", until({"R": true}, func(): return P.onGround and P.y > 400, 300))
+	S("Brutus", brutus_fight())
+	S("portão do quintal abriu", walk_to(float(g.X.BOSS.x1) + 60))
 	S("fogueira 3", walk_to(float(g.CHK.filter(func(c): return c.has("rest") and c.rest == 3)[0].x) + 10))
 	S("descansou 3", rests.has(3))
 	S("combina a chave", g.try_combine("chave_a", "chave_b") != "")
@@ -343,13 +424,15 @@ func _initialize() -> void:
 	# ---------------- D · PROFUNDEZAS
 	var D0: float = float(L.sections[3].x) - 420.0
 	S("pista 11", walk_to(D0 + 610) and n_clues() == 5)
-	walk_to(D0 + 800)
-	S("tábua do roxo", jump_to(D0 + 900))
+	g.lantern_lit = true
+	S("entra na caverna", until({"R": true}, func(): return g.K.HAWK.active, 400))
+	S("vence o Morcego-Rei", hawk_fight())
+	walk_to(D0 + 1260)
+	S("tábua do roxo", jump_to(D0 + 1360))
 	hop("R", 0)
 	S("roxo", spec("roxo"))
 	var SLd: Dictionary = L.sled
-	S("vai ao carrinho", walk_to(float(SLd.x)))
-	use()
+	S("chega no carrinho e parte sozinho", until({"R": true} if px() < float(SLd.x) else {"L": true}, func(): return g.VH.mode == "sled", 600))
 	S("subiu no carrinho", g.VH.mode == "sled")
 	var VH = g.VH
 	var done_cart = "timeout"

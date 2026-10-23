@@ -257,6 +257,9 @@ static func boss(g: Game, T: int) -> void:
 			fr = [0, 1, 2, 3][(T / 6) % 4]
 		_:
 			fr = 0
+	if b.get("skin", "boar") == "dog":
+		_brutus(b, T)
+		return
 	var sc := 1.12
 	Spr.ellipse(b.x, 502, 90, 12, Color(0, 0, 0, .3))
 	Spr.save()
@@ -283,6 +286,42 @@ static func boss(g: Game, T: int) -> void:
 			Spr.text("★", b.x + cos(a2) * 34, b.y - 136 + sin(a2) * 10, 16, Color("#ffe27a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3)
 	if b.st == "paw" and (T / 8) % 2 == 0:
 		Spr.text("!", b.x + b.dir * 30, b.y - 150, 32, Color("#ff6a4a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 5)
+
+## Brutus, o cão de guarda do Vargas (arte do Gemini: cao.png bem grande, com coleira de pregos)
+static func _brutus(b: Dictionary, T: int) -> void:
+	var fr := 4
+	match b.st:
+		"idle":
+			fr = 4 if (T / 40) % 3 != 2 else 5
+		"paw":
+			fr = 5
+		"charge":
+			fr = [0, 1, 2, 3][(T / 3) % 4]
+		"trot":
+			fr = [0, 1, 2, 3][(T / 6) % 4]
+		"stun":
+			fr = 6
+		"down":
+			fr = 6
+		"intro":
+			fr = 7
+	var tint := Color(1, .45, .4, 1) if b.red > 0 and (T / 3) % 2 == 0 else Color(1, 1, 1, 1)
+	var a: float = 1.0
+	var dx: float = 0.0
+	if b.st == "down":
+		# foge correndo para fora do quintal
+		dx = b.dir * -min(float(b.t) * 6.0, 900.0)
+		fr = [0, 1, 2, 3][(T / 3) % 4]
+		a = clamp(1.0 - (b.t - 90) / 60.0, 0.0, 1.0)
+	var flip: bool = b.dir < 0 if b.st != "down" else b.dir > 0
+	Spr.ellipse(b.x + dx, 502, 92, 12, Color(0, 0, 0, .3 * a))
+	Spr.sheet("cao", fr, 200, 150, b.x + dx, b.y + 4, 210.0, flip, Color(tint.r, tint.g, tint.b, a))
+	if b.st == "stun":
+		for i in 4:
+			var a2 := T * .12 + TAU * i / 4.0
+			Spr.text("★", b.x + cos(a2) * 40, b.y - 150 + sin(a2) * 10, 18, Color("#ffe27a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3)
+	if b.st == "paw" and (T / 8) % 2 == 0:
+		Spr.text("AU!", b.x + b.dir * 60, b.y - 160, 26, Color("#ff6a4a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 5)
 
 # ---------------------------------------------------------------- inimigos novos (desenhados por código)
 static func _pc(n: String, cx: float, cy: float, w: float) -> void:
