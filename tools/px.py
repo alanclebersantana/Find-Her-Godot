@@ -201,7 +201,7 @@ def build(jid):
 
 
 # ---------------------------------------------------------------- recorte
-def key_alpha(rgb):
+def key_alpha(rgb, glow=False):
     """alfa a partir do fundo magenta (cor estimada nos cantos)."""
     a = rgb.astype(np.float32)
     corners = np.concatenate([a[:6, :6].reshape(-1, 3), a[:6, -6:].reshape(-1, 3), a[-6:, :6].reshape(-1, 3), a[-6:, -6:].reshape(-1, 3)])
@@ -253,10 +253,24 @@ def key_alpha(rgb):
                 alpha[:, max(0, i - 2):i + 3] = 0
             else:
                 alpha[max(0, i - 2):i + 3, :] = 0
+    # brilho/halo misturado com o magenta perto do fundo (lanterna, pelos): vira transparência
+    near = ndimage.binary_dilation(~fg, iterations=7) & fg
+    sp0 = np.clip(np.minimum(a[..., 0], a[..., 2]) - a[..., 1], 0, None)
+    kill = near & (sp0 > 35)
+    alpha[kill] *= np.clip(1 - (sp0[kill] - 35) / 90.0, 0, 1)
+    halo = ndimage.binary_dilation(~fg, iterations=30) & fg & (sp0 > 45)
+    alpha[halo] *= np.clip(1 - (sp0[halo] - 45) / 40.0, 0, 1)
+    near = near | halo
+    if glow:
+        # brilho quente misturado ao magenta (lanterna acesa): vira brilho laranja translúcido
+        bg_ = a[..., 2] - a[..., 1]
+        gl = fg & (a[..., 0] > 190) & (bg_ > 15)
+        alpha[gl] *= np.clip(1 - (bg_[gl] - 15) / 45.0, 0.0, 1.0)
+        a[..., 2][gl] = np.minimum(a[..., 2][gl], a[..., 1][gl] * .8)
     out = a.copy()
     # tira o reflexo magenta das bordas
     spill = np.clip(np.minimum(out[..., 0], out[..., 2]) - out[..., 1], 0, None)
-    m = edge | (spill > 30)
+    m = edge | near | (spill > 30)
     out[..., 0][m] -= spill[m] * 0.5
     out[..., 2][m] -= spill[m] * 0.5
     out = np.clip(out, 0, 255)
@@ -287,7 +301,7 @@ def cut(jid, src):
             print('ok', f)
         return
 
-    rgba = key_alpha(np.array(im))
+    rgba = key_alpha(np.array(im), glow=jid.startswith('vigia'))
     pieces = []
     for it, (x, y, cw, ch) in zip(job['items'], cells):
         # célula com uma margem (o Gemini às vezes passa um pouco)
