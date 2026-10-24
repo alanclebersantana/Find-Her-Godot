@@ -15,6 +15,11 @@ var g
 var B := {}              # chave -> {"x0","x1","y","h": PackedFloat32Array, "v": PackedFloat32Array}
 var was_swim := false
 var was_y := 0.0
+## ondinhas em anel na superfície (quem entra, sai ou nada): {key, x, t, life, s}; desenhadas em world_glow
+var RINGS: Array = []
+const MAX_RINGS := 24
+## efeitos de ambiente que avançam no passo de física (AmbientFx, carregado na primeira vez)
+static var _afx = null
 
 func _init(game) -> void:
 	g = game
@@ -22,6 +27,7 @@ func _init(game) -> void:
 func load_level() -> void:
 	B = {}
 	was_swim = false
+	RINGS = []
 
 ## colunas do corpo d'água (cria na primeira vez que é desenhado ou tocado)
 func body(key: String, x0: float, x1: float, y: float) -> Dictionary:
@@ -62,14 +68,30 @@ func splash(x: float, y: float, force: float, drops: bool = true) -> void:
 				vv[j] += force * (1.0 if d == 0 else .6)
 		b.v = vv
 		b.act = 240
+		if abs(force) > .8:
+			ring(k, x, clamp(abs(force) / 5.0, .5, 1.6))
 		if drops and abs(force) > 1.5:
 			var c := Color(.8, .93, 1, .9) if not k.begins_with("s") else Color(.7, 1, .4, .9)
 			for n in int(min(14.0, abs(force) * 2.0)):
-				g.PARTS.append({"x": x + randf_range(-10, 10), "y": b.y - 2, "vx": randf_range(-2.4, 2.4), "vy": -randf_range(2.0, 4.0 + abs(force) * .4), "life": 22 + randf() * 12, "col": c})
+				Polish.part("drop", x + randf_range(-10, 10), b.y - 2, randf_range(-2.4, 2.4), -randf_range(2.0, 4.0 + abs(force) * .4), int(22 + randf() * 12), c, {"g": .18})
 		return
+
+## anel de ondinha na superfície do corpo d'água "key" em x (s = tamanho); lista com limite
+func ring(key: String, x: float, s: float = 1.0) -> void:
+	if RINGS.size() >= MAX_RINGS:
+		RINGS.pop_front()
+	RINGS.append({"key": key, "x": x, "t": 0, "life": 46, "s": s})
 
 ## física: só os corpos perto da tela (e por alguns segundos depois de mexidos)
 func step() -> void:
+	# ondinhas em anel: avançam e somem
+	for r in RINGS:
+		r.t += 1
+	RINGS = RINGS.filter(func(r): return r.t < r.life)
+	# efeitos de ambiente (esporos, faíscas, galhos, pingos de gelo): uma vez por passo de física
+	if _afx == null:
+		_afx = load("res://scripts/ambient_fx.gd")
+	_afx.tick(g)
 	var c0: float = g.cam - 300
 	var c1: float = g.cam + g.W + 300
 	for k in B:
@@ -101,6 +123,7 @@ func step() -> void:
 				vv[j2] += randf_range(.4, 1.1)
 			b.v = vv
 	_player_waves()
+	_enemy_waves()
 
 ## o Tomé mexendo a água: entrar, sair, nadar na superfície
 func _player_waves() -> void:
@@ -117,3 +140,29 @@ func _player_waves() -> void:
 		splash(pcx - sign(p.vx) * 10, p.y + 10, .9, false)
 	was_swim = swim
 	was_y = p.vy
+
+## bichos entrando e saindo da água (sapos, javali, cachorro...): respingo e ondinha
+func _enemy_waves() -> void:
+	if B.is_empty() or g.T % 2 != 0:
+		return
+	var x0: float = g.cam - 100
+	var x1: float = g.cam + g.W + 100
+	for e in g.EN:
+		if e.get("dead", 0) or e.x < x0 or e.x > x1 or e.get("k", "") in ["piranha", "leech"]:
+			continue
+		var inw := false
+		var key := ""
+		for k in B:
+			var b: Dictionary = B[k]
+			if e.x > b.x0 and e.x < b.x1 and e.y > b.y - 2 and e.y < b.y + 260:
+				inw = true
+				key = k
+				break
+		var was = e.get("_inw")
+		e._inw = inw
+		if was == null or was == inw:
+			continue
+		if inw:
+			splash(e.x, B[key].y, 3.5)
+		else:
+			splash(e.x, e.y, -2.0, false)

@@ -13,7 +13,15 @@ class _Sub extends Node2D:
 	func _draw() -> void:
 		cb.call(self)
 
+var en_node: Node2D
+
 func _ready() -> void:
+	en_node = _Sub.new()
+	en_node.cb = _draw_enemy_node
+	var me := ShaderMaterial.new()
+	me.shader = preload("res://scripts/depth.gdshader")
+	en_node.material = me
+	add_child(en_node)
 	pl_node = _Sub.new()
 	pl_node.cb = _draw_player_node
 	var m := ShaderMaterial.new()
@@ -27,6 +35,10 @@ func _ready() -> void:
 func _process(_d: float) -> void:
 	queue_redraw()
 
+## true no primeiro desenho depois de um passo da lógica: contadores visuais só andam aí
+static var FRESH := true
+var _lastT := -1
+
 func _draw() -> void:
 	var __t := Time.get_ticks_usec()
 	__draw_raw()
@@ -37,6 +49,9 @@ func __draw_raw() -> void:
 		return
 	var g := game
 	T = g.T
+	FRESH = g.T != _lastT
+	_lastT = g.T
+	Polish.FRESH = FRESH
 	Spr.begin(self)
 	var cx0: float = g.cam - 400
 	var cx1: float = g.cam + g.W + 400
@@ -119,6 +134,7 @@ func __draw_raw() -> void:
 		Spr.A("lia_scared", v.x + 44, v.y - 58, .5)
 		Spr.A("vg_cart1" if f else "vg_cart2", v.x, v.y + 2, 1)
 	_levers(g)
+	_hints(g)
 	for v in g.VINES:
 		if v.x + v.len < cx0 or v.x - v.len > cx1:
 			continue
@@ -132,6 +148,41 @@ func __draw_raw() -> void:
 	for c in g.CR:
 		if not c.dead and c.t != "push" and c.x > cx0 and c.x < cx1:
 			_crate(c)
+	Critters.draw(g, T)
+	var __d_Extras_tocas := Time.get_ticks_usec()
+	WorldExtras.tocas(g, T)
+	Spr.pt("d_Extras_tocas", __d_Extras_tocas)
+	if g.M and g.M.ctrl:
+		var doff := g.ip_off()
+		Spr.save()
+		Spr.translate(doff.x, doff.y)
+		WorldExtras.dog(g, T)
+		Spr.restore()
+	else:
+		WorldExtras.dog(g, T)
+	if not g.low_fx:
+		_reflection(g)
+	# o Tomé é desenhado num nó só dele (com o sombreado de volume) e o que fica na frente dele
+	# (capim, faíscas, poeira) num terceiro nó por cima
+	en_node.queue_redraw()
+	pl_node.queue_redraw()
+	front_node.queue_redraw()
+
+## nó do Tomé: volume com luz do sol (de cima, atrás) ou da lanterna (da frente)
+
+## inimigos num nó próprio: ganham o mesmo volume (luz na borda) e a cor do ambiente do Tomé
+func _draw_enemy_node(n: CanvasItem) -> void:
+	var g := game
+	if g == null or not g.L:
+		return
+	Spr.begin(n)
+	var mat: ShaderMaterial = n.material
+	var dark: float = g.AMB.dark
+	mat.set_shader_parameter("light_uv", Vector2(0.0, -1.0))
+	mat.set_shader_parameter("rim_col", Color(1, .9, .72) if dark < .3 else Color(1, .78, .45))
+	mat.set_shader_parameter("rim_amt", .26 if dark < .3 else .3 * clamp((dark - .3) * 3.0, 0, 1))
+	mat.set_shader_parameter("shade_amt", .26)
+	n.self_modulate = _env(g)
 	for e in g.EN:
 		if e.dead > 50:
 			continue
@@ -172,30 +223,22 @@ func __draw_raw() -> void:
 			Spr.sil_c = Color(0, 0, 0, 0)
 		Spr.restore()
 		if e.get("dizzyT", 0) > 0 and not e.dead:
-			e.dizzyT -= 1
+			if FRESH:
+				e.dizzyT -= 1
 			if e.stun > 0:
 				dizzy(e.x + eo.x, e.y + eo.y - 46, T)
 		_enemy_fx_over(g, e, eo, hop_u)
-	Critters.draw(g, T)
-	var __d_Extras_tocas := Time.get_ticks_usec()
-	WorldExtras.tocas(g, T)
-	Spr.pt("d_Extras_tocas", __d_Extras_tocas)
-	if g.M and g.M.ctrl:
-		var doff := g.ip_off()
-		Spr.save()
-		Spr.translate(doff.x, doff.y)
-		WorldExtras.dog(g, T)
-		Spr.restore()
-	else:
-		WorldExtras.dog(g, T)
-	if not g.low_fx:
-		_reflection(g)
-	# o Tomé é desenhado num nó só dele (com o sombreado de volume) e o que fica na frente dele
-	# (capim, faíscas, poeira) num terceiro nó por cima
-	pl_node.queue_redraw()
-	front_node.queue_redraw()
 
-## nó do Tomé: volume com luz do sol (de cima, atrás) ou da lanterna (da frente)
+## cor do ambiente: mais quente no fim da tarde, mais azulada na neve e à noite
+func _env(g: Game) -> Color:
+	var ws: Dictionary = g.section_weights()
+	var env := Color(1, 1, 1)
+	env = env.lerp(Color(1.03, .95, .86), ws.get("tarde", 0.0))
+	env = env.lerp(Color(.94, .97, 1.04), ws.get("neve", 0.0))
+	env = env.lerp(Color(.9, .94, 1.02), ws.get("noite", 0.0))
+	env = env.lerp(Color(.92, .96, .94), ws.get("pantano", 0.0))
+	return env
+
 func _draw_player_node(n: CanvasItem) -> void:
 	var g := game
 	if g == null or not g.L:
@@ -218,13 +261,7 @@ func _draw_player_node(n: CanvasItem) -> void:
 		mat.set_shader_parameter("rim_col", Color(1, .95, .8).lerp(Color(1, .74, .42), tw))
 		mat.set_shader_parameter("rim_amt", .34)
 	mat.set_shader_parameter("shade_amt", .55 if p.swim else .32)
-	# cor do ambiente: mais quente no fim da tarde, mais azulada na neve e à noite
-	var ws: Dictionary = g.section_weights()
-	var env := Color(1, 1, 1)
-	env = env.lerp(Color(1.03, .95, .86), ws.get("tarde", 0.0))
-	env = env.lerp(Color(.94, .97, 1.04), ws.get("neve", 0.0))
-	env = env.lerp(Color(.9, .94, 1.02), ws.get("noite", 0.0))
-	env = env.lerp(Color(.92, .96, .94), ws.get("pantano", 0.0))
+	var env := _env(g)
 	# levou golpe: clarão branco curto (some em 10 quadros)
 	var hf: int = int(p.get("hitFx", 0))
 	if hf > 0:
@@ -241,7 +278,7 @@ func _draw_front_node(n: CanvasItem) -> void:
 	if g == null or not g.L:
 		return
 	Spr.begin(n)
-	WorldNature.front_decor(g)
+	_front_decor_fade(g)
 	if g.VL:
 		g.VL.draw_front(T)
 	var __d_Traps_draw_front := Time.get_ticks_usec()
@@ -273,6 +310,52 @@ func _draw_front_node(n: CanvasItem) -> void:
 		else:
 			Spr.rect(p.x, p.y, 3, 3, Color(c.r, c.g, c.b, pa))
 
+## Y3 árvores da frente ficam translúcidas quando o Tomé passa por trás delas
+func _front_decor_fade(g: Game) -> void:
+	var p: Dictionary = g.player
+	var pcx: float = p.x + p.w / 2
+	for d in g.L.get("decor", []):
+		if d.x < g.cam - 300 or d.x > g.cam + g.W + 300:
+			continue
+		if not WorldNature.is_front(g.L, d):
+			continue
+		var behind: bool = abs(d.x - pcx) < 80.0 and p.y + p.h > float(d.get("y", 0.0)) - 340.0 and p.y < float(d.get("y", 0.0)) + 20.0
+		var fa: float = float(d.get("_fa", 1.0))
+		if FRESH:
+			fa = move_toward(fa, .45 if behind else 1.0, .06)
+			d._fa = fa
+		Spr.save()
+		Spr.alpha *= fa
+		WorldNature.decor(d)
+		Spr.restore()
+
+## Y9 o que dá para usar perto do Tomé brilha de leve no chão (fogueira apagada, manivela, toca, entrada)
+func _hints(g: Game) -> void:
+	var p: Dictionary = g.player
+	var pc := Vector2(p.x + p.w / 2, p.y + p.h)
+	var pts: Array = []
+	if p.get("nearE") is Dictionary:
+		var e: Dictionary = p.nearE
+		pts.append(Vector2(e.x + e.w / 2, e.y + e.h))
+	for c in g.CHK:
+		if not c.on and abs(c.x - pc.x) < 150 and abs(c.y - pc.y) < 90:
+			pts.append(Vector2(c.x, c.y))
+	for c in g.CRANKS:
+		if not c.done and abs(float(c.x) - pc.x) < 130 and abs(float(c.y) - pc.y) < 120:
+			pts.append(Vector2(float(c.x), float(c.y)))
+	if g.X and g.X.dog_free():
+		for tc in g.X.TOCAS:
+			if not tc.done and abs(float(tc.x) - pc.x) < 160 and abs(float(tc.y) - pc.y) < 90:
+				pts.append(Vector2(float(tc.x), float(tc.y)))
+	for q in pts:
+		var s: float = .5 + .5 * sin(T * .12)
+		Spr.glow(q.x, q.y - 8, 46, Color(1, .9, .55, .16 + .12 * s))
+		Spr.ellipse(q.x, q.y - 1, 30 + 4 * s, 5, Color(1, .92, .6, .18 + .1 * s))
+		if FRESH and T % 14 == 0:
+			Polish.part("spark", q.x + randf_range(-22, 22), q.y - 4, 0, -randf_range(.4, .9), 34, Color(1, .9, .55), {"g": 0.0, "size": 1.2})
+
+var _cat := {}   # juncos: (ângulo, velocidade) da mola de cada um
+
 # ---------- cenário com estado ----------
 var cabins: Array = []
 func _deco(g: Game) -> void:
@@ -292,7 +375,7 @@ func _deco(g: Game) -> void:
 		for i in 9:
 			var age: float = fposmod(T * .5 + i * 22.0, 198.0)
 			var u: float = age / 198.0
-			var sx: float = chx + u * 46 + sin(u * 6.0 + i) * 7
+			var sx: float = chx + u * (46 + (g.AMB.get("wind", 0.0) + Polish.gust_k() * .6) * 110.0) + sin(u * 6.0 + i) * 7
 			var sy: float = chy - u * 170
 			var sa: float = .5 * (1.0 - u) * min(1.0, u * 6.0)
 			Spr.circle(sx, sy, 6 + u * 24, Color(.86, .86, .88, sa))
@@ -302,8 +385,15 @@ func _deco(g: Game) -> void:
 	for x in g.L.get("cattails", []):
 		if x > cam - 80 and x < cam + g.W + 80:
 			# os juncos se curvam quando o Tomé passa e balançam com o vento
-			var near: float = clamp(1.0 - abs(x - ppx) / 50.0, 0, 1) if abs(pp.y + pp.h - 512) < 60 else 0.0
-			var bend: float = sign(x - ppx) * near * .35 + sin(T * .03 + x) * .04 + g.AMB.get("wind", 0.0) * .12
+			# Q10 mola: quem passa empurra, o junco passa do ponto ao voltar e assenta balançando
+			var tgt: float = clamp(Polish.grass_push(x, 512.0, 50.0) * .05, -.45, .45) + sin(T * .03 + x) * .04 + g.AMB.get("wind", 0.0) * .12 + Polish.wind_wave(x) * .015
+			var sp: Vector2 = _cat.get(x, Vector2.ZERO)
+			if FRESH:
+				sp.y += (tgt - sp.x) * .22
+				sp.y *= .8
+				sp.x += sp.y
+				_cat[x] = sp
+			var bend: float = sp.x
 			Spr.save()
 			Spr.translate(x, 512)
 			Spr.rotate(bend)
@@ -340,6 +430,12 @@ func _deco(g: Game) -> void:
 		var ra: float = max(rx0, cam - 10)
 		Spr.rect(ra, 491, xb - ra, 5, Color("#4c5058"))
 		Spr.rect(ra, 491, xb - ra, 1.5, Color("#c9ced6"))
+		# ferrugem: manchas alaranjadas presas ao trilho (sorteadas pela posição, não pela câmera)
+		var rux: float = floor(ra / 53.0) * 53.0
+		while rux < xb:
+			if rux > ra and Polish.hh2(rux, 61) > .55:
+				Spr.ellipse(rux + Polish.hh2(rux, 62) * 30, 494, 6 + Polish.hh2(rux, 63) * 10, 1.6, Color(.55, .27, .1, .5))
+			rux += 53.0
 		var jx: float = floor(ra / 144.0) * 144.0
 		while jx < xb:
 			if jx > ra:
@@ -537,17 +633,48 @@ func _campfire(c: Dictionary) -> void:
 			Spr.seg(lx - 24, c.y - 9, lx + 14, c.y - 9, Color("#5a3820"), 2)
 			Spr.ellipse(lx + sx * 32, c.y - 7, 5, 7, Color("#d8b07a"))
 			Spr.ring(lx + sx * 32, c.y - 7, 3, Color("#8a5a32"), 1.5)
-		if T % 3 == 0:
+		if FRESH and T % 3 == 0:
 			game.PARTS.append({"x": c.x + (randf() - .5) * 24, "y": c.y - 40, "vx": (randf() - .5) * .8, "vy": -1.8, "life": 28, "col": Color("#ffcf6a"), "ember": true})
-		Spr.A("o_fire_on", c.x, c.y + 4, 1.25)
+		_flame(c.x, c.y + 4, 1.25)
 		if not game.RESTED.has(c.rest) and (T / 20) % 2 == 0:
 			Spr.text("▼", c.x, c.y - 100 + sin(T * .1) * 4, 20, Color("#ffe0a0"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
 		return
 	if c.on:
 		Spr.glow(c.x, c.y - 20, 60, Color(1, .75, .35, .35))
-		if T % 5 == 0:
+		if FRESH and T % 5 == 0:
 			game.PARTS.append({"x": c.x + (randf() - .5) * 14, "y": c.y - 26, "vx": (randf() - .5) * .6, "vy": -1.4, "life": 22, "col": Color("#ffcf6a"), "ember": true})
-	Spr.A("o_fire_on" if c.on else "o_fire_off", c.x, c.y + 4, .8)
+	if c.on:
+		_flame(c.x, c.y + 4, .8)
+	else:
+		Spr.A("o_fire_off", c.x, c.y + 4, .8)
+	# R3 fogueira onde o Tomé volta: bandeirinha tremulando ao lado
+	if game.cur_chk >= 0 and game.cur_chk < game.CHK.size() and game.CHK[game.cur_chk] == c:
+		_pennant(c.x + 34, c.y)
+
+## J7/O8 chama viva: tremula, estica e deita com o vento
+func _flame(x: float, y: float, sc: float) -> void:
+	var w: float = float(game.AMB.get("wind", 0.0)) + Polish.gust_k() * .6
+	Spr.save()
+	Spr.translate(x, y)
+	Spr.rotate(w * .14 + sin(T * .23) * .035 + sin(T * .61) * .02)
+	Spr.scale(1.0 + sin(T * .47) * .035, 1.0 + sin(T * .31 + 1.3) * .055 + sin(T * .9) * .02)
+	Spr.A("o_fire_on", 0, 0, sc)
+	Spr.restore()
+
+## bandeirinha do ponto de volta
+func _pennant(x: float, gy: float) -> void:
+	var top: float = gy - 54
+	Spr.seg(x, gy, x, top, Color("#5a3820"), 2.5)
+	var w: float = float(game.AMB.get("wind", 0.0)) * .6 + .4
+	var pts := PackedVector2Array()
+	for i in 6:
+		var u: float = i / 5.0
+		pts.append(Vector2(x + u * 22, top + 2 + sin(T * .18 - u * 3.0) * 2.5 * w * u))
+	for i in range(5, -1, -1):
+		var u: float = i / 5.0
+		pts.append(Vector2(x + u * 22, top + 12 - u * 5 + sin(T * .18 - u * 3.0) * 2.5 * w * u))
+	Spr.poly(pts, Color("#d8463a"))
+	Spr.circle(x, top, 2.5, Color("#f0cd72"))
 
 func _crate(c: Dictionary) -> void:
 	var o := (randf() - .5) * 4 if c.shake else 0.0
@@ -643,7 +770,8 @@ func _enemy_fx_over(g: Game, e: Dictionary, eo: Vector2, hop_u: float) -> void:
 		Spr.text("?", hx + 10, hy - 30, 22, Color(1, .95, .7, qa), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
 	var wt: int = e.get("warnT", 0)
 	if wt > 0:
-		e.warnT = wt - 1
+		if FRESH:
+			e.warnT = wt - 1
 		var k: float = min(1.0, wt / 8.0)
 		var sc: float = 1.0 + .25 * sin(wt * .5)
 		Spr.text("!", hx, hy - 24, int(28 * sc), Color(1, .2, .12, k), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 5, Color(.25, 0, 0, k * .9))
@@ -717,13 +845,15 @@ func _enemy(e: Dictionary) -> void:
 			e._tdust = false
 	if e.dead:
 		if e.dk == "flat":
+			# achatado com quique: passa do ponto e volta (borracha)
 			var q: float = min(1, e.dead / 4.0)
-			Spr.scale(1 + .3 * q, 1 - .62 * q)
+			var wob: float = sin(e.dead * .9) * .09 * (1.0 - min(1.0, e.dead / 18.0)) if e.dead > 4 else 0.0
+			Spr.scale(1 + .3 * q - wob, 1 - .62 * q + wob)
 		else:
-			Spr.translate(0, e.ddy)
+			Spr.translate(float(e.get("ddx", 0.0)), e.ddy)
 			var m := 0.0 if Game.FLY.has(e.k) else -15.0
 			Spr.translate(0, m)
-			Spr.rotate(min(PI, e.dead * .25))
+			Spr.rotate(e.dead * .25 * (1.0 if float(e.get("dvx", 1.0)) >= 0 else -1.0))
 			Spr.translate(0, -m)
 	elif not Game.FLY.has(e.k) and not e.k in ["spider", "mole", "frog", "plant", "leech"]:
 		# sobe-e-desce do passo, só quando anda (parado fica no chão, respirando);
@@ -1133,6 +1263,19 @@ func _isis_draw(p: Dictionary) -> void:
 	var by: float = p.y + p.h + 2
 	var fr := 4
 	var flip: bool = p.face < 0
+	if p.dyingT > 0:
+		# tombo: gira no ar e cai (como o Tomé)
+		var td: Texture2D = Spr.tex.get("isis2")
+		if td:
+			var s0: float = ISIS_H / 150.0
+			Spr.save()
+			Spr.translate(cx, by - 20)
+			Spr.rotate((46 - p.dyingT) * .12 * (1.0 if p.face > 0 else -1.0))
+			Spr.translate(0, 20)
+			Spr.scale(-s0 if flip else s0, s0)
+			Spr.ci.draw_texture_rect_region(td, Rect2(-75, -150, 150, 150), Rect2(6 * 150, 0, 150, 150), Color(1, 1, 1, Spr.alpha))
+			Spr.restore()
+		return
 	if p.get("bar"):
 		fr = 10
 		by = game.NT.bar_y(p.bar, cx) + ISIS_H * .66
@@ -1163,7 +1306,7 @@ func _isis_draw(p: Dictionary) -> void:
 	var st := Vector2.ONE
 	if fr <= 6:
 		st = _body_flex(p, "isis", fr, 4)
-		rot = p.lean
+		rot = float(p.get("lean", 0.0))
 		if fr == 4:
 			# parada: respira; ofegante depois de correr muito (curvada, rápido)
 			var ip: float = p.get("pant", 0) / 150.0
@@ -1255,7 +1398,7 @@ func _player_draw(g: Game) -> void:
 	if p.lastFace != p.face:
 		p.turnT = 6
 		p.lastFace = p.face
-	if p.turnT > 0:
+	if p.turnT > 0 and FRESH:
 		p.turnT -= 1
 	var pai: Texture2D = Spr.tex.pai
 	var pai2: Texture2D = Spr.tex.pai2
@@ -1293,7 +1436,7 @@ func _player_draw(g: Game) -> void:
 		Spr.restore()
 		return
 	# subindo: escada/rede (de costas), corda (de lado) e cipó (pendurado pela mão)
-	if not (p.iframe > 40) and (p.ladder or p.vine):
+	if not (p.get("hitT", 0) > 0) and (p.ladder or p.vine):
 		var mv := int(p.climbA / 22) % 2
 		if p.vine:
 			var v: Dictionary = p.vine
@@ -1338,7 +1481,7 @@ func _player_draw(g: Game) -> void:
 		_armor(p, cx, by)
 		return
 	# Tomé em peças com "ossos" (se as artes de assets/rig/tome existirem)
-	if not (p.iframe > 40) and Rig.ready("tome"):
+	if not (p.get("hitT", 0) > 0) and Rig.ready("tome"):
 		var air2: float = clamp(1 - abs(p.vy) / 16.0, .3, 1) if not p.onGround else 1.0
 		Spr.ellipse(cx, by + 1, 17 * air2, 4 * air2, Color(0, 0, 0, .25 * air2))
 		var sqv := Vector2(1 + p.squash * .25, 1 - p.squash * .3)
@@ -1346,7 +1489,7 @@ func _player_draw(g: Game) -> void:
 		_armor(p, cx, by)
 		return
 	# poses novas (atlas 2)
-	if not (p.iframe > 40):
+	if not (p.get("hitT", 0) > 0):
 		var n := ""
 		var cyk := ""
 		var cyn: Array = []
@@ -1381,7 +1524,8 @@ func _player_draw(g: Game) -> void:
 				_pose(cyk, cm.tex, Spr.x4_src(cm, Spr.x4_pos(cm, cyf)[0]), Rect2(-float(cm.ax), -float(cm.ay), float(cm.cw), float(cm.ch)), cx, by, 0.0, -.56 if p.face < 0 else .56, .56)
 			elif ar != null:
 				_pose(n, Spr.atlas_tex(ar), Rect2(ar[0], ar[1], ar[2], ar[3]), Rect2(-ar[4], -ar[5], ar[2], ar[3]), cx, by, 0.0, -.56 if p.face < 0 else .56, .56)
-			p.lean = lerp(float(p.get("lean", 0.0)), 0.0, .3)
+			if FRESH:
+				p.lean = lerp(float(p.get("lean", 0.0)), 0.0, .3)
 			if not cm.is_empty():
 				Spr.A_cycle(cyk, cyn, cyf, cx, by, .56, p.face < 0)
 			else:
@@ -1390,7 +1534,7 @@ func _player_draw(g: Game) -> void:
 			return
 	# nadando: o corpo deita na direção do nado (braçada), sobe e desce devagar; parado, fica de pé
 	# batendo as pernas (sem ficar trocando entre as poses de pulo e queda)
-	if p.swim and not p.crouch and not (p.iframe > 40) and Spr.anim.has("fall"):
+	if p.swim and not p.crouch and not (p.get("hitT", 0) > 0) and Spr.anim.has("fall"):
 		var sa: Dictionary = Spr.anim["fall"]
 		var ssz: float = sa.s
 		var sk := 78.0 / ssz
@@ -1399,7 +1543,8 @@ func _player_draw(g: Game) -> void:
 		var tgt: float = 0.0
 		if abs(p.vx) > .3:
 			tgt = sign(p.vx) * mvk * .95 + p.vy * .05 * sign(p.vx)
-		p.swr = lerp(float(p.get("swr", 0.0)), tgt, .1)
+		if FRESH:
+			p.swr = lerp(float(p.get("swr", 0.0)), tgt, .1)
 		var stroke: float = sin(T * (.12 + mvk * .1))
 		var sbob: float = sin(T * .06) * 2.0 * (1.0 - mvk)
 		_ppos = Vector2(p.x, p.y)
@@ -1412,7 +1557,7 @@ func _player_draw(g: Game) -> void:
 		_armor(p, cx, by)
 		return
 	# animações novas (se existirem em assets/sprites/tome/)
-	if not Spr.anim.is_empty() and not (p.iframe > 40) and not p.puff and not p.slam:
+	if not Spr.anim.is_empty() and not (p.get("hitT", 0) > 0) and not p.puff and not p.slam:
 		var key := ""
 		var f := 0
 		var fnext := -1      # quadro seguinte (mistura suave entre quadros = animação mais fluida)
@@ -1454,9 +1599,10 @@ func _player_draw(g: Game) -> void:
 			Polish.shadow(cx, by + 1, 16 * air3, 4 * air3, .25 * air3)
 			var sq3: float = p.squash
 			var st: Vector2 = _body_flex(p, key, f, n)
-			var turn3: float = .7 + .3 * (1 - p.turnT / 6.0) if p.turnT > 0 else 1.0
-			var sx3: float = p.face * k2 * (1 + sq3 * .2) * st.x * turn3
-			var sy3: float = k2 * (1 - sq3 * .25) * st.y
+			# virada com peso: espelha de uma vez e achata um instante (sem ficar fino como papel)
+			var tu3: float = p.turnT / 6.0 if p.turnT > 0 else 0.0
+			var sx3: float = p.face * k2 * (1 + sq3 * .2) * st.x * (1.0 + .07 * tu3)
+			var sy3: float = k2 * (1 - sq3 * .25) * st.y * (1.0 - .06 * tu3)
 			var src3 := Rect2(f * sz, 0, sz, sz)
 			var dst3 := Rect2(-sz / 2, -sz, sz, sz)
 			# quadros intermediários (x4): posição contínua dentro da animação
@@ -1496,6 +1642,16 @@ func _player_draw(g: Game) -> void:
 				Spr.scale(-.48 if wnd > 0 else .48, .48)   # o vento sopra para a direita: a ponta vai para lá
 				_scarf(p, clamp(abs(wnd), .4, 1.0))
 				Spr.restore()
+			# J10 rastro de velocidade: um "borrão" do próprio desenho logo atrás quando corre no máximo
+			if abs(p.vx) > 5.2 and not g.low_fx:
+				for si in 2:
+					var so: float = -p.vx * (1.6 + si * 1.8)
+					Spr.save()
+					Spr.translate(cx + so, by)
+					Spr.rotate(p.lean)
+					Spr.scale(sx3 * 1.04, sy3)
+					Spr.ci.draw_texture_rect_region(tx3, dst3, src3, Color(1, 1, 1, Spr.alpha * (.16 - si * .07)))
+					Spr.restore()
 			Spr.save()
 			Spr.translate(cx, by)
 			Spr.rotate(p.lean)
@@ -1513,7 +1669,7 @@ func _player_draw(g: Game) -> void:
 	# folhas de sprites antigas (parado, andar, pulo, planar, mergulho)
 	var tex := pai
 	var fr := 0
-	if p.iframe > 40:
+	if p.get("hitT", 0) > 0:
 		tex = pai2
 		fr = 8
 	elif p.puff:
@@ -1533,7 +1689,7 @@ func _player_draw(g: Game) -> void:
 	var osrc := Rect2(fr * 170, 0, 170, 160)
 	var om: Dictionary = {}
 	var ofp := 0.0
-	if p.iframe <= 40:
+	if p.get("hitT", 0) <= 0:
 		if p.puff:
 			om = Spr.x4("pai2:0-1")
 			ofp = T / 14.0
@@ -1561,13 +1717,22 @@ func _player_draw(g: Game) -> void:
 	var pant: float = p.get("pant", 0) / 150.0
 	if pant > 0 and fr == 0 and tex == pai:
 		idle = sin(T * .32) * .05 * pant - .02 * pant
-	var turn: float = .65 + .35 * (1 - p.turnT / 6.0) if p.turnT > 0 else 1.0
+	var tu0: float = p.turnT / 6.0 if p.turnT > 0 else 0.0
 	var rim2 := _rim(g, p)
 	_body_flex(p, "old", fr, 4)
 	var rot0: float = p.lean + (p.face * .06 * pant if (pant > 0 and fr == 0 and tex == pai) else 0.0)
-	var sx0: float = p.face * sc * (1 + sq * .25) * turn
-	var sy0: float = sc * (1 - sq * .3 + idle)
+	var sx0: float = p.face * sc * (1 + sq * .25) * (1.0 + .07 * tu0)
+	var sy0: float = sc * (1 - sq * .3 + idle) * (1.0 - .06 * tu0)
 	_pose("old%d_%d" % [tex.get_instance_id(), fr], otex, osrc, Rect2(-85, -156, 170, 160), cx, by, rot0, sx0, sy0)
+	# J10 mergulho: borrão vertical acima do corpo
+	if p.slam and p.vy > 6 and not g.low_fx:
+		for si in 2:
+			Spr.save()
+			Spr.translate(cx, by - p.vy * (1.4 + si * 1.6))
+			Spr.rotate(rot0)
+			Spr.scale(sx0, sy0 * 1.06)
+			Spr.ci.draw_texture_rect_region(otex, Rect2(-85, -156, 170, 160), osrc, Color(1, 1, 1, Spr.alpha * (.18 - si * .08)))
+			Spr.restore()
 	for pass_i in (2 if rim2.a > 0 else 1):
 		var rimp: bool = pass_i == 0 and rim2.a > 0
 		Spr.save()
@@ -1590,6 +1755,8 @@ func _player_draw(g: Game) -> void:
 ## corpo vivo: inclinação suave (acompanha a velocidade, sem tranco), esticar no pulo,
 ## sobe-e-desce do passo (sem tirar o pé do chão: estica/encolhe a partir da sola)
 func _body_flex(p: Dictionary, key: String, f: int, n: int) -> Vector2:
+	if not p.has("lean"):
+		p.lean = 0.0
 	var lt: float = 0.0
 	if p.onGround:
 		lt = p.vx / 6.6 * (.075 if p.run else .05)
@@ -1597,7 +1764,16 @@ func _body_flex(p: Dictionary, key: String, f: int, n: int) -> Vector2:
 			lt = p.vx / 6.6 * .2
 	else:
 		lt = p.vx / 6.6 * .07 + clamp(p.vy / 13.0, -1, 1) * .025 * sign(p.vx)
-	p.lean = lerp(float(p.get("lean", 0.0)), lt, .16)
+	# N3 arrancada: inclina mais enquanto acelera; N7 planando: balança devagar no ar
+	if p.onGround and abs(p.vx) > .5 and abs(p.vx) < 3.0 and (game.kd("L") or game.kd("R")):
+		lt += sign(p.vx) * .035
+	if p.puff:
+		lt += sin(T * .07) * .07 + float(game.AMB.get("wind", 0.0)) * .04
+	# N10 empurrando: corpo jogado para a frente, tremendo de força
+	if p.get("pushT", 0) > 0 and p.onGround:
+		lt += p.face * .1 + sin(T * 1.3) * .012
+	if FRESH:
+		p.lean = lerp(float(p.get("lean", 0.0)), lt, .16)
 	var sy: float = 1.0
 	if not p.onGround and not p.vine and not p.ladder:
 		if p.vy < 0:
@@ -1608,7 +1784,7 @@ func _body_flex(p: Dictionary, key: String, f: int, n: int) -> Vector2:
 		# quadros 1-2 e 5-6: perna de apoio esticada (corpo mais alto); 0, 3, 4, 7: pés abertos (mais baixo)
 		var amp: float = clamp(abs(p.vx) / 4.3, 0, 1) * (.022 if key == "run" else .016)
 		sy = 1 + amp * [-1.0, .8, 1.0, -.4, -1.0, .8, 1.0, -.4][f % 8]
-	var st: float = lerp(float(p.get("flex", 1.0)), sy, .35)
+	var st: float = lerp(float(p.get("flex", 1.0)), sy, .35) if FRESH else float(p.get("flex", 1.0))
 	p.flex = st
 	return Vector2(1 - (st - 1) * .8, st)
 
@@ -1692,7 +1868,7 @@ func _rim(g: Game, p: Dictionary) -> Color:
 	# agora a luz e a sombra são feitas por dentro do desenho (scripts/depth.gdshader)
 	if true:
 		return Color(0, 0, 0, 0)
-	if p.swim or p.dyingT > 0 or p.iframe > 40:
+	if p.swim or p.dyingT > 0 or p.get("hitT", 0) > 0:
 		return Color(0, 0, 0, 0)
 	var dark: float = g.AMB.dark
 	if g.L.has("under") and p.y > g.L.under:

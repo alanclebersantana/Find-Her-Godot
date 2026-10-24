@@ -88,7 +88,16 @@ func _panel(tex: Texture2D, cx: float, cy: float, side: float, k: float, rot: fl
 	Spr.rotate(rot)
 	Spr.rr(-s / 2 + 8, -s / 2 + 10, s, s, 6, Color(0, 0, 0, .45))
 	Spr.rr(-s / 2 - 7, -s / 2 - 7, s + 14, s + 14, 6, Color(.98, .96, .9))
-	Spr.ci.draw_texture_rect(tex, Rect2(-s / 2, -s / 2, s, s), false)
+	# Ken Burns dentro do quadro: zoom 1,0 -> 1,06 e passeio de lado, alternando o sentido por quadro
+	var u: float = clamp(t / max(dur, .1), 0.0, 1.0)
+	u = u * u * (3.0 - 2.0 * u)
+	var z: float = 1.0 + .06 * u
+	var ts := Vector2(tex.get_width(), tex.get_height())
+	var src_sz: Vector2 = ts / z
+	var dir: float = 1.0 if texs.find(tex) % 2 == 0 else -1.0
+	var free: Vector2 = ts - src_sz
+	var src_pos := Vector2(free.x * (.5 + (u - .5) * dir), free.y * (.5 - (u - .5) * dir * .4))
+	Spr.ci.draw_texture_rect_region(tex, Rect2(-s / 2, -s / 2, s, s), Rect2(src_pos, src_sz), Color(1, 1, 1, Spr.alpha))
 	Spr.ci.draw_rect(Rect2(-s / 2, -s / 2, s, s), Color(.08, .06, .04), false, 3.0)
 	Spr.restore()
 

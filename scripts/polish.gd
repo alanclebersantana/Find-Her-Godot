@@ -1,5 +1,8 @@
 extends RefCounted
 class_name Polish
+
+## true no primeiro desenho depois de um passo da lógica (definido pelo world_dyn)
+static var FRESH := true
 ## Acabamento visual e de "sensação" (pacote de melhorias sem arte nova):
 ## partículas com tipos (folha, pena, gota, estrela, fumaça, semente, lasca, esporo, tufo, gelo, pétala),
 ## e os pequenos sistemas de vida do mundo. Tudo desenhado por código, no traço do jogo.
@@ -101,6 +104,12 @@ static func part(k: String, x: float, y: float, vx: float, vy: float, life: int,
 			p.drag = .93
 			p.size = 3.0
 			p.grow = .12
+		"ray":
+			p.g = 0.0
+			p.size = 22.0
+		"txt":
+			p.g = 0.0
+			p.size = 20.0
 	for key in extra:
 		p[key] = extra[key]
 	g.PARTS.append(p)
@@ -211,6 +220,16 @@ static func draw_part(p: Dictionary) -> void:
 		"ringw":
 			var u: float = 1.0 - p.life / l0
 			Spr.ring(p.x, p.y, s * u + 4, Color(c.r, c.g, c.b, a * (1.0 - u)), 2.5)
+		"txt":
+			Spr.text(str(p.get("txt", "")), p.x, p.y, int(s), Color(c.r, c.g, c.b, a), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4, Color(.25, .12, 0, a * .9))
+		"ray":
+			# raio de impacto: sai do centro e some
+			var u2: float = 1.0 - p.life / l0
+			var an: float = float(p.get("ang", 0.0))
+			var dv := Vector2(cos(an), sin(an))
+			var r0: float = s * (.25 + u2 * .9)
+			var r1: float = s * (.55 + u2 * 1.1)
+			Spr.seg(p.x + dv.x * r0, p.y + dv.y * r0, p.x + dv.x * r1, p.y + dv.y * r1, Color(c.r, c.g, c.b, a * (1.0 - u2 * .7)), float(p.get("w", 2.6)) * (1.0 - u2 * .6))
 		_:
 			Spr.rect(p.x, p.y, 3, 3, Color(c.r, c.g, c.b, a))
 
@@ -224,6 +243,18 @@ static func leaf_col() -> Color:
 	return C_LEAF[randi() % C_LEAF.size()]
 
 # ================================================================ passo de simulação
+## fase nova: esquece o estado da anterior
+static func reset(game: Game) -> void:
+	g = game
+	_last_T = -1
+	blasts = []
+	crowns = []
+	flat_zones = []
+	cut = {}
+	flash_white = 0
+	_push_T = -1
+	_push = []
+
 static var _last_T := -1
 static func tick(game: Game) -> void:
 	g = game
@@ -298,6 +329,82 @@ static func _tick_player() -> void:
 	# P6 dano: o clarão some aos poucos
 	if p.get("hitFx", 0) > 0:
 		p.hitFx -= 1
+	if p.dyingT > 0 or p.get("dog", false):
+		return
+	var T: int = g.T
+	# E4 linhas de velocidade correndo no máximo
+	if p.onGround and p.get("run", 0) and abs(p.vx) > 4.6 and T % 3 == 0 and not p.swim:
+		var d: float = sign(p.vx)
+		part("line", fx - d * randf_range(14, 30), p.y + randf_range(4, p.h - 6), 0, 0, 9, Color(1, .98, .9, .42), {"dx": d, "size": randf_range(16, 30), "w": 1.6})
+	# E7 rastro do planar: fiapos de ar atrás do guarda-chuva
+	if p.puff and T % 4 == 0:
+		part("puff", fx - sign(p.vx + .01) * 10 + randf_range(-6, 6), p.y + 4, -p.vx * .2, .25, 22, Color(1, 1, 1, .35), {"size": 3.0, "grow": .15})
+	# Z9 de barriga no gelo/neve: brilhinhos
+	if p.get("belly", false) and p.get("slideT", 0) and abs(p.vx) > 2.0 and T % 4 == 0:
+		part("spark", fx - sign(p.vx) * 8, fy - 3, -p.vx * .2, -randf_range(.4, 1.2), 18, Color(.92, .97, 1), {"g": .06, "size": 1.2})
+	# N2 parado há muito tempo (sem perigo perto): olha para os lados de vez em quando
+	var it: int = int(p.get("idleT", 0))
+	if _face_hold == 0 and it > 420 and not p.get("isis", false):
+		var ph: int = (it - 420) % 360
+		if ph == 0:
+			p._look0 = p.face
+		elif ph == 70 and p.has("_look0"):
+			p.face = -int(p._look0)
+		elif ph == 150 and p.has("_look0"):
+			p.face = int(p._look0)
+	elif it == 0 and p.has("_look0"):
+		p.erase("_look0")
+
+## E2 impacto: raios saindo do ponto do golpe
+static func impact(x: float, y: float, col: Color = Color(1, .96, .82), n: int = 7, size: float = 22.0) -> void:
+	if g == null:
+		return
+	var a0: float = randf() * TAU
+	for i in n:
+		part("ray", x, y, 0, 0, 10, col, {"ang": a0 + TAU * i / n + randf_range(-.15, .15), "size": size * randf_range(.8, 1.2)})
+	part("ringw", x, y, 0, 0, 12, Color(col.r, col.g, col.b, .8), {"size": size * 1.6})
+
+## E3 pouso leve: duas nuvenzinhas para os lados
+static func land_soft(x: float, y: float, v: float) -> void:
+	var c := ground_col()
+	for d in [-1.0, 1.0]:
+		part("dust", x + d * 6, y - 2, d * (.6 + v * .12), -.3, 18, c, {"size": 2.4 + v * .2})
+	# Z8 pouso na neve/gelo: lasquinhas e pó de neve
+	if g.ground_kind() == "snow":
+		for i in 5:
+			part("snow", x + randf_range(-10, 10), y - 2, randf_range(-1.6, 1.6), -randf_range(.8, 2.2), 30, Color(.97, .98, 1, .9), {"gy": y, "size": randf_range(1.4, 2.4)})
+		var gs = g.player.get("_g")
+		if gs is Dictionary and (str(gs.get("t", "")) == "ice" or gs.get("ice")):
+			for i in 4:
+				part("ice", x + randf_range(-8, 8), y - 2, randf_range(-2, 2), -randf_range(1.5, 3.0), 34, Color(.8, .93, 1, .9), {"gy": y})
+
+## E9 onda de choque do mergulho
+static func slam_wave(x: float, y: float) -> void:
+	part("ringw", x, y - 3, 0, 0, 18, Color(1, .95, .8, .8), {"size": 90.0})
+	part("ringw", x, y - 3, 0, 0, 26, Color(1, .9, .7, .4), {"size": 150.0})
+	var c := ground_col()
+	for i in 10:
+		var d: float = -1.0 if i % 2 == 0 else 1.0
+		part("dust", x + d * randf_range(6, 20), y - 3, d * randf_range(2.0, 4.5), -randf_range(.2, 1.0), 28, c, {"size": randf_range(3.5, 6.0)})
+	for i in 5:
+		part("chip", x + randf_range(-14, 14), y - 4, randf_range(-3, 3), -randf_range(2.5, 5.0), 60, Color(.5, .42, .32), {"gy": y})
+
+## E5 pulo duplo: anel de ar debaixo dos pés
+static func air_ring(x: float, y: float) -> void:
+	part("ringw", x, y + 2, 0, 0, 14, Color(1, 1, 1, .75), {"size": 34.0})
+
+## E8 pegou lápis: anel dourado curto e duas faíscas
+static func pickup(x: float, y: float) -> void:
+	part("ringw", x, y, 0, 0, 12, Color(1, .88, .45, .8), {"size": 26.0})
+	for i in 2:
+		part("spark", x, y, randf_range(-1.5, 1.5), -randf_range(1.0, 2.2), 20, Color(1, .9, .5), {"g": .05})
+
+## J6 morte com peso: clarão, raios vermelhos e brancos, um instante de câmera lenta
+static func death_fx(x: float, y: float) -> void:
+	impact(x, y, Color(1, .55, .45), 9, 30.0)
+	impact(x, y, Color(1, 1, 1), 5, 18.0)
+	flash_white = max(flash_white, 5)
+	g.slowmo = max(g.slowmo, 22)
 
 ## P7 queda alta: anel de poeira maior e tremor leve
 static func land_heavy(x: float, y: float, v: float) -> void:
@@ -437,6 +544,8 @@ static func roar(x: float, y: float) -> void:
 
 ## C4/G árvores e teto que reagem: folhas, galhinhos e pedrinhas caindo do alto
 static func debris(x0: float, x1: float, y: float, n: int = 14) -> void:
+	if g == null:
+		return
 	var top: float = g.cam_y - 20
 	for i in n:
 		var x: float = randf_range(x0, x1)
@@ -519,7 +628,7 @@ static func draw_boss_glow() -> void:
 		var cy: float = b.y - (60 if b.kind in ["javali", "bear"] else 0)
 		Spr.glow(b.x, cy, 140, Color(1, .82, .3, .28 * s))
 		Spr.glow(b.x, cy, 80, Color(1, .9, .5, .25 * s))
-		if g.T % 6 == 0:
+		if FRESH and g.T % 6 == 0:
 			part("spark", b.x + randf_range(-70, 70), cy + randf_range(-50, 50), 0, -.6, 30, Color(1, .88, .4), {"g": 0.0})
 
 ## C5 desenho das coroas caídas

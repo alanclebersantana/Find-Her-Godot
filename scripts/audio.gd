@@ -20,10 +20,35 @@ const SONG_DB := {"perseguicao": -3.0, "vitoria": -6.0, "tarde": -8.0, "tema": -
 ## som ambiente de cada trecho
 const AMB_FOR := {"manha": "passaros", "tarde": "passaros", "chuva": "sapos", "noite": "grilos", "tunel": "caverna", "perseguicao": "vento"}
 var rain_target := 0.0
+## barramentos: Música (músicas e tambores), Efeitos (sons curtos e ambiente) e Mundo (chuva e sons
+## presos no cenário: fogueiras, água). O Mundo fica mudo fora do jogo (menus, fogueira grande, placar).
+var bus_music := 0
+var bus_sfx := 0
+var bus_world := 0
+var vol_music := 1.0
+var vol_sfx := 1.0
+var world_on := true
+var world_gain := 1.0
+var _mus_tw: Tween
+var _amb_tw: Tween
 const NAMES := ["jump", "dj", "pen", "stomp", "hurt", "item", "clue", "combine", "unlock", "splash", "slide", "fire", "thunder", "door", "spring", "climb", "die", "special", "roar"]   # (o latido do Pipoca ficou mudo: era irritante)
+
+func _bus(n: String, send: String) -> int:
+	var i := AudioServer.get_bus_index(n)
+	if i < 0:
+		AudioServer.add_bus()
+		i = AudioServer.bus_count - 1
+		AudioServer.set_bus_name(i, n)
+	AudioServer.set_bus_send(i, send)
+	return i
 
 func _ready() -> void:
 	on = Save.getv("opt", "sound", true)
+	bus_music = _bus("Musica", "Master")
+	bus_sfx = _bus("Efeitos", "Master")
+	bus_world = _bus("Mundo", "Efeitos")
+	vol_music = float(Save.getv("opt", "vol_music", 1.0))
+	vol_sfx = float(Save.getv("opt", "vol_sfx", 1.0))
 	for n in NAMES:
 		sfx[n] = load("res://assets/audio/%s.wav" % n)
 	# latido do Pipoca: só uma vez, quando ele acha algo escondido
@@ -35,18 +60,24 @@ func _ready() -> void:
 				sfx["step_%s_%s" % [k, v]] = load(sp)
 	for i in 8:
 		var p := AudioStreamPlayer.new()
+		p.bus = "Efeitos"
 		add_child(p)
 		players.append(p)
 	music = AudioStreamPlayer.new()
 	music2 = AudioStreamPlayer.new()
+	music.bus = "Musica"
+	music2.bus = "Musica"
 	add_child(music)
 	add_child(music2)
 	amb = AudioStreamPlayer.new()
 	amb2 = AudioStreamPlayer.new()
+	amb.bus = "Efeitos"
+	amb2.bus = "Efeitos"
 	add_child(amb)
 	add_child(amb2)
 	# camada extra da música (tambores) que cresce quando há perigo por perto
 	danger = AudioStreamPlayer.new()
+	danger.bus = "Musica"
 	if ResourceLoader.exists("res://assets/audio/loop_tambores.wav"):
 		danger.stream = _loop(load("res://assets/audio/loop_tambores.wav"))
 	danger.volume_db = -60
@@ -54,8 +85,10 @@ func _ready() -> void:
 	rain = AudioStreamPlayer.new()
 	rain.stream = _loop(load("res://assets/audio/rain.wav"))
 	rain.volume_db = -60
+	rain.bus = "Mundo"
 	add_child(rain)
 	_apply()
+	_apply_volumes()
 
 func _loop(s: AudioStreamWAV) -> AudioStreamWAV:
 	var c: AudioStreamWAV = s.duplicate()
@@ -71,6 +104,29 @@ func set_on(v: bool) -> void:
 	on = v
 	Save.setv("opt", "sound", v)
 	_apply()
+
+## volume da música e dos efeitos (0..1), guardados nas opções e aplicados na hora
+func _apply_volumes() -> void:
+	AudioServer.set_bus_volume_db(bus_music, linear_to_db(max(vol_music, .0001)))
+	AudioServer.set_bus_mute(bus_music, vol_music <= .001)
+	AudioServer.set_bus_volume_db(bus_sfx, linear_to_db(max(vol_sfx, .0001)))
+	AudioServer.set_bus_mute(bus_sfx, vol_sfx <= .001)
+
+func set_music_vol(v: float, store: bool = true) -> void:
+	vol_music = clampf(v, 0.0, 1.0)
+	_apply_volumes()
+	if store:
+		Save.setv("opt", "vol_music", vol_music)
+
+func set_sfx_vol(v: float, store: bool = true) -> void:
+	vol_sfx = clampf(v, 0.0, 1.0)
+	_apply_volumes()
+	if store:
+		Save.setv("opt", "vol_sfx", vol_sfx)
+
+## sons do mundo (chuva, tambores do perigo, fogueiras, água) só durante o jogo
+func set_world(v: bool) -> void:
+	world_on = v
 
 ## sons que se repetem muito: mais baixos e sempre um pouco diferentes (tom variando)
 const TRIM := {"coin": -6.0, "jump": -5.0, "stomp": -3.0, "climb": -5.0, "swing": -4.0, "splash": -3.0, "crate": -3.0, "spring": -3.0, "unlock": -3.0}
@@ -131,6 +187,10 @@ func set_song(n: String) -> void:
 	if s == null:
 		return
 	song = n
+	# troca rápida (antes do cruzamento anterior acabar): o cruzamento velho é cancelado, senão
+	# ele terminava parando o tocador que já estava com a música nova (ficava tudo mudo)
+	if _mus_tw and _mus_tw.is_valid():
+		_mus_tw.kill()
 	var old := music
 	music = music2
 	music2 = old
@@ -139,19 +199,27 @@ func set_song(n: String) -> void:
 	music.volume_db = -40
 	music.play()
 	var tw := create_tween()
+	_mus_tw = tw
+	var fading := music2
 	tw.tween_property(music, "volume_db", SONG_DB.get(al[0], -7.0), 1.4)
-	tw.parallel().tween_property(music2, "volume_db", -40.0, 1.4)
-	tw.tween_callback(music2.stop)
+	tw.parallel().tween_property(fading, "volume_db", -40.0, 1.4)
+	tw.tween_callback(func():
+		# só para o tocador se ele ainda for o que estava saindo
+		if fading != music:
+			fading.stop())
 	set_amb(AMB_FOR.get(al[0], ""))
 
 func set_amb(n: String) -> void:
 	if n == amb_name:
 		return
 	amb_name = n
+	if _amb_tw and _amb_tw.is_valid():
+		_amb_tw.kill()
 	var old := amb
 	amb = amb2
 	amb2 = old
 	var tw := create_tween()
+	_amb_tw = tw
 	if n != "":
 		var s := _stream("amb_" + n)
 		if s:
@@ -159,10 +227,19 @@ func set_amb(n: String) -> void:
 			amb.volume_db = -40
 			amb.play()
 			tw.tween_property(amb, "volume_db", -13.0, 2.0)
-	tw.parallel().tween_property(amb2, "volume_db", -40.0, 2.0)
-	tw.tween_callback(amb2.stop)
+		else:
+			amb.stop()
+	else:
+		amb.stop()
+	var fading := amb2
+	tw.parallel().tween_property(fading, "volume_db", -40.0, 2.0)
+	tw.tween_callback(func():
+		if fading != amb:
+			fading.stop())
 
 func stop_music() -> void:
+	if _mus_tw and _mus_tw.is_valid():
+		_mus_tw.kill()
 	music.stop()
 	music2.stop()
 	danger.stop()
@@ -193,6 +270,7 @@ func emitter(parent: Node, name_: String, pos: Vector2, vol: float, dist: float)
 	e.max_distance = dist
 	e.attenuation = 1.6
 	e.autoplay = true
+	e.bus = "Mundo"
 	parent.add_child(e)
 
 func set_rain(v: float) -> void:
@@ -201,6 +279,16 @@ func set_rain(v: float) -> void:
 		rain.play()
 
 func _process(_d: float) -> void:
+	# fora do jogo o Mundo some suave; os tambores do perigo também saem
+	world_gain = move_toward(world_gain, 1.0 if world_on else 0.0, _d * 3.0)
+	AudioServer.set_bus_volume_db(bus_world, linear_to_db(max(world_gain, .0001)))
+	AudioServer.set_bus_mute(bus_world, world_gain <= .001)
+	if not world_on and danger_lv > 0.0:
+		danger_lv = move_toward(danger_lv, 0.0, _d * 1.5)
+		danger.volume_db = linear_to_db(max(danger_lv, .0001)) - 9.0
+		if danger_lv <= .02 and danger.playing:
+			danger.stop()
+			danger_lv = 0.0
 	var tgt := -60.0 if rain_target < 0.01 else lerpf(-30.0, -10.0, rain_target)
 	rain.volume_db = lerpf(rain.volume_db, tgt, 0.05)
 	if rain_target < 0.01 and rain.volume_db < -55 and rain.playing:

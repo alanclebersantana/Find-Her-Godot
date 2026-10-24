@@ -297,8 +297,10 @@ func _launch_from(o: Dictionary, top: float) -> void:
 	p.vy = v.y
 	p.launchT = int(v.z)
 	p.onGround = false
-	p.airJumps = 1
+	p.airJumps = 0 if (p.get("dog") or p.get("isis")) else 1
 	p.cutOk = false
+	p.coyote = 0
+	p.jbuf = 0
 	p.slam = false
 	p.puff = false
 	p.run = 0

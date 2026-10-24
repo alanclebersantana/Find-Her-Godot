@@ -44,6 +44,7 @@ func load_level() -> void:
 		if c.get("snow"):
 			c.lx = c.x
 			c.ow = c.w
+			c.oh = c.h
 			SNOWB.append(c)
 	HARP = []
 	helmet = false
@@ -200,6 +201,8 @@ func post() -> void:
 			if p.y < c.y0 + 20:
 				p.vy = Game.JUMP * .95
 				p.vx = 3.4
+				p.cutOk = false
+				p.jbuf = 0
 			if g.T % 3 == 0:
 				g.X.BUB.append({"x": c.x + randf() * c.w, "y": c.y1 - 10, "t": 0, "top": c.y0})
 	# bolhas das fontes
@@ -327,7 +330,7 @@ func squirrel(e: Dictionary) -> void:
 		2:
 			var u: float = e.t / 34.0
 			e.leap = 1
-			e.x = clamp(e.x + e.dir * 4.2, r0 - 60, r1 + 60)
+			e.x = clamp(e.x + e.dir * 4.2, r0, r1)
 			e.y = e.base - sin(min(u, 1.0) * PI) * 46
 			if u >= 1.0:
 				e.y = e.base

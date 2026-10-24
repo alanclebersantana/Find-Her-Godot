@@ -47,10 +47,11 @@ static func draw(g: Game, T: int) -> void:
 static func _bounce(g: Game, TR: Traps, o: Dictionary, T: int) -> void:
 	# o chapéu segue o amassado como uma mola: afunda, estica de volta passando do ponto e assenta
 	var sv: Vector2 = o.get("_sqs", Vector2.ZERO)
-	sv.y += (float(o.get("squash", 0.0)) - sv.x) * .3
-	sv.y *= .74
-	sv.x += sv.y
-	o._sqs = sv
+	if Polish.FRESH:
+		sv.y += (float(o.get("squash", 0.0)) - sv.x) * .3
+		sv.y *= .74
+		sv.x += sv.y
+		o._sqs = sv
 	var sq: float = clamp(sv.x, -.45, 1.2)
 	var x: float = o.x
 	var y: float = o.y
@@ -153,7 +154,7 @@ static func _spikes(TR: Traps, o: Dictionary, T: int) -> void:
 	var sh: float = 0.0
 	if TR.spike_warn(o) and h < 1:
 		sh = sin(T * 1.7) * 1.5
-		if T % 6 == 0:
+		if Polish.FRESH and T % 6 == 0:
 			game_dust(x + randf() * w, y)
 	if Spr.has("p_spiketop"):
 		# espetos de ferro pintados saindo pelas frestas da tábua (a tábua fica sempre no chão)
@@ -487,7 +488,7 @@ static func _icicle(g: Game, o: Dictionary, T: int) -> void:
 		if (T / 4) % 2 == 0:
 			Spr.seg(o.x - w * .4, y + 3, o.x - 2, y + 7, Color(1, 1, 1, .8), 1.5)
 			Spr.seg(o.x + 2, y + 6, o.x + w * .4, y + 2, Color(1, 1, 1, .8), 1.5)
-		if T % 6 == 0:
+		if Polish.FRESH and T % 6 == 0:
 			g.PARTS.append({"x": o.x + randf_range(-w * .4, w * .4), "y": y + 6, "vx": randf_range(-.4, .4), "vy": 1.5, "life": 24, "col": Color(.85, .95, 1, .9)})
 
 ## por cima do Tomé: a superfície da areia movediça (esconde as pernas que afundaram)
@@ -894,7 +895,8 @@ static func giant_arc(o: Dictionary, T: int) -> void:
 static func _ice_hits(g: Game, T: int) -> void:
 	for s in g.SOL:
 		if s.get("shk", 0) > 0:
-			s.shk -= 1
+			if Polish.FRESH:
+				s.shk -= 1
 			var d: float = sin(T * 2.3) * s.shk * .25
 			Spr.rr(s.x + d, s.y, s.w, s.h + 4, 5, Color(.85, .95, 1, .55 * s.shk / 18.0))
 

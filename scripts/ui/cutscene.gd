@@ -156,12 +156,16 @@ func _draw_pic(n: String, W: float, H: float, k: float, zin: bool) -> void:
 	if tx == null:
 		Spr.vgrad(0, 0, W, H, Color(.1, .08, .06), Color(0, 0, 0))
 		return
-	var z: float = 1.0 + .09 * (k if zin else 1.0 - k)
+	# Ken Burns: zoom lento 1,0 -> 1,06 (ou o contrário) e um passeio de lado que troca de sentido a
+	# cada quadro (sobra 4% de imagem em volta para o passeio nunca mostrar a borda)
+	var e: float = k * k * (3.0 - 2.0 * k)
+	var z: float = 1.04 * (1.0 + .06 * (e if zin else 1.0 - e))
 	var sc: float = max(W / tx.get_width(), H / tx.get_height()) * z
 	var w: float = tx.get_width() * sc
 	var h: float = tx.get_height() * sc
-	var ox: float = (W - w) / 2 + (k - .5) * 18.0
-	var oy: float = (H - h) / 2
+	var dir: float = 1.0 if idx % 2 == 0 else -1.0
+	var ox: float = clamp((W - w) / 2 + (e - .5) * dir * (w - W) * .8, W - w, 0.0)
+	var oy: float = clamp((H - h) / 2 + (e - .5) * dir * (h - H) * .35, H - h, 0.0)
 	draw_texture_rect(tx, Rect2(ox, oy, w, h), false)
 	_vignette(W, H, .45)
 

@@ -65,7 +65,7 @@ var CLUEGOT := {}
 var SPECGOT := {}
 var DRAWN := {}
 var STATS := {"pen": 0, "penTotal": 0}
-var AMB := {"dark": 0.0, "rain": 0.0, "night": 0.0, "tint": "", "song": "manha", "fog": 0.0, "wind": 0.0, "snow": 0.0, "snowfall": 0.0}
+var AMB := {"dark": 0.0, "rain": 0.0, "night": 0.0, "tint": "", "tint_c": Color(0, 0, 0, 0), "song": "manha", "fog": 0.0, "wind": 0.0, "snow": 0.0, "snowfall": 0.0}
 var X: Extras
 var M: Mech
 var PR: Props
@@ -157,6 +157,7 @@ func _ready() -> void:
 #  CARREGAR
 # ======================================================================
 func load_level(i: int) -> void:
+	Polish.reset(self)
 	DIPS = []
 	level_idx = i
 	max_x = 0.0
@@ -399,15 +400,17 @@ func begin_isis() -> void:
 	iris_t = 30
 	running = true
 
-func _reset_player(x: float, y: float) -> void:
+func _reset_player(x: float, y: float, adjust: bool = true) -> void:
 	player = make_body(x, y)
 	if L and (L.get("isis") or (L.has("isisPart") and x >= float(L.isisPart.x0))):
 		# fase da Isis: ela é menor (cabe nos buracos) e pula mais baixo
 		player.isis = true
 		player.w = 20.0
 		player.h = 26.0
-		player.x += 2
-		player.y += 8
+		# o ponto de volta já guardado é do tamanho dela: só ajusta pontos do tamanho do Tomé
+		if adjust:
+			player.x += 2
+			player.y += 8
 		player.spawnX = player.x
 		player.spawnY = player.y
 	if M:
@@ -421,7 +424,7 @@ func make_body(x: float, y: float) -> Dictionary:
 		"crouch": false, "slideT": 0, "ladder": null, "ladderCD": 0, "dropT": 0, "lookT": 0, "climbA": 0.0, "mud": false,
 		"nearE": null, "nearL": null, "blink": 0, "turnT": 0, "lastFace": 1, "dieMsg": "", "swim": false, "water": null,
 		"wall": 0, "wallT": 0, "wsl": 0, "lastWall": 0, "wlock": 0, "wslide": false, "guard": false, "dog": false,
-		"warp": {}, "wdy": 0.0, "wal": 1.0, "wpose": "", "bar": null, "lastVine": null}
+		"warp": {}, "wdy": 0.0, "wal": 1.0, "wpose": "", "bar": null, "lastVine": null, "hitT": 0}
 
 # ======================================================================
 #  UTILIDADES
@@ -519,6 +522,8 @@ func coins_near(x0: float, x1: float) -> Array:
 
 func blockers_dirty() -> void:
 	_blk_key = ""
+	if X:
+		X._blk_cache.clear()
 
 func has_item(id: String) -> bool:
 	return INV.has(id)
@@ -660,18 +665,26 @@ func stand_up() -> bool:
 		return true
 	return not player.crouch
 
+var _amb_prev := {}
+var _amb_last_T := -99
+
 func ambient() -> void:
 	var S: Array = L.get("sections", [])
 	if S.is_empty():
 		return
+	# valores do passo anterior: neblina, vento e chuva mudam suavemente (sem estalos)
+	var snap: bool = T - _amb_last_T > 3 or _amb_prev.is_empty()
+	_amb_last_T = T
 	if ZN and ZN.zone != null:
 		AMB.dark = 0.0
 		AMB.rain = 0.0
 		AMB.night = 0.0
 		AMB.tint = ""
+		AMB.tint_c = Color(0, 0, 0, 0)
 		AMB.fog = 0.0
 		AMB.wind = 0.0
 		AMB.song = ZN.zone.get("song", "manha")
+		_amb_prev = {}
 		return
 	var px: float = amb_x()
 	var i := 0
@@ -696,16 +709,26 @@ func ambient() -> void:
 	var src: Dictionary = a if (t < .5 or b == null) else b
 	AMB.tint = src.get("tint", "")
 	AMB.song = src.get("song", "manha")
+	# cor de tela misturada entre os dois trechos (sem troca num estalo)
+	var ca: Color = _tint_col(str(a.get("tint", "")))
+	var cb: Color = _tint_col(str(b.get("tint", ""))) if b else ca
+	if ca.a <= 0.0:
+		ca = Color(cb.r, cb.g, cb.b, 0.0)
+	if cb.a <= 0.0:
+		cb = Color(ca.r, ca.g, ca.b, 0.0)
+	AMB.tint_c = ca.lerp(cb, t)
+	# zonas escuras com rampa de 260 px nas bordas
 	for z in L.get("darkZones", []):
 		if px > z.x and px < z.x + z.w:
-			AMB.dark = max(AMB.dark, z.dark)
+			var r: float = clamp(min(px - z.x, z.x + z.w - px) / 260.0, 0.0, 1.0)
+			AMB.dark = max(AMB.dark, z.dark * r)
 	if L.has("lanternOutX") and px > L.lanternOutX and not lantern_lit:
-		AMB.dark = max(AMB.dark, .86)
+		AMB.dark = max(AMB.dark, .86 * clamp((px - L.lanternOutX) / 200.0, 0.0, 1.0))
 	if X:
 		X.weather_amb()
 	# a hora passando dentro de cada trecho: neblina da manhãzinha que vai sumindo,
 	# e a noite ficando mais escura conforme o Tomé avança
-	if px < 2400 and not indoors():
+	if px < 2400 and not indoors() and str(S[0].get("song", "")) == "manha":
 		AMB.fog = max(AMB.fog, .4 * (1.0 - px / 2400.0))
 	if AMB.song in ["noite", "perseguicao"] and S.size() > 0:
 		var n0: float = 64250.0
@@ -715,14 +738,51 @@ func ambient() -> void:
 		AMB.rain = 0.0
 		AMB.fog = 0.0
 		AMB.wind = 0.0
+	if not snap:
+		AMB.fog = move_toward(float(_amb_prev.get("fog", AMB.fog)), AMB.fog, .012)
+		AMB.wind = move_toward(float(_amb_prev.get("wind", AMB.wind)), AMB.wind, .01)
+		AMB.rain = move_toward(float(_amb_prev.get("rain", AMB.rain)), AMB.rain, .012)
+		AMB.dark = move_toward(float(_amb_prev.get("dark", AMB.dark)), AMB.dark, .03)
+	_amb_prev = {"fog": AMB.fog, "wind": AMB.wind, "rain": AMB.rain, "dark": AMB.dark}
 
-## o Tomé está debaixo da terra ou dentro do túnel da mina?
+var _tint_cache := {}
+func _tint_col(s: String) -> Color:
+	if s == "" or s == "<null>":
+		return Color(0, 0, 0, 0)
+	if not _tint_cache.has(s):
+		var m := s.replace("rgba(", "").replace("rgb(", "").replace(")", "").split(",")
+		_tint_cache[s] = Color(0, 0, 0, 0) if m.size() < 3 else Color(float(m[0]) / 255.0, float(m[1]) / 255.0, float(m[2]) / 255.0, float(m[3]) if m.size() > 3 else 1.0)
+	return _tint_cache[s]
+
+## o Tomé está com a cabeça debaixo d'água?
+func submerged() -> bool:
+	var p: Dictionary = player
+	return p.get("swim", false) and p.get("water") != null and p.y > float(p.water.y) + 2.0
+
+## o Tomé está debaixo da terra, dentro do túnel ou da mina?
 func indoors() -> bool:
 	if L.has("under") and player.y > L.under:
 		return true
 	var tn: Array = L.get("tunnel", [])
 	var px: float = player.x + player.w / 2
-	return tn.size() >= 2 and px > float(tn[0]) and px < float(tn[1])
+	if tn.size() >= 2 and px > float(tn[0]) and px < float(tn[1]):
+		return true
+	return _in_mine(px)
+
+var _mine_cache := {"x": -1e9, "v": false}
+func _in_mine(px: float) -> bool:
+	if abs(px - float(_mine_cache.x)) < 8.0:
+		return _mine_cache.v
+	var S: Array = L.get("sections", [])
+	var v := false
+	for k in S.size():
+		var s0: Dictionary = S[k]
+		var x1: float = float(S[k + 1].x) if k + 1 < S.size() else 1e12
+		if px >= float(s0.x) and px < x1:
+			v = str(s0.get("gt", "")) == "mina" or str(s0.get("song", "")) == "tunel"
+			break
+	_mine_cache = {"x": px, "v": v}
+	return v
 
 ## estrelas de cada período (1 por terminar, +1 com 80% dos lápis do trecho, +1 sem cair nenhuma vez)
 func period_stars() -> Array:
@@ -870,6 +930,10 @@ func step() -> void:
 	if not running:
 		return
 	_save_prev()
+	# toques únicos (voltar, golpe para baixo) não ficam guardados durante cenas, cavalgada e veículos
+	if not CINE.is_empty() or player.dyingT > 0 or not player.get("warp", {}).is_empty() or player.exitT > 0 or RD.riding or (VH and VH.active()) or player.get("mantleT", 0) > 0:
+		keys.Bp = false
+		keys.Sp = false
 	if hit_stop > 0:
 		hit_stop -= 1
 		return
@@ -937,7 +1001,7 @@ func step() -> void:
 		max_x = max(max_x, player.x + 300)
 	if shake > 0:
 		shake *= .85
-	for k in ["iframe", "vineCD", "actT", "pushT", "leap", "skidT"]:
+	for k in ["iframe", "vineCD", "actT", "pushT", "leap", "skidT", "hitT"]:
 		if player[k] > 0:
 			player[k] -= 1
 	if flash_t > 0:
@@ -984,20 +1048,8 @@ func step() -> void:
 		else:
 			player.wall = 0
 	if pressed("B"):
-		player.x = player.spawnX
-		player.y = player.spawnY
-		player.vx = 0
-		player.vy = 0
-		player.iframe = 40
-		player.puff = false
-		player.slam = false
-		player.vine = null
-		player.ladder = null
-		if player.crouch:
-			player.crouch = false
-			player.h = body_h()
-		M.reset_crates(player.spawnX)
-		flash("De volta à fogueira.")
+		_back_to_fire()
+		return
 	# corrida: dois toques na mesma direção
 	if kd("R") and not player.hR:
 		if T - player.tR < 16:
@@ -1034,11 +1086,17 @@ func step() -> void:
 		_vine_step()
 	elif player.ladder:
 		_p1_ladder()
+		keys.Sp = false
 	elif player.get("bar"):
 		NT.bar_step()
+		keys.Sp = false
 	elif player.swim:
 		X.swim()
+		keys.Sp = false
 	else:
+		# M3 planando, o vento leva um pouquinho
+		if player.puff:
+			player.vx += (float(AMB.get("wind", 0.0)) + Polish.gust_k()) * .02
 		# planar
 		player.puff = (kd("P") or (kd("J") and player.airJumps == 0 and player.vy > .5)) and not player.onGround and not player.slam and player.vy > -1.5 and not player.dog and not player.get("isis") and player.wall == 0 and not in_fumes()
 		# pulos
@@ -1051,8 +1109,12 @@ func step() -> void:
 				player.onGround = false
 			else:
 				player.jbuf = BUF
+		# M7 pulo saindo do deslize: guarda o embalo (pulo comprido)
+		var slide_jump: bool = player.jbuf > 0 and player.crouch and player.slideT and (player.onGround or player.coyote > 0)
 		if player.jbuf > 0 and player.crouch and (player.onGround or player.coyote > 0) and not stand_up():
 			player.jbuf = 0
+		elif slide_jump and not player.crouch:
+			player.vx = clamp(player.vx * 1.12, -RUN_TOP - .6, RUN_TOP + .6)
 		var mudF := .78 if player.mud else 1.0
 		if player.jbuf > 0:
 			if player.onGround or player.coyote > 0:
@@ -1083,8 +1145,9 @@ func step() -> void:
 				Audio.play("jump", -4)
 				fx("fx_dust", player.x + (player.w if player.face < 0 else 0.0), player.y + player.h / 2, 16, .12, -.1)
 				burst(player.x + player.w / 2 - player.face * 12, player.y + player.h / 2, 8, Color("#cdbfa6"))
-			elif player.airJumps > 0:
+			elif player.airJumps > 0 and not player.dog and not player.get("isis"):
 				player.vy = DJUMP
+				Polish.air_ring(player.x + player.w / 2, player.y + player.h)
 				Audio.play("dj", -6)
 				player.airJumps -= 1
 				player.puff = false
@@ -1100,7 +1163,7 @@ func step() -> void:
 		if player.cutOk and not kd("J") and player.vy < -3.5 and not player.slam and player.leap <= 0:
 			player.vy = -3.5
 		# mergulho
-		if pressed("S") and not player.onGround and not player.slam and not player.dog:
+		if pressed("S") and not player.onGround and not player.slam and not player.dog and not player.get("isis"):
 			player.slam = true
 			player.puff = false
 			player.vy = max(player.vy, 4)
@@ -1110,6 +1173,11 @@ func step() -> void:
 		if player.wlock > 0 or player.get("launchT", 0) > 0:
 			keys.L = false
 			keys.R = false
+		# deslizou para fora da beirada: levanta (no ar não se anda agachado)
+		if player.crouch and not player.onGround and player.coyote <= 0:
+			player.slideT = 0
+			player.belly = false
+			stand_up()
 		if player.crouch:
 			var want := -1 if (kd("L") and not kd("R")) else (1 if (kd("R") and not kd("L")) else 0)
 			if want != 0:
@@ -1164,10 +1232,13 @@ func step() -> void:
 				player.vx *= (.955 if player._g.t == "ice" else .88) / FRIC
 			if player.onGround and abs(player.vx) < 1.4 and not player.run and not player.puff:
 				acc *= .78
-			if kd("L") and not player.slam:
+			# M4 no ar, virar para o outro lado responde mais rápido (correção de pulo)
+			if not player.onGround and not player.puff and want != 0 and player.vx * want < 0:
+				acc *= 1.35
+			if want < 0 and not player.slam:
 				player.vx = min(-top2, player.vx * .985) if player.vx < -top2 else max(player.vx - acc, -top2)
 				player.face = -1
-			elif kd("R") and not player.slam:
+			elif want > 0 and not player.slam:
 				player.vx = max(top2, player.vx * .985) if player.vx > top2 else min(player.vx + acc, top2)
 				player.face = 1
 			elif player.get("launchT", 0) <= 0:
@@ -1188,7 +1259,7 @@ func step() -> void:
 			maxv = PUFF_FALL
 		if kd("J") and not player.puff and not player.slam and abs(player.vy) < 1.6 and player.get("launchT", 0) <= 0:
 			g *= .55
-		elif player.vy > 1.6 and not player.puff and not player.slam and player.wsl == 0 and player.wall == 0:
+		elif player.vy > 1.6 and not player.puff and not player.slam and player.wsl == 0 and player.wall == 0 and player.get("launchT", 0) <= 0:
 			# a queda pesa um pouco mais que a subida (pulo com peso)
 			g *= 1.08
 		player.vy = clamp(player.vy + g, -34 if player.get("launchT", 0) > 0 else -20, maxv)
@@ -1219,6 +1290,8 @@ func step() -> void:
 	if player.onGround and not was_ground and prev_vy > 11 and not player.slam:
 		Polish.land_heavy(player.x + player.w / 2, player.y + player.h, prev_vy)
 		player.squash = min(1.2, prev_vy / 11)
+	if player.onGround and not was_ground and prev_vy > 4 and not player.slam:
+		Polish.land_soft(player.x + player.w / 2, player.y + player.h, prev_vy)
 	if player.onGround and not was_ground and prev_vy > 6:
 		player.squash = max(player.squash, min(1, prev_vy / 14))
 		player.landT = 8
@@ -1234,6 +1307,7 @@ func step() -> void:
 		shake_dir = Vector2(0, 1)
 		Polish.flatten(player.x + player.w / 2, player.y + player.h, 80.0, 240)
 		Polish.scare(player.x, 420.0)
+		Polish.slam_wave(player.x + player.w / 2, player.y + player.h)
 		burst(player.x + player.w / 2, player.y + player.h, 16, Color("#d9c290"))
 		var r := R(player.x - 30, player.y - 6, player.w + 60, player.h + 40)
 		for c in CR:
@@ -1346,8 +1420,10 @@ func step() -> void:
 				player.vy = s.pow
 				Audio.play("spring")
 				player.onGround = false
-				player.airJumps = 1
+				player.airJumps = 0 if (player.dog or player.get("isis")) else 1
 				player.cutOk = false
+				player.coyote = 0
+				player.jbuf = 0
 				player.slam = false
 				s.t = 10
 				burst(s.x, top_y, 10, Color("#8fd0ff"))
@@ -1428,6 +1504,8 @@ func step() -> void:
 			if e.get("dk") == "flip":
 				e.ddy += e.dvy
 				e.dvy += .45
+				# X1 voa girando para longe do golpe
+				e.ddx = float(e.get("ddx", 0.0)) + float(e.get("dvx", 0.0))
 			continue
 		update_enemy(e)
 		if e.dead:
@@ -2142,7 +2220,7 @@ func move_y(dy: float) -> void:
 		if not hit(player, s):
 			continue
 		if s.get("oneway"):
-			if dy > 0 and not (player.dropT > 0) and not player.ladder and prev_feet <= s.y + 1 + (2 if s.get("lily") else 0):
+			if dy > 0 and not (player.dropT > 0) and not player.ladder and prev_feet <= s.y + 1 + (2 if s.get("lily") else 0) - min(0.0, float(s.get("dy", 0.0))):
 				player.y = s.y - player.h
 				_land(s)
 			continue
@@ -2191,6 +2269,7 @@ func ground_kind() -> String:
 
 func _land(s: Dictionary) -> void:
 	player.launchT = 0
+	player.combo = 0
 	player.onGround = true
 	player.coyote = COY
 	player.airJumps = 0 if (player.get("dog") or player.get("isis")) else 1
@@ -2974,6 +3053,11 @@ func _piranha(e: Dictionary) -> void:
 	else:
 		_glide(e, 1.3)
 		e.y = lerpf(e.y, e.cy + sin(T * .05 + e.x * .02) * 26, .05)
+	# não sai da água atrás do Tomé
+	if not e.has("_wy"):
+		var w = X.water_at(e.x, e.cy)
+		e._wy = Vector2(float(w.y) + 16.0, float(w.y + w.h) - 12.0) if w != null else Vector2(e.cy - 60.0, e.cy + 160.0)
+	e.y = clamp(e.y, e._wy.x, e._wy.y)
 
 ## morcego: dorme pendurado; acorda quando o Tomé chega perto e foge da luz
 func _bat(e: Dictionary) -> void:
@@ -3107,8 +3191,17 @@ func kill_enemy(e: Dictionary, how: String = "") -> void:
 	e.dk = "flat" if (how == "stomp" and not FLY.has(e.k)) else "flip"
 	e.ddy = 0.0
 	e.dvy = -6.0
+	e.ddx = 0.0
+	e.dvx = (1.0 if e.x > player.x + player.w / 2 else -1.0) * (2.4 if how != "stomp" else 1.2)
 	burst(e.x, e.y - 12, 14, Color("#ccbbbb"))
 	Polish.ko(e)
+	Polish.impact(e.x, e.y - (6.0 if how == "stomp" else 18.0))
+	# M5 pisões seguidos sem tocar o chão: o som sobe de tom e aparece o contador
+	if how == "stomp" and not player.onGround:
+		player.combo = int(player.get("combo", 0)) + 1
+		if player.combo >= 2:
+			Polish.part("txt", e.x, e.y - 40, 0, -1.2, 40, Color(1, .9, .45), {"txt": "x%d" % player.combo, "g": .02, "size": 20.0 + 3.0 * min(player.combo, 5)})
+			Audio.play("dj", -8, 1.0 + .12 * min(player.combo, 6))
 	shake = max(shake, 5)
 	hit_stop = 5 if how == "stomp" else 3
 	Audio.play("stomp")
@@ -3122,6 +3215,7 @@ func gain_coin(x: float, y: float, silent: bool = false) -> void:
 	if not silent:
 		burst(x, y, 8, Color("#f0cd72"))
 		fx("fx_sparkle", x, y, 14, .14)
+		Polish.pickup(x, y)
 	if coin_life >= 100:
 		coin_life -= 100
 		lives += 1
@@ -3131,6 +3225,10 @@ func gain_coin(x: float, y: float, silent: bool = false) -> void:
 func break_crate(c: Dictionary) -> void:
 	c.dead = true
 	shake = max(shake, 5)
+	# O9 lascas de madeira voando e quicando no chão
+	for i in 8:
+		Polish.part("chip", c.x + c.w / 2 + randf_range(-12, 12), c.y + c.h / 2, randf_range(-3.5, 3.5), -randf_range(2.5, 6.0), 70, Color("#9a7040") if i % 2 == 0 else Color("#6a4a2a"), {"gy": c.y + c.h, "size": randf_range(2.5, 4.5)})
+	Polish.impact(c.x + c.w / 2, c.y + c.h / 2, Color(1, .92, .75), 6, 24.0)
 	fx("fx_pieces", c.x + c.w / 2, c.y + c.h / 2, 20, .35, -.4)
 	burst(c.x + c.w / 2, c.y + c.h / 2, 16, Color("#b08a4e"))
 	var it: String = c.get("item", "")
@@ -3167,7 +3265,12 @@ func hurt(d: int, from_x: float) -> void:
 		return
 	var kb = func():
 		player.iframe = 70
+		player.hitT = 30
+		player.bar = null
 		shake = max(shake, 8)
+		# E6 o tranco empurra a tela para o lado do golpe
+		shake_dir = Vector2(1.0 if player.x + player.w / 2 > from_x else -1.0, -.35)
+		Polish.impact(player.x + player.w / 2, player.y + player.h / 2, Color(1, .7, .6), 6, 20.0)
 		player.vx = (-1 if player.x + player.w / 2 < from_x else 1) * 5
 		player.vy = -6
 		player.slam = false
@@ -3209,6 +3312,7 @@ func die(msg: String) -> void:
 		STATS.pdeath[clamp(period_index(), 0, 5)] += 1
 	shake = 14
 	burst(player.x + player.w / 2, player.y + player.h / 2, 22, Color("#cc5555"))
+	Polish.death_fx(player.x + player.w / 2, player.y + player.h / 2)
 	Audio.play("die")
 	Audio.vib(150)
 	player.dieMsg = msg
@@ -3222,6 +3326,26 @@ func die(msg: String) -> void:
 	player.ladder = null
 	hit_stop = 8
 
+## "Voltar à fogueira": como renascer, mas sem perder vida nem coração
+func _back_to_fire() -> void:
+	var hp: int = int(player.hp)
+	var armor: int = int(player.armor)
+	_reset_player(player.spawnX, player.spawnY, false)
+	player.hp = hp
+	player.armor = armor
+	player.iframe = 40
+	COAL.clear()
+	M.reset_crates(player.spawnX)
+	X.boss_reset()
+	TR.reset_on_respawn()
+	K.reset_on_respawn()
+	EV.on_respawn()
+	VH.on_respawn()
+	X.breath = Extras.BREATH
+	snap_camera()
+	_tick_fx()
+	flash("De volta à fogueira.")
+
 func respawn() -> void:
 	var msg: String = player.dieMsg
 	if lives < 0:
@@ -3232,7 +3356,7 @@ func respawn() -> void:
 	var sx: float = player.spawnX
 	var sy: float = player.spawnY
 	var armor: int = player.armor
-	_reset_player(sx, sy)
+	_reset_player(sx, sy, false)
 	player.armor = armor
 	player.iframe = 80
 	time_left = int(L.get("time", 180)) * 60

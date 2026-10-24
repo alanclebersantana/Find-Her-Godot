@@ -10,6 +10,8 @@ var g
 var FL := {}            # enchente
 var LV := {}            # alavancas e portão
 var GATE := {}
+## quanto o portão sobe com uma alavanca só (a mesma conta no passo e ao continuar do save)
+const ONE_LEVER_LIFT := 0.12
 
 func _init(game) -> void:
 	g = game
@@ -89,7 +91,7 @@ func _lever_step() -> void:
 		if lv.down:
 			down += 1
 	# cada peso embaixo puxa o portão um pouco; com os dois, ele abre de vez
-	var want: float = (0.12 if down == 1 else (1.0 if down >= 2 else 0.0)) * (GATE.h - 6)
+	var want: float = (ONE_LEVER_LIFT if down == 1 else (1.0 if down >= 2 else 0.0)) * (GATE.h - 6)
 	var old: float = GATE.lift
 	GATE.lift = move_toward(GATE.lift, want, 1.6)
 	if GATE.lift != old:
@@ -161,6 +163,7 @@ func restore(d: Dictionary) -> void:
 		for lv in LV.list:
 			if lv.down:
 				n += 1
-		GATE.lift = (0.32 if n == 1 else (1.0 if n >= 2 else 0.0)) * (GATE.h - 6)
+		# antes voltava em 0.32 e o passo puxava para 0.12: o portão "descia sozinho" depois de continuar
+		GATE.lift = (ONE_LEVER_LIFT if n == 1 else (1.0 if n >= 2 else 0.0)) * (GATE.h - 6)
 		GATE.y = float(LV.gate.y) - GATE.lift
 		g.blockers_dirty()

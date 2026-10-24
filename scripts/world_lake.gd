@@ -112,9 +112,11 @@ static func _floor(g: Game, w: Dictionary, T: int) -> void:
 			elif hv < .42:
 				Spr.P("mossrock_s", sx, sy + 6, 34, hv < .39, 0.0, Color(.65, .78, .8))
 		sx += 37
-	# luz dançando no fundo: manchas claras irregulares
-	for k in int((b - a) / 70.0) + 1:
-		var cx: float = a + fposmod(k * 71.0 + sin(T * .013 + k) * 30.0, b - a + 1)
+	# luz dançando no fundo: manchas claras irregulares (presas ao lago, não à câmera)
+	for k in int(w.w / 70.0) + 1:
+		var cx: float = w.x + fposmod(k * 71.0 + sin(T * .013 + k) * 30.0, w.w + 1)
+		if cx < a - 30 or cx > b + 30:
+			continue
 		var al: float = .05 + .04 * sin(T * .04 + k * 1.7)
 		Spr.ellipse(cx, fy - 12 - (k % 3) * 4, 18 + 10 * sin(T * .02 + k), 4 + (k % 2) * 2, Color(.9, 1, 1, al))
 
