@@ -323,6 +323,8 @@ def cut(jid, src):
     blobs = find_blobs(rgba, len(job['items']))
     if blobs is not None:
         pieces = blobs
+        if os.environ.get('PX_ORDER'):
+            pieces = [blobs[int(i)] for i in os.environ['PX_ORDER'].split(',')]
     elif os.environ.get('PX_STRICT'):
         raise SystemExit('contagem de peças não bate: ' + jid)
     origs = [src_img(it) for it in job['items']]
