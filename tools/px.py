@@ -12,6 +12,7 @@ Tipos de peça:
   paint : peça de art_src/paint                      -> grava o PNG (o pack_paint refaz o atlas)
   opaque: imagem inteira opaca (fundo, quadrinho, cena) -> só redimensiona
 """
+import re
 import json, os, sys, glob
 import numpy as np
 from PIL import Image
@@ -63,32 +64,55 @@ def plan():
             n2 = len(ch); fw2, fh2 = ch[0]['rect'][2], ch[0]['rect'][3]
             best = min(range(1, n2 + 1), key=lambda c: abs((c * fw2 * 1.12) / (-(-n2 // c) * fh2 * 1.12) - 1.6))
             jobs.append(dict(id='%s_%d' % (s, j), cols=best, items=ch, what=s))
+    # peças já convertidas (trabalhos feitos) não entram de novo
+    old = os.path.join(PX, 'jobs.json'); dn = os.path.join(PX, 'done.txt')
+    done0 = set(open(dn).read().split()) if os.path.exists(dn) else set()
+    prev0 = {j['id']: j for j in json.load(open(old))} if os.path.exists(old) else {}
+    seen = {(it['file'], tuple(it['rect'])) for jid in done0 if jid in prev0 for it in prev0[jid]['items']}
+    fresh = lambda it: (it['file'], tuple(it['rect'])) not in seen
+    chars, rest = [], {'atlas': [], 'paint': [], 'small': []}
+    def route(it, cat):
+        if not fresh(it):
+            return
+        n = it.get('name', '')
+        if CHAR_RX.match(n):
+            chars.append(it)
+        else:
+            rest[cat].append(it)
     # atlas1/atlas2 (peças com retângulo fixo)
     at = json.load(open(P('assets', 'data', 'atlas.json')))
     for a, d in at.items():
-        items = []
         for k, v in d.items():
             x, y, w, h = v[:4]
-            items.append(dict(kind='piece', file='assets/sprites/%s.png' % a, rect=[x, y, w, h], name=k))
-        items.sort(key=lambda t: t['rect'][3])
-        for j, ch in enumerate(chunks(items, 12)):
-            jobs.append(dict(id='%s_%02d' % (a, j), cols=4, items=ch, what='objetos'))
+            route(dict(kind='piece', file='assets/sprites/%s.png' % a, rect=[x, y, w, h], name=k), 'atlas')
     # peças pintadas
-    items = []
     for f in sorted(glob.glob(P('art_src', 'paint', '*.png'))):
         im = Image.open(f)
-        items.append(dict(kind='paint', file=os.path.relpath(f, ROOT), rect=[0, 0, im.width, im.height],
-                          name=os.path.basename(f)[:-4]))
-    items.sort(key=lambda t: t['rect'][3] / max(1, t['rect'][2]))
-    for j, ch in enumerate(chunks(items, 12)):
-        jobs.append(dict(id='paint_%02d' % j, cols=4, items=ch, what='objetos'))
+        route(dict(kind='paint', file=os.path.relpath(f, ROOT), rect=[0, 0, im.width, im.height],
+                   name=os.path.basename(f)[:-4]), 'paint')
     # arquivos pequenos
-    items = []
     for s in SMALL:
         im = Image.open(os.path.join(SPR, s + '.png'))
-        items.append(dict(kind='piece', file='assets/sprites/%s.png' % s, rect=[0, 0, im.width, im.height], name=s))
-    for j, ch in enumerate(chunks(items, 10)):
-        jobs.append(dict(id='small_%d' % j, cols=5, items=ch, what='objetos'))
+        route(dict(kind='piece', file='assets/sprites/%s.png' % s, rect=[0, 0, im.width, im.height], name=s), 'small')
+    # personagens e bichos primeiro (Tomé, Isis, inimigos), em grades próprias
+    tome_p = [i for i in chars if i['name'].startswith('pai')]
+    others = [i for i in chars if not i['name'].startswith('pai')]
+    for j, ch in enumerate(chunks(sorted(tome_p, key=lambda t: t['rect'][3]), 10)):
+        jobs.append(dict(id='ctome_%d' % j, cols=5, items=ch, what='tome'))
+    for j, ch in enumerate(chunks(sorted(others, key=lambda t: t['rect'][3]), 12)):
+        jobs.append(dict(id='cbicho_%d' % j, cols=4, items=ch, what='bichos'))
+    rest['atlas'].sort(key=lambda t: t['rect'][3])
+    for j, ch in enumerate(chunks(rest['atlas'], 12)):
+        jobs.append(dict(id='ratlas_%02d' % j, cols=4, items=ch, what='objetos'))
+    rest['paint'].sort(key=lambda t: t['rect'][3] / max(1, t['rect'][2]))
+    for j, ch in enumerate(chunks(rest['paint'], 12)):
+        jobs.append(dict(id='rpaint_%02d' % j, cols=4, items=ch, what='objetos'))
+    for j, ch in enumerate(chunks(rest['small'], 10)):
+        jobs.append(dict(id='rsmall_%d' % j, cols=5, items=ch, what='objetos'))
+    # trabalhos de peças já feitos continuam valendo (o recorte depende do arranjo antigo)
+    for jid in sorted(done0):
+        if jid in prev0 and re.match(r'(atlas\d|paint|small)_', jid):
+            jobs.append(prev0[jid])
     # botões e controles
     items = []
     for f in sorted(glob.glob(P('assets', 'ui', '*.png'))):
@@ -422,6 +446,7 @@ def seamless(im, frac=.22):
     return img.resize((w, a.shape[0]), Image.LANCZOS)
 
 
+CHAR_RX = re.compile(r'(pai|lia_|en_|spider|bat\d|bat_|piranha|owl|leech|frog_|fly\d|saltador|goose|rab_|tuc_|bird|bee|bfly)')
 DESC = {
     'tome': 'o Tomé (o mesmo personagem que você já fez)', 'bagre': 'o bagre gigante (chefe do rio)',
     'cao': 'a Pipoca, cachorra vira-lata cinza-amarronzada com coleira de corda', 'cavalo': 'o cavalo',
@@ -453,6 +478,15 @@ def prompt(jid):
                 ', mantendo em cada um a mesma cena, os mesmos personagens, as mesmas poses e o mesmo enquadramento, na mesma posição da grade, sem bordas nem espaço entre os quadros. Sem texto.')
     if jid.startswith('cut_'):
         return ('Agora esta cena de história do jogo. Refaça a MESMA cena, com os mesmos personagens, poses, composição e formato, ' + st + '. Sem texto.')
+    if jid.startswith('ctome'):
+        return ('Agora esta grade com %d poses do Tomé (%d colunas x %d linhas) sobre fundo magenta. O Tomé é o MESMO senhor idoso HUMANO das imagens anteriores (não é gnomo): '
+                'casaco VERMELHO-TIJOLO, gorro de lã verde com pompom branco, cachecol listrado verde e bege, barba branca, calça escura e botas marrons. '
+                'Refaça CADA pose como render 3D ' % (n, cols, rows) + st + ', cada uma no mesmo lugar da grade, com exatamente a mesma pose (agachado, engatinhando, escalando, '
+                'pendurado, arremessando etc.), o mesmo tamanho e virada para o mesmo lado. Não junte, não remova e não adicione poses.' + TAIL)
+    if jid.startswith('cbicho'):
+        return ('Agora esta grade com %d bichos e personagens do jogo (%d colunas x %d linhas) sobre fundo magenta. Refaça CADA um como render 3D ' % (n, cols, rows) + st +
+                ', cada um no mesmo lugar da grade, com a mesma espécie, pose, tamanho, cores principais e virado para o mesmo lado. A menina é a Isis (10 anos, trança ruiva, camiseta rosa, short jeans). '
+                'Não junte, não remova e não adicione nada.' + TAIL)
     base = jid.rsplit('_', 1)[0] if not jid.startswith('tome') else 'tome'
     if all(i['kind'] == 'frame' for i in j['items']):
         quem = DESC.get(base, base)
