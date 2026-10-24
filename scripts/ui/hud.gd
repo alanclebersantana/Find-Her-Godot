@@ -21,11 +21,54 @@ var last_hp2 := -1
 var tex_face: Texture2D = preload("res://assets/ui/btn_tome.png")
 var mobile: bool = OS.has_feature("mobile") or DisplayServer.is_touchscreen_available()
 var ICON := {}
+## altura atual das faixas de cinema (main.gd -> cinema_bars.gd)
+var cine_bar := 0.0
+## painel dos corações e placa do canto: desenhados num filho próprio para poder esmaecer e tingir
+var stats: Control
+var stats_a := 1.0
+var idle_t := 0.0
+var last_sig := []
+var tint := Color(1, 1, 1)
+## corações: efeitos por coração (rachar ao perder, inflar ao ganhar)
+var heart_fx: Array = []
+var heart_shake := 0.0
+## nome do lugar ao entrar num trecho novo (uma vez por trecho em cada partida)
+var place_seen := {}
+var place_pending := ""
+var place_wait := 0.0
+var place_cur := ""
+var place_t := -1.0
+const PLACE_DUR := 2.5
+const PLACE_NAMES := {"manha": "Manhã no bosque", "tarde": "Tarde no bosque", "chuva": "O pântano", "rio": "O rio",
+	"neve": "A neve", "ceu": "O céu", "noite": "Noite na mina", "perseguicao": "A perseguição", "tunel": "O túnel"}
 
 func _ready() -> void:
 	var m := {"G": "btn_golpe", "J": "btn_jump", "A": "btn_use", "U": "pad_U", "S": "pad_S", "L": "pad_L", "R": "pad_R", "Q": "btn_dog"}
 	for k in m:
 		ICON[k] = load("res://assets/ui/%s.png" % m[k])
+	stats = _Stats.new()
+	stats.hud = self
+	stats.set_anchors_preset(Control.PRESET_FULL_RECT)
+	stats.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stats.show_behind_parent = true
+	add_child(stats)
+
+class _Stats extends Control:
+	var hud
+	func _draw() -> void:
+		hud._draw_stats(self)
+
+## partida nova ou continuada: os nomes dos lugares aparecem de novo e os corações recomeçam
+func reset_run() -> void:
+	place_seen.clear()
+	place_pending = ""
+	place_cur = ""
+	place_t = -1.0
+	heart_fx.clear()
+	last_hp = -1
+	idle_t = 0.0
+	last_sig = []
+	stats_a = 1.0
 
 ## a dica sumiu mas o lugar ainda tem dica: o pergaminho pode trazê-la de volta
 func can_replay() -> bool:
@@ -100,6 +143,105 @@ func _rdraw(ln: Array, cx: float, y: float, fs: int, c: Color, f: Font) -> void:
 
 func _process(_d: float) -> void:
 	queue_redraw()
+	if stats:
+		stats.queue_redraw()
+	if game == null or not game.L or not visible:
+		return
+	if Polish.g == null:
+		Polish.g = game
+	_fade_step(_d)
+	_place_step(_d)
+	for f in heart_fx:
+		f.t += _d
+	heart_fx = heart_fx.filter(func(f): return f.t < (.75 if f.k == "crack" else .32))
+	heart_shake = max(0.0, heart_shake - _d * 3.5)
+
+## Y4: o painel fica a 35% depois de ~4 s sem mudar nada (fora de perigo); volta a 100% na hora
+## quando corações/contadores mudam, ao levar dano ou perto de um chefe.
+## K9: tom do painel pelo período: quente à tarde, azulado à noite, neutro de manhã.
+func _fade_step(d: float) -> void:
+	var p: Dictionary = game.player
+	var nd := 0
+	for dr in game.DRWS:
+		if dr.got:
+			nd += 1
+	var sig := [p.hp, game.lives, game.coin_life, game.SPECGOT.size(), nd, p.armor, game.M and game.M.ctrl, game.AMB.dark > .45]
+	if sig != last_sig:
+		last_sig = sig
+		idle_t = 0.0
+	idle_t += d
+	var X: Extras = game.X
+	var danger: bool = not Polish.bosses().is_empty() or (game.K and game.K.active()) or p.hp <= 1 \
+		or (X and X.breath < Extras.BREATH) or (game.AMB.dark > .45 and game.fuel_vis < .3) or p.dyingT > 0
+	var want: float = 1.0 if (idle_t < 4.0 or danger or not game.running or not game.CINE.is_empty()) else .35
+	if want > stats_a:
+		stats_a = want
+	else:
+		stats_a = move_toward(stats_a, want, d * .9)
+	var per: String = Polish.period()
+	var tt := Color(1, 1, 1)
+	if per == "tarde":
+		tt = Color(1.0, .9, .76)
+	elif per == "noite":
+		tt = Color(.8, .88, 1.0)
+	tint = tint.lerp(tt, clamp(d * 1.5, 0, 1))
+	stats.modulate = Color(tint.r, tint.g, tint.b, stats_a)
+
+## Y6: nome do trecho em letras bonitas no alto, aparecendo e sumindo (~2,5 s)
+func _section_name() -> String:
+	var S: Array = game.L.get("sections", [])
+	if S.is_empty():
+		return ""
+	var px: float = game.amb_x()
+	var sc = null
+	for s in S:
+		if float(s.x) <= px:
+			sc = s
+	if sc == null:
+		return ""
+	if sc.has("name"):
+		return str(sc.name)
+	if sc.has("per") and int(sc.per) < game.PERIODS.size():
+		return str(game.PERIODS[int(sc.per)])
+	var k: String = sc.get("map", "neve" if sc.get("bg", "") == "neve" else sc.get("song", "manha"))
+	return PLACE_NAMES.get(k, "")
+
+func _place_step(d: float) -> void:
+	if game.running and game.CINE.is_empty() and game.player.dyingT == 0:
+		var n := _section_name()
+		if n != "" and not place_seen.has(n):
+			place_seen[n] = true
+			place_pending = n
+			place_wait = 0.0
+	if place_pending != "" and place_t < 0:
+		place_wait += d
+		# espera o aviso e a dica saírem (no máximo uns segundos)
+		if (game.flash_t == 0 and hint_alpha < .05) or place_wait > 8.0:
+			place_cur = place_pending
+			place_pending = ""
+			place_t = 0.0
+	if place_t >= 0:
+		place_t += d
+		if place_t >= PLACE_DUR:
+			place_t = -1.0
+
+func _draw_place(W: float) -> void:
+	if place_t < 0 or place_cur == "":
+		return
+	var a: float = clamp(min(place_t / .5, (PLACE_DUR - place_t) / .5), 0.0, 1.0)
+	a = a * a * (3.0 - 2.0 * a)
+	# com a dica do lugar na tela, o nome desce para baixo dela
+	var y: float = (92.0 if hint_alpha < .05 else 146.0) - (1.0 - a) * 6.0
+	var fs := 30
+	var tw: float = Spr.font_title.get_string_size(place_cur, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var gold := Color(1, .88, .62, a)
+	# fitas finas dos lados e um losango pequeno: moldura discreta
+	var lw: float = 60.0 * a + 20.0
+	for sd in [-1, 1]:
+		var x0: float = W / 2 + sd * (tw / 2 + 14)
+		Spr.hgrad(x0 if sd > 0 else x0 - lw, y - 11, lw, 2, Color(1, .88, .62, a * (.9 if sd > 0 else 0)), Color(1, .88, .62, a * (0 if sd > 0 else .9)))
+		Spr.poly(PackedVector2Array([Vector2(x0, y - 15), Vector2(x0 + 4, y - 10), Vector2(x0, y - 5), Vector2(x0 - 4, y - 10)]), gold)
+	Spr.text(place_cur, W / 2, y, fs, gold, HORIZONTAL_ALIGNMENT_CENTER, Spr.font_title, 6, Color(.08, .05, .02, .8 * a))
 
 func _box(x: float, y: float, w: float, h: float) -> void:
 	Spr.rr(x, y, w, h, 9, Color(.04, .03, .02, .55))
@@ -126,24 +268,67 @@ func __draw_raw() -> void:
 	if not game.CINE.is_empty():
 		_cine(W, size.y)
 		return
+	var X: Extras = game.X
+	_draw_bars_and_hints(W, p, X)
+	_draw_place(W)
+
+## J1: meio coração (metade esquerda ou direita do desenho), girado em volta do centro
+func _half(n: String, x: float, y: float, sc: float, left: bool, rot: float, al: float) -> void:
+	var r = Spr.AR.get(n)
+	if r == null:
+		return
+	Spr.save()
+	Spr.translate(x, y)
+	Spr.rotate(rot)
+	Spr.scale(sc, sc)
+	var hw: float = r[2] / 2.0
+	Spr.ci.draw_texture_rect_region(Spr.atlas_tex(r), Rect2(-r[4] + (0.0 if left else hw), -r[5], hw, r[3]), Rect2(r[0] + (0.0 if left else hw), r[1], hw, r[3]), Color(1, 1, 1, al * Spr.alpha))
+	Spr.restore()
+
+## painel dos corações, vidas, lápis e a placa do canto (num filho que esmaece e muda de tom)
+func _draw_stats(ci: Control) -> void:
+	if game == null or not game.L or not visible or not game.CINE.is_empty():
+		return
+	var W := size.x
+	var p: Dictionary = game.player
+	Spr.begin(ci)
 	var o := 40.0   # 5 corações: o resto do painel anda para a direita
 	_plaque(8, 8, 290 + o, 42)
-	# corações: batem de leve; com pouca vida o último pulsa forte; o que se perde dá um pulinho e some
+	# corações: batem de leve; com pouca vida o último pulsa forte.
+	# Perdeu: o coração racha, as duas metades se abrem e caem (com um tremidinho no painel).
+	# Ganhou: o coração enche como um balão (1,3 -> 1).
 	if last_hp >= 0 and p.hp < last_hp:
-		lost_heart = p.hp
-		lost_t = 1.0
+		for i in range(max(p.hp, 0), last_hp):
+			heart_fx.append({"i": i, "t": 0.0, "k": "crack"})
+		heart_shake = 1.0
+	elif last_hp >= 0 and p.hp > last_hp:
+		for i in range(last_hp, min(p.hp, Game.MAXHP)):
+			heart_fx.append({"i": i, "t": 0.0, "k": "pop"})
 	last_hp = p.hp
-	lost_t = max(0.0, lost_t - .04)
+	var shx: float = sin(Time.get_ticks_msec() * .06) * 2.5 * heart_shake
 	for i in Game.MAXHP:
+		var hx: float = 26 + i * 23 + shx
+		var fx = null
+		for f in heart_fx:
+			if f.i == i:
+				fx = f
+		if fx != null and fx.k == "crack" and i >= p.hp:
+			var u: float = clamp(fx.t / .75, 0.0, 1.0)
+			Spr.A("hud_heart_empty", hx, 28, .45)
+			var al: float = 1.0 - u * u
+			var gap: float = 1.5 + u * 9.0
+			var fall: float = u * u * 30.0 - sin(u * PI) * 4.0
+			_half("hud_heart_full", hx - gap, 28 + fall, .45, true, -u * .7, al)
+			_half("hud_heart_full", hx + gap, 28 + fall * 1.1, .45, false, u * .8, al)
+			continue
 		var hs := .45
 		if i < p.hp:
 			var beat: float = pow(max(0.0, sin(game.T * (.16 if p.hp <= 2 else .07) - i * .5)), 8.0)
 			hs *= 1.0 + beat * (.22 if (p.hp <= 2 and i == p.hp - 1) else .06)
-		if i == lost_heart and lost_t > 0:
-			Spr.A("hud_heart_empty", 26 + i * 23, 28, .45)
-			Spr.A("hud_heart_full", 26 + i * 23, 28 - (1.0 - lost_t) * 14, .45 * (1.0 + (1.0 - lost_t) * .5), false, lost_t)
-			continue
-		Spr.A("hud_heart_full" if i < p.hp else "hud_heart_empty", 26 + i * 23, 28, hs)
+			if fx != null and fx.k == "pop":
+				var u2: float = clamp(fx.t / .32, 0.0, 1.0)
+				hs = .45 * (1.0 + .3 * (1.0 - u2) * (1.0 - u2) * (1.0 + sin(u2 * PI) * .3))
+		Spr.A("hud_heart_full" if i < p.hp else "hud_heart_empty", hx, 28, hs)
 	if p.armor > 0:
 		Spr.A("hud_shield", 108 + o, 28, .48)
 	Spr.text("× %d" % max(0, game.lives), 122 + o, 34, 16, Color("#3a2410"), HORIZONTAL_ALIGNMENT_LEFT, Spr.font_b)
@@ -191,8 +376,10 @@ func __draw_raw() -> void:
 	if game.M and game.M.ctrl:
 		_box(8, 54, 228, 30)
 		Spr.text("Controlando o PIPOCA", 20, 75, 15, Color("#ffe9a0"), HORIZONTAL_ALIGNMENT_LEFT, Spr.font_b)
+
+## fôlego, barra do chefe, dica e avisos (sempre a 100%)
+func _draw_bars_and_hints(W: float, p: Dictionary, X: Extras) -> void:
 	# fôlego (na água)
-	var X: Extras = game.X
 	if X and X.breath < Extras.BREATH:
 		var n: int = int(ceil(X.breath / float(Extras.BREATH) * 8))
 		_box(W / 2 - 92, 50, 184, 28)
@@ -320,9 +507,8 @@ func _cine(W: float, H: float) -> void:
 	var c: Dictionary = game.CINE
 	var t: int = c.t
 	var a: float = clamp(min(t, c.dur - t) / 18.0, 0, 1)
-	var bar: float = 62 * a
-	Spr.rect(0, 0, W, bar, Color(0, 0, 0, 1))
-	Spr.rect(0, H - bar, W, bar, Color(0, 0, 0, 1))
+	# as faixas de cinema vêm de cinema_bars.gd (camada de baixo); aqui só se redesenham sobre a imagem do título
+	var bar: float = cine_bar
 	if c.title.size() == 4 and t >= c.title[0] and t < c.title[1]:
 		var k: float = clamp(min(t - c.title[0], c.title[1] - t) / 14.0, 0, 1)
 		var ct: String = "cena_" + {"boss": "javali", "vargas": "vargas", "cao": "cao"}.get(c.id, "")

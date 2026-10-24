@@ -929,9 +929,9 @@ static func _vargas_run(g: Game, VH: Vehicles, T: int, t0: float, ln: float, a: 
 				var hop: float = -sin(clamp(el / 14.0, 0, 1) * PI) * 40.0 if el < 14 else 0.0
 				var my: float = VH.sled_y(min(mx - t0, ln - 10)) + hop
 				_vargas_walk(mx, my, T, el)
-				if el == 4:
+				if el == 4 and Polish.FRESH:
 					Audio.play("jump", -6)
-			if el == 116:
+			if el == 116 and Polish.FRESH:
 				Audio.play("door", -2, .6)
 				g.shake = max(g.shake, 5)
 				g.burst(dx, my_floor(VH, ln), 18, Color(.7, .65, .6))

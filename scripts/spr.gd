@@ -615,7 +615,7 @@ func eturn(e: Dictionary, _k: float = .2) -> float:
 func turn_face(e: Dictionary, d: float) -> float:
 	var fd: float = float(e.get("_fd", d))
 	var tt: int = int(e.get("_tt", 0))
-	var f := Engine.get_process_frames()
+	var f := _tick()
 	if int(e.get("_tg", -1)) != f:
 		e._tg = f
 		if tt == 0 and d != fd:
@@ -648,7 +648,13 @@ func tsy(e: Dictionary) -> float:
 
 ## acabou de espelhar neste quadro? (para soltar poeira nos pés)
 func turned_now(e: Dictionary) -> bool:
-	return int(e.get("_tt", 0)) == TURN_FLIP and int(e.get("_tg", -1)) == Engine.get_process_frames()
+	return int(e.get("_tt", 0)) == TURN_FLIP and int(e.get("_tg", -1)) == _tick()
+
+## relógio da lógica do jogo (passo físico): animações de estado não dependem da taxa de quadros
+func _tick() -> int:
+	if Polish.g != null and is_instance_valid(Polish.g):
+		return int(Polish.g.T)
+	return Engine.get_physics_frames()
 
 ## compatibilidade: largura na virada (agora sem estreitar)
 func turnw(fs: float, d: float = 1.0) -> float:

@@ -197,11 +197,13 @@ func _swing_hits() -> void:
 	if g.player.onGround:
 		Polish.cut_grass(hb.x, hb.x + hb.w, g.player.y + g.player.h)
 	var p: Dictionary = g.player
-	for e in g.EN:
-		if e.dead or swing_hit.has(e):
+	for i in g.EN.size():
+		var e: Dictionary = g.EN[i]
+		# (chave pelo índice: o dicionário do inimigo muda a cada passo e não serve de chave)
+		if e.dead or swing_hit.has(i):
 			continue
 		if Game.hit(hb, g.ebox(e)):
-			swing_hit[e] = 1
+			swing_hit[i] = 1
 			if e.k == "mole" and e.get("helm") and not e.get("helm_off") and e.get("st", 0) != 5:
 				Audio.play("unlock", -8)
 				g.burst(e.x, e.base - 26, 8, Color("#e8b030"))
@@ -339,6 +341,10 @@ func post() -> void:
 		# longe da tela e parada: não precisa simular (a fase é longa)
 		if abs(c.x - camc) > 1500 and c.vy == 0.0:
 			continue
+		# caiu num buraco sem fundo: volta para o lugar de origem
+		if c.y > float(g.L.bottom) + 80.0:
+			_reset_one(c)
+			continue
 		c.vy = min(c.vy + .6, 12.0)
 		var ny: float = c.y + c.vy
 		var land := INF
@@ -450,6 +456,12 @@ func try_push(c: Dictionary, dx: float) -> bool:
 	p.pushT = 10
 	if g.T % 10 == 0:
 		g.fx("fx_dust", c.x + (0.0 if dx > 0 else c.w), c.y + c.h - 4, 12, .1, -.2)
+	# O3 arrastando: a quina de trás raspa o chão (poeira e pedrinhas)
+	if g.T % 5 == 0:
+		var bx: float = c.x + (0.0 if dx > 0 else c.w)
+		Polish.part("dust", bx, c.y + c.h - 3, -sign(dx) * randf_range(.4, 1.2), -randf_range(.2, .6), 22, Polish.ground_col(), {"size": 3.0})
+		if c.get("snow"):
+			Polish.part("snow", bx, c.y + c.h - 3, -sign(dx) * randf_range(.5, 1.5), -randf_range(.8, 1.6), 26, Color(.97, .98, 1, .9), {"gy": c.y + c.h})
 	return true
 
 # ======================================================================
@@ -473,6 +485,14 @@ func restore(d: Dictionary) -> void:
 func reset_crates(from_x: float) -> void:
 	for c in PUSH:
 		if not c.dead and c.ox > from_x - 40:
-			c.x = float(c.ox)
-			c.y = float(c.oy)
-			c.vy = 0.0
+			_reset_one(c)
+
+## caixa/bola de neve de volta ao lugar e ao tamanho de origem
+func _reset_one(c: Dictionary) -> void:
+	c.x = float(c.ox)
+	c.y = float(c.oy)
+	c.vy = 0.0
+	if c.has("ow"):
+		c.w = float(c.ow)
+		c.h = float(c.get("oh", c.ow))
+		c.lx = c.x

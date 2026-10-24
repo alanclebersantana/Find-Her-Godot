@@ -1,8 +1,22 @@
 extends Node2D
 ## Efeitos de tela: cor do trecho, chuva, relâmpago e o "íris" ao entrar/sair de esconderijos.
+## Também um acerto de cor suave por período (multiplicação, sem ler a tela: barato no celular).
+
+const FxClock = preload("res://scripts/fx_clock.gd")
 
 var game: Game
 var rain: Array = []
+var grade: Node2D
+
+## acerto de cor por cenário (multiplica a tela; 1 = sem mudança). Bem de leve.
+const GRADE := {"bosque": Color(1, .995, .965), "tarde": Color(1, .965, .9), "pantano": Color(.94, .975, .955),
+	"noite": Color(.9, .93, 1), "neve": Color(.965, .98, 1), "mina": Color(1, .95, .88), "moinho": Color(1, .965, .9),
+	"vila": Color(.9, .93, 1), "esconderijo": Color(1, .95, .88)}
+
+class _Sub extends Node2D:
+	var cb: Callable
+	func _draw() -> void:
+		cb.call(self)
 
 var vign: GradientTexture2D
 func _ready() -> void:
@@ -20,9 +34,22 @@ func _ready() -> void:
 	vign.height = 144
 	for i in 160:
 		rain.append({"x": randf() * 1400, "y": randf() * 540, "v": 12 + randf() * 8})
+	# acerto de cor: um retângulo multiplicado, desenhado antes do resto desta camada
+	grade = _Sub.new()
+	grade.cb = _draw_grade
+	grade.show_behind_parent = true
+	var m := CanvasItemMaterial.new()
+	m.blend_mode = CanvasItemMaterial.BLEND_MODE_MUL
+	grade.material = m
+	add_child(grade)
 
 func _process(_d: float) -> void:
+	if game and game.L:
+		FxClock.update(game)
+		_sim_rain()
 	queue_redraw()
+	if grade:
+		grade.queue_redraw()
 
 static func css(s: String) -> Color:
 	# "rgba(r,g,b,a)" -> Color
@@ -31,33 +58,68 @@ static func css(s: String) -> Color:
 		return Color(0, 0, 0, 0)
 	return Color(float(m[0]) / 255.0, float(m[1]) / 255.0, float(m[2]) / 255.0, float(m[3]) if m.size() > 3 else 1.0)
 
+## inclinação da chuva: acompanha o vento (e as rajadas)
+func _slant() -> float:
+	return .25 + FxClock.wind(game) * .45
+
+## gotas andam pelo relógio dos efeitos (param na pausa; mesma velocidade em qualquer taxa de quadros)
+func _sim_rain() -> void:
+	var k: float = FxClock.k
+	if k <= 0.0 or game.AMB.rain <= .05:
+		return
+	var vs := get_viewport_rect().size
+	var z: float = game.camera.zoom.x if game.camera else 1.0
+	var dc: float = FxClock.dcam * z
+	var sl: float = _slant()
+	var n := int(rain.size() * clamp(game.AMB.rain, 0, 1))
+	for i in n:
+		var d: Dictionary = rain[i]
+		d.y += d.v * k
+		d.x -= d.v * sl * k + dc * .8
+		if d.y > vs.y:
+			d.y = -10
+			d.x = randf() * (vs.x + 100 + sl * vs.y) - 20
+		if d.x < -20:
+			d.x += vs.x + 40
+		elif d.x > vs.x + 40:
+			d.x -= vs.x + 60
+
 func _draw() -> void:
 	var __t := Time.get_ticks_usec()
 	__draw_raw()
 	Spr.pt("fx", __t)
 
+func _draw_grade(n: CanvasItem) -> void:
+	if game == null or not game.L or game.low_fx:
+		return
+	var c: Color = FxClock.blend(FxClock.nw(game), GRADE, Color(1, 1, 1))
+	if c.r > .995 and c.g > .995 and c.b > .995:
+		return
+	n.draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), Color(c.r, c.g, c.b, 1))
+
 func __draw_raw() -> void:
 	if game == null or not game.L:
 		return
 	var vs := get_viewport_rect().size
-	var tint: String = game.AMB.get("tint", "")
-	if tint != "" and tint != null:
-		draw_rect(Rect2(Vector2.ZERO, vs), css(tint))
+	# cor do trecho: já vem misturada entre um trecho e o outro (sem salto na troca)
+	var tc = game.AMB.get("tint_c")
+	if not (tc is Color):
+		var tint = game.AMB.get("tint", "")
+		tc = css(str(tint)) if tint != null and str(tint) != "" else Color(0, 0, 0, 0)
+	if tc.a > .002:
+		draw_rect(Rect2(Vector2.ZERO, vs), tc)
 	var r: float = game.AMB.rain
-	if game.indoors():
+	if FxClock.hidden_sky(game):
 		r = 0.0
 	if r > .05 and game.running:
-		var n := int(rain.size() * r)
+		# chuva tira um pouco da cor da cena (véu cinza-azulado bem leve)
+		draw_rect(Rect2(Vector2.ZERO, vs), Color(.55, .6, .63, .07 * clamp(r, 0, 1)))
+		var n := int(rain.size() * clamp(r, 0, 1))
+		var sl: float = _slant()
+		var rc := Color(.78, .84, .9, .45)
 		for i in n:
 			var d: Dictionary = rain[i]
-			d.y += d.v
-			d.x -= d.v * .25
-			if d.y > vs.y:
-				d.y = -10
-				d.x = randf() * (vs.x + 100)
-			if d.x < -20:
-				d.x += vs.x + 40
-			draw_line(Vector2(d.x, d.y), Vector2(d.x + 3, d.y - 14), Color(.78, .84, .9, .45), 1.3)
+			draw_line(Vector2(d.x, d.y), Vector2(d.x + 14 * sl, d.y - 14), rc, 1.3)
 	if not game.low_fx:
 		_vignette(vs)
 	Polish.draw_screen(self, vs)

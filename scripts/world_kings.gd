@@ -390,7 +390,7 @@ static func _bear(g: Game, K: Kings, T: int) -> void:
 		Spr.ellipse(wx, b.gy - 6, 26, 18, Color(.98, .99, 1, .95))
 		Spr.ellipse(wx - w.d * 18, b.gy - 3, 18, 10, Color(.85, .92, 1, .9))
 		Spr.ring(wx, b.gy - 8, 22, Color(1, .4, .2, .5), 2, PI, TAU)
-		if T % 3 == 0:
+		if Polish.FRESH and T % 3 == 0:
 			g.PARTS.append({"x": wx, "y": b.gy - 18, "vx": w.d * 1.0, "vy": -2.0, "life": 16, "col": Color(.97, .98, 1, .9)})
 	# o galho tremendo antes do urso derrubar quem está nele
 	var br = b.get("br")

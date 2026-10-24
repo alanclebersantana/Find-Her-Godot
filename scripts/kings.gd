@@ -70,6 +70,10 @@ func post() -> void:
 #  GAVIÃO-REI
 # ======================================================================
 func hawk_box() -> Dictionary:
+	if HAWK.get("skin", "hawk") == "bat":
+		# Morcego-Rei: o desenho fica bem acima do ponto de apoio (corpo ~150 px de altura)
+		var d: float = 1.0 if HAWK.dir > 0 else -1.0
+		return g.R(HAWK.x - 26.0 * d - 52, HAWK.y - 168, 104, 150)
 	return g.R(HAWK.x - 46, HAWK.y - 58, 92, 64)
 
 func _hawk() -> void:
@@ -655,6 +659,7 @@ func _bear_hit() -> void:
 	if b.hp <= 0:
 		b.st = "flee"
 		b.t = 0
+		b.waves = []
 		Polish.final_blow()
 		Polish.loot_arc(b.x, b.gy - 120, 10, b.gy)
 		_gate("bearL", false, Rect2())
@@ -809,7 +814,7 @@ func _fish() -> void:
 		"lurk":
 			# escondido na lama, sobe de surpresa por baixo do Tomé
 			f.t += 1
-			f.x = lerpf(f.x, pc.x, .03)
+			f.x = clamp(lerpf(f.x, pc.x, .03), f.x0 + 130, f.x1 - 130)
 			if f.t > 60:
 				f.st = "aim"
 				f.t = 20
@@ -917,11 +922,24 @@ func cine_end(id: String) -> void:
 			g.tip("Fuja da sombra! Se ele errar, as garras prendem no chão: acerte com a picareta. O facho (segure ✦) ofusca os olhos dele.", 240)
 
 func reset_on_respawn() -> void:
+	# já vencido (fugindo ou caído): não revive — conta como derrotado
+	for B in [HAWK, BEAR, FISH]:
+		if not B.is_empty() and not B.done and B.active and (B.hp <= 0 or B.st in ["flee", "down"]):
+			B.done = true
+			B.active = false
+			B.waves = []
 	if not HAWK.is_empty() and HAWK.active and not HAWK.done:
 		HAWK.active = false
 		HAWK.st = "wait"
 		HAWK.hp = HAWK.maxhp
 		HAWK.crows = false
+		HAWK.second = false
+		HAWK.conf = false
+		HAWK.red = 0
+		HAWK.t = 0
+		HAWK.x = (HAWK.x0 + HAWK.x1) / 2.0
+		HAWK.y = HAWK.gy - 340.0
+		_zero(HAWK)
 		_gate("hawkL", false, Rect2())
 		_gate("hawkR", false, Rect2())
 		for e in g.EN:
@@ -932,7 +950,11 @@ func reset_on_respawn() -> void:
 		BEAR.st = "wait"
 		BEAR.hp = BEAR.maxhp
 		BEAR.miss = 0
+		BEAR.red = 0
+		BEAR.t = 0
+		BEAR.dir = -1
 		BEAR.x = BEAR.x1 - 160.0
+		_zero(BEAR)
 		_gate("bearL", false, Rect2())
 		_gate("bearR", false, Rect2())
 	if not FISH.is_empty() and FISH.active and not FISH.done:
@@ -940,12 +962,32 @@ func reset_on_respawn() -> void:
 		FISH.st = "wait"
 		FISH.hp = FISH.maxhp
 		FISH.mud = 0.0
+		FISH.red = 0
+		FISH.t = 0
+		FISH.dir = -1
 		FISH.x = FISH.x1 - 160.0
+		FISH.y = (FISH.y0 + FISH.y1) / 2.0
+		FISH.scales = [true, true, true, true]
+		_zero(FISH)
 		_gate("fishL", false, Rect2())
 		_gate("fishR", false, Rect2())
 
+## zera velocidades e estados de movimento que ficaram da luta anterior
+func _zero(B: Dictionary) -> void:
+	for k in ["vx", "vy", "mouth", "wv", "cv", "hy", "hcr", "tv", "kb", "hitT", "landT", "anim", "skid"]:
+		if B.has(k):
+			B[k] = 0.0 if typeof(B[k]) == TYPE_FLOAT else 0
+	if B.has("waves"):
+		B.waves = []
+
 func save_data() -> Dictionary:
-	return {"hawk": HAWK.get("done", false), "fish": FISH.get("done", false), "bear": BEAR.get("done", false)}
+	return {"hawk": _beaten(HAWK), "fish": _beaten(FISH), "bear": _beaten(BEAR)}
+
+## vencido conta mesmo se ainda estiver fugindo/caindo no instante do salvamento
+func _beaten(B: Dictionary) -> bool:
+	if B.is_empty():
+		return false
+	return B.get("done", false) or (B.get("active", false) and (int(B.get("hp", 1)) <= 0 or B.get("st", "") in ["flee", "down"]))
 
 func restore(d: Dictionary) -> void:
 	if d.get("hawk", false) and not HAWK.is_empty():

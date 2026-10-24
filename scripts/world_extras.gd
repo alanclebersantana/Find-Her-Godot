@@ -540,6 +540,8 @@ static func _brutus(b: Dictionary, T: int, bd: float = 0.0) -> void:
 # ---------------------------------------------------------------- inimigos novos (desenhados por código)
 ## poeirinha nos pés no instante da virada (o peso trocando de lado)
 static func turn_dust(g, x: float, y: float, d: float, col: Color = Color(.62, .55, .42, .5)) -> void:
+	if not Polish.FRESH:
+		return
 	for k in 4:
 		g.PARTS.append({"x": x + (k - 1.5) * 6, "y": y - 2, "vx": -d * randf_range(.6, 1.8), "vy": -randf_range(.4, 1.3), "life": 16, "col": col})
 
@@ -728,7 +730,7 @@ static func dog(g: Game, T: int) -> void:
 			if ct < 80:
 				var u: float = sin(clamp(ct / 80.0, 0, 1) * PI)
 				Spr.rotate(d.face * .16 * u)
-				if ct % 12 == 0 and ct > 10 and ct < 70:
+				if Polish.FRESH and ct % 12 == 0 and ct > 10 and ct < 70:
 					g.PARTS.append({"x": x + d.face * 34, "y": y - 8, "vx": d.face * .4, "vy": -.3, "life": 14, "col": Color(.85, .8, .7, .7)})
 			elif ct > 300 and ct < 360:
 				Spr.rotate(-d.face * .08)
@@ -967,7 +969,7 @@ static func mech(g: Game, T: int) -> void:
 				tx2 += 22
 				k2 += 1
 			Spr.text("!", s.x + s.w / 2, yy - 16 + sin(T * .12) * 2, 14, Color(1, .8, .4, .85), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3)
-			if s.ct > 0 and T % 4 == 0:
+			if Polish.FRESH and s.ct > 0 and T % 4 == 0:
 				g.PARTS.append({"x": s.x + randf() * s.w, "y": yy + 10, "vx": randf_range(-.5, .5), "vy": .6, "life": 18, "col": Color(.75, .35, .2, .9)})
 			continue
 		if s.get("tile"):
@@ -984,7 +986,7 @@ static func mech(g: Game, T: int) -> void:
 				tx += tw
 				k += 1
 			Spr.rr(s.x - 2 + shake, yy - 6, s.w + 4, 18, 7, Color(1, .7, .4, (.1 + .08 * sin(T * .1 + s.x)) * a))
-			if s.ct > 0 and T % 4 == 0:
+			if Polish.FRESH and s.ct > 0 and T % 4 == 0:
 				g.PARTS.append({"x": s.x + randf() * s.w, "y": yy + 10, "vx": randf_range(-.5, .5), "vy": .6, "life": 18, "col": Color(.75, .35, .2, .9)})
 			continue
 		# tábua podre: rachaduras à mostra e um contorno pálido pulsando (dá para ver que é perigosa)
@@ -994,7 +996,7 @@ static func mech(g: Game, T: int) -> void:
 		Spr.seg(s.x + 12 + shake, yy + 4, s.x + 30 + shake, yy + 12, Color(0, 0, 0, .45 * a), 1.5)
 		Spr.seg(s.x + s.w - 20 + shake, yy + 3, s.x + s.w - 34 + shake, yy + 13, Color(0, 0, 0, .45 * a), 1.5)
 		Spr.seg(s.x + s.w * .5 + shake, yy + 2, s.x + s.w * .45 + shake, yy + 14, Color(0, 0, 0, .35 * a), 1.2)
-		if s.ct > 0 and T % 3 == 0:
+		if Polish.FRESH and s.ct > 0 and T % 3 == 0:
 			# serragem caindo antes de quebrar
 			g.PARTS.append({"x": s.x + randf() * s.w, "y": yy + 15, "vx": randf_range(-.4, .4), "vy": .5, "life": 22,
 				"col": Color(.85, .7, .45, .9) if not s.get("icy") else Color(.9, .97, 1, .9)})

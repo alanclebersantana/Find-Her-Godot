@@ -46,9 +46,15 @@ const KEYMAP := {
 }
 const GOLD := Color("#e8d39a")
 const INK := Color("#f0e4c8")
+## faixas de cinema (cenas, apresentação dos chefes e câmera lenta)
+var cine_bars: Control
 
 func _ready() -> void:
 	RenderingServer.set_default_clear_color(Color("#0b0906"))
+	# o "voltar" do Android nunca fecha o jogo direto: abre a pausa ou volta ao menu anterior
+	get_tree().quit_on_go_back = false
+	Save.before_save_run = _before_save_run
+	_migrate_gallery()
 	# ritmo do jogo: o antigo "Calma" (44 passos por segundo) agora é o Normal;
 	# todo mundo passa para ele uma vez só (depois vale o que a pessoa escolher nas opções)
 	if not Save.getv("opt", "tps44n", false):
@@ -77,6 +83,8 @@ func _ready() -> void:
 	game.level_won.connect(_on_results)
 	game.rest_reached.connect(_on_rest)
 	game.drawing_found.connect(func(i: int):
+		# a galeria guarda os desenhos separados por episódio (o 1º desenho do Ep. 2 não abre o do Ep. 1)
+		Save.setv("gallery", "e%d_d%d" % [game.level_idx + 1, i], true)
 		var dr := preload("res://scripts/ui/drawing_reveal.gd").new()
 		dr.kind = [0, 1, 3][clamp(i, 0, 2)]
 		hud_layer.add_child(dr))
@@ -105,6 +113,10 @@ func _ready() -> void:
 	var fxn := preload("res://scripts/screen_fx.gd").new()
 	fxn.game = game
 	screen_layer.add_child(fxn)
+	cine_bars = preload("res://scripts/ui/cinema_bars.gd").new()
+	cine_bars.set_anchors_preset(Control.PRESET_FULL_RECT)
+	cine_bars.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen_layer.add_child(cine_bars)
 	hud = preload("res://scripts/ui/hud.gd").new()
 	hud.game = game
 	hud.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -268,6 +280,9 @@ func _update_lights() -> void:
 var _slow_t := 0.0
 func _process(_d: float) -> void:
 	_joy_ring_update()
+	# chuva, tambores e sons do cenário só tocam com o jogo rodando (somem nos menus e voltam depois)
+	Audio.set_world(state == S.PLAY and game.running)
+	_update_cine_bars()
 	# qualidade automática: se o celular passar uns segundos abaixo de 45 quadros, desliga os enfeites
 	if state == S.PLAY and game.running and not game.low_fx:
 		if Engine.get_frames_per_second() < 45:
@@ -290,6 +305,7 @@ func _process(_d: float) -> void:
 				var base: float = tb.get_meta("size") * {"P": .85, "M": 1.0, "G": 1.2}[Save.getv("opt", "btn_size", "M")]
 				tb.texture_normal = ut
 				tb.scale = Vector2.ONE * base / float(ut.get_width())
+				tb.set_meta("base_sc", tb.scale.x)
 			# brilha pulsando quando muda de função, para chamar atenção
 			var lum: float = 1.0 + (.25 + .25 * sin(Time.get_ticks_msec() * .008) if um != "hand" else 0.0)
 			tb.modulate = Color(lum, lum, lum * .9, tb.modulate.a)
@@ -299,8 +315,9 @@ func _process(_d: float) -> void:
 			var want_t: Texture2D = tex_harpoon if fish else tex_golpe
 			if tb.texture_normal != want_t:
 				tb.texture_normal = want_t
-			# a Isis não tem picareta
-			tb.visible = not (game.player and game.player.get("isis"))
+			# a Isis não tem picareta (e o botão some junto com os outros na pausa e nas cenas)
+			tb.visible = top_buttons.visible and not (game.player and game.player.get("isis"))
+	_touch_squash(_d)
 	if hint_btn:
 		hint_btn.visible = top_buttons.visible and hud.can_replay()
 		hint_btn.position = Vector2(352, 8)
@@ -361,7 +378,7 @@ func _process(_d: float) -> void:
 			top_buttons.visible = not in_cine
 			stick.visible = not in_cine
 			for b in touch:
-				b.visible = not in_cine
+				b.visible = not in_cine and not (b.get_meta("k") == "G" and game.player.get("isis"))
 			if in_cine:
 				stick._release()
 
@@ -419,6 +436,10 @@ func _physics_process(_d: float) -> void:
 		return
 	if state == S.PLAY:
 		var __t := Time.get_ticks_usec()
+		# tempo de jogo do placar: conta os passos jogados (o relógio da fase recomeça nas fogueiras
+		# grandes e ao cair) e divide pelo ritmo escolhido (44/52/60 passos por segundo)
+		if game.running:
+			Save.run_secs += 1.0 / float(Engine.physics_ticks_per_second)
 		# câmera lenta: só um de cada dois passos roda
 		if game.slowmo > 0:
 			game.slowmo -= 1
@@ -467,6 +488,11 @@ func _input(e: InputEvent) -> void:
 			game.keys["Jp"] = true
 		return
 	if e is InputEventKey and not e.echo:
+		if e.pressed and e.keycode == KEY_ESCAPE and state != S.PLAY:
+			# Esc nos menus: volta para a tela anterior (nas cenas, a própria cena trata o Esc)
+			if _go_back():
+				get_viewport().set_input_as_handled()
+			return
 		if e.pressed and (e.keycode == KEY_ESCAPE or e.keycode == KEY_P):
 			_toggle_pause("tecla Esc/P")
 			return
@@ -596,10 +622,7 @@ func _joy_menu_button(e: InputEventJoypadButton) -> bool:
 		JOY_BUTTON_DPAD_UP: _joy_move(bs, Vector2.UP)
 		JOY_BUTTON_DPAD_DOWN: _joy_move(bs, Vector2.DOWN)
 		JOY_BUTTON_B, JOY_BUTTON_BACK:
-			if state in [S.BAG, S.PAUSE, S.CLUE]:
-				close_panel()
-			elif panel.has_meta("back"):
-				panel.get_meta("back").call()
+			_go_back()
 		_:
 			_joy_press(bs[joy_idx])
 	return true
@@ -644,12 +667,27 @@ func _joy_ring_update() -> void:
 		var bs := _joy_buttons()
 		if bs.size() > 1:
 			_joy_sync(bs)
+			_joy_scroll_to(bs[joy_idx])
 			var r: Rect2 = bs[joy_idx].get_global_rect().grow(5)
 			joy_ring.position = r.position
 			joy_ring.size = r.size
 			joy_ring.modulate.a = .75 + .25 * sin(Time.get_ticks_msec() / 160.0)
 			show = true
 	joy_ring.visible = show
+
+## o botão escolhido pelo controle nunca fica fora da tela: a rolagem acompanha
+var _joy_vis_key := ""
+func _joy_scroll_to(b: Control) -> void:
+	var key := joy_sig + "#" + str(joy_idx)
+	if key == _joy_vis_key:
+		return
+	_joy_vis_key = key
+	var n: Node = b.get_parent()
+	while n != null and n != panel:
+		if n is ScrollContainer:
+			(n as ScrollContainer).ensure_control_visible(b)
+			return
+		n = n.get_parent()
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
@@ -661,8 +699,8 @@ func _notification(what: int) -> void:
 			return
 		if state == S.PLAY:
 			_toggle_pause("gesto/botão Voltar do celular")
-		elif state in [S.BAG, S.CLUE, S.PAUSE]:
-			close_panel()
+		else:
+			_go_back()
 	elif what == NOTIFICATION_APPLICATION_FOCUS_OUT:
 		# perder o foco por um instante (gesto de 3 dedos, barra do sistema): só solta os botões
 		_clear_keys()
@@ -680,6 +718,17 @@ func _notification(what: int) -> void:
 		if state == S.PAUSE and auto_paused_ms >= 0 and Time.get_ticks_msec() - auto_paused_ms < 3000:
 			close_panel()
 		auto_paused_ms = -1
+
+## "voltar" (B do controle, Esc, botão/gesto Voltar do Android): cada tela sabe para onde volta
+## (meta "back"); mochila, pausa e pista fecham e voltam ao jogo. Devolve se fez alguma coisa.
+func _go_back() -> bool:
+	if panel != null and is_instance_valid(panel) and panel.has_meta("back"):
+		panel.get_meta("back").call()
+		return true
+	if panel != null and state in [S.BAG, S.PAUSE, S.CLUE]:
+		close_panel()
+		return true
+	return false
 
 # ---------- botões de toque ----------
 func _make_touch() -> void:
@@ -709,6 +758,33 @@ func _make_touch() -> void:
 		hud_layer.add_child(b)
 		touch.append(b)
 
+## botão de toque apertado: afunda um pouco (88%) e escurece; ao soltar volta com uma molinha
+func _touch_squash(_d: float) -> void:
+	var k60: float = clamp(_d * 60.0, .25, 3.0)
+	for tb in touch:
+		var bsc: float = tb.get_meta("base_sc", tb.scale.x)
+		var bp: Vector2 = tb.get_meta("base_pos", tb.position)
+		var p: float = tb.get_meta("sq", 0.0)
+		var v: float = tb.get_meta("sqv", 0.0)
+		var tgt := 1.0 if (tb.visible and tb.is_pressed()) else 0.0
+		v += (tgt - p) * (.5 if tgt > p else .2) * k60
+		v *= pow(.6, k60)
+		p += v * k60
+		if tgt == 0.0 and abs(p) < .002 and abs(v) < .002:
+			p = 0.0
+			v = 0.0
+		tb.set_meta("sq", p)
+		tb.set_meta("sqv", v)
+		var sq: float = 1.0 - .12 * p
+		var sz: float = tb.texture_normal.get_width() * bsc
+		tb.scale = Vector2.ONE * bsc * sq
+		tb.position = bp + Vector2(sz, sz) * (1.0 - sq) / 2.0
+		var dk: float = 1.0 - .2 * clamp(p, 0.0, 1.0)
+		if tb.get_meta("k") == "A":
+			tb.modulate = Color(tb.modulate.r * dk, tb.modulate.g * dk, tb.modulate.b * dk, tb.modulate.a)
+		else:
+			tb.modulate = Color(dk, dk, dk, tb.modulate.a)
+
 func _on_stick(st: Dictionary) -> void:
 	for k in st:
 		_set_key(k, st[k])
@@ -726,6 +802,7 @@ func apply_controls() -> void:
 		var base: float = b.get_meta("size") * sz
 		var t: Texture2D = b.texture_normal
 		b.scale = Vector2.ONE * base / float(t.get_width())
+		b.set_meta("base_sc", b.scale.x)
 		b.modulate = Color(1, 1, 1, op)
 	_layout()
 
@@ -735,10 +812,10 @@ func _layout() -> void:
 	var js := 112.0
 	for b in touch:
 		if b.get_meta("k") == "J":
-			js = b.scale.x * b.texture_normal.get_width()
+			js = float(b.get_meta("base_sc", b.scale.x)) * b.texture_normal.get_width()
 	for b in touch:
 		var k: String = b.get_meta("k")
-		var sz: float = b.scale.x * b.texture_normal.get_width()
+		var sz: float = float(b.get_meta("base_sc", b.scale.x)) * b.texture_normal.get_width()
 		var pos := Vector2.ZERO
 		match k:
 			"J": pos = Vector2(vs.x - 18 - sz, vs.y - 34 - sz)
@@ -748,6 +825,7 @@ func _layout() -> void:
 			pos.x = vs.x - pos.x - sz
 		var off: Array = Save.getv("opt", "pos_" + k, [0, 0])
 		b.position = pos + Vector2(off[0], off[1])
+		b.set_meta("base_pos", b.position)
 	var so: Array = Save.getv("opt", "pos_stick", [0, 0])
 	stick.offset = Vector2(so[0], so[1])
 	# mochila e Pipoca: empilhados em cima do botão da picareta
@@ -755,8 +833,8 @@ func _layout() -> void:
 	var gsz := 86.0
 	for b in touch:
 		if b.get_meta("k") == "G":
-			gsz = b.scale.x * b.texture_normal.get_width()
-			gpos = b.position
+			gsz = float(b.get_meta("base_sc", b.scale.x)) * b.texture_normal.get_width()
+			gpos = b.get_meta("base_pos", b.position)
 	var bs := 54.0
 	var bx: float = gpos.x + (gsz - bs) / 2
 	if bag_btn:
@@ -859,7 +937,34 @@ func _make_theme() -> void:
 	theme_ui.set_color("font_color", "Label", INK)
 	theme_ui.set_font("font", "Button", Spr.font_b)
 	theme_ui.set_font_size("font_size", "Button", 18)
+	# barras de volume: trilho de madeira escura, parte cheia dourada e um botão redondo de latão
+	var trk := StyleBoxFlat.new()
+	trk.bg_color = Color(.12, .09, .05, .95)
+	trk.border_color = Color(.61, .51, .32, .8)
+	trk.set_border_width_all(1)
+	trk.set_corner_radius_all(5)
+	trk.content_margin_top = 4
+	trk.content_margin_bottom = 4
+	var fil := trk.duplicate()
+	fil.bg_color = Color("#c9a24a")
+	theme_ui.set_stylebox("slider", "HSlider", trk)
+	theme_ui.set_stylebox("grabber_area", "HSlider", fil)
+	theme_ui.set_stylebox("grabber_area_highlight", "HSlider", fil)
+	var gt := _knob_tex(Color("#f2d28a"))
+	theme_ui.set_icon("grabber", "HSlider", gt)
+	theme_ui.set_icon("grabber_highlight", "HSlider", _knob_tex(Color("#fff1c8")))
 	hud_layer_theme_later()
+
+func _knob_tex(c: Color) -> Texture2D:
+	var n := 24
+	var im := Image.create(n, n, false, Image.FORMAT_RGBA8)
+	for y in n:
+		for x in n:
+			var d: float = Vector2(x + .5 - n / 2.0, y + .5 - n / 2.0).length()
+			var a: float = clamp(n / 2.0 - d, 0.0, 1.0)
+			var col: Color = Color("#5a3a1c") if d > n / 2.0 - 3.0 else c.lerp(Color.WHITE, clamp((n / 2.0 - d) / n * .6 - (y - n / 2.0) / n * .3, 0, .4))
+			im.set_pixel(x, y, Color(col.r, col.g, col.b, a))
+	return ImageTexture.create_from_image(im)
 
 func hud_layer_theme_later() -> void:
 	call_deferred("_apply_hud_theme")
@@ -986,7 +1091,7 @@ func show_title() -> void:
 	if eps >= 2:
 		vb.add_child(_button("ESCOLHER EPISÓDIO", _choose_episode))
 	else:
-		vb.add_child(_button("NOVO JOGO" if not run.is_empty() else "COMEÇAR", func(): start_level(false)))
+		vb.add_child(_button("NOVO JOGO" if not run.is_empty() else "COMEÇAR", func(): _confirm_wipe(func(): start_level(false), show_title)))
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 10)
@@ -999,6 +1104,46 @@ func show_title() -> void:
 	vb.add_child(row)
 	vb.add_child(_label("Teclado: ← → andar · ↑ ↓ subir/abaixar · Espaço pular · F usar · M mochila · N mapa", 12, Color(.8, .75, .65, .8)))
 	panel.set_meta("ok", func(): start_level(not run.is_empty()))
+	# voltar na tela inicial: pergunta antes de fechar o jogo
+	panel.set_meta("back", func(): _confirm("SAIR DO JOGO?", "O progresso da última fogueira continua salvo.", "SAIR", func(): get_tree().quit(), show_title))
+
+## caixa de confirmação no estilo do jogo. O botão escolhido de início (e o Voltar/B/Enter) é o CANCELAR.
+func _confirm(title: String, msg: String, yes_txt: String, yes: Callable, no: Callable) -> void:
+	var vb := _overlay(.9)
+	vb.add_child(_label(title, 28, GOLD, Spr.font_title))
+	vb.add_child(_label(msg, 16, Color("#e8dcc0"), Spr.font_i, 560))
+	var sp := Control.new()
+	sp.custom_minimum_size = Vector2(0, 6)
+	vb.add_child(sp)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 14)
+	var cancel := func():
+		if panel:
+			panel.queue_free()
+			panel = null
+		no.call()
+	var nb := _button("CANCELAR", cancel)
+	nb.custom_minimum_size = Vector2(190, 46)
+	row.add_child(nb)
+	var yb := _button(yes_txt, func():
+		if panel:
+			panel.queue_free()
+			panel = null
+		yes.call())
+	yb.custom_minimum_size = Vector2(250, 46)
+	yb.add_theme_color_override("font_color", Color("#ffb08a"))
+	row.add_child(yb)
+	vb.add_child(row)
+	panel.set_meta("ok", cancel)
+	panel.set_meta("back", cancel)
+
+## começar de novo apaga o ponto de retorno: se há um salvo, pergunta antes
+func _confirm_wipe(next: Callable, back: Callable) -> void:
+	if Save.load_run().is_empty():
+		next.call()
+		return
+	_confirm("COMEÇAR DE NOVO?", "O progresso salvo na última fogueira será apagado. Isso não tem volta.", "APAGAR E COMEÇAR", next, back)
 
 ## escolher o episódio (aparece depois de terminar o primeiro)
 const EPISODES := [["EPISÓDIO 1 · O BOSQUE", "Do bosque até a boca da mina."], ["EPISÓDIO 2 · AS PROFUNDEZAS DA MINA", "Túneis, o moinho, os telhados da vila, o carrinho nos trilhos e a fuga da Isis."]]
@@ -1011,9 +1156,11 @@ func _choose_episode() -> void:
 		var b := Save.best(i)
 		var st: String = "  " + "★".repeat(int(b.get("stars", 0))) if not b.is_empty() else ""
 		vb.add_child(_button(EPISODES[i][0] + st, func():
-			panel.queue_free()
-			panel = null
-			start_level(false, lv)))
+			_confirm_wipe(func():
+				if panel:
+					panel.queue_free()
+					panel = null
+				start_level(false, lv), _choose_episode)))
 		vb.add_child(_label(EPISODES[i][1], 13, Color(.8, .75, .65), Spr.font_i))
 	var back := func():
 		panel.queue_free()
@@ -1022,31 +1169,31 @@ func _choose_episode() -> void:
 	vb.add_child(_button("VOLTAR", back))
 	panel.set_meta("back", back)
 
-## Tela de opções (do início ou da pausa)
+## Tela de opções (do início ou da pausa). Compacta: cabe inteira em 540 px de altura.
 func show_options(from_pause: bool) -> void:
 	var vb := _overlay(.86)
-	vb.add_child(_label("OPÇÕES", 32, GOLD, Spr.font_title))
+	vb.add_theme_constant_override("separation", 6)
+	vb.add_child(_label("OPÇÕES", 28, GOLD, Spr.font_title))
 	var grid := GridContainer.new()
 	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 14)
-	grid.add_theme_constant_override("v_separation", 8)
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 4)
 	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	vb.add_child(grid)
-	var opt_row = func(title: String, key: String, opts: Array, def):
-		var l := _label(title, 16, Color("#e8dcc0"))
+	var row_label = func(title: String) -> void:
+		var l := _label(title, 15, Color("#e8dcc0"))
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		l.custom_minimum_size = Vector2(190, 0)
+		l.custom_minimum_size = Vector2(170, 0)
 		grid.add_child(l)
+	var opt_row = func(title: String, key: String, opts: Array, def):
+		row_label.call(title)
 		var hb := HBoxContainer.new()
-		hb.add_theme_constant_override("separation", 6)
+		hb.add_theme_constant_override("separation", 5)
 		var cur = Save.getv("opt", key, def)
 		for o in opts:
-			var b := Button.new()
-			b.text = o[0]
-			b.focus_mode = Control.FOCUS_NONE
+			var b := _compact_btn(o[0])
 			b.toggle_mode = true
 			b.button_pressed = cur == o[1]
-			b.add_theme_font_size_override("font_size", 15)
 			var val = o[1]
 			b.pressed.connect(func():
 				Save.setv("opt", key, val)
@@ -1060,18 +1207,61 @@ func show_options(from_pause: bool) -> void:
 				show_options(from_pause))
 			hb.add_child(b)
 		grid.add_child(hb)
+	## volume: − [barra] + e a porcentagem (a barra é para o toque; − e + servem no controle)
+	var vol_row = func(title: String, cur: float, setter: Callable, sample: bool):
+		row_label.call(title)
+		var hb := HBoxContainer.new()
+		hb.add_theme_constant_override("separation", 5)
+		var sl := HSlider.new()
+		sl.min_value = 0
+		sl.max_value = 100
+		sl.step = 5
+		sl.value = round(cur * 100.0)
+		sl.focus_mode = Control.FOCUS_NONE
+		sl.custom_minimum_size = Vector2(190, 30)
+		sl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		var pct := _label("%d%%" % int(sl.value), 14, Color("#e8dcc0"))
+		pct.custom_minimum_size = Vector2(46, 0)
+		var dragging := [false]
+		sl.drag_started.connect(func(): dragging[0] = true)
+		sl.drag_ended.connect(func(_ch: bool):
+			dragging[0] = false
+			setter.call(sl.value / 100.0, true)
+			if sample:
+				Audio.play("item", -4))
+		sl.value_changed.connect(func(v: float):
+			pct.text = "%d%%" % int(v)
+			setter.call(v / 100.0, not dragging[0]))
+		var mb := _compact_btn("−")
+		mb.custom_minimum_size = Vector2(40, 0)
+		mb.pressed.connect(func():
+			sl.value = max(0.0, sl.value - 10)
+			if sample:
+				Audio.play("item", -4))
+		var pb := _compact_btn("+")
+		pb.custom_minimum_size = Vector2(40, 0)
+		pb.pressed.connect(func():
+			sl.value = min(100.0, sl.value + 10)
+			if sample:
+				Audio.play("item", -4))
+		hb.add_child(mb)
+		hb.add_child(sl)
+		hb.add_child(pb)
+		hb.add_child(pct)
+		grid.add_child(hb)
 	opt_row.call("Controle", "stick", [["Analógico", "analog"], ["Direcional", "dpad"], ["Gamepad", "gamepad"]], "analog")
 	opt_row.call("Tamanho dos botões", "btn_size", [["Pequeno", "P"], ["Médio", "M"], ["Grande", "G"]], "M")
 	opt_row.call("Transparência", "btn_alpha", [["Clara", "clara"], ["Média", "media"], ["Forte", "forte"]], "media")
 	opt_row.call("Mão", "left", [["Destro", false], ["Canhoto", true]], false)
 	opt_row.call("Velocidade", "tps", [["Normal", 44], ["Rápida", 52], ["Muito rápida", 60]], 44)
-	opt_row.call("Efeitos", "lowfx", [["Completos", false], ["Leves (celular lento)", true]], false)
+	opt_row.call("Gráficos", "lowfx", [["Completos", false], ["Leves (celular lento)", true]], false)
 	opt_row.call("Tutorial (dicas)", "tutorial", [["Ligado", true], ["Desligado", false]], true)
 	opt_row.call("Som", "sound", [["Ligado", true], ["Desligado", false]], true)
+	vol_row.call("Música", Audio.vol_music, Audio.set_music_vol, false)
+	vol_row.call("Efeitos sonoros", Audio.vol_sfx, Audio.set_sfx_vol, true)
 	opt_row.call("Vibração", "vibrate", [["Sim", true], ["Não", false]], true)
 	opt_row.call("Tremor da tela", "shake", [["Sim", true], ["Não", false]], true)
-	vb.add_child(_label("Destro: movimento à esquerda e PULAR à direita. Canhoto: ao contrário.", 13, Color(.8, .75, .65), Spr.font_i))
-	vb.add_child(_button("POSICIONAR BOTÕES NA TELA", func(): _edit_controls(from_pause)))
+	vb.add_child(_label("Destro: movimento à esquerda e PULAR à direita. Canhoto: ao contrário.", 12, Color(.8, .75, .65), Spr.font_i))
 	var back := func():
 		if from_pause:
 			_pause_menu()
@@ -1079,8 +1269,37 @@ func show_options(from_pause: bool) -> void:
 			panel.queue_free()
 			panel = null
 			show_title()
-	vb.add_child(_button("VOLTAR", back))
+	var brow := HBoxContainer.new()
+	brow.alignment = BoxContainer.ALIGNMENT_CENTER
+	brow.add_theme_constant_override("separation", 12)
+	var eb := _button("POSICIONAR BOTÕES", func(): _edit_controls(from_pause))
+	eb.custom_minimum_size = Vector2(230, 42)
+	brow.add_child(eb)
+	var bk := _button("VOLTAR", back)
+	bk.custom_minimum_size = Vector2(160, 42)
+	brow.add_child(bk)
+	vb.add_child(brow)
 	panel.set_meta("ok", back)
+	panel.set_meta("back", back)
+
+## botão baixinho (opções): mesmo estilo do jogo, com menos margem em cima e embaixo
+var _cstyles := {}
+func _compact_btn(t: String) -> Button:
+	if _cstyles.is_empty():
+		for st in ["normal", "hover", "pressed", "focus"]:
+			var sb: StyleBoxFlat = theme_ui.get_stylebox(st, "Button").duplicate()
+			sb.content_margin_top = 5
+			sb.content_margin_bottom = 5
+			sb.content_margin_left = 12
+			sb.content_margin_right = 12
+			_cstyles[st] = sb
+	var b := Button.new()
+	b.text = t
+	b.focus_mode = Control.FOCUS_NONE
+	b.add_theme_font_size_override("font_size", 14)
+	for st in _cstyles:
+		b.add_theme_stylebox_override(st, _cstyles[st])
+	return b
 
 ## editor: arraste o direcional e os botões para onde preferir
 func _edit_controls(from_pause: bool) -> void:
@@ -1108,6 +1327,7 @@ func _edit_controls(from_pause: bool) -> void:
 	hb.add_child(rst)
 	hb.add_child(ok)
 	panel.set_meta("ok", func(): ok.pressed.emit())
+	panel.set_meta("back", func(): ok.pressed.emit())
 
 class _CtrlEditor extends Control:
 	var main
@@ -1120,8 +1340,8 @@ class _CtrlEditor extends Control:
 	func _targets() -> Dictionary:
 		var t := {}
 		for b in main.touch:
-			var sz: float = b.scale.x * b.texture_normal.get_width()
-			t[b.get_meta("k")] = [b.position + Vector2(sz, sz) / 2, sz / 2, b]
+			var sz: float = float(b.get_meta("base_sc", b.scale.x)) * b.texture_normal.get_width()
+			t[b.get_meta("k")] = [b.get_meta("base_pos", b.position) + Vector2(sz, sz) / 2, sz / 2, b]
 		t["stick"] = [main.stick._home(), main.stick.radius * main.stick.ui_scale, null]
 		for nb in [["bag", main.bag_btn], ["dog", main.dog_btn]]:
 			var cb: TextureButton = nb[1]
@@ -1149,7 +1369,7 @@ class _CtrlEditor extends Control:
 			down = e.pressed
 			if not down:
 				if drag != "":
-					Save.cfg.save(Save.PATH)
+					Save.flush()
 				drag = ""
 				return
 		elif e is InputEventMouseButton:
@@ -1157,7 +1377,7 @@ class _CtrlEditor extends Control:
 			down = e.pressed
 			if not down:
 				if drag != "":
-					Save.cfg.save(Save.PATH)
+					Save.flush()
 				drag = ""
 				return
 		elif e is InputEventScreenDrag or e is InputEventMouseMotion:
@@ -1189,10 +1409,15 @@ func start_level(cont: bool, lvl: int = 0) -> void:
 	var run := Save.load_run()
 	if cont and not run.is_empty():
 		game.restore_run(run)
+		_restore_extra(run)
+		# tempo jogado: o salvo (ou o desta sessão, se for maior: voltar à fogueira depois de perder)
+		Save.run_secs = max(float(run.get("secs", 0.0)), Save.run_secs)
 	else:
 		Save.clear_run()
 		game.load_level(lvl)
+		Save.run_secs = 0.0
 	game.low_fx = bool(Save.getv("opt", "lowfx", false))
+	hud.reset_run()
 	_build_world()
 	game.running = false
 	if cont:
@@ -1203,6 +1428,60 @@ func start_level(cont: bool, lvl: int = 0) -> void:
 			play_cut(cut, func(): show_intro(false))
 		else:
 			_ask_tutorial(func(): play_cut(cut, func(): show_intro(false)))
+
+## completa o ponto de retorno antes de gravar (Save.before_save_run):
+##  - lápis e frutas que a gangorra e os arbustos derrubaram e ainda estão no chão (antes sumiam)
+##  - chefe que levou o último golpe mas ainda está caindo/fugindo conta como vencido
+func _before_save_run(d: Dictionary) -> void:
+	if game == null:
+		return
+	var ex := {}
+	if game.SL:
+		var drops: Array = []
+		for o in game.SL.DROPS:
+			if o.got:
+				continue
+			drops.append({"k": str(o.k), "x": float(o.x), "y": float(o.gy if not o.land else o.y), "gy": float(o.gy), "c": str(o.get("c", ""))})
+		ex["drops"] = drops
+	d["ex"] = ex
+	if game.X and not game.X.BOSS.is_empty() and d.has("x"):
+		var b: Dictionary = game.X.BOSS
+		if b.get("done", false) or b.get("st", "") == "down" or (b.has("hp") and int(b.hp) <= 0):
+			d.x["boss"] = true
+	if game.K and d.has("k"):
+		for kk in [["hawk", game.K.HAWK, ["flee"]], ["bear", game.K.BEAR, ["flee", "down"]], ["fish", game.K.FISH, ["down"]]]:
+			var o: Dictionary = kk[1]
+			if o.is_empty():
+				continue
+			if o.get("done", false) or o.get("st", "") in kk[2] or (o.get("active", false) and o.has("hp") and int(o.hp) <= 0):
+				d.k[kk[0]] = true
+
+## o que _before_save_run guardou volta para o mundo
+func _restore_extra(run: Dictionary) -> void:
+	var ex: Dictionary = run.get("ex", {})
+	if game.SL:
+		for o in ex.get("drops", []):
+			var dd := {"k": str(o.get("k", "pen")), "x": float(o.get("x", 0)), "y": float(o.get("y", 0)), "vx": 0.0, "vy": 0.0, "gy": float(o.get("gy", 0)), "land": true, "got": false}
+			if dd.k == "pen":
+				dd["c"] = str(o.get("c", GameData.PEN_LIST[0])) if str(o.get("c", "")) != "" else GameData.PEN_LIST[0]
+			game.SL.DROPS.append(dd)
+
+## faixas de cinema: entram nas falas, na apresentação dos chefes e na câmera lenta do golpe final
+func _update_cine_bars() -> void:
+	if cine_bars == null:
+		return
+	var want := 0.0
+	if Polish.g == null and game.L:
+		Polish.g = game
+	if state == S.PLAY and game.L and game.running:
+		if not game.CINE.is_empty() or game.slowmo > 0:
+			want = 1.0
+		else:
+			for b in Polish.bosses():
+				if b.ref.get("st", "") == "intro":
+					want = 1.0
+	cine_bars.target = want
+	hud.cine_bar = cine_bars.px()
 
 ## grande fogueira: fim de um período. Pausa, lembrança da Isis e escolha de seguir ou parar.
 const REST_INFO := {
@@ -1256,18 +1535,22 @@ func _on_rest(n: int) -> void:
 		_clear_keys()
 		game.running = true
 		game.flash("Novo trecho: o relógio recomeçou.", 150)
-	row.add_child(_button("CONTINUAR A JORNADA", go))
-	row.add_child(_button("JOGAR MAIS TARDE", func():
+	var b_go := _button("CONTINUAR A JORNADA", go)
+	var b_later := _button("JOGAR MAIS TARDE", func():
 		if panel:
 			panel.queue_free()
 			panel = null
-		show_title()))
+		show_title())
+	# os botões só valem depois que a lembrança termina de aparecer (antes, um toque de quem vinha
+	# correndo ou um Enter/A apertado pulava a fogueira grande sem querer)
+	for b in [b_go, b_later]:
+		b.disabled = true
+		row.add_child(b)
 	for c in [title, mem, line, row]:
 		c.modulate.a = 0.0
 		vb.add_child(c)
 	ui_layer.add_child(root)
 	panel = root
-	panel.set_meta("ok", go)
 	Audio.set_song("tema")
 	var tw := root.create_tween()
 	tw.tween_interval(1.4)
@@ -1277,6 +1560,12 @@ func _on_rest(n: int) -> void:
 	tw.tween_property(line, "modulate:a", 1.0, .8)
 	tw.tween_interval(.6)
 	tw.tween_property(row, "modulate:a", 1.0, .5)
+	tw.tween_callback(func():
+		if panel != root or not is_instance_valid(root):
+			return
+		for b in [b_go, b_later]:
+			b.disabled = false
+		root.set_meta("ok", go))
 
 ## no começo de um jogo novo: quer as dicas do tutorial?
 func _ask_tutorial(next: Callable) -> void:
@@ -1354,6 +1643,7 @@ func _pause_menu() -> void:
 		panel = null
 		show_title()))
 	panel.set_meta("ok", close_panel)
+	panel.set_meta("back", close_panel)
 
 # ---------- mochila ----------
 func open_bag(l = null) -> void:
@@ -1517,6 +1807,7 @@ func _render_bag(msg: String) -> void:
 				_bag_combined(r0[2], m3))
 	else:
 		panel.set_meta("ok", close_panel)
+	panel.set_meta("back", close_panel)
 
 func _bag_tap(id: String) -> void:
 	if bag_sel != "" and bag_sel != id:
@@ -1562,6 +1853,7 @@ func _show_clue(id: int, from_bag: bool) -> void:
 			open_bag()
 	vb.add_child(_button("CONTINUAR", ok))
 	panel.set_meta("ok", ok)
+	panel.set_meta("back", ok)
 
 class _Speaker extends Control:
 	## alto-falante com ondas (som ligado) ou com um X (som desligado)
@@ -1657,98 +1949,163 @@ func show_map(from_pause: bool, from_bag: bool = false) -> void:
 			close_panel()
 	vb.add_child(_button("VOLTAR", back))
 	panel.set_meta("ok", back)
+	panel.set_meta("back", back)
 
 # ---------- galeria ----------
-func show_gallery() -> void:
+## nomes dos períodos de cada episódio (sem depender da fase carregada agora)
+var _ep_per_cache := {}
+func _ep_periods(ep: int) -> Array:
+	if ep <= 1:
+		return Game.PERIODS1
+	if not _ep_per_cache.has(ep):
+		var p := "res://assets/data/level%d.json" % ep
+		var per: Array = Game.PERIODS1
+		if FileAccess.file_exists(p):
+			var L = JSON.parse_string(FileAccess.get_file_as_string(p))
+			if L is Dictionary:
+				per = L.get("periods", Game.PERIODS1)
+		_ep_per_cache[ep] = per
+	return _ep_per_cache[ep]
+
+## nome curto do período ("A fuga da Isis" -> "A fuga", "Manhã no bosque" -> "Manhã")
+func _short_period(s: String) -> String:
+	var w: PackedStringArray = s.split(" ")
+	if w.size() > 1 and w[0].length() <= 2:
+		return w[0] + " " + w[1]
+	return w[0]
+
+## desenhos guardados por episódio (antes eram "d0".."d2" para todos: o Ep. 2 abria os do Ep. 1)
+func _migrate_gallery() -> void:
+	if Save.getv("gallery", "split_v1", false):
+		return
+	for i in 3:
+		if Save.getv("gallery", "d%d" % i, false):
+			Save.cfg.set_value("gallery", "e1_d%d" % i, true)
+	if Save.getv("gallery", "d3", false):
+		Save.cfg.set_value("gallery", "e2_d3", true)
+	# a partida salva sabe exatamente de que episódio é cada desenho
+	for k in Save.load_run().get("drawn", []):
+		var pr: PackedStringArray = str(k).split(":")
+		if pr.size() == 2:
+			Save.cfg.set_value("gallery", "e%d_d%d" % [int(pr[0]) + 1, int(pr[1])], true)
+	Save.setv("gallery", "split_v1", true)
+
+func show_gallery(ep: int = 1) -> void:
+	var eps: int = clampi(int(Save.getv("prog", "eps", 1)), 1, EPISODES.size())
+	ep = clampi(ep, 1, eps)
 	var vb := _overlay(.92)
-	vb.add_child(_label("GALERIA DA ISIS", 30, GOLD, Spr.font_title))
-	# conquistas: o melhor de cada período e o que já foi encontrado
-	var cs: Array = Save.getv("conq", "stars", [0, 0, 0, 0, 0, 0])
+	vb.add_theme_constant_override("separation", 8)
+	vb.add_child(_label("GALERIA DA ISIS", 28, GOLD, Spr.font_title))
+	# um episódio por vez (abas)
+	if eps >= 2:
+		var tabs := HBoxContainer.new()
+		tabs.alignment = BoxContainer.ALIGNMENT_CENTER
+		tabs.add_theme_constant_override("separation", 8)
+		for e in eps:
+			var en: int = e + 1
+			var tb := _compact_btn("EPISÓDIO %d" % en)
+			tb.toggle_mode = true
+			tb.button_pressed = en == ep
+			tb.pressed.connect(func(): show_gallery(en))
+			tabs.add_child(tb)
+		vb.add_child(tabs)
+	# conquistas: o melhor de cada período deste episódio
+	var per: Array = _ep_periods(ep)
+	var sk: String = "stars" if ep == 1 else "stars%d" % ep
+	var cs: Array = Save.getv("conq", sk, [])
 	var crow := HBoxContainer.new()
 	crow.alignment = BoxContainer.ALIGNMENT_CENTER
 	crow.add_theme_constant_override("separation", 14)
-	for i in cs.size():
+	for i in per.size():
+		var n: int = int(cs[i]) if i < cs.size() else 0
 		var col := VBoxContainer.new()
-		col.add_child(_label(game.PERIODS[i].split(" ")[0], 12, Color("#cdbfa6")))
-		col.add_child(_label(("★".repeat(int(cs[i])) + "☆".repeat(3 - int(cs[i]))) if int(cs[i]) > 0 else "— — —", 16, Color("#ffd76a")))
+		col.add_theme_constant_override("separation", 0)
+		col.add_child(_label(_short_period(str(per[i])), 12, Color("#cdbfa6")))
+		col.add_child(_label(("★".repeat(n) + "☆".repeat(3 - n)) if n > 0 else "— — —", 16, Color("#ffd76a")))
 		crow.add_child(col)
 	vb.add_child(crow)
-	var bt2: int = int(Save.getv("conq", "time", 0))
+	var bt2: int = int(Save.getv("conq", "time" if ep == 1 else "time%d" % ep, 0))
 	vb.add_child(_label("Reis vencidos %d/4 · Segredos %d · Lápis especiais %d/6 · Lápis dourado %s · Melhor tempo %s" % [
 		int(Save.getv("conq", "kings", 0)), int(Save.getv("conq", "secrets", 0)), int(Save.getv("conq", "specs", 0)),
 		"✓" if Save.getv("conq", "gold", false) else "—", ("%d:%02d" % [bt2 / 60, bt2 % 60]) if bt2 > 0 else "—"], 13, Color(.85, .8, .7), Spr.font_i))
-	vb.add_child(_label("Os desenhos que você encontrou pelo caminho.", 14, Color(.85, .8, .7), Spr.font_i))
 	var row := GridContainer.new()
+	var nd: int = 3 if ep == 1 else 4
 	row.columns = 3
 	row.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	row.add_theme_constant_override("h_separation", 14)
-	row.add_theme_constant_override("v_separation", 10)
+	row.add_theme_constant_override("h_separation", 12)
+	row.add_theme_constant_override("v_separation", 8)
 	vb.add_child(row)
 	var KD := preload("res://scripts/ui/kid_drawing.gd")
-	for i in 3:
+	var dsz := Vector2(176, 112)
+	for i in nd:
 		var d = KD.new()
-		d.kind = [0, 1, 3][i]
-		d.locked = not Save.getv("gallery", "d%d" % i, false)
-		d.custom_minimum_size = Vector2(196, 128)
+		d.kind = [0, 1, 3][clamp(i, 0, 2)]
+		d.locked = not Save.getv("gallery", "e%d_d%d" % [ep, i], false)
+		d.custom_minimum_size = dsz
 		row.add_child(d)
 	var bon = KD.new()
 	bon.kind = 4
-	bon.locked = not Save.getv("gallery", "bonus", false)
-	bon.custom_minimum_size = Vector2(196, 128)
+	bon.locked = not Save.getv("gallery", "bonus" if ep == 1 else "bonus%d" % ep, false)
+	bon.custom_minimum_size = dsz
 	row.add_child(bon)
-	var fin = Save.getv("gallery", "final", null)
+	var fin = Save.getv("gallery", "final" if ep == 1 else "final%d" % ep, null)
 	if fin == null:
 		var d3 = KD.new()
 		d3.locked = true
+		d3.custom_minimum_size = dsz
 		row.add_child(d3)
 	else:
+		# o contêiner da grade desfaz a escala do filho: o desenho fica dentro de uma moldura simples
+		var hold := Control.new()
+		hold.custom_minimum_size = Vector2(178, 112)
 		var fd := _FinalDrawing.new()
+		fd.ep = ep
 		for c in fin:
 			fd.specs[c] = 1
-		fd.scale = Vector2(.66, .66)
-		fd.custom_minimum_size = Vector2(198, 128)
-		row.add_child(fd)
-	if Save.getv("gallery", "gold", false):
+		fd.scale = Vector2(.59, .59)
+		fd.position = Vector2(1, 4)
+		hold.add_child(fd)
+		row.add_child(hold)
+	if Save.getv("gallery", "gold", false) and ep == 1:
 		var gl := HBoxContainer.new()
 		gl.alignment = BoxContainer.ALIGNMENT_CENTER
-		gl.add_child(_atlas_icon("pen_gold", 34))
+		gl.add_child(_atlas_icon("pen_gold", 30))
 		gl.add_child(_label("  O lápis dourado da Isis — encontrado!", 14, Color("#ffd76a"), Spr.font_i))
 		vb.add_child(gl)
-	vb.add_child(_label("PISTAS ENCONTRADAS", 13, Color("#b8a888")))
 	var cl := HBoxContainer.new()
 	cl.alignment = BoxContainer.ALIGNMENT_CENTER
 	cl.add_theme_constant_override("separation", 10)
-	for i in range(1, 13 if int(Save.getv("prog", "eps", 1)) >= 2 else 7):
+	cl.add_child(_label("PISTAS", 13, Color("#b8a888")))
+	var c0: int = 1 if ep == 1 else 7
+	for i in range(c0, c0 + 6):
 		if Save.getv("gallery", "c%d" % i, false):
-			var ic := _atlas_icon("clb_%d" % i, 64)
+			var ic := _atlas_icon("clb_%d" % i, 50)
 			ic.tooltip_text = GameData.CLUE_INFO[i][0]
 			cl.add_child(ic)
 		else:
-			var q := _label("?", 34, Color(.5, .45, .38))
-			q.custom_minimum_size = Vector2(64, 64)
+			var q := _label("?", 28, Color(.5, .45, .38))
+			q.custom_minimum_size = Vector2(50, 50)
 			cl.add_child(q)
 	vb.add_child(cl)
-	var best := Save.best(0)
+	var best := Save.best(ep - 1)
 	if not best.is_empty():
-		vb.add_child(_label("Melhor resultado no Bosque: %s   ·   lápis %d   ·   pistas %d/6" % ["★".repeat(int(best.get("stars", 0))), int(best.get("pen", 0)), int(best.get("clues", 0))], 14, Color("#ffd76a")))
-	var best2 := Save.best(1)
-	if not best2.is_empty():
-		vb.add_child(_label("Melhor resultado na Mina: %s   ·   lápis %d   ·   pistas %d/6" % ["★".repeat(int(best2.get("stars", 0))), int(best2.get("pen", 0)), int(best2.get("clues", 0))], 14, Color("#ffd76a")))
+		vb.add_child(_label("Melhor resultado %s: %s   ·   lápis %d   ·   pistas %d/6" % ["no Bosque" if ep == 1 else "na Mina", "★".repeat(int(best.get("stars", 0))), int(best.get("pen", 0)), int(best.get("clues", 0))], 14, Color("#ffd76a")))
 	var b := HBoxContainer.new()
 	b.alignment = BoxContainer.ALIGNMENT_CENTER
 	b.add_theme_constant_override("separation", 10)
-	var rb := _button("REVER ABERTURA", func(): play_cut("abertura", show_title))
-	rb.custom_minimum_size = Vector2(200, 46)
+	var rb := _button("REVER ABERTURA", func(): play_cut("abertura" if ep == 1 else "ep2", show_title))
+	rb.custom_minimum_size = Vector2(200, 44)
 	b.add_child(rb)
 	var back := func():
 		panel.queue_free()
 		panel = null
 		show_title()
 	var vb2 := _button("VOLTAR", back)
-	vb2.custom_minimum_size = Vector2(150, 46)
+	vb2.custom_minimum_size = Vector2(150, 44)
 	b.add_child(vb2)
 	vb.add_child(b)
 	panel.set_meta("ok", back)
+	panel.set_meta("back", back)
 
 # ---------- placar ----------
 func _on_results() -> void:
@@ -1759,7 +2116,8 @@ func _on_results() -> void:
 	var ns := game.SPECGOT.size()
 	var pen: int = game.STATS.pen
 	var pt: int = game.STATS.penTotal
-	var secs := int(round((int(game.L.time) * 60 - game.time_left) / 60.0))
+	# tempo jogado de verdade (contado em passos de jogo; o relógio da fase recomeça a cada fogueira grande)
+	var secs := int(round(Save.run_secs))
 	var dr := 0
 	for d in game.DRWS:
 		if d.got:
@@ -1776,16 +2134,31 @@ func _on_results() -> void:
 		Save.setv("gallery", gk, game.SPECGOT.keys())
 	Save.clear_run()
 	var vb := _overlay(.86)
-	vb.add_child(_label(game.L.get("endTitle", "FIM DO BOSQUE"), 14, Color("#cdbfa6")))
-	vb.add_child(_label("★".repeat(stars) + "☆".repeat(3 - stars), 40, Color("#ffd76a")))
+	vb.add_theme_constant_override("separation", 6)
+	# compacto (cabe em 540 px): título e estrelas em cima; desenho, números e estrelas por período lado a lado
+	var head := HBoxContainer.new()
+	head.alignment = BoxContainer.ALIGNMENT_CENTER
+	head.add_theme_constant_override("separation", 18)
+	head.add_child(_label(game.L.get("endTitle", "FIM DO BOSQUE"), 16, Color("#cdbfa6"), Spr.font_title))
+	head.add_child(_label("★".repeat(stars) + "☆".repeat(3 - stars), 34, Color("#ffd76a")))
+	vb.add_child(head)
+	var mid := HBoxContainer.new()
+	mid.alignment = BoxContainer.ALIGNMENT_CENTER
+	mid.add_theme_constant_override("separation", 26)
+	vb.add_child(mid)
 	var fd := _FinalDrawing.new()
 	fd.specs = game.SPECGOT.duplicate()
 	fd.ep = game.level_idx + 1
-	vb.add_child(fd)
+	fd.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	mid.add_child(fd)
+	var right := VBoxContainer.new()
+	right.add_theme_constant_override("separation", 8)
+	right.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	mid.add_child(right)
 	var grid := GridContainer.new()
 	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 30)
-	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	grid.add_theme_constant_override("h_separation", 24)
+	grid.add_theme_constant_override("v_separation", 2)
 	var gold_txt := "Lápis dourado  " + ("✓" if game.X.GOLD.get("got", false) else "—")
 	var sec_txt := "Lugares secretos  %d/%d" % [game.X.found.size(), game.X.SECRETS.size()]
 	var rows := ["⏱ Tempo  %d:%02d" % [secs / 60, secs % 60], "✏ Lápis  %d/%d" % [pen, pt], "Lápis especiais  %d/6" % ns, "Desenhos  %d/%d" % [dr, game.DRWS.size()], "Pistas  %d/6" % nc]
@@ -1794,22 +2167,26 @@ func _on_results() -> void:
 	if game.X.SECRETS.size() > 0:
 		rows.append(sec_txt)
 	for t in rows:
-		grid.add_child(_label(t, 15, INK))
-	vb.add_child(grid)
+		var l := _label(t, 15, INK)
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		grid.add_child(l)
+	right.add_child(grid)
 	# estrelas por período (guarda o melhor de cada um para a galeria de conquistas)
 	var ps: Array = game.period_stars()
 	var prow := HBoxContainer.new()
-	prow.alignment = BoxContainer.ALIGNMENT_CENTER
-	prow.add_theme_constant_override("separation", 16)
+	prow.add_theme_constant_override("separation", 12)
 	var sk: String = "stars" if game.level_idx == 0 else "stars%d" % (game.level_idx + 1)
 	var best: Array = Save.getv("conq", sk, [0, 0, 0, 0, 0, 0])
+	while best.size() < ps.size():
+		best.append(0)
 	for i in ps.size():
 		best[i] = max(int(best[i]), int(ps[i]))
 		var col := VBoxContainer.new()
-		col.add_child(_label(game.PERIODS[i].split(" ")[0], 12, Color("#cdbfa6")))
-		col.add_child(_label("★".repeat(ps[i]) + "☆".repeat(3 - ps[i]), 18, Color("#ffd76a")))
+		col.add_theme_constant_override("separation", 0)
+		col.add_child(_label(_short_period(str(game.PERIODS[min(i, game.PERIODS.size() - 1)])), 11, Color("#cdbfa6")))
+		col.add_child(_label("★".repeat(ps[i]) + "☆".repeat(3 - ps[i]), 15, Color("#ffd76a")))
 		prow.add_child(col)
-	vb.add_child(prow)
+	right.add_child(prow)
 	Save.setv("conq", sk, best)
 	var kings := 0
 	if game.X.BOSS.get("done", false):
@@ -1821,29 +2198,41 @@ func _on_results() -> void:
 	Save.setv("conq", "secrets", max(int(Save.getv("conq", "secrets", 0)), game.X.found.size()))
 	Save.setv("conq", "specs", max(int(Save.getv("conq", "specs", 0)), ns))
 	Save.setv("conq", "gold", Save.getv("conq", "gold", false) or game.X.GOLD.get("got", false))
-	var bt: int = int(Save.getv("conq", "time", 0))
-	if bt == 0 or secs < bt:
-		Save.setv("conq", "time", secs)
+	var tk: String = "time" if game.level_idx == 0 else "time%d" % (game.level_idx + 1)
+	var bt: int = int(Save.getv("conq", tk, 0))
+	if secs > 0 and (bt == 0 or secs < bt):
+		Save.setv("conq", tk, secs)
 	if game.X.found.size() >= game.X.SECRETS.size() and game.X.SECRETS.size() > 0:
-		# todos os segredos: cena bônus (o desenho da pipa)
-		Save.setv("gallery", "bonus", true)
-		vb.add_child(_label("Todos os segredos! Cena bônus desbloqueada:", 15, Color("#ffd76a"), Spr.font_b))
+		# todos os segredos: cena bônus (o desenho da pipa), guardada por episódio
+		Save.setv("gallery", "bonus" if game.level_idx == 0 else "bonus%d" % (game.level_idx + 1), true)
+		var bcol := VBoxContainer.new()
+		bcol.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		bcol.add_child(_label("Todos os segredos!\nCena bônus:", 13, Color("#ffd76a"), Spr.font_b))
 		var bd = preload("res://scripts/ui/kid_drawing.gd").new()
 		bd.kind = 4
-		bd.custom_minimum_size = Vector2(240, 150)
-		vb.add_child(bd)
+		bd.custom_minimum_size = Vector2(200, 125)
+		bcol.add_child(bd)
+		mid.add_child(bcol)
 	var lvl: int = game.level_idx
 	var story := "Agora eu sei: foi Ademar Vargas, o gerente que roubava a mina. Ele levou a Isis para se vingar. Vou atrás dele — mina adentro." if nc == 6 else "Ele fugiu para a mina. Ainda faltam pistas para ter certeza de quem é... (%d/6)" % nc
 	if lvl == 1:
 		story = "O ouro roubado, o livro-caixa, a chave do cofre... Vargas está escondendo a Isis no fundo da mina. Eu vou buscá-la." if nc == 6 else "Ele desceu ainda mais fundo. Ainda faltam pistas... (%d/6)" % nc
-	vb.add_child(_label(story, 16, Color("#e8dcc0"), Spr.font_i, 640))
+	vb.add_child(_label(story, 15, Color("#e8dcc0"), Spr.font_i, 700))
+	var cont: Callable
 	if lvl == 0:
 		# o Episódio 2 fica liberado e começa logo depois da cena
 		Save.setv("prog", "eps", max(2, int(Save.getv("prog", "eps", 1))))
-		vb.add_child(_button("CONTINUAR", func(): play_cut("posfinal", func(): start_level(false, 1))))
+		cont = func(): play_cut("posfinal", func(): start_level(false, 1))
+		vb.add_child(_button("CONTINUAR", cont))
 	else:
-		vb.add_child(_label("O Episódio 3 chega em breve.", 13, Color(.75, .7, .6)))
-		vb.add_child(_button("CONTINUAR", show_title))
+		var brow := HBoxContainer.new()
+		brow.alignment = BoxContainer.ALIGNMENT_CENTER
+		brow.add_theme_constant_override("separation", 16)
+		brow.add_child(_label("O Episódio 3 chega em breve.", 13, Color(.75, .7, .6), Spr.font_i))
+		cont = show_title
+		brow.add_child(_button("CONTINUAR", cont))
+		vb.add_child(brow)
+	panel.set_meta("ok", cont)
 
 class _FinalDrawing extends Control:
 	## O desenho da Isis, colorido com os lápis especiais encontrados
@@ -1931,7 +2320,7 @@ func _on_over() -> void:
 		vb.add_child(_button("VOLTAR À FOGUEIRA", func():
 			start_level(true)
 			game.lives = max(game.lives, 3)))
-	vb.add_child(_button("RECOMEÇAR A FASE", func(): start_level(false, game.level_idx)))
+	vb.add_child(_button("RECOMEÇAR A FASE", func(): _confirm_wipe(func(): start_level(false, game.level_idx), _on_over)))
 	vb.add_child(_button("MENU INICIAL", func():
 		panel.queue_free()
 		panel = null

@@ -153,11 +153,12 @@ func pre_step() -> void:
 	if p.swim and not was_swim:
 		Audio.play("splash", -4)
 		g.burst(p.x + p.w / 2, w.y, 10, Color(.7, .85, .95))
-		ripple(p.x + p.w / 2, w.y, 1.2)
+		# X6 o respingo cresce com a velocidade da queda
+		var sv: float = clamp(p.vy / 10.0, 0.0, 1.0)
+		ripple(p.x + p.w / 2, w.y, 1.2 + sv)
+		Polish.drops(p.x + p.w / 2, w.y - 2, 6 + int(sv * 10), 2.0 + sv * 2.0)
 		if p.crouch:
-			p.crouch = false
-			p.h = 34
-			p.y -= 14
+			g.stand_up()
 		if a_notes < 99 and not g.L.get("_swim_note", false):
 			g.L["_swim_note"] = true
 			g.tip("Na água: PULAR dá braçadas para cima, ↓ mergulha. De olho no fôlego!", 220)
@@ -326,6 +327,7 @@ func weather_amb() -> void:
 	var under: bool = g.indoors()
 	g.AMB.fog = 0.0
 	g.AMB.wind = 0.0
+	# (game.ambient suaviza fog/vento/chuva entre passos)
 	if under or g.AMB.get("snow", 0.0) > .3:
 		return
 	match weather:
@@ -407,6 +409,10 @@ func _use_crack() -> bool:
 func break_crack(c: Dictionary, fx: bool) -> void:
 	broken[c.id] = true
 	g.SOL.erase(c)
+	# A7 pedra quebrando assusta os bichinhos por perto
+	Polish.g = g
+	Polish.scare(c.x + c.w / 2, 380.0)
+	Polish.debris(c.x, c.x + c.w, c.y + c.h, 6)
 	if c.has("ladder"):
 		var l: Array = c.ladder
 		g.CLIMB.append({"x": l[0], "y": l[1], "w": 30, "h": l[2], "kind": "ladder"})
@@ -598,7 +604,10 @@ func boss_active() -> bool:
 	return not BOSS.is_empty() and BOSS.active and not BOSS.done
 
 func boss_box() -> Dictionary:
-	return g.R(BOSS.x - 72, BOSS.y - 100, 144, 100)
+	# do tamanho do desenho (javali-rei ~134 px de altura; Brutus ~135)
+	if BOSS.get("skin", "boar") == "dog":
+		return g.R(BOSS.x - 78, BOSS.y - 132, 156, 132)
+	return g.R(BOSS.x - 80, BOSS.y - 124, 160, 124)
 
 func _gate_on(on: bool) -> void:
 	for s in g.SOL.duplicate():
@@ -795,10 +804,22 @@ func boss_damage(from_slam: bool = false) -> void:
 func boss_reset() -> void:
 	if BOSS.is_empty() or BOSS.done:
 		return
+	# já vencido (caído): não revive
+	if BOSS.active and (int(BOSS.hp) <= 0 or BOSS.st == "down"):
+		BOSS.done = true
+		BOSS.active = false
+		_gate_on(false)
+		return
 	BOSS.active = false
 	BOSS.st = "wait"
 	BOSS.hp = BOSS.maxhp
 	BOSS.x = BOSS.spawn
+	BOSS.y = 500.0
+	BOSS.t = 0
+	BOSS.red = 0
+	for k in ["spd", "tv", "hitT", "landT", "vx", "vy", "kb"]:
+		if BOSS.has(k):
+			BOSS[k] = 0.0 if typeof(BOSS[k]) == TYPE_FLOAT else 0
 	_gate_on(false)
 
 func boss_finish_silent() -> void:
@@ -819,11 +840,11 @@ func _critters() -> void:
 	# vaga-lumes perto da câmera (tarde, pântano e noite, fora das cavernas)
 	var want := 0
 	var song: String = g.AMB.get("song", "manha")
-	var under: bool = g.indoors()
+	var under: bool = g.indoors() or g.submerged()
 	if not under and song in ["tarde", "chuva", "noite"]:
 		want = 18
 	while FIRE.size() < want:
-		FIRE.append({"x": g.cam + randf() * g.W, "y": g.cam_y + 60 + randf() * (g.H * .6), "vx": 0.0, "vy": 0.0, "ph": randf() * TAU})
+		FIRE.append({"x": g.cam + randf() * g.W, "y": g.cam_y + g.H * (.45 + randf() * .4), "vx": 0.0, "vy": 0.0, "ph": randf() * TAU})
 	if FIRE.size() > want:
 		FIRE.resize(want)
 	for f in FIRE:
@@ -837,13 +858,15 @@ func _critters() -> void:
 				var push := d.normalized() * (1.0 - d.length() / r) * .7
 				f.vx += push.x
 				f.vy += push.y
+		var fy0: float = g.player.y + g.player.h - 40.0
+		f.vy += clamp((fy0 - f.y) * .0006, -.04, .04)
 		f.vx = clamp(f.vx * .96, -3, 3)
 		f.vy = clamp(f.vy * .96, -3, 3)
 		f.x += f.vx
 		f.y += f.vy
 		if f.x < g.cam - 120 or f.x > g.cam + g.W + 120 or f.y < g.cam_y - 80 or f.y > g.cam_y + g.H:
 			f.x = g.cam + randf() * g.W
-			f.y = g.cam_y + 60 + randf() * (g.H * .55)
+			f.y = g.cam_y + g.H * (.45 + randf() * .4)
 			f.vx = 0.0
 			f.vy = 0.0
 	for r in RIP:
@@ -884,7 +907,7 @@ func _footprints() -> void:
 # ======================================================================
 func save_data() -> Dictionary:
 	return {"broken": broken.keys(), "opened": opened.keys(), "found": found.keys(), "gold": GOLD.get("got", false),
-		"boss": BOSS.get("done", false), "dog": dog_free(), "tocas": TOCAS.filter(func(t): return t.done).map(func(t): return t.get("id", 1))}
+		"boss": BOSS.get("done", false) or (BOSS.get("active", false) and (int(BOSS.get("hp", 1)) <= 0 or BOSS.get("st", "") == "down")), "dog": dog_free(), "tocas": TOCAS.filter(func(t): return t.done).map(func(t): return t.get("id", 1))}
 
 func restore(d: Dictionary) -> void:
 	for id in d.get("broken", []):
@@ -941,6 +964,19 @@ func _use_dog() -> bool:
 		return true
 	return false
 
+## o que o Pipoca trouxe da toca aparece perto do Tomé
+func _deliver_toca() -> void:
+	DOG.carry = false
+	var tc = DOG.toca
+	if tc == null:
+		return
+	var p: Dictionary = g.player
+	for d in g.DRWS:
+		if d.get("hidden") and d.get("toca") == tc.get("id", 1):
+			d.hidden = false
+			d.x = p.x + p.w / 2
+			d.y = p.y + 10
+
 func _use_toca() -> bool:
 	var p: Dictionary = g.player
 	for tc in TOCAS:
@@ -979,6 +1015,9 @@ func _dog() -> void:
 			if TRAIL.size() > 600:
 				TRAIL.pop_front()
 				DOG.i = max(0, DOG.i - 1)
+	# trouxe algo da toca mas parou de voltar (trocou de controle, cena...): entrega mesmo assim
+	if DOG.carry and DOG.st not in ["return", "in_toca"]:
+		_deliver_toca()
 	match DOG.st:
 		"ctrl", "dig":
 			pass
@@ -1024,13 +1063,8 @@ func _dog() -> void:
 		"return":
 			if _run_to(pcx - p.face * 26, feet, 6.0) or dog_dist() < 40:
 				DOG.st = "follow"
-				DOG.carry = false
+				_deliver_toca()
 				_bark()
-				for d in g.DRWS:
-					if d.get("hidden") and d.get("toca") == DOG.toca.get("id", 1):
-						d.hidden = false
-						d.x = pcx
-						d.y = p.y + 10
 				_resync()
 		"hunt":
 			var e: Dictionary = DOG.mole

@@ -3,6 +3,28 @@ extends Node2D
 ## Também desenha o que fica na frente do Tomé (água do brejo e moitas).
 
 var game: Game
+const AFX = preload("res://scripts/ambient_fx.gd")
+const WSt = preload("res://scripts/world_static.gd")
+
+func _ready() -> void:
+	# camada de ambiente (AmbientFx) no mundo: logo depois do cenário fixo e antes do que se mexe (fica
+	# dentro da escuridão e atrás do Tomé). Se main.gd já criou uma (patch_C.md), não cria outra
+	if game == null:
+		return
+	var idx := -1
+	for c in game.get_children():
+		if c.is_queued_for_deletion():
+			continue
+		if c.get_script() == AFX:
+			return
+		if c.get_script() == WSt:
+			idx = c.get_index()
+	var amb: Node2D = AFX.new()
+	amb.game = game
+	amb.name = "AmbientFx"
+	game.add_child(amb)
+	if idx >= 0:
+		game.move_child(amb, idx + 1)
 
 func _process(_d: float) -> void:
 	queue_redraw()
@@ -119,8 +141,7 @@ func __draw_raw() -> void:
 		var sy: float = s.y + b4 if s.ry < 0 else s.ry - 22 + b4 * .5
 		Spr.glow(s.x, sy, 30 + sin(T * .2) * 3, Color(1, 1, 1, .4))
 		Spr.A("pen_" + s.c, s.x, sy, 1.05)
-		if T % 10 == 0:
-			g.PARTS.append({"x": s.x + (randf() - .5) * 20, "y": sy, "vx": 0, "vy": -.6, "life": 20, "col": GameData.PEN_COL[s.c]})
+		# as faíscas nascem no passo de física (AmbientFx._tick_sparkles), não aqui no desenho
 	# água do brejo (na frente do pai: ele afunda nela)
 	for s in g.SWAMP:
 		var a: float = max(s.x, x0)
@@ -176,11 +197,8 @@ func __draw_raw() -> void:
 				var vy: float = s.y - 8 - fmod(T * .4 + bx, 40.0)
 				Spr.ellipse(px + 10, vy, 14, 5, Color(.6, .95, .4, .1))
 			bx += 46.0
-		if g.AMB.rain > .3:
-			for k in 6:
-				var rx: float = a + fmod(T * 13 + k * 97, b5 - a)
-				var rr := 4 + (T + k * 5) % 12
-				Spr.ci.draw_arc(Vector2(rx, s.y + 2), rr, 0, TAU, 16, Color(.86, .92, .86, .5), 1.2)
+		# pingos de chuva na superfície (presos ao brejo, não à câmera)
+		_rain_rings(g, a, b5, s.x, s.x + s.w, T, true, last_top)
 	_projectiles(g, T)
 	_extras(g, T)
 	# manivela: aviso e barrinha de quanto a porta já subiu (por cima do escuro da mina)
@@ -277,15 +295,24 @@ func __draw_raw() -> void:
 			var wy: float = d.y + 6 - (r[3] - wins[i][1]) * k
 			var fl: float = .7 + .3 * sin(T * .13 + i * 2.1) * sin(T * .07 + i)
 			Spr.glow(wx, wy, 26, Color(1, .78, .35, .32 * fl))
+	_village_windows(g, T, x0, x1)
+	# vaga-lumes dos trechos marcados: piscam de verdade (acendem rápido, apagam devagar, ficam um tempo
+	# apagados) e não aparecem dentro da terra nem com o Tomé debaixo d'água
+	var hide_ff: bool = g.indoors() or g.submerged()
 	for ff in g.L.get("fireflies", []):
-		if ff[1] < x0 or ff[0] > x1:
+		if hide_ff or ff[1] < x0 or ff[0] > x1:
 			continue
 		for k in 26:
 			var fx: float = ff[0] + fposmod(k * 137.0 + sin(T * .01 + k) * 60.0, ff[1] - ff[0])
+			if fx < x0 or fx > x1:
+				continue
 			var fy: float = ff[2] + fposmod(k * 71.0, 360.0) + sin(T * .03 + k * 1.3) * 18
-			var on: float = .5 + .5 * sin(T * .09 + k * 2.1)
-			Spr.glow(fx, fy, 12, Color(.75, 1, .4, .3 * on))
-			Spr.circle(fx, fy, 2, Color(.9, 1, .6, .9 * on))
+			var on: float = _ff_blink(T * .07 + k * 5.3, k)
+			Spr.circle(fx, fy, 1.3, Color(.55, .6, .3, .5))
+			if on > .02:
+				Spr.glow(fx, fy, 12 + 4 * on, Color(.75, 1, .4, .38 * on))
+				Spr.circle(fx, fy, 2, Color(.95, 1, .65, .95 * on))
+	_spores(T)
 	# moitas (escondem passagens)
 	var p: Dictionary = g.player
 	for bsh in g.BUSH:
@@ -297,8 +324,7 @@ func __draw_raw() -> void:
 		Spr.rotate(wob)
 		Spr.AB("o_bush_gold", -bsh.w / 2 - 20, -84, bsh.w + 40, 84, .35 if near else 1.0)
 		Spr.restore()
-		if near and abs(p.vx) > .5 and T % 6 == 0:
-			g.PARTS.append({"x": bsh.x + randf() * bsh.w, "y": bsh.y + bsh.h - 60 - randf() * 20, "vx": randf_range(-1, 1), "vy": -randf_range(.5, 1.5), "life": 26, "col": Color(.5, .62, .2, .9)})
+		# folhinhas soltas: AmbientFx._tick_sparkles (passo de física)
 
 ## beirada do buraco que aparece até no escuro: contorno claro seguindo a terra que desmorona e
 ## pedrinhas soltas caindo da borda
@@ -360,8 +386,6 @@ func _extras(g: Game, T: int) -> void:
 		Spr.rotate(-.5)
 		Spr.A("pen_gold", 0, 0, 1.1)
 		Spr.restore()
-		if T % 8 == 0:
-			g.PARTS.append({"x": X.GOLD.x + (randf() - .5) * 26, "y": gy + (randf() - .5) * 20, "vx": 0, "vy": -.5, "life": 22, "col": Color("#ffe27a")})
 	# água (na frente do Tomé)
 	for w in X.WATER:
 		if w.x > g.cam + g.W or w.x + w.w < g.cam:
@@ -377,6 +401,7 @@ func _extras(g: Game, T: int) -> void:
 	for r in X.RIP:
 		var a: float = 1.0 - r.t / 50.0
 		Spr.ci.draw_arc(Vector2(r.x, r.y), (4 + r.t * .7) * r.s, 0, TAU, 20, Color(.85, .95, .9, .45 * a), 1.2)
+	_wave_rings(g)
 	# facho da lanterna
 	if X.focus:
 		var o := X.lamp()
@@ -410,11 +435,17 @@ func _extras(g: Game, T: int) -> void:
 			Spr.ellipse(mx - 2.6, my - 1.0 * fl, 3.2, 1.8, wc, -wa)
 			Spr.ellipse(mx + 2.6, my - 1.0 * fl, 3.2, 1.8, wc, wa)
 			Spr.ellipse(mx, my + .5, 1.0, 2.0, Color(.45, .38, .32, .95))
-	# vaga-lumes (fogem da lanterna)
-	for ff in X.FIRE:
-		var bl: float = .45 + .55 * max(0.0, sin(ff.ph))
-		Spr.glow(ff.x, ff.y, 9, Color(.85, 1, .45, .5 * bl * (.4 + dark)))
-		Spr.circle(ff.x, ff.y, 1.6, Color(1, 1, .7, bl))
+	# vaga-lumes (fogem da lanterna): piscada de vaga-lume de verdade; o corpinho escuro fica visível
+	# de leve entre as piscadas
+	if not (g.indoors() or g.submerged()):
+		var fi := 0
+		for ff in X.FIRE:
+			var bl: float = _ff_blink(ff.ph, fi)
+			Spr.circle(ff.x, ff.y, 1.1, Color(.5, .55, .3, .35))
+			if bl > .02:
+				Spr.glow(ff.x, ff.y, 9 + 4 * bl, Color(.85, 1, .45, .55 * bl * (.45 + dark)))
+				Spr.circle(ff.x, ff.y, 1.6, Color(1, 1, .7, bl))
+			fi += 1
 	# salas secretas ainda tampadas
 	var mod := Color(1, 1, 1).lerp(Color(.035, .05, .1), clamp(dark, 0, 1) * .97)
 	for sc in X.SECRETS:
@@ -471,9 +502,25 @@ func _shade_under(bottom: float, c: Color) -> void:
 	pts.push_back(Vector2(last_top[0].x, bottom))
 	Spr.poly(pts, c)
 
-## superfície brilhante com ondinhas, reflexo da lanterna e bolhas / lentilha-d'água
+## superfície brilhante com ondinhas, reflexo da lanterna e bolhas / lentilha-d'água.
+## [a, b] = faixa visível; [bx0, bx1] = o corpo d'água inteiro: todo detalhe que anda (espuma, bolhas,
+## folhas, pingos, reflexos) fica preso no corpo d'água e só é desenhado se cair dentro de [a, b]
 func _water(g: Game, a: float, b: float, y: float, depth: float, c0: Color, c1: Color, T: int, swamp: bool, ox: float = 0.0, key: String = "", bx0: float = 0.0, bx1: float = 0.0) -> void:
 	var w: float = b - a
+	if bx1 <= bx0:
+		bx0 = a
+		bx1 = b
+	var W: float = max(1.0, bx1 - bx0)
+	var toxic: bool = swamp or key.begins_with("s")
+	var per: String = AFX.period(g)
+	var sky: Color = AFX.sky_col(per)
+	var lowfx: bool = g.low_fx
+	# água tóxica pulsa devagar (mais clara e mais escura); a água limpa puxa a cor do céu na faixa de cima
+	var pulse: float = .5 + .5 * sin(T * .025 + bx0 * .01)
+	if toxic:
+		c0 = c0.lightened(.07 * pulse)
+	else:
+		c0 = c0.lerp(Color(sky.r, sky.g, sky.b, c0.a), .28)
 	var mid := c0.lerp(c1, .45)
 	# superfície com ondas de verdade (molas) + um balanço suave constante
 	var wb: Dictionary = {}
@@ -486,11 +533,14 @@ func _water(g: Game, a: float, b: float, y: float, depth: float, c0: Color, c1: 
 	while x2 <= b + 8.1:
 		var xx: float = clamp(x2, a, b)
 		# balanço constante (três ondas cruzando) — a água nunca fica parada
-		var oy: float = WorldLake.wave_off(g, wb, xx, T, swamp or key.begins_with("s"))
+		var oy: float = WorldLake.wave_off(g, wb, xx, T, toxic)
 		top.push_back(Vector2(xx, y + oy))
 		ys.append(oy)
 		x2 += 8
 	last_top = top
+	var surf := func(px: float) -> float:
+		var i: int = clamp(int(round((px - top[0].x) / 8.0)), 0, top.size() - 1)
+		return top[i].y
 	# corpo d'água: faixa de cima acompanha a onda, o resto em degradê
 	var d1: float = min(depth, 70.0)
 	var band := top.duplicate()
@@ -500,7 +550,10 @@ func _water(g: Game, a: float, b: float, y: float, depth: float, c0: Color, c1: 
 	Spr.vgrad(a, y + 12, w, max(0.0, d1 - 12), c0, mid)
 	if depth > d1:
 		Spr.vgrad(a, y + d1, w, depth - d1, mid, c1)
-	if swamp and Spr.has("sw_water"):
+	# mais fundo, mais escuro e mais frio
+	if not toxic and depth > 100:
+		Spr.vgrad(a, y + 70, w, depth - 70, Color(.02, .07, .16, 0), Color(.01, .05, .14, .22))
+	if toxic and Spr.has("sw_water"):
 		Spr.strip_at("sw_water", ox, a, b, y - 6, min(70.0, depth + 6), .92)
 	# faixas de luz que ondulam logo abaixo da superfície
 	for k in 3:
@@ -510,22 +563,47 @@ func _water(g: Game, a: float, b: float, y: float, depth: float, c0: Color, c1: 
 		while x <= b + 0.1:
 			pts.push_back(Vector2(x, yy + sin(x * (.035 + k * .01) + T * (.035 + k * .012) + k * 2.0) * 3.5))
 			x += 12
-		Spr.line(pts, Color(1, 1, .9, .07 - k * .015), 6 - k)
+		if pts.size() >= 2:
+			Spr.line(pts, Color(1, 1, .9, .07 - k * .015), 6 - k)
+	# cáusticas: uma rede de luz (duas linhas em |seno| se cruzando) dançando logo abaixo da superfície
+	if not toxic and not lowfx and depth > 30:
+		for k in 2:
+			var cp := PackedVector2Array()
+			var cx: float = floor(a / 10.0) * 10.0
+			while cx <= b + 10.0:
+				var xc: float = clamp(cx, a, b)
+				cp.push_back(Vector2(xc, y + 15 + k * 9 + abs(sin(xc * .045 + T * (.03 if k == 0 else -.026) + k * 1.3)) * 8.0))
+				cx += 10.0
+			Spr.line(cp, Color(1, 1, .92, .055), 1.6)
 	# linha da superfície, brilho na crista das ondas e espuma onde a água está agitada
 	for i in top.size():
 		hi.push_back(top[i] + Vector2(0, -1.5))
-	if swamp or key.begins_with("s"):
+	if toxic:
 		# água tóxica: brilho verde pulsando na superfície (perigo bem visível)
 		Spr.line(top, Color(.75, 1, .3, .18 + .1 * sin(T * .07)), 9)
-	Spr.line(top, Color(.72, .86, .8, .7) if swamp else Color(.78, .95, 1, .75), 3)
+	Spr.line(top, Color(.72, .86, .8, .7) if toxic else Color(.78, .95, 1, .75).lerp(Color(sky.r, sky.g, sky.b, .75), .3), 3)
 	Spr.line(hi, Color(1, 1, 1, .35), 1)
 	for i in range(1, top.size() - 1):
 		var crest: float = ys[i] - (ys[i - 1] + ys[i + 1]) * .5
 		if crest < -1.2:
 			Spr.ellipse(top[i].x, top[i].y - 1, 6, 2, Color(1, 1, 1, clamp(-crest * .25, 0, .75)))
+	# brilhos do sol piscando nas ondas (dia)
+	if not toxic and per in ["manha", "tarde", "neve"]:
+		var sx: float = floor(a / 41.0) * 41.0
+		while sx < b:
+			var tw: float = sin(T * .13 + sx * 1.7)
+			var gx: float = sx + Polish.hh2(sx, 3) * 41.0
+			if tw > .86 and gx > a and gx < b:
+				var k2: float = (tw - .86) / .14
+				var gy2: float = surf.call(gx) - 1
+				Spr.seg(gx - 4 * k2, gy2, gx + 4 * k2, gy2, Color(1, 1, .95, .8 * k2), 1.2)
+				Spr.seg(gx, gy2 - 3 * k2, gx, gy2 + 3 * k2, Color(1, 1, .95, .6 * k2), 1.0)
+			sx += 41.0
 	# pontinhos de espuma na superfície
-	for k in int(w / 40.0):
-		var fx: float = a + fmod(k * 53.7 + T * .2 * (1 + k % 3), w)
+	for k in int(W / 40.0):
+		var fx: float = bx0 + fposmod(k * 53.7 + T * .2 * (1 + k % 3), W)
+		if fx < a or fx > b:
+			continue
 		Spr.circle(fx, y + 2 + sin(T * .05 + k) * 1.2, 1.4, Color(1, 1, 1, .35))
 	# reflexo da lanterna quando o Tomé está perto
 	var p: Dictionary = g.player
@@ -535,22 +613,26 @@ func _water(g: Game, a: float, b: float, y: float, depth: float, c0: Color, c1: 
 		var al: float = .35 * (1.0 - abs(p.y + p.h - y) / 140.0)
 		for k in 4:
 			Spr.ellipse(rx + sin(T * .1 + k) * 3, y + 6 + k * 7, 14 - k * 2.5, 2, Color(1, .85, .5, al * (1.0 - k * .2)))
-	if not swamp and not key.begins_with("s") and depth > 40:
-		# luz dançando no fundo (cáusticas) e fachos de luz entrando na água
+	if not toxic and depth > 40:
+		# luz dançando no fundo (cáusticas) e fachos de luz entrando na água, balançando devagar
 		var rk: float = floor(a / 90.0) * 90.0
 		while rk < b:
 			var ra: float = .045 + .03 * sin(T * .02 + rk * .01)
 			var r0: float = rk + 30 + sin(T * .01 + rk) * 10
+			var lean: float = sin(T * .007 + rk * .02) * 8.0
 			if r0 > a and r0 < b - 20:
-				Spr.ci.draw_polygon(PackedVector2Array([Vector2(r0, y + 6), Vector2(r0 + 20, y + 6), Vector2(r0 + 46, y + min(depth, 160.0)), Vector2(r0 + 18, y + min(depth, 160.0))]),
+				Spr.ci.draw_polygon(PackedVector2Array([Vector2(r0, y + 6), Vector2(r0 + 20, y + 6), Vector2(r0 + 46 + lean, y + min(depth, 160.0)), Vector2(r0 + 18 + lean, y + min(depth, 160.0))]),
 					PackedColorArray([Color(1, 1, .9, ra), Color(1, 1, .9, ra), Color(1, 1, .9, 0), Color(1, 1, .9, 0)]))
 			rk += 90
-	# reflexo do céu: faixas claras e largas logo abaixo da superfície, ondulando devagar
-	if not swamp:
+	# reflexo do céu: faixas claras e largas (na cor do céu) logo abaixo da superfície, ondulando devagar
+	if not toxic:
 		for k in 2:
-			var rw: float = w * .35
-			var rx2: float = a + fposmod(k * w * .5 + T * .15 * (k + 1), w + rw) - rw * .5
-			Spr.ellipse(clamp(rx2, a + rw * .4, b - rw * .4), y + 7 + k * 6, min(rw, w * .45) * .5, 3, Color(1, 1, 1, .08))
+			var rw: float = min(W * .35, 360.0)
+			var rx2: float = bx0 + fposmod(k * W * .5 + T * .15 * (k + 1), W + rw) - rw * .5
+			rx2 = clamp(rx2, bx0 + rw * .4, bx1 - rw * .4)
+			if rx2 + rw * .5 < a or rx2 - rw * .5 > b:
+				continue
+			Spr.ellipse(rx2, y + 7 + k * 6, min(rw, W * .45) * .5, 3, Color(lerpf(1.0, sky.r, .4), lerpf(1.0, sky.g, .4), lerpf(1.0, sky.b, .4), .09))
 	# margens: barranco arredondado cobrindo a quina, faixa de lama, juncos, pedras molhadas e folhas;
 	# a lama e a espuma da beira sobem e descem junto com a onda daquele ponto
 	for side in [0, 1]:
@@ -559,19 +641,166 @@ func _water(g: Game, a: float, b: float, y: float, depth: float, c0: Color, c1: 
 			continue
 		var bi: int = clamp(int((clamp(ex, a, b) - top[0].x) / 8.0), 0, top.size() - 1)
 		var soy: float = top[bi].y - y
-		_bank(ex, y, 1.0 if side == 0 else -1.0, swamp or key.begins_with("s"), T, min(depth, 120.0), soy)
+		_bank(ex, y, 1.0 if side == 0 else -1.0, toxic, T, min(depth, 120.0), soy)
 	if swamp:
 		# lentilha-d'água e folhinhas boiando
-		for k in int(w / 55.0):
-			var lx: float = a + fmod(k * 71.3 + sin(T * .01 + k) * 6, w)
+		for k in int(W / 55.0):
+			var lx: float = bx0 + fposmod(k * 71.3 + sin(T * .01 + k) * 6, W)
+			if lx < a or lx > b:
+				continue
 			Spr.ellipse(lx, y + 1 + sin(T * .06 + k) * 1.2, 4 + k % 3, 1.6, Color(.45, .62, .25, .85))
 	else:
-		# bolhas subindo
-		for k in int(w / 70.0) + 1:
-			var bx: float = a + fmod(k * 97.1, w)
+		# bolhas subindo do fundo (cada uma do seu lugar, presas ao lago)
+		for k in int(W / 70.0) + 1:
+			var bx: float = bx0 + fposmod(k * 97.1, W)
+			if bx < a or bx > b:
+				continue
 			var ph: float = fmod(T * .6 + k * 37.0, depth)
 			Spr.ring(bx + sin(ph * .1 + k) * 3, y + depth - ph, 1.5 + ph * .01, Color(.85, .95, 1, .45 * (ph / depth)), 1.0)
+	# folhas e pétalas boiando, levadas devagar pela correnteza (sobem e descem com a onda)
+	if not toxic and per != "neve" and per != "tunel":
+		var lcs: Array = Polish.C_LEAF_TARDE if per == "tarde" else (Polish.C_LEAF_PANT if per in ["chuva", "pantano"] else Polish.C_LEAF)
+		for k in int(W / 140.0):
+			var spd: float = .08 + Polish.hh2(bx0 + k, 21) * .1
+			var lx2: float = bx0 + 10 + fposmod(Polish.hh2(bx0 + k, 22) * W + T * spd, W - 20)
+			if lx2 < a + 4 or lx2 > b - 4:
+				continue
+			var ly2: float = surf.call(lx2) + 1
+			var petal: bool = per == "manha" and k % 3 == 0
+			var lc: Color = Color(1, .78, .86) if petal else lcs[k % lcs.size()]
+			var rot: float = sin(T * .006 + k * 1.9) * .9 + k
+			Spr.ellipse(lx2 + 1, ly2 + 1.5, 5, 1.6, Color(0, .05, .08, .18))
+			Spr.ellipse(lx2, ly2, 3.2 if petal else 5.0, 1.8, lc, rot * .15)
+			if not petal:
+				Spr.seg(lx2 - 3.5, ly2, lx2 + 3.5, ly2, lc.darkened(.35), .8)
+	# pingos de chuva (no brejo tóxico são desenhados depois da faixa clara da superfície)
+	if not key.begins_with("s"):
+		_rain_rings(g, a, b, bx0, bx1, T, toxic, top)
+	# água tóxica: brilho verde doentio subindo da água, pulsando devagar (acima da escuridão)
+	if toxic:
+		var gx3: float = floor(a / 150.0) * 150.0
+		while gx3 < b:
+			var cxg: float = gx3 + 75.0
+			if cxg > bx0 + 20 and cxg < bx1 - 20 and cxg > a - 60 and cxg < b + 60:
+				var pk: float = .5 + .5 * sin(T * .021 + gx3 * .013)
+				Spr.glow(cxg, y + 10, 95, Color(.45, 1, .18, .05 + .06 * pk))
+			gx3 += 150.0
 
+## pingos de chuva na superfície: aneizinhos presos ao corpo d'água [bx0, bx1], só os da faixa [a, b]
+func _rain_rings(g: Game, a: float, b: float, bx0: float, bx1: float, T: int, toxic: bool, top: PackedVector2Array) -> void:
+	var rain: float = float(g.AMB.get("rain", 0.0))
+	if rain <= .15 or top.size() < 2:
+		return
+	var W: float = max(1.0, bx1 - bx0)
+	var nr: int = min(16, int(W / 80.0) + 2)
+	if g.low_fx:
+		nr = min(nr, 6)
+	for k in nr:
+		var ph2: float = T * .024 + Polish.hh2(bx0 + k, 23) + k * .37
+		var u: float = fposmod(ph2, 1.0)
+		var cyc: float = floor(ph2) * 3.1
+		var rx3: float = bx0 + Polish.hh2(bx0 + k * 13.0 + cyc, 24) * W
+		if rx3 < a or rx3 > b:
+			continue
+		var i: int = clamp(int(round((rx3 - top[0].x) / 8.0)), 0, top.size() - 1)
+		# espalhados na faixa de cima da água (vista um pouco de cima)
+		var ry3: float = top[i].y + 4 + Polish.hh2(rx3 + cyc, 25) * 6
+		var c := Color(.86, 1, .8) if toxic else Color(.9, .96, 1)
+		_flat_ring(rx3, ry3, 2.0 + u * 11.0, Color(c.r, c.g, c.b, (1.0 - u) * .55 * rain), .35)
+
+## anel achatado (ondinha na água, vista de lado)
+func _flat_ring(x: float, y: float, r: float, c: Color, sy: float = .3) -> void:
+	Spr.save()
+	Spr.translate(x, y)
+	Spr.scale(1, sy)
+	Spr.ring(0, 0, r, c, 1.2 / sy * .7)
+	Spr.restore()
+
+## W1 ondinhas de quem entra, sai ou nada na água (lista em Waves, avança no passo de física)
+func _wave_rings(g: Game) -> void:
+	if not g.WV:
+		return
+	for r in g.WV.RINGS:
+		if r.x < g.cam - 60 or r.x > g.cam + g.W + 60:
+			continue
+		var b: Dictionary = g.WV.B.get(r.key, {})
+		if b.is_empty():
+			continue
+		var u: float = float(r.t) / r.life
+		var yy: float = b.y + g.WV.height(b, r.x) + 1
+		var c: Color = Color(.75, 1, .45) if str(r.key).begins_with("s") else Color(.92, .98, 1)
+		_flat_ring(r.x, yy, (6.0 + u * 34.0) * r.s, Color(c.r, c.g, c.b, (1.0 - u) * .55))
+		if u > .2:
+			_flat_ring(r.x, yy, (2.0 + (u - .2) * 22.0) * r.s, Color(c.r, c.g, c.b, (1.0 - u) * .35))
+
+## piscada de vaga-lume: acende rápido, apaga devagar e fica um tempo apagado (0..1); alguns dão uma
+## segunda piscadinha fraca logo depois
+static func _ff_blink(ph: float, k: int) -> float:
+	var per: float = 12.0 + fmod(k * 3.7, 8.0)
+	var u: float = fposmod(ph + k * 2.9, per) / per
+	if u < .05:
+		return u / .05
+	if u < .22:
+		var d: float = (u - .05) / .17
+		return 1.0 - d * d
+	if k % 3 == 0 and u > .3 and u < .38:
+		return sin((u - .3) / .08 * PI) * .5
+	return 0.0
+
+## S4 esporos brilhantes subindo devagar dos cogumelos (estado em AmbientFx, avança no passo de física)
+func _spores(T: int) -> void:
+	for sp in AFX.SPORES:
+		var u: float = float(sp.l) / float(sp.l0)
+		var al: float = min(1.0, (1.0 - u) * 6.0) * min(1.0, u * 3.0)
+		var tw: float = .65 + .35 * sin(T * .15 + sp.ph)
+		var c: Color = sp.c
+		Spr.glow(sp.x, sp.y, 8, Color(c.r, c.g, c.b, .32 * al * tw))
+		Spr.circle(sp.x, sp.y, 1.3, Color(lerpf(c.r, 1.0, .5), lerpf(c.g, 1.0, .5), lerpf(c.b, 1.0, .5), .9 * al * tw))
+
+## S6 janelas das casas da vila acesas à tarde e à noite: brilho quente tremulando como lamparina,
+## a luz caindo na rua embaixo das janelas de baixo e o lampião da parede
+func _village_windows(g: Game, T: int, x0: float, x1: float) -> void:
+	AFX._cache(g)
+	var hs: Array = AFX.C.get("ho", [])
+	if hs.is_empty():
+		return
+	var per: String = AFX.period(g)
+	var dk: float = float(g.AMB.get("dark", 0.0))
+	if not (per in ["tarde", "noite", "perseguicao"] or dk > .2):
+		return
+	var nk: float = clamp(.45 + dk * 1.5, .45, 1.0)
+	for s in hs:
+		if s.x > x1 + 100 or s.x + s.w < x0 - 100:
+			continue
+		var v: int = int(s.get("v", 0))
+		var r = Spr.AR.get("p_casa%d" % v)
+		if r == null or not AFX.WIN.has(v):
+			continue
+		var hgt: float = s.w * r[3] / r[2]
+		var fl0: bool = bool(s.get("flip", false))
+		var top: float = s.y + 3 - hgt
+		var i := 0
+		for wn in AFX.WIN[v]:
+			var u: float = 1.0 - wn[0] if fl0 else wn[0]
+			var wx: float = s.x + s.w * u
+			var wy: float = top + hgt * wn[1]
+			var ww: float = s.w * wn[2]
+			var wh: float = hgt * wn[3]
+			var fl: float = .78 + .22 * sin(T * .11 + i * 2.3 + s.x) * sin(T * .053 + i)
+			Spr.glow(wx, wy, max(ww, wh) * 2.0, Color(1, .72, .34, .3 * fl * nk))
+			Spr.glow(wx, wy, max(ww, wh) * .9, Color(1, .86, .55, .2 * fl * nk))
+			if wn[1] > .7:
+				# luz da janela caindo na calçada
+				var gy: float = s.y + 4
+				var wb: float = wy + wh * .5
+				Spr.ci.draw_polygon(PackedVector2Array([Vector2(wx - ww * .45, wb), Vector2(wx + ww * .45, wb), Vector2(wx + ww * .9, gy), Vector2(wx - ww * .9, gy)]),
+					PackedColorArray([Color(1, .8, .45, .07 * fl * nk), Color(1, .8, .45, .07 * fl * nk), Color(1, .8, .45, .0), Color(1, .8, .45, .0)]))
+				Spr.ellipse(wx, gy + 1, ww * 1.1, 3.5, Color(1, .8, .45, .12 * fl * nk))
+			i += 1
+		if AFX.LAMP.has(v):
+			var lu: float = 1.0 - AFX.LAMP[v][0] if fl0 else AFX.LAMP[v][0]
+			var lf: float = .8 + .2 * sin(T * .17 + s.x)
+			Spr.glow(s.x + s.w * lu, top + hgt * AFX.LAMP[v][1], 30, Color(1, .8, .45, .32 * lf * nk))
 
 ## margem de um corpo d'água: terra arredondada descendo para dentro da água (sem quina reta),
 ## faixa de lama molhada, pedras brilhando, juncos e uma vitória-régia
@@ -610,6 +839,15 @@ func _bank(e: float, y: float, dir: float, toxic: bool, T: int, depth: float, so
 	var fo: float = .35 + .25 * sin(T * .09 + e)
 	Spr.ellipse(e + dir * 30, wl + 1, 12, 2.2, Color(1, 1, 1, fo))
 	Spr.ellipse(e + dir * 42, wl + 2, 6, 1.5, Color(1, 1, 1, fo * .7))
+	# espuma acompanhando a margem: dois fiapos que vão e voltam com a água
+	var fc := Color(1, 1, 1) if not toxic else Color(.85, 1, .7)
+	for j in 2:
+		var fl := PackedVector2Array()
+		var off: float = 24 + j * 16 + sin(T * .03 + j * 2.0 + e) * 5
+		for i in 6:
+			var u3 := i / 5.0
+			fl.push_back(Vector2(e + dir * (off + u3 * (24 + j * 12)), wl + 1.5 + j * 2.5 + sin(u3 * 5.0 + T * .05 + j) * 1.0))
+		Spr.line(fl, Color(fc.r, fc.g, fc.b, (.3 - j * .1) * (.6 + .4 * sin(T * .04 + j + e))), 1.4)
 	# pedrinhas pintadas e molhadas na beira
 	for k in 3:
 		var rx: float = e + dir * (6 + k * 11)
@@ -648,5 +886,3 @@ func _oil(c: Dictionary, T: int, lit: bool) -> void:
 			var fy: float = by - 13 + cos(T * .043 + k * 1.7) * 8
 			Spr.circle(fx, fy, 1.6, Color(.9, 1, .5, .6 + .4 * sin(T * .2 + k)))
 		Spr.ring(c.x, by - 13, 11, Color(.85, 1, .9, .35), 1.2)
-	if T % 16 == 0:
-		game.PARTS.append({"x": c.x + (randf() - .5) * 14, "y": by - 22, "vx": 0, "vy": -.4, "life": 26, "col": Color(1, .85, .45) if lit else Color(.8, 1, .5)})
