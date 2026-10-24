@@ -82,6 +82,8 @@ func _hawk() -> void:
 	var gy: float = h.gy
 	if h.red > 0:
 		h.red -= 1
+	if h.get("landT", 0) > 0:
+		h.landT -= 1
 	var enraged: bool = h.hp <= 2
 	match h.st:
 		"wait":
@@ -125,7 +127,11 @@ func _hawk() -> void:
 				g.burst(h.x, h.y - 30, 12, Color("#ffe9a0"))
 				Audio.play("dj", -6)
 				g.note("O facho ofuscou o Morcego-Rei!" if h.skin == "bat" else "O facho ofuscou o Gavião-Rei!")
-			if h.t > (26 if h.second else (40 if enraged else 52)):
+			# antecipação: nos últimos quadros sobe um pouco e recolhe as asas antes de mergulhar
+			var lim: int = 26 if h.second else (40 if enraged else 52)
+			if h.t > lim - 12:
+				h.y = lerpf(h.y, gy - 195, .18)
+			if h.t > lim:
 				h.st = "dive"
 				h.t = 0
 				h.sx = h.x
@@ -134,11 +140,12 @@ func _hawk() -> void:
 		"dive":
 			h.t += 1
 			var u: float = min(1.0, h.t / 20.0)
-			h.x = lerpf(h.sx, h.tx, u)
+			h.x = lerpf(h.sx, h.tx, smoothstep(0.0, 1.0, u))
 			h.y = lerpf(h.sy, gy, u * u)
 			if p.dyingT == 0 and Game.hit(p, hawk_box()):
 				g.hurt(1, h.x)
 			if u >= 1.0:
+				h.landT = 12
 				g.shake = 10
 				g.burst(h.x, gy, 14, Color("#cdbfa6"))
 				g.fx("fx_pieces", h.x, gy - 8, 16, .3, -.4)
@@ -172,8 +179,9 @@ func _hawk() -> void:
 				h.t = 0
 		"flee":
 			h.t += 1
-			h.x += 5.0
-			h.y -= 4.0
+			# arranca devagar e vai ganhando velocidade
+			h.x += min(6.0, .5 + h.t * .12)
+			h.y -= min(4.5, .3 + h.t * .09)
 			if h.t > 120:
 				h.done = true
 				h.active = false
@@ -343,6 +351,8 @@ func _bear() -> void:
 	var gy: float = b.gy
 	if b.red > 0:
 		b.red -= 1
+	if b.get("landT", 0) > 0:
+		b.landT -= 1
 	var lvl: int = b.maxhp - b.hp          # fica mais rápido a cada rodada
 	var dx: float = pcx - b.x
 	# ondas de choque do tremor correndo pelo chão
@@ -378,7 +388,10 @@ func _bear() -> void:
 			b.t += 1
 			b.dir = 1 if dx > 0 else -1
 			var spd: float = 1.6 + lvl * .4
-			var nx: float = clamp(b.x + b.dir * spd, b.x0 + 140, b.x1 - 140)
+			# arranca e freia com peso; para virar, primeiro desacelera
+			var wv: float = move_toward(float(b.get("wv", 0.0)), b.dir * spd, .09)
+			b.wv = wv
+			var nx: float = clamp(b.x + wv, b.x0 + 140, b.x1 - 140)
 			var blk = _bear_block(nx)
 			if blk != null:
 				g.burst(blk.x + blk.w / 2.0, blk.y + 20, 6, Color(.85, .95, 1))
@@ -391,7 +404,7 @@ func _bear() -> void:
 					b.hx1 = (blk.x + blk.w + 66.0) if b.dir > 0 else (blk.x - 66.0)
 			else:
 				b.x = nx
-			b.anim += spd * .05
+			b.anim += abs(wv) * .05
 			# o Tomé parado no galho: o urso vai sacudir a árvore
 			var br = _bear_branch()
 			b.perch = b.get("perch", 0) + 1 if br != null else 0
@@ -454,9 +467,11 @@ func _bear() -> void:
 				Audio.play("roar", -6)
 		"charge":
 			b.t += 1
-			var cs: float = 7.0 + lvl * .8
+			# dispara ganhando velocidade
+			var cs: float = min(7.0 + lvl * .8, 2.0 + b.t * .45)
+			b.cv = cs
 			var nx2: float = b.x + b.dir * cs
-			b.anim += .3
+			b.anim += .04 * cs
 			if Game.hit(p, bear_box()) and p.dyingT == 0:
 				_bear_dmg()
 			if nx2 < b.x0 + 140 or nx2 > b.x1 - 140 or _bear_block(nx2) != null or b.t > 120:
@@ -470,6 +485,15 @@ func _bear() -> void:
 					g.PARTS.append({"x": b.x - b.dir * 70, "y": gy - 4, "vx": -b.dir * 2.0, "vy": -1.5, "life": 18, "col": Color(.97, .98, 1, .9)})
 		"skid":
 			b.t += 1
+			# derrapa: as patas travam e ele escorrega até parar, levantando neve
+			var sv: float = float(b.get("cv", 0.0)) * .86
+			b.cv = sv
+			if sv > .3:
+				var sx2: float = clamp(b.x + b.dir * sv, b.x0 + 140, b.x1 - 140)
+				if _bear_block(sx2) == null:
+					b.x = sx2
+				if b.t % 2 == 0:
+					g.PARTS.append({"x": b.x + b.dir * 70, "y": gy - 4, "vx": b.dir * randf_range(1.0, 2.5), "vy": -randf_range(1.0, 2.2), "life": 18, "col": Color(.97, .98, 1, .9)})
 			if b.t > 30:
 				_bear_missed()
 		"rear2":
@@ -544,7 +568,13 @@ func _bear() -> void:
 				b.t = 0
 		"hop":
 			b.t += 1
-			var u: float = min(1.0, b.t / 34.0)
+			# agacha antes de pular (antecipação) e achata ao cair
+			if b.t <= 8:
+				b.hy = 0.0
+				b.hcr = b.t / 8.0
+				return
+			b.hcr = 0.0
+			var u: float = min(1.0, (b.t - 8) / 34.0)
 			b.x = lerpf(b.hx0, b.hx1, u)
 			b.hy = -sin(u * PI) * 150.0
 			b.anim += .1
@@ -552,6 +582,8 @@ func _bear() -> void:
 				b.hy = 0.0
 				b.st = "walk"
 				b.t = 20
+				b.landT = 14
+				b.wv = 0.0
 				g.shake = max(g.shake, 10)
 				Audio.play("stomp")
 				g.burst(b.x, gy, 18, Color(.95, .97, 1))
@@ -560,17 +592,19 @@ func _bear() -> void:
 			b.t += 1
 			var away2: float = -1.0 if pcx > b.x else 1.0
 			b.dir = -int(away2)
-			var bx2: float = clamp(b.x + away2 * 4.0, b.x0 + 140, b.x1 - 140)
+			var bsp: float = min(4.0, b.t * .25) * (1.0 if b.t < 34 else (45 - b.t) / 11.0)
+			var bx2: float = clamp(b.x + away2 * bsp, b.x0 + 140, b.x1 - 140)
 			if _bear_block(bx2) == null:
 				b.x = bx2
 			b.anim += .2
 			if b.t > 45:
 				b.st = "walk"
 				b.t = 0
+				b.wv = 0.0
 		"flee":
 			b.t += 1
 			b.dir = 1
-			b.x += 4.0
+			b.x += min(5.0, .5 + b.t * .12)
 			b.anim += .2
 			if b.t > 140:
 				b.done = true
@@ -643,6 +677,8 @@ func _fish() -> void:
 	var pc := Vector2(p.x + p.w / 2, p.y + p.h / 2)
 	if f.red > 0:
 		f.red -= 1
+	if f.get("hitT", 0) > 0:
+		f.hitT -= 1
 	f.mud = max(0.0, f.mud - .004)
 	f.al = move_toward(f.al, .25 if f.mud > .45 and f.st in ["mud", "lurk"] else 1.0, .03)
 	var mid: float = (f.y0 + f.y1) / 2.0
@@ -682,9 +718,12 @@ func _fish() -> void:
 				f.t = 0
 		"idle":
 			f.t += 1
-			f.dir = 1 if pc.x > f.x else -1
+			# só vira quando o Tomé passa bem do outro lado (sem ficar tremendo de um lado para o outro)
+			if abs(pc.x - f.x) > 60:
+				f.dir = 1 if pc.x > f.x else -1
 			f.y = lerpf(f.y, clamp(pc.y, f.y0 + 70, f.y1 - 70), .02)
-			f.x += f.dir * .5
+			f.vx = move_toward(float(f.get("vx", 0.0)), f.dir * .5, .05)
+			f.x += f.vx
 			f.x = clamp(f.x, f.x0 + 130, f.x1 - 130)
 			if f.t > 70:
 				f.t = 0
@@ -695,9 +734,13 @@ func _fish() -> void:
 					f.st = "aim"
 		"aim":
 			f.t += 1
-			f.dir = 1 if pc.x > f.x else -1
+			if abs(pc.x - f.x) > 40:
+				f.dir = 1 if pc.x > f.x else -1
 			if f.t < 28:
 				f.y = lerpf(f.y, clamp(pc.y, f.y0 + 60, f.y1 - 60), .08)
+			else:
+				# antecipação: recua um pouco, encolhido, antes do bote
+				f.x = clamp(f.x - f.dir * .9, f.x0 + 130, f.x1 - 130)
 			if f.t > 44:
 				f.st = "charge"
 				f.t = 0
@@ -714,6 +757,8 @@ func _fish() -> void:
 				g.shake = 12
 				Audio.play("stomp", -4)
 				g.burst(f.x + f.dir * 120, f.y, 16, Color(.6, .7, .7))
+				f.hitT = 16
+				f.kb = 4.0
 				_tired(f, 170)
 		"suck":
 			f.t += 1
@@ -751,13 +796,17 @@ func _fish() -> void:
 				f.t = 20
 		"tired":
 			f.t += 1
+			var kb: float = f.get("kb", 0.0)
+			if kb > .1:
+				f.x = clamp(f.x - f.dir * kb, f.x0 + 120, f.x1 - 120)
+				f.kb = kb * .88
 			f.y = lerpf(f.y, mid + sin(f.t * .05) * 30, .03)
 			if f.t > f.get("tired_t", 150):
 				f.st = "idle"
 				f.t = 0
 		"hurt":
 			f.t += 1
-			f.x += -f.dir * 2.0
+			f.x = clamp(f.x - f.dir * 3.0 * (1.0 - f.t / 30.0), f.x0 + 120, f.x1 - 120)
 			if f.t > 30:
 				f.st = "idle"
 				f.t = 0

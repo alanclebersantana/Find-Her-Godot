@@ -295,9 +295,8 @@ static func boss(g: Game, T: int) -> void:
 	match b.st:
 		"idle":
 			fr = 4
-		"paw":
+		"paw", "intro":
 			fr = 4
-			shake_x = sin(T * 1.3) * 2
 		"charge", "flee":
 			fr = 5 if int(bd / 16.0) % 2 == 0 else 3
 		"stun", "down":
@@ -310,28 +309,90 @@ static func boss(g: Game, T: int) -> void:
 		_brutus(b, T, bd)
 		return
 	var sc := 1.12
-	Spr.ellipse(b.x, 502, 90, 12, Color(0, 0, 0, .3))
+	# corpo vivo: cada estado tem peso (antecipação, esticar, achatar, quicar)
+	var sx := 1.0
+	var sy := 1.0
+	var rot := 0.0
+	var dy := 0.0
+	var ox := 0.0
+	var cyc := -1.0          # posição contínua no ciclo de passos quando anda/corre
+	var seq := [0, 1, 2, 3]
+	var t: int = int(b.get("t", 0))
+	match b.st:
+		"intro":
+			if b.y < 499.0:
+				sx = .95
+				sy = 1.07
+		"idle":
+			var br: float = sin(T * .08)
+			sx = 1.0 - br * .008
+			sy = 1.0 + br * .016
+		"paw":
+			# abaixa a cabeça e joga o peso para trás, raspando a pata no ritmo da poeira
+			var k: float = clamp(t / 44.0, 0, 1)
+			var u: float = (t % 9) / 9.0
+			sx = 1.0 + .05 * k
+			sy = 1.0 - .08 * k
+			rot = b.dir * .05 * k
+			ox = -b.dir * (6.0 * k + 3.0 * sin(u * PI))
+		"charge":
+			var sp: float = clamp(float(b.get("spd", 0.0)) / 8.0, 0, 1)
+			# galope: alterna a investida (5) e as patas recolhidas (3), com transição
+			cyc = bd / 24.0
+			seq = [5, 3]
+			sx = 1.0 + .07 * sp
+			sy = 1.0 - .05 * sp
+			rot = b.dir * (.03 + .05 * sp)
+			dy = -abs(sin(bd * PI / 40.0)) * 5.0
+		"trot":
+			cyc = bd / 16.0
+			rot = -b.dir * .02 * (1.0 - clamp(float(b.get("tv", 0.0)) / 3.0, 0, 1))
+			dy = -abs(sin(bd * PI / 32.0)) * 2.5
+		"stun":
+			rot = sin(T * .2) * .05
+			sy = 1.0 + sin(T * .2 + 1) * .02
+		"down":
+			# pula de dor, cai, quica e fica deitado (já é o quadro deitado)
+			if t < 24:
+				dy = -sin(t / 24.0 * PI) * 26.0
+				sy = 1.05
+				sx = .96
+			elif t < 36:
+				dy = -sin((t - 24) / 12.0 * PI) * 7.0
+	var ht: int = int(b.get("hitT", 0))
+	if ht > 0:
+		# batida: achata contra a árvore e volta
+		var u2: float = ht / 18.0
+		sx *= 1.0 - .22 * u2
+		sy *= 1.0 + .12 * u2
+	var lt: int = int(b.get("landT", 0))
+	if lt > 0:
+		var u3: float = lt / 14.0
+		sx *= 1.0 + .18 * u3
+		sy *= 1.0 - .22 * u3
+	# sombra: encolhe e clareia com a altura
+	var lift: float = (500.0 - b.y) - dy
+	var shk: float = clamp(1.0 - lift / 320.0, .3, 1.0)
+	Spr.ellipse(b.x + ox, 502, 90 * shk * sx, 12 * shk, Color(0, 0, 0, .3 * shk))
 	Spr.save()
-	Spr.translate(b.x + shake_x, b.y)
-	if b.st in ["charge", "trot", "flee"]:
-		# galope: o corpo sobe e desce com a passada e inclina para a frente na investida
-		Spr.translate(0, -abs(sin(bd * PI / 32.0)) * (4.0 if b.st == "charge" else 2.5))
-		Spr.rotate(b.dir * (.05 if b.st == "charge" else .02))
-	if b.st == "down":
-		# tomba de lado e some devagar
-		Spr.rotate(-b.dir * min(1.0, b.t / 30.0) * 1.35)
-	Spr.scale(Spr.eturn(b, .14), 1)
+	Spr.translate(b.x + shake_x + ox, b.y + dy)
+	Spr.rotate(rot)
+	Spr.scale(Spr.eturn(b, .14) * sx, sy)
 	var tint := Color(1, .45, .4, 1) if b.red > 0 and (T / 3) % 2 == 0 else Color(1, 1, 1, 1)
 	if b.st == "down":
 		tint.a = clamp(1.0 - (b.t - 90) / 60.0, 0.0, 1.0)
-	Spr.ci.draw_texture_rect_region(Spr.tex.javali, Rect2(-105 * sc, -136 * sc + 4, 210 * sc, 140 * sc), Rect2(fr * 210, 0, 210, 140), tint)
+	var dst := Rect2(-105 * sc, -136 * sc + 4, 210 * sc, 140 * sc)
+	if cyc >= 0.0:
+		Spr.region_mix(Spr.tex.javali, dst, 210, 140, seq, cyc, tint)
+	else:
+		Spr.ci.draw_texture_rect_region(Spr.tex.javali, dst, Rect2(fr * 210, 0, 210, 140), tint)
 	# coroa de folhas (é o rei)
 	var cx := 30.0
 	var cy := -128.0 * sc + 10
 	for i in 5:
 		var a := -PI / 2 + (i - 2) * .38
-		Spr.ellipse(cx + cos(a) * 16, cy + sin(a) * 10 + 4, 7, 4, Color("#4f8a2a"), a)
-	Spr.circle(cx, cy + 6, 4, Color("#e0463a"))
+		Spr.ellipse(cx + cos(a) * 16, cy + sin(a) * 10 + 4, 7, 4, Color(.31, .54, .16, tint.a), a)
+	Spr.circle(cx, cy + 6, 4, Color(.88, .27, .23, tint.a))
 	Spr.restore()
 	if b.st == "stun":
 		for i in 4:
@@ -374,14 +435,36 @@ static func _brutus(b: Dictionary, T: int, bd: float = 0.0) -> void:
 	var tw: float = abs(fs) if b.st != "down" else 1.0
 	if b.st != "down":
 		flip = fs < 0
+	# batida no muro: achata e volta; raspando a pata: abaixa e joga o peso para trás
+	var bsx := 1.0
+	var bsy := 1.0
+	var bht: int = int(b.get("hitT", 0))
+	if bht > 0:
+		bsx = 1.0 - .2 * bht / 18.0
+		bsy = 1.0 + .1 * bht / 18.0
+	var box := 0.0
+	if b.st == "paw":
+		var pk: float = clamp(b.t / 44.0, 0, 1)
+		bsy = 1.0 - .07 * pk
+		bsx = 1.0 + .04 * pk
+		box = -b.dir * 6.0 * pk
+	elif b.st == "idle":
+		bsy = 1.0 + sin(T * .09) * .015
+	elif b.st == "stun":
+		Spr.save()
+		Spr.translate(b.x, b.y)
+		Spr.rotate(sin(T * .2) * .04)
+		Spr.translate(-b.x, -b.y)
 	Spr.save()
-	Spr.translate(b.x + dx, b.y + 4 + gb)
-	Spr.scale(tw, 1)
+	Spr.translate(b.x + dx + box, b.y + 4 + gb)
+	Spr.scale(tw * bsx, bsy)
 	if b.st in ["charge", "trot"]:
 		Spr.sheet_cycle("cao", bd / (14.0 if b.st == "charge" else 15.0), 4, 0, 200, 150, 0, 0, 210.0, flip, Color(tint.r, tint.g, tint.b, a))
 	else:
 		Spr.sheet("cao", fr, 200, 150, 0, 0, 210.0, flip, Color(tint.r, tint.g, tint.b, a))
 	Spr.restore()
+	if b.st == "stun":
+		Spr.restore()
 	if b.st == "stun":
 		for i in 4:
 			var a2 := T * .12 + TAU * i / 4.0
@@ -539,7 +622,7 @@ static func dog(g: Game, T: int) -> void:
 	d._lean = lerp(float(d.get("_lean", 0.0)), clamp(dvx / 5.0, -1, 1) * .07, .15)
 	var dfs: float = move_toward(float(d.get("_fs", d.face)), d.face, .2)
 	d._fs = dfs
-	var ns: float = sign(dfs) * max(abs(dfs), .2) if dfs != 0 else float(d.face)
+	var ns: float = Spr.turnw(dfs, float(d.face))
 	var breath: float = 0.0 if d.moving else sin(T * .09) * .018
 	var gal: float = abs(sin(d.anim * PI / 3.0)) * 1.4 if d.moving else 0.0
 	Spr.save()

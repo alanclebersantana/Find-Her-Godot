@@ -619,6 +619,9 @@ func _boss() -> void:
 	var on_floor: bool = p.onGround and p.y + p.h >= 494 and pcx > b.x0 and pcx < b.x1
 	if b.red > 0:
 		b.red -= 1
+	for k in ["hitT", "landT"]:
+		if b.get(k, 0) > 0:
+			b[k] -= 1
 	match b.st:
 		"wait":
 			if pcx > b.trig and pcx < b.x1 and p.y > 300 and p.dyingT == 0:
@@ -647,6 +650,7 @@ func _boss() -> void:
 			if b.y >= 500:
 				b.st = "idle"
 				b.t = 0
+				b.landT = 14
 				g.shake = 16
 				Audio.play("stomp")
 				Audio.vib(80)
@@ -687,6 +691,9 @@ func _boss() -> void:
 				b.x = b.x1 - 72
 				crash = true
 			if crash:
+				# bate, achata contra a árvore e é jogado para trás alguns passos
+				b.hitT = 18
+				b.kb = 7.0
 				g.shake = 18
 				g.hit_stop = 6
 				Audio.play("stomp")
@@ -697,6 +704,10 @@ func _boss() -> void:
 				boss_damage()
 		"stun":
 			b.t += 1
+			var kb: float = b.get("kb", 0.0)
+			if kb > .1:
+				b.x = clamp(b.x - b.dir * kb, b.x0 + 72, b.x1 - 72)
+				b.kb = kb * .84
 			if b.t > 110:
 				b.st = "trot"
 				b.t = 0
@@ -706,10 +717,14 @@ func _boss() -> void:
 			b.t += 1
 			var tx: float = (b.x0 + b.x1) / 2.0 + b.side * -60.0
 			b.dir = 1 if tx > b.x else -1
-			b.x += b.dir * 3.0
-			if abs(tx - b.x) < 4:
+			# sai devagar, trota e freia chegando (sem parar de estalo)
+			var tv: float = min(min(3.0, float(b.get("tv", 0.0)) + .12), abs(tx - b.x) * .08 + .35)
+			b.tv = tv
+			b.x += b.dir * tv
+			if abs(tx - b.x) < 3:
 				b.st = "idle"
 				b.t = 0
+				b.tv = 0.0
 		"down":
 			b.t += 1
 			if b.t == 1:

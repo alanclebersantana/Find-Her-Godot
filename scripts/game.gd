@@ -17,9 +17,9 @@ const GRAV := .62
 const JUMP := -11.8
 const DJUMP := -10.8
 const TOP := 4.3
-const ACCg := .8
+const ACCg := .9
 const ACCa := .52
-const FRIC := .78
+const FRIC := .74
 const COY := 10
 const BUF := 11
 const PUFF_GRAV := .10
@@ -1207,7 +1207,7 @@ func step() -> void:
 		move_y(player.vy)
 	# pousou sem segurar direção: freia na hora (não escorrega para fora da plataforma)
 	if player.onGround and not was_ground and not kd("L") and not kd("R") and not (player._g != null and player._g.get("wet")):
-		player.vx *= .5
+		player.vx *= .35
 		player.run = 0
 	player.landV = prev_vy if (player.onGround and not was_ground) else 0.0
 	if player.onGround and not was_ground and prev_vy > 3:
@@ -2751,11 +2751,15 @@ func _enemy_life(e: Dictionary) -> void:
 		return
 	var vx: float = e.x - lx
 	var on: bool = abs(e.y - float(e.get("base", e.y))) < 2
+	if e.get("landT", 0) > 0:
+		e.landT -= 1
+	if on and not e.get("_on", true):
+		# pousou: poeira e achata (o desenho usa landT)
+		e.landT = 10
+		for k in (5 if e.k == "frog" else 3):
+			PARTS.append({"x": e.x + (k - 2) * 7, "y": e.y - 1, "vx": (k - 2) * .7, "vy": -randf_range(.4, 1.2), "life": 16, "col": _dust_col()})
+	e._on = on
 	if e.k == "frog":
-		if on and not e.get("_on", true):
-			for k in 5:
-				PARTS.append({"x": e.x + (k - 2) * 7, "y": e.y - 1, "vx": (k - 2) * .7, "vy": -randf_range(.4, 1.2), "life": 16, "col": _dust_col()})
-		e._on = on
 		return
 	if on and abs(vx) > .3:
 		e._sd = float(e.get("_sd", 0.0)) + abs(vx)
@@ -2961,10 +2965,16 @@ func _bat(e: Dictionary) -> void:
 	elif st == 1:
 		e.t += 1
 		var to := (pc - Vector2(e.x, e.y))
-		var v := to.normalized() * 2.3 + Vector2(0, sin(e.t * .25) * 2.2)
+		# voo com inércia: faz curvas em vez de mudar de direção num quadro
+		var want := to.normalized() * 2.3
+		var bv: Vector2 = e.get("bv", Vector2.ZERO)
+		bv = bv.lerp(want, .07)
+		e.bv = bv
+		var v := bv + Vector2(0, sin(e.t * .25) * 2.2)
 		e.x = clamp(e.x + v.x, e.r[0], e.r[1])
 		e.y = clamp(e.y + v.y, e.cy, e.cy + 260)
-		e.dir = 1 if v.x > 0 else -1
+		if abs(bv.x) > .3:
+			e.dir = 1 if bv.x > 0 else -1
 		if X.lit(e.x, e.y, 95.0) or X.scare(e.x, e.y) or e.t > 420:
 			e.st = 2
 			e.t = 0
@@ -2977,11 +2987,16 @@ func _bat(e: Dictionary) -> void:
 			e.y = e.cy
 			e.st = 0
 			e.cd = 150
+			e.bv = Vector2.ZERO
 		else:
-			var v2 := d.normalized() * 3.6
-			e.x += v2.x
-			e.y += v2.y
-			e.dir = 1 if v2.x > 0 else -1
+			# volta para o poleiro ganhando velocidade e freando ao chegar
+			var bv2: Vector2 = e.get("bv", Vector2.ZERO)
+			bv2 = bv2.lerp(d.normalized() * min(3.6, d.length() * .08 + .6), .09)
+			e.bv = bv2
+			e.x += bv2.x
+			e.y += bv2.y
+			if abs(bv2.x) > .3:
+				e.dir = 1 if bv2.x > 0 else -1
 
 ## aranha: desce do teto num fio quando o Tomé passa por baixo
 func _spider(e: Dictionary) -> void:
@@ -2994,12 +3009,16 @@ func _spider(e: Dictionary) -> void:
 		if e.cd == 0 and abs(player.x + player.w / 2 - e.x) < 70 and player.y > e.y and player.dyingT == 0:
 			e.st = 1
 	elif st == 1:
-		e.y = min(low, e.y + 5.0)
+		# desce rápido e o fio estica: freia perto do fim e quica de leve
+		e.sv = min(float(e.get("sv", 0.0)) + .6, 6.0)
+		e.y = min(low, e.y + e.sv)
 		if e.y >= low:
 			e.st = 2
 			e.t = 0
+			e.sv = 0.0
 	elif st == 2:
 		e.t += 1
+		e.y = low - sin(min(e.t, 24) / 24.0 * PI * 2.0) * 8.0 * (1.0 - min(e.t, 24) / 24.0)
 		if e.t > 55:
 			e.st = 3
 	else:

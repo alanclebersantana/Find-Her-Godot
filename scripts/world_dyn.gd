@@ -658,6 +658,11 @@ func _enemy_body(e: Dictionary, dist: float) -> void:
 		Spr.scale(1.0 + .07 * u, 1.0 - .1 * u)
 		return
 	Spr.rotate(e._ln)
+	var lt: int = int(e.get("landT", 0)) if e.k != "frog" else 0
+	if lt > 0:
+		Spr.scale(1.0 + .16 * lt / 10.0, 1.0 - .2 * lt / 10.0)
+	elif e.get("leap") and e.k != "frog":
+		Spr.scale(.94, 1.07)
 	if abs(vx) < .2 and not fly:
 		Spr.scale(1.0 - sin(T * .08 + e.x) * .008, 1.0 + sin(T * .08 + e.x) * .016)
 
@@ -670,7 +675,7 @@ func _enemy(e: Dictionary) -> void:
 	Spr.translate(e.x, e.y)
 	if not e.dead:
 		_enemy_body(e, dist)
-	Spr.scale((sign(fs) * max(abs(fs), .18) if fs != 0 else 1.0) if not e.dead else (1.0 if e.dir > 0 else -1.0), 1)
+	Spr.scale(Spr.turnw(fs) if not e.dead else (1.0 if e.dir > 0 else -1.0), 1)
 	if e.dead:
 		if e.dk == "flat":
 			var q: float = min(1, e.dead / 4.0)

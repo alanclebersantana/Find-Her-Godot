@@ -48,6 +48,20 @@ static func _hawk(g: Game, K: Kings, T: int) -> void:
 			fr = (T / 4) % 3
 	var tint := Color(1, .5, .45) if h.red > 0 and (T / 3) % 2 == 0 else Color(1, 1, 1)
 	var y: float = h.y - (6 if h.st == "stuck" else 50)
+	# inclinação do mergulho entra e sai aos poucos; o corpo sobe a cada batida de asa
+	h._rot = lerpf(float(h.get("_rot", 0.0)), rot, .2)
+	rot = h._rot
+	if h.st in ["circle", "rise", "flee", "mark"] and h.get("skin", "hawk") != "bat":
+		y += -sin(T * PI / 7.5) * 4.0
+	var hsx := 1.0
+	var hsy := 1.0
+	var lt: int = int(h.get("landT", 0))
+	if lt > 0:
+		# cravou no chão: achata com o impacto
+		var u: float = lt / 12.0
+		hsx = 1.0 + .2 * u
+		hsy = 1.0 - .2 * u
+	var hfs: float = Spr.eturn(h, .16)
 	if h.get("skin", "hawk") == "bat":
 		# Morcego-Rei: o morcego pintado bem grande, asas batendo, olhos vermelhos brilhando
 		var bf: int = [0, 1, 2, 1][(T / 4) % 4]
@@ -61,7 +75,7 @@ static func _hawk(g: Game, K: Kings, T: int) -> void:
 		Spr.save()
 		Spr.translate(h.x, y - 34 + flap)
 		Spr.rotate(rot * .6)
-		Spr.scale(Spr.eturn(h, .12), 1)
+		Spr.scale(hfs * hsx, hsy)
 		if mrt:
 			# arte própria: 0-2 batendo as asas, 3 mergulho, 4 tonto (coroa e olhos já desenhados)
 			var mf: int = bf
@@ -90,14 +104,14 @@ static func _hawk(g: Game, K: Kings, T: int) -> void:
 		Spr.save()
 		Spr.translate(h.x, y)
 		Spr.rotate(rot)
-		Spr.scale(h.dir * sc, sc)
+		Spr.scale(hfs * sc * hsx, sc * hsy)
 		if h.st in ["dive", "stuck", "mark"]:
 			Spr.ci.draw_texture_rect_region(Spr.tex.gaviao, Rect2(-66, -96, 132, 124), Rect2(fr * 132, 0, 132, 124), Color(tint.r, tint.g, tint.b, Spr.alpha))
 		else:
 			Spr.region_mix(Spr.tex.gaviao, Rect2(-66, -96, 132, 124), 132, 124, [0, 1, 2], T / 5.0, Color(tint.r, tint.g, tint.b, Spr.alpha))
 		Spr.restore()
 	if h.get("skin", "hawk") != "bat":
-		_crown(h.x + h.dir * 14, y - 112, 1.2)
+		_crown(h.x + hfs * 14, y - 112 * hsy, 1.2)
 	if h.st == "stuck":
 		# garras presas na madeira
 		for i in 3:
@@ -132,9 +146,29 @@ static func _fish(g: Game, K: Kings, T: int) -> void:
 			fr = 6
 	var a: float = f.al * (clamp(1.0 - f.t / 160.0, 0, 1) if f.st == "down" else 1.0)
 	var tint := Color(1, .55, .5) if f.red > 0 and (T / 3) % 2 == 0 else Color(1, 1, 1)
+	# nada com o corpo: inclina para onde sobe/desce, estica no bote, encolhe ao mirar e achata ao bater
+	var fvy: float = f.y - float(f.get("_py", f.y))
+	f._py = f.y
+	f._pt = lerpf(float(f.get("_pt", 0.0)), clamp(fvy * .05, -.18, .18), .1)
+	var fsx := 1.0
+	var fsy := 1.0
+	if f.st == "charge":
+		var cu: float = clamp(abs(float(f.get("vx", 0.0))) / 9.0, 0, 1)
+		fsx = 1.0 + .1 * cu
+		fsy = 1.0 - .07 * cu
+	elif f.st == "aim" and f.t >= 28:
+		var au: float = clamp((f.t - 28) / 16.0, 0, 1)
+		fsx = 1.0 - .08 * au
+		fsy = 1.0 + .05 * au
+	var fh: int = int(f.get("hitT", 0))
+	if fh > 0:
+		fsx *= 1.0 - .18 * fh / 16.0
+		fsy *= 1.0 + .1 * fh / 16.0
 	Spr.save()
 	Spr.translate(f.x, f.y + (sin(T * .06) * 3.0 if f.st != "down" else 0.0))
-	Spr.scale(Spr.eturn(f, .1), 1)
+	var ffs: float = Spr.eturn(f, .1)
+	Spr.rotate(f._pt * sign(ffs) if f.st != "down" else 0.0)
+	Spr.scale(ffs * fsx, fsy)
 	if f.get("skin", "fish") == "frog" and Spr.tex.has("en_frog2"):
 		# Sapo-Rei nadando: o sapo pintado bem grande, pernas batendo; boca aberta quando suga
 		var ff: int = 0 if f.st in ["tired", "down"] else (3 if f.st == "suck" and f.mouth > .3 else [1, 2][(T / 8) % 2])
@@ -291,7 +325,8 @@ static func _bear(g: Game, K: Kings, T: int) -> void:
 		Spr.ellipse(b.x, b.gy + 1, 300, 10, Color(1, .3, .15, k * .7))
 	if b.st == "scrape":
 		Spr.seg(b.x + b.dir * 100, b.gy - 2, b.x + b.dir * 420, b.gy - 2, Color(1, .3, .15, k), 5)
-	Spr.ellipse(b.x, b.gy + 2, 100, 12, Color(0, 0, 0, .28))
+	var bsh: float = clamp(1.0 + float(b.get("hy", 0.0)) / 260.0, .4, 1.0)
+	Spr.ellipse(b.x, b.gy + 2, 100 * bsh, 12 * bsh, Color(0, 0, 0, .28 * bsh))
 	# inclinação e agachar com peso (sem estalar de uma pose para a outra)
 	b._rot = lerpf(float(b.get("_rot", 0.0)), rot, .18)
 	b._dy = lerpf(float(b.get("_dy", 0.0)), dy, .2)
@@ -304,9 +339,22 @@ static func _bear(g: Game, K: Kings, T: int) -> void:
 	Spr.translate(b.x + sway, b.gy + 2 + b.get("hy", 0.0) + dy)
 	if b.st in ["rear", "rear2"]:
 		Spr.translate(0, -sin(min(1.0, b.t / 20.0) * PI * .5) * 6)
-	Spr.scale(Spr.eturn(b, .15), 1)
+	# agacha antes do pulo e achata ao cair
+	var bsx := 1.0
+	var bsy := 1.0
+	var hc: float = float(b.get("hcr", 0.0)) if b.st == "hop" else 0.0
+	bsx += .08 * hc
+	bsy -= .12 * hc
+	var blt: int = int(b.get("landT", 0))
+	if blt > 0:
+		bsx *= 1.0 + .14 * blt / 14.0
+		bsy *= 1.0 - .16 * blt / 14.0
+	if b.st == "hop" and hc == 0.0 and float(b.get("hy", 0.0)) < -10.0:
+		bsx *= .95
+		bsy *= 1.06
+	Spr.scale(Spr.eturn(b, .15) * bsx, bsy)
 	Spr.rotate(rot)
-	if b.st in ["walk", "charge"]:
+	if b.st in ["walk", "charge", "back", "tree", "flee", "hop"] or (b.st == "backoff" and b.t < 24):
 		Spr.region_mix(Spr.tex.urso, Rect2(-140, -228, 280, 230), 280, 230, [0, 1], b.anim * 2.0, Color(tint.r, tint.g, tint.b, Spr.alpha))
 	else:
 		Spr.ci.draw_texture_rect_region(Spr.tex.urso, Rect2(-140, -228, 280, 230), Rect2(fr * 280, 0, 280, 230), Color(tint.r, tint.g, tint.b, Spr.alpha))

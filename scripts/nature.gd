@@ -300,11 +300,19 @@ func squirrel(e: Dictionary) -> void:
 			e.y = e.base
 			if not e.has("dir") or e.dir == 0:
 				e.dir = 1
-			e.x += e.dir * 1.3
-			if e.x < r0 or e.x > r1:
-				e.x = clamp(e.x, r0, r1)
-				e.dir = -e.dir
-			e.run = e.get("run", 0.0) + .2
+			# na ponta do trecho para, olha em volta e só então vira e volta a correr
+			if e.get("pz", 0) > 0:
+				e.pz -= 1
+				if e.pz == 6:
+					e.dir = -e.dir
+				e.sv = 0.0
+			else:
+				e.sv = move_toward(float(e.get("sv", 1.3)), 1.3, .12)
+				e.x += e.dir * e.sv
+				if e.x < r0 or e.x > r1:
+					e.x = clamp(e.x, r0, r1)
+					e.pz = 18
+				e.run = e.get("run", 0.0) + .2 * e.sv / 1.3
 			if abs(dx) < 230 and abs(p.y + p.h - e.base) < 70 and e.t > 70 and p.dyingT == 0:
 				e.st = 1
 				e.t = 0

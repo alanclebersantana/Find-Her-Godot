@@ -496,7 +496,13 @@ func eturn(e: Dictionary, k: float = .2) -> float:
 	var d: float = 1.0 if e.dir > 0 else -1.0
 	var fs: float = move_toward(float(e.get("_fs", d)), d, k)
 	e._fs = fs
-	return sign(fs) * max(abs(fs), .18) if fs != 0 else d * .18
+	return turnw(fs, d)
+
+## largura na virada: o bicho estreita só até metade e espelha (vira de corpo, não vira "papel")
+func turnw(fs: float, d: float = 1.0) -> float:
+	if fs == 0:
+		return d * .45
+	return sign(fs) * (.45 + .55 * abs(fs))
 
 
 ## ciclo de poucos quadros (andar/correr) com transição: perto da troca, o próximo quadro
