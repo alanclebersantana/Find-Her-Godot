@@ -71,7 +71,10 @@ static func _hawk(g: Game, K: Kings, T: int) -> void:
 				mf = 4
 			var MW := 270.0
 			var MH := 306.0
-			Spr.ci.draw_texture_rect_region(mrt, Rect2(-.55 * MW, -62 - .41 * MH, MW, MH), Rect2(mf * 300, 0, 300, 340), Color(tint.r, tint.g, tint.b, Spr.alpha))
+			if h.st in ["dive", "stuck"]:
+				Spr.ci.draw_texture_rect_region(mrt, Rect2(-.55 * MW, -62 - .41 * MH, MW, MH), Rect2(mf * 300, 0, 300, 340), Color(tint.r, tint.g, tint.b, Spr.alpha))
+			else:
+				Spr.region_mix(mrt, Rect2(-.55 * MW, -62 - .41 * MH, MW, MH), 300, 340, [0, 1, 2, 1], T / 4.0, Color(tint.r, tint.g, tint.b, Spr.alpha))
 			Spr.restore()
 			Spr.glow(h.x, y - 92, 40, Color(1, .2, .1, .12))
 		else:
@@ -88,7 +91,10 @@ static func _hawk(g: Game, K: Kings, T: int) -> void:
 		Spr.translate(h.x, y)
 		Spr.rotate(rot)
 		Spr.scale(h.dir * sc, sc)
-		Spr.ci.draw_texture_rect_region(Spr.tex.gaviao, Rect2(-66, -96, 132, 124), Rect2(fr * 132, 0, 132, 124), Color(tint.r, tint.g, tint.b, Spr.alpha))
+		if h.st in ["dive", "stuck", "mark"]:
+			Spr.ci.draw_texture_rect_region(Spr.tex.gaviao, Rect2(-66, -96, 132, 124), Rect2(fr * 132, 0, 132, 124), Color(tint.r, tint.g, tint.b, Spr.alpha))
+		else:
+			Spr.region_mix(Spr.tex.gaviao, Rect2(-66, -96, 132, 124), 132, 124, [0, 1, 2], T / 5.0, Color(tint.r, tint.g, tint.b, Spr.alpha))
 		Spr.restore()
 	if h.get("skin", "hawk") != "bat":
 		_crown(h.x + h.dir * 14, y - 112, 1.2)
@@ -137,12 +143,18 @@ static func _fish(g: Game, K: Kings, T: int) -> void:
 		var srt: Texture2D = Spr.opt("sapo_rei")
 		if srt:
 			# arte própria do Sapo-Rei (coroa já desenhada); as pernas batem trocando os quadros 1 e 2
-			Spr.ci.draw_texture_rect_region(srt, Rect2(-160, -104, 320, 180), Rect2(ff * 320, 0, 320, 180), Color(tint.r, tint.g, tint.b, Spr.alpha * a))
+			if ff in [1, 2]:
+				Spr.region_mix(srt, Rect2(-160, -104, 320, 180), 320, 180, [1, 2], T / 8.0, Color(tint.r, tint.g, tint.b, Spr.alpha * a))
+			else:
+				Spr.ci.draw_texture_rect_region(srt, Rect2(-160, -104, 320, 180), Rect2(ff * 320, 0, 320, 180), Color(tint.r, tint.g, tint.b, Spr.alpha * a))
 		else:
 			Spr.ci.draw_texture_rect_region(Spr.tex.en_frog2, Rect2(-150, -95, 300, 162), Rect2(ff * 130, 0, 130, 70), Color(tint.r * .8, tint.g, tint.b * .75, Spr.alpha * a))
 			_crown(18, -88, 1.1)
 	else:
-		Spr.ci.draw_texture_rect_region(Spr.tex.bagre, Rect2(-140, -80, 280, 160), Rect2(fr * 280, 0, 280, 160), Color(tint.r, tint.g, tint.b, Spr.alpha * a))
+		if fr < 4 and not f.st in ["suck", "tired", "down"]:
+			Spr.region_mix(Spr.tex.bagre, Rect2(-140, -80, 280, 160), 280, 160, [0, 1, 2, 3], T / 7.0, Color(tint.r, tint.g, tint.b, Spr.alpha * a))
+		else:
+			Spr.ci.draw_texture_rect_region(Spr.tex.bagre, Rect2(-140, -80, 280, 160), Rect2(fr * 280, 0, 280, 160), Color(tint.r, tint.g, tint.b, Spr.alpha * a))
 	Spr.restore()
 	# escamas azuis = pontos fracos: brilham quando ele cansa; as que já caíram viram marca escura
 	if f.st != "down":
@@ -294,7 +306,10 @@ static func _bear(g: Game, K: Kings, T: int) -> void:
 		Spr.translate(0, -sin(min(1.0, b.t / 20.0) * PI * .5) * 6)
 	Spr.scale(Spr.eturn(b, .15), 1)
 	Spr.rotate(rot)
-	Spr.ci.draw_texture_rect_region(Spr.tex.urso, Rect2(-140, -228, 280, 230), Rect2(fr * 280, 0, 280, 230), Color(tint.r, tint.g, tint.b, Spr.alpha))
+	if b.st in ["walk", "charge"]:
+		Spr.region_mix(Spr.tex.urso, Rect2(-140, -228, 280, 230), 280, 230, [0, 1], b.anim * 2.0, Color(tint.r, tint.g, tint.b, Spr.alpha))
+	else:
+		Spr.ci.draw_texture_rect_region(Spr.tex.urso, Rect2(-140, -228, 280, 230), Rect2(fr * 280, 0, 280, 230), Color(tint.r, tint.g, tint.b, Spr.alpha))
 	Spr.restore()
 	# pata(s) erguida(s) brilhando antes de bater
 	if b.st == "rear":

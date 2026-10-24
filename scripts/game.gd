@@ -2717,7 +2717,55 @@ func ebox(e: Dictionary) -> Dictionary:
 		return R(e.x - 22, e.y - 8, 44, 22)
 	return R(e.x - 20, e.y - 34, 40, 34)
 
+## voa/nada de um lado a outro fazendo a curva: desacelera perto da ponta e volta aos poucos
+func _glide(e: Dictionary, sp: float) -> void:
+	var edge: float = (e.r[1] - e.x) if e.dir > 0 else (e.x - e.r[0])
+	if edge < 40:
+		e.dir = -e.dir if edge < 2 else e.dir
+	var tv: float = e.dir * sp * clamp(edge / 40.0, .15, 1.0) if edge >= 2 else e.dir * sp * .15
+	var fv: float = move_toward(float(e.get("fv", e.dir * sp)), tv, .07)
+	e.fv = fv
+	e.x = clamp(e.x + fv, e.r[0], e.r[1])
+	if e.x <= e.r[0]:
+		e.dir = 1
+	elif e.x >= e.r[1]:
+		e.dir = -1
+
+func _dust_col() -> Color:
+	var gk := ground_kind()
+	if gk == "snow":
+		return Color(.95, .97, 1, .75)
+	if gk == "grass":
+		return Color(.5, .6, .36, .45)
+	return Color(.62, .55, .42, .5)
+
 func update_enemy(e: Dictionary) -> void:
+	_update_enemy_core(e)
+	_enemy_life(e)
+
+## vida dos bichos (estilo animação 3D): poeirinha nos passos e no pouso
+func _enemy_life(e: Dictionary) -> void:
+	var lx: float = e.get("_lx2", e.x)
+	e._lx2 = e.x
+	if e.dead or FLY.has(e.k) or e.k in ["crow", "bat", "spider", "piranha", "leech", "plant", "owl", "mole"]:
+		return
+	var vx: float = e.x - lx
+	var on: bool = abs(e.y - float(e.get("base", e.y))) < 2
+	if e.k == "frog":
+		if on and not e.get("_on", true):
+			for k in 5:
+				PARTS.append({"x": e.x + (k - 2) * 7, "y": e.y - 1, "vx": (k - 2) * .7, "vy": -randf_range(.4, 1.2), "life": 16, "col": _dust_col()})
+		e._on = on
+		return
+	if on and abs(vx) > .3:
+		e._sd = float(e.get("_sd", 0.0)) + abs(vx)
+		var stp := 34.0 if abs(vx) < 2 else 22.0
+		if e._sd > stp:
+			e._sd -= stp
+			for k in (2 if abs(vx) > 2 else 1):
+				PARTS.append({"x": e.x - sign(vx) * (14 + k * 4), "y": e.y - 1, "vx": -sign(vx) * randf_range(.3, 1.2), "vy": -randf_range(.3, .9), "life": 14, "col": _dust_col()})
+
+func _update_enemy_core(e: Dictionary) -> void:
 	if e.stun > 0:
 		e.stun -= 1
 		return
@@ -2811,13 +2859,7 @@ func update_enemy(e: Dictionary) -> void:
 				e.st = 0
 		return
 	if FLY.has(e.k):
-		e.x += e.dir * 1.8
-		if e.x < e.r[0]:
-			e.x = e.r[0]
-			e.dir = 1
-		if e.x > e.r[1]:
-			e.x = e.r[1]
-			e.dir = -1
+		_glide(e, 1.8)
 		e.y = e.cy + sin(T * .05 + e.x * .02) * 30
 		return
 	# javali (anda e investe)
@@ -2825,20 +2867,39 @@ func update_enemy(e: Dictionary) -> void:
 	if e.k == "boar":
 		var dx2: float = player.x + player.w / 2 - e.x
 		var dy2: float = player.y + player.h - e.base
-		e.charge = abs(dx2) < 230 and abs(dy2) < 40 and dx2 * e.dir > 0
+		var ch: bool = abs(dx2) < 230 and abs(dy2) < 40 and dx2 * e.dir > 0
+		# antecipação (como em animação): antes de investir ele recua, raspa a pata e só então dispara
+		if ch and not e.get("charge") and e.get("wind", 0) == 0:
+			e.wind = 16
+			Audio.play("stomp", -16)
+		e.charge = ch
+		if e.get("wind", 0) > 0:
+			e.wind -= 1
+			e.cs = -.5 if e.wind > 8 else 0.0
+			e.x = clamp(e.x - e.dir * .5 if e.wind > 8 else e.x, e.r[0], e.r[1])
+			if e.wind % 4 == 0:
+				PARTS.append({"x": e.x - e.dir * 18, "y": e.base - 2, "vx": -e.dir * randf_range(1.0, 2.2), "vy": -randf_range(.8, 1.8), "life": 16, "col": _dust_col()})
+			e.y = e.base
+			return
 		if e.charge:
 			spd = 2.7
+	# freia chegando na ponta do caminho, vira e arranca de novo (sem dar meia-volta seca)
+	var edge: float = (e.r[1] - e.x) if e.dir > 0 else (e.x - e.r[0])
+	if not e.get("charge"):
+		spd = min(spd, max(.2, edge * .07))
 	# arranca e freia com peso (não muda de 1 para 2,7 num quadro só)
-	var cs: float = move_toward(float(e.get("cs", spd)), spd, .12)
+	var cs: float = move_toward(float(e.get("cs", spd)), spd, .12 if spd >= float(e.get("cs", 0.0)) else .2)
 	e.cs = cs
 	spd = cs
 	e.x += e.dir * spd
 	if e.x < e.r[0]:
 		e.x = e.r[0]
 		e.dir = 1
+		e.cs = 0.0
 	if e.x > e.r[1]:
 		e.x = e.r[1]
 		e.dir = -1
+		e.cs = 0.0
 	e.y = e.base
 
 ## corvo: voa de um lado a outro e dá rasantes quando o Tomé passa embaixo
@@ -2847,13 +2908,7 @@ func _crow(e: Dictionary) -> void:
 	var pc := Vector2(player.x + player.w / 2, player.y + player.h / 2)
 	e.t = e.get("t", 0) + 1
 	if st == 0:
-		e.x += e.dir * 2.2
-		if e.x < e.r[0]:
-			e.x = e.r[0]
-			e.dir = 1
-		if e.x > e.r[1]:
-			e.x = e.r[1]
-			e.dir = -1
+		_glide(e, 2.2)
 		e.y = e.cy + sin(T * .06 + e.x * .01) * 16
 		if abs(pc.x - e.x) < 230 and pc.y > e.y + 40 and e.t > (160 if e.get("minion") else 90) and player.dyingT == 0:
 			# antes do mergulho ele para no ar batendo as asas e mostra o "!" vermelho
@@ -2889,13 +2944,7 @@ func _piranha(e: Dictionary) -> void:
 		e.x = clamp(e.x + sign(d.x) * 2.6, e.r[0], e.r[1])
 		e.y += clamp(d.y, -1.6, 1.6)
 	else:
-		e.x += e.dir * 1.3
-		if e.x < e.r[0]:
-			e.x = e.r[0]
-			e.dir = 1
-		if e.x > e.r[1]:
-			e.x = e.r[1]
-			e.dir = -1
+		_glide(e, 1.3)
 		e.y = lerpf(e.y, e.cy + sin(T * .05 + e.x * .02) * 26, .05)
 
 ## morcego: dorme pendurado; acorda quando o Tomé chega perto e foge da luz

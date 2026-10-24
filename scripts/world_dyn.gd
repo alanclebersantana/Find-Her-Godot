@@ -642,6 +642,25 @@ static func dizzy(x: float, y: float, t: int) -> void:
 			var aa: float = -PI / 2 + TAU * k / 10.0 + t * .05
 			pts.push_back(Vector2(sx + cos(aa) * r, sy + sin(aa) * r))
 		Spr.poly(pts, Color(1, .9, .3, .95))
+## corpo vivo dos bichos (como nos filmes 3D): inclina na direção em que acelera, respira parado,
+## achata antes do bote do javali e se inclina nas curvas de quem voa
+func _enemy_body(e: Dictionary, dist: float) -> void:
+	var vx: float = e.x - float(e.get("_pbx", e.x))
+	e._pbx = e.x
+	var fly: bool = Game.FLY.has(e.k) or e.k in ["crow", "bat", "owl", "piranha"]
+	var tl: float = clamp(vx * (.05 if fly else .035), -.12, .12)
+	e._ln = lerp(float(e.get("_ln", 0.0)), tl, .12)
+	var w: int = int(e.get("wind", 0))
+	if w > 0:
+		# antecipação do bote: abaixa e joga o peso para trás
+		var u: float = sin((16 - w) / 16.0 * PI)
+		Spr.rotate(-e.dir * .1 * u)
+		Spr.scale(1.0 + .07 * u, 1.0 - .1 * u)
+		return
+	Spr.rotate(e._ln)
+	if abs(vx) < .2 and not fly:
+		Spr.scale(1.0 - sin(T * .08 + e.x) * .008, 1.0 + sin(T * .08 + e.x) * .016)
+
 func _enemy(e: Dictionary) -> void:
 	Spr.save()
 	if e.dead:
@@ -649,6 +668,8 @@ func _enemy(e: Dictionary) -> void:
 	var dist: float = e.get("_dd", 0.0)
 	var fs: float = e.get("_fs", 1.0 if e.dir > 0 else -1.0)
 	Spr.translate(e.x, e.y)
+	if not e.dead:
+		_enemy_body(e, dist)
 	Spr.scale((sign(fs) * max(abs(fs), .18) if fs != 0 else 1.0) if not e.dead else (1.0 if e.dir > 0 else -1.0), 1)
 	if e.dead:
 		if e.dk == "flat":
@@ -661,8 +682,11 @@ func _enemy(e: Dictionary) -> void:
 			Spr.rotate(min(PI, e.dead * .25))
 			Spr.translate(0, -m)
 	elif not Game.FLY.has(e.k) and not e.k in ["spider", "mole", "frog", "plant", "leech"]:
-		# sobe-e-desce do passo, só quando anda (parado fica no chão, respirando)
-		Spr.translate(0, -abs(sin(dist * .14)) * 1.6)
+		# sobe-e-desce do passo, só quando anda (parado fica no chão, respirando);
+		# no quadro de apoio o corpo achata um tiquinho e estica no impulso
+		var ph: float = sin(dist * .14)
+		Spr.translate(0, -abs(ph) * 1.6)
+		Spr.scale(1.0 - abs(ph) * .015, 1.0 + (abs(ph) - .5) * .03)
 	match e.k:
 		"frog":
 			if e.dead:
@@ -737,8 +761,8 @@ func _enemy(e: Dictionary) -> void:
 			else:
 				fr = [0, 1, 2, 3][(T / 8) % 4]
 			if fr < 4 and Spr.tex.has("en_boar"):
-				# andando: 6 quadros novos, pernas alternando
-				Spr.frame(Spr.tex.en_boar, int(dist / 6.6) % 6, 210, 140, 105, 136, 0, 3, .46)
+				# andando: 6 quadros novos, pernas alternando, com transição entre um quadro e outro
+				Spr.frame_mix(Spr.tex.en_boar, dist / 6.6, 6, 0, 210, 140, 105, 136, 0, 3, .46)
 			else:
 				Spr.frame(Spr.tex.javali, fr, 210, 140, 105, 136, 0, 3, .46)
 	Spr.restore()
@@ -888,12 +912,14 @@ func _rider(g: Game) -> void:
 		Spr.frame(jt, 3, 260, 250, 130, 244, 0, 0, RS)
 	elif gt:
 		var gf: int = int(RD.gallop) % 8
-		if RD.hy < 497.0:
-			gf = 3
 		if RD.duck:
 			Spr.translate(0, 10)
 			Spr.scale(1, .9)
-		Spr.frame(gt, gf, 260, 250, 130, 244, 0, 0, RS)
+		if RD.hy < 497.0:
+			Spr.frame(gt, 3, 260, 250, 130, 244, 0, 0, RS)
+		else:
+			# galope com transição entre os quadros (passada contínua)
+			Spr.frame_mix(gt, RD.gallop, 8, 0, 260, 250, 130, 244, 0, 0, RS)
 	Spr.restore()
 	Spr.alpha = 1.0
 

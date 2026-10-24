@@ -432,6 +432,10 @@ static func squirrel(e: Dictionary, T: int) -> void:
 	if not Spr.tex.has("esquilo"):
 		Spr.tex["esquilo"] = load("res://assets/sprites/esquilo.png")
 	var fr: int = int(e.get("run", 0.0)) % 4
+	var running: bool = not e.dead and e.get("st", 0) == 0
+	if running:
+		Spr.frame_mix(Spr.tex.esquilo, e.get("run", 0.0), 4, 0, 130, 110, 65, 108, 0, 0, .6)
+		return
 	if e.dead:
 		fr = 5
 	elif e.get("st", 0) == 2:
@@ -448,7 +452,7 @@ static func crow(e: Dictionary, T: int) -> void:
 	# corvo grande (bem maior que os tucanos do cenário); batendo asas rápido antes do mergulho
 	var fs: int = 3 if e.get("st", 0) == 5 else 5
 	if Spr.tex.has("en_crow2"):
-		Spr.frame(Spr.tex.en_crow2, (T / fs + int(e.x * .1)) % 4, 170, 130, 85, 65, 0, -8, .74)
+		Spr.frame_mix(Spr.tex.en_crow2, T / float(fs) + int(e.x * .1), 4, 0, 170, 130, 85, 65, 0, -8, .74)
 	else:
 		Spr.A("crow%d" % ((T / 4) % 3), 0, -8, .74)
 

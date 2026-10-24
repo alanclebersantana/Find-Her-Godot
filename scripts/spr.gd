@@ -368,6 +368,24 @@ func frame(t: Texture2D, fr: int, cw: float, ch: float, ax: float, ay: float, x:
 		ci.draw_texture_rect_region(t, Rect2(-ax, -ay, cw, ch), Rect2(fr * cw, 0, cw, ch), Color(1, 1, 1, alpha * al))
 	restore()
 
+## ciclo de quadros com transição: perto da troca, o quadro seguinte aparece por cima aos poucos
+## (fpos = posição contínua no ciclo; quadros base .. base + n - 1)
+func frame_mix(t: Texture2D, fpos: float, n: int, base: int, cw: float, ch: float, ax: float, ay: float, x: float, y: float, sc: float, flip: bool = false, al: float = 1.0) -> void:
+	var f0: int = int(floor(fpos))
+	frame(t, base + posmod(f0, n), cw, ch, ax, ay, x, y, sc, flip, al)
+	var k: float = smoothstep(.55, 1.0, fpos - f0) * .7
+	if k > .02:
+		frame(t, base + posmod(f0 + 1, n), cw, ch, ax, ay, x, y, sc, flip, al * k)
+
+## mesma ideia para folhas desenhadas direto (chefes): seq = ordem dos quadros no ciclo
+func region_mix(t: Texture2D, dst: Rect2, cw: float, ch: float, seq: Array, fpos: float, mod: Color) -> void:
+	var f0: int = int(floor(fpos))
+	var n: int = seq.size()
+	ci.draw_texture_rect_region(t, dst, Rect2(int(seq[posmod(f0, n)]) * cw, 0, cw, ch), mod)
+	var k: float = smoothstep(.55, 1.0, fpos - f0) * .7
+	if k > .02:
+		ci.draw_texture_rect_region(t, dst, Rect2(int(seq[posmod(f0 + 1, n)]) * cw, 0, cw, ch), Color(mod.r, mod.g, mod.b, mod.a * k))
+
 # ---------- formas ----------
 func col(c: Color, a: float = 1.0) -> Color:
 	return Color(c.r, c.g, c.b, c.a * a * alpha)
