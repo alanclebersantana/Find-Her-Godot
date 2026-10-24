@@ -319,6 +319,12 @@ def cut(jid, src):
             pieces.append(None)
             continue
         pieces.append(Image.fromarray(cell[ys.min():ys.max() + 1, xs.min():xs.max() + 1]))
+    # se o Gemini rearrumou a grade, usa as manchas na ordem de leitura (quando a contagem bate)
+    blobs = find_blobs(rgba, len(job['items']))
+    if blobs is not None:
+        pieces = blobs
+    elif os.environ.get('PX_STRICT'):
+        raise SystemExit('contagem de peças não bate: ' + jid)
     origs = [src_img(it) for it in job['items']]
     obbs = [o.getbbox() for o in origs]
     kinds = set(it['kind'] for it in job['items'])
@@ -358,9 +364,60 @@ def cut(jid, src):
         x, y = it['rect'][:2]
         t.paste((0, 0, 0, 0), (x, y, x + w, y + h))
         t.alpha_composite(frame, (x, y))
+    if job.get('ground'):
+        for f in list(targets):
+            targets[f] = seamless(targets[f])
     for f, t in targets.items():
         t.save(P(f), optimize=True)
         print('ok', f)
+
+
+def find_blobs(rgba, n):
+    al = rgba[..., 3] > 24
+    H, W = al.shape
+    r = max(6, int(min(H, W) * .018))
+    dl = ndimage.binary_dilation(al, iterations=r)
+    lab, k = ndimage.label(dl)
+    if k == 0:
+        return None
+    objs = ndimage.find_objects(lab)
+    areas = ndimage.sum(al, lab, range(1, k + 1))
+    big = [i for i in range(k) if areas[i] > 0.15 * max(areas)]
+    if len(big) != n:
+        print('  manchas: %d (esperado %d) -> usa a grade' % (len(big), n))
+        return None
+    info = []
+    for i in big:
+        sl = objs[i]
+        info.append(((sl[0].start + sl[0].stop) / 2, (sl[1].start + sl[1].stop) / 2, sl, i + 1, sl[0].stop - sl[0].start))
+    hmed = float(np.median([t[4] for t in info]))
+    info.sort(key=lambda t: t[0])
+    rows = []
+    for t in info:
+        if rows and abs(t[0] - rows[-1][0][0]) < hmed * .5:
+            rows[-1].append(t)
+        else:
+            rows.append([t])
+    out = []
+    for row in rows:
+        for cy, cx, sl, li, _ in sorted(row, key=lambda t: t[1]):
+            piece = rgba[sl].copy()
+            piece[..., 3][lab[sl] != li] = 0
+            ys, xs = np.nonzero(piece[..., 3] > 24)
+            out.append(Image.fromarray(piece[ys.min():ys.max() + 1, xs.min():xs.max() + 1]))
+    return out
+
+
+def seamless(im, frac=.22):
+    """emenda horizontal: a borda direita se mistura com o começo (ladrilho sem costura)."""
+    a = np.array(im.convert('RGBA')).astype(np.float32)
+    w = a.shape[1]
+    k = max(4, int(w * frac))
+    out = a[:, :w - k].copy()
+    t = np.linspace(0, 1, k)[None, :, None]
+    out[:, :k] = a[:, :k] * t + a[:, w - k:] * (1 - t)
+    img = Image.fromarray(np.clip(out, 0, 255).astype(np.uint8))
+    return img.resize((w, a.shape[0]), Image.LANCZOS)
 
 
 DESC = {
