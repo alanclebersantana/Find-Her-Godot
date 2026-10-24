@@ -146,6 +146,8 @@ func _hawk() -> void:
 				g.hurt(1, h.x)
 			if u >= 1.0:
 				h.landT = 12
+				g.shake_dir = Vector2(0, 1)
+				Polish.debris(h.x - 120, h.x + 120, gy, 8)
 				g.shake = 10
 				g.burst(h.x, gy, 14, Color("#cdbfa6"))
 				g.fx("fx_pieces", h.x, gy - 8, 16, .3, -.4)
@@ -185,6 +187,7 @@ func _hawk() -> void:
 			if h.t > 120:
 				h.done = true
 				h.active = false
+				Polish.smoke_cloud(h.x, h.y - 40)
 
 func _mark(h: Dictionary, pcx: float) -> void:
 	h.st = "mark"
@@ -192,6 +195,7 @@ func _mark(h: Dictionary, pcx: float) -> void:
 	h.conf = false
 	h.tx = clamp(pcx, h.x0 + 60, h.x1 - 60)
 	Audio.play("roar", -16)
+	Polish.roar(h.x, h.y - 50)
 
 ## sombra do mergulho (posição e força) para o desenho
 func hawk_shadow() -> Vector2:
@@ -223,6 +227,10 @@ func swing_hits(hb: Dictionary) -> void:
 	if h.hp <= 0:
 		h.st = "flee"
 		h.t = 0
+		Polish.final_blow()
+		if h.get("skin", "hawk") != "bat":
+			Polish.crown_drop("gold", h.x + h.dir * 14, h.y - 112, h.dir, h.gy)
+		Polish.loot_arc(h.x, h.y - 40, 10, h.gy)
 		_gate("hawkL", false, Rect2())
 		_gate("hawkR", false, Rect2())
 		for e in g.EN:
@@ -431,6 +439,7 @@ func _bear() -> void:
 				b.anim += .12
 			elif b.t == 24:
 				Audio.play("roar", -4)
+				Polish.roar(b.x + b.dir * 90, b.gy - 150)
 				g.shake = max(g.shake, 5)
 			elif b.t > 24 + 46 - lvl * 6:
 				_bear_attack()
@@ -451,6 +460,8 @@ func _bear() -> void:
 						s2.shk = 18
 				g.burst(b.x + b.dir * 150, gy, 24, Color(.95, .97, 1))
 				g.fx("fx_dust", b.x + b.dir * 150, gy - 10, 20, .4, -.3)
+				g.shake_dir = Vector2(0, 1)
+				Polish.debris(b.x - 200, b.x + 200, gy, 12)
 		"slam":
 			b.t += 1
 			if b.t > 22:
@@ -465,6 +476,7 @@ func _bear() -> void:
 				b.st = "charge"
 				b.t = 0
 				Audio.play("roar", -6)
+				Polish.roar(b.x + b.dir * 90, b.gy - 150)
 		"charge":
 			b.t += 1
 			# dispara ganhando velocidade
@@ -506,6 +518,8 @@ func _bear() -> void:
 				Audio.play("stomp")
 				Audio.vib(100)
 				b.waves.append({"x": b.x - 70, "d": -1.0, "t": 0})
+				g.shake_dir = Vector2(0, 1)
+				Polish.debris(b.x - 300, b.x + 300, gy, 18)
 				b.waves.append({"x": b.x + 70, "d": 1.0, "t": 0})
 				g.burst(b.x, gy, 30, Color(.95, .97, 1))
 		"quake":
@@ -538,6 +552,7 @@ func _bear() -> void:
 				g.PARTS.append({"x": br3.x + randf() * br3.w, "y": br3.y - 6, "vx": randf_range(-.5, .5), "vy": 1.0, "life": 30, "col": Color(.97, .98, 1, .95)})
 			if b.t == 50:
 				g.shake = max(g.shake, 10)
+				Polish.debris(br3.x, br3.x + br3.w, gy, 16)
 				if _bear_branch() == br3:
 					# o galho sacode e o Tomé cai (atravessa o galho para baixo)
 					p.onGround = false
@@ -609,6 +624,7 @@ func _bear() -> void:
 			if b.t > 140:
 				b.done = true
 				b.active = false
+				Polish.smoke_cloud(b.x, b.gy)
 	# encostar no urso andando machuca (por cima dele, quica)
 	if b.st in ["walk", "rear", "rear2", "backoff", "tree"] and p.dyingT == 0 and Game.hit(p, bear_box()):
 		if p.vy > 0 and feet < gy - 110:
@@ -639,6 +655,8 @@ func _bear_hit() -> void:
 	if b.hp <= 0:
 		b.st = "flee"
 		b.t = 0
+		Polish.final_blow()
+		Polish.loot_arc(b.x, b.gy - 120, 10, b.gy)
 		_gate("bearL", false, Rect2())
 		_gate("bearR", false, Rect2())
 		for i in 10:
@@ -746,6 +764,7 @@ func _fish() -> void:
 				f.t = 0
 				f.vx = 0.0
 				Audio.play("roar", -12)
+				Polish.roar(f.x + f.dir * 110, f.y)
 		"charge":
 			f.t += 1
 			f.vx = move_toward(f.vx, f.dir * 9.0, .7)
@@ -816,6 +835,7 @@ func _fish() -> void:
 			if f.t > 160:
 				f.done = true
 				f.active = false
+				Polish.smoke_cloud(f.x, f.y)
 	f.x = clamp(f.x, f.x0 - 200, f.x1 + 200)
 
 func _tired(f: Dictionary, n: int) -> void:
@@ -858,6 +878,7 @@ func harpoon_hit(hp: Dictionary) -> bool:
 				if f.hp <= 0:
 					f.st = "down"
 					f.t = 0
+					Polish.final_blow()
 					_gate("fishR", false, Rect2())
 					_gate("fishL", false, Rect2())
 					for k in 10:

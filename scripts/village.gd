@@ -396,7 +396,12 @@ static func vargas_fig(x: float, y: float, d: float, T: int, wt: int, fr: int = 
 		return
 	if fr < 0:
 		fr = 4
-	Spr.sheet("vargas_pe", fr, 200, 200, x, y + 2, VG_H, d < 0)
+	# parado: respira (o peito sobe e desce de leve)
+	Spr.save()
+	Spr.translate(x, y + 2)
+	Spr.scale(1, 1 + sin(T * .07 + x) * .012)
+	Spr.sheet("vargas_pe", fr, 200, 200, 0, 0, VG_H, d < 0)
+	Spr.restore()
 
 ## o facho do lampião (por cima do escuro)
 func draw_glow(T: int) -> void:

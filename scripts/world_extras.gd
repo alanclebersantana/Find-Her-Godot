@@ -15,42 +15,74 @@ static func h(x: float, k: int = 0) -> float:
 # ---------------------------------------------------------------- capim
 static var _gspring := {}
 static func grass(g: Game, T: int) -> void:
-	## tufos de grama pintados (mesma arte do cenário): balançam com o vento e abrem quando o Tomé passa
+	## tufos de grama pintados (mesma arte do cenário): balançam com o vento, abrem quando alguém passa
+	## (Tomé, bichos, Pipoca, chefes), deitam com o pouso e o mergulho, e o empurrão corre pelos vizinhos
 	var x0: float = g.cam - 40
 	var x1: float = g.cam + g.W + 40
-	var p: Dictionary = g.player
-	var pcx: float = p.x + p.w / 2
 	var wind: float = g.AMB.get("wind", 0.0)
+	var manha: bool = Polish.period() == "manha"
 	for s in g.SOL:
 		if s.t != "ground" or s.x > x1 or s.x + s.w < x0 or s.get("snow"):
 			continue
 		if WSt.gt_at(g, s.x + s.w / 2) != "":
 			continue   # chão de pedra (mina, rua da vila): sem capim
-		var xa: float = max(s.x + 14, floor(x0 / 34.0) * 34.0)
+		# posições presas ao mundo (grade de 34 px): o tufo não muda de lugar quando a câmera anda
+		var xa: float = max(s.x + 14, ceil((x0 - 14.0) / 34.0) * 34.0 + 14.0)
 		var xb: float = min(s.x + s.w - 14, x1)
-		var tc: Color = WSt.tint_at(g, xa)
+		var tc: Color = Polish.grass_tint(WSt.tint_at(g, xa))
 		var x: float = xa
+		var by: float = s.y + 4
 		while x < xb:
 			var r := h(x)
 			if r > .3:
-				var by: float = s.y + 4
-				var near: float = clamp(1.0 - abs(x - pcx) / 34.0, 0, 1) if abs(p.y + p.h - s.y) < 40 else 0.0
-				# o capim abre quando o Tomé passa e volta balançando como mola (não estala de volta)
+				# o capim abre quando alguém passa e volta balançando como mola; o empurrão passa
+				# para os tufos vizinhos (onda no capim)
 				var gkey: int = int(x)
 				var gs: Vector2 = _gspring.get(gkey, Vector2.ZERO)
-				var gt: float = sign(x - pcx) * near * (7.0 + abs(p.vx) * 1.0)
-				gs.y += (gt - gs.x) * .2
+				var gt: float = Polish.grass_push(x, s.y, 34.0)
+				var nb: float = 0.0
+				var gl = _gspring.get(gkey - 34)
+				var gr = _gspring.get(gkey + 34)
+				if gl != null:
+					nb += gl.x
+				if gr != null:
+					nb += gr.x
+				gs.y += (gt + nb * .22 - gs.x) * .2
 				gs.y *= .8
 				gs.x += gs.y
-				if abs(gs.x) < .02 and abs(gs.y) < .02 and near == 0.0:
+				if abs(gs.x) < .02 and abs(gs.y) < .02 and gt == 0.0:
 					_gspring.erase(gkey)
 				else:
 					_gspring[gkey] = gs
 				var push: float = gs.x
-				var sway: float = sin(T * (.03 + wind * .05) + x * .03) * (1.2 + wind * 4.0) + wind * 3.0
+				var sway: float = sin(T * (.03 + wind * .05) + x * .03) * (1.2 + wind * 4.0) + wind * 3.0 + Polish.wind_wave(x)
 				var kind: int = int(h(x, 3) * 5)
-				var w: float = [22.0, 30.0, 30.0, 30.0, 28.0][kind] * (.85 + h(x, 4) * .35)
-				Spr.P("grass%d" % kind, x + (h(x, 5) - .5) * 10, by, w, h(x, 6) > .5, sway + push, tc)
+				var tall: bool = h(x, 7) > .88
+				var w: float = [22.0, 30.0, 30.0, 30.0, 28.0][kind] * (.85 + h(x, 4) * .35) * (1.45 if tall else 1.0)
+				var fl: float = Polish.flat_at(x, s.y)
+				var gh: float = Polish.grass_h(x)
+				var gxp: float = x + (h(x, 5) - .5) * 10
+				if fl > 0.0 or gh < 1.0:
+					# deitado (mergulho) ou cortado (picareta): achata a altura
+					Spr.save()
+					Spr.translate(gxp, by)
+					Spr.scale(1.0, (1.0 - .7 * fl) * gh)
+					Spr.P("grass%d" % kind, 0, 0, w, h(x, 6) > .5, sway * (1.0 - fl) + push + sign(push) * fl * 20.0, tc)
+					Spr.restore()
+				else:
+					Spr.P("grass%d" % kind, gxp, by, w, h(x, 6) > .5, sway + push, tc)
+				# orvalho de manhã: gotinhas brilhando na ponta de alguns tufos
+				if manha and h(x, 8) > .55:
+					var tw: float = .5 + .5 * sin(T * .05 + x)
+					Spr.circle(gxp + sway * .6 + push * .6 + (h(x, 9) - .5) * w * .5, by - w * .55, 1.4, Color(1, 1, 1, .55 * tw))
+				# joaninha andando numa folha do capim, de vez em quando
+				if h(x, 10) > .93 and not Polish.period() in ["noite", "tunel"]:
+					var lb: float = fposmod(T * .2 + x, 40.0) / 40.0
+					var lx: float = gxp + (lb - .5) * w * .5 + push * .3
+					var ly: float = by - w * (.15 + .3 * lb)
+					Spr.circle(lx, ly, 2.2, Color(.85, .12, .08))
+					Spr.circle(lx - .6, ly - .4, .5, Color(0, 0, 0))
+					Spr.circle(lx + .7, ly + .3, .5, Color(0, 0, 0))
 			x += 34
 
 ## flores do chão: balançam com a brisa (cada uma no seu ritmo), deitam quando o Tomé passa
@@ -76,7 +108,10 @@ static func flowers(g: Game, T: int) -> void:
 			# mola: o empurrão decai e a flor volta balançando
 			var key: int = int(fx)
 			var sp: Vector2 = _fspring.get(key, Vector2.ZERO)
-			var tgt: float = sign(fx - pcx) * near * (6.0 + abs(p.vx) * 1.2)
+			var tgt: float = Polish.grass_push(fx, s.y, 30.0) * .85
+			# pétalas soltando: correndo por cima ou com vento forte
+			if (near > .5 and abs(p.vx) > 2.5 and randf() < .25) or (wind > .6 and randf() < .004):
+				Polish.part("petal", fx, s.y - 18, sign(fx - pcx) * randf_range(.5, 1.6) + wind, -randf_range(.6, 1.6), 120, f[4] if f.size() > 4 else Color(1, .8, .9), {"gy": s.y + 2})
 			sp.y += (tgt - sp.x) * .18
 			sp.y *= .78
 			sp.x += sp.y
@@ -87,7 +122,21 @@ static func flowers(g: Game, T: int) -> void:
 			var sway: float = sin(T * (.035 + wind * .05) + fx * .05) * (1.4 + wind * 4.0) + wind * 3.0
 			if f.size() < 5:
 				f.append(WSt.tint_at(g, fx))
-			Spr.P(f[1], fx, s.y + 2, f[2], f[3], sway + sp.x, f[4])
+			var fl2: float = Polish.flat_at(fx, s.y)
+			if fl2 > 0.0:
+				Spr.save()
+				Spr.translate(fx, s.y + 2)
+				Spr.scale(1.0, 1.0 - .6 * fl2)
+				Spr.P(f[1], 0, 0, f[2], f[3], sway + sp.x, f[4])
+				Spr.restore()
+			else:
+				Spr.P(f[1], fx, s.y + 2, f[2], f[3], sway + sp.x, f[4])
+			# abelhinha rodeando algumas flores de dia
+			if Polish.hh2(fx) > .8 and Polish.period() in ["manha", "tarde"]:
+				var bt: float = T * .06 + fx
+				var bx: float = fx + cos(bt) * 16 + sin(bt * 2.3) * 4
+				var byy: float = s.y - 22 + sin(bt * 1.7) * 7
+				Spr.P("bee", bx, byy + 5, 9, cos(bt) > 0)
 
 # ---------------------------------------------------------------- passagens baixas
 static func crawl(g: Game, T: int) -> void:
@@ -383,6 +432,7 @@ static func boss(g: Game, T: int) -> void:
 	if Spr.turned_now(b):
 		turn_dust(g, b.x, 502, b.dir)
 	var tint := Color(1, .45, .4, 1) if b.red > 0 and (T / 3) % 2 == 0 else Color(1, 1, 1, 1)
+	tint = tint * Polish.fury(int(b.hp))   # última vida: pulsa avermelhado
 	if b.st == "down":
 		tint.a = clamp(1.0 - (b.t - 90) / 60.0, 0.0, 1.0)
 	var dst := Rect2(-105 * sc, -136 * sc + 4, 210 * sc, 140 * sc)
@@ -393,10 +443,18 @@ static func boss(g: Game, T: int) -> void:
 	# coroa de folhas (é o rei)
 	var cx := 30.0
 	var cy := -128.0 * sc + 10
-	for i in 5:
-		var a := -PI / 2 + (i - 2) * .38
-		Spr.ellipse(cx + cos(a) * 16, cy + sin(a) * 10 + 4, 7, 4, Color(.31, .54, .16, tint.a), a)
-	Spr.circle(cx, cy + 6, 4, Color(.88, .27, .23, tint.a))
+	# a coroa balança a cada golpe recebido (e some na derrota: ela cai e rola pelo chão)
+	if b.st != "down":
+		var wob: float = sin(float(b.red) * .7) * .4 * float(b.red) / 30.0
+		Spr.save()
+		Spr.translate(cx, cy + 8)
+		Spr.rotate(wob)
+		Spr.translate(-cx, -cy - 8)
+		for i in 5:
+			var a := -PI / 2 + (i - 2) * .38
+			Spr.ellipse(cx + cos(a) * 16, cy + sin(a) * 10 + 4, 7, 4, Color(.31, .54, .16, tint.a), a)
+		Spr.circle(cx, cy + 6, 4, Color(.88, .27, .23, tint.a))
+		Spr.restore()
 	Spr.restore()
 	if b.st == "stun":
 		for i in 4:
@@ -424,6 +482,7 @@ static func _brutus(b: Dictionary, T: int, bd: float = 0.0) -> void:
 		"intro":
 			fr = 7
 	var tint := Color(1, .45, .4, 1) if b.red > 0 and (T / 3) % 2 == 0 else Color(1, 1, 1, 1)
+	tint = tint * Polish.fury(int(b.hp))   # última vida: pulsa avermelhado
 	var a: float = 1.0
 	var dx: float = 0.0
 	if b.st == "down":
@@ -500,9 +559,25 @@ static func bat(e: Dictionary, T: int) -> void:
 	Spr.P_cycle("bat", ["bat0", "bat1", "bat2", "bat1"], T / 4.0, 0, 0, 50, false, Color.WHITE, true)
 
 static func spider(e: Dictionary, T: int) -> void:
-	if not e.dead:
-		Spr.seg(0, e.top - e.y, 0, -8, Color(.92, .92, .92, .6), 1.2)
 	var st: int = e.get("st", 0)
+	if not e.dead:
+		# fio de teia: curva com o vento e com o balanço da descida; brilha perto da lanterna
+		var gg: Game = Polish.g
+		var wnd: float = gg.AMB.get("wind", 0.0) if gg else 0.0
+		var top: float = e.top - e.y
+		var amp: float = 2.0 + wnd * 7.0 + (5.0 if st in [1, 3] else 0.0)
+		var lit := 0.0
+		if gg and gg.lantern_lit:
+			var pp: Dictionary = gg.player
+			lit = clamp(1.0 - Vector2(pp.x - e.x, pp.y - e.y).length() / 260.0, 0, 1) * clamp(gg.AMB.dark * 1.6, .3, 1)
+		var pts := PackedVector2Array()
+		for i in 9:
+			var u: float = i / 8.0
+			pts.push_back(Vector2(sin(T * .05 + e.x * .01) * amp * u * (1.0 - u) * 4.0 * .5, lerpf(top, -8, u)))
+		Spr.ci.draw_polyline(pts, Spr.col(Color(.92, .92, .92, .55 + .4 * lit)), 1.2 + lit * .6, true)
+		if lit > .1:
+			var gi: int = int(T / 3) % 9
+			Spr.glow(pts[gi].x, pts[gi].y, 6, Color(1, .95, .8, .6 * lit))
 	if st in [1, 3] and not e.dead:
 		# descendo ou subindo pelo fio: pendurada, balançando de leve
 		Spr.save()
@@ -606,7 +681,7 @@ static func dog(g: Game, T: int) -> void:
 		# estaca e corda
 		Spr.rect(d.x0 - 64, d.y - 34, 6, 36, Color("#5a3e24"))
 		Spr.ci.draw_polyline(PackedVector2Array([Vector2(d.x0 - 61, d.y - 24), Vector2((d.x0 - 61 + x) / 2, d.y - 12), Vector2(x - d.face * 6, d.y - 30)]), Color("#c9a26a"), 2.5, true)
-	Spr.ellipse(x, d.y + 1, 20, 4, Color(0, 0, 0, .25))
+	Polish.shadow(x, d.y + 1, 20, 4, .25)
 	var fr := "dog0"
 	if d.moving:
 		fr = "dog%d" % (int(d.anim) % 4)

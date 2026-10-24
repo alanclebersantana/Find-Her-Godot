@@ -319,8 +319,8 @@ func squirrel(e: Dictionary) -> void:
 				e.dir = 1 if dx > 0 else -1
 				Audio.play("jump", -12)
 		1:
-			# prepara (agacha) e dá o bote na direção do Tomé
-			e.y = e.base
+			# prepara (agacha) e dá o bote na direção do Tomé — antes leva um sustinho (pulinho)
+			e.y = e.base - (sin(e.t / 10.0 * PI) * 9.0 if e.t < 10 else 0.0)
 			if e.t > 28:
 				e.st = 2
 				e.t = 0

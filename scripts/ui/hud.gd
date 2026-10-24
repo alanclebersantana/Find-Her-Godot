@@ -7,6 +7,10 @@ var hint_txt := ""
 var last_coins := -1
 var coin_pop := 0.0
 var last_hp := -1
+var boss_name := ""
+var boss_lag := 1.0
+var boss_shk := 0.0
+var boss_hold := 0
 var lost_heart := -1
 var lost_t := 0.0
 var hint_cur := ""
@@ -198,14 +202,35 @@ func __draw_raw() -> void:
 			Spr.circle(bx, 64, 7, Color(.6, .85, 1, .85) if on else Color(.3, .35, .4, .4))
 			if on:
 				Spr.circle(bx - 2, 62, 2, Color(1, 1, 1, .8))
-	# Javali-Rei
-	if X and X.boss_active() and X.BOSS.st != "wait":
-		var b: Dictionary = X.BOSS
+	# chefes: barra de vida viva (o pedaço perdido fica branco, treme e escorre devagar)
+	var bl: Array = Polish.bosses()
+	if not bl.is_empty():
+		var bb: Dictionary = bl[0]
 		var bw := 300.0
-		_box(W / 2 - bw / 2 - 10, 52, bw + 20, 40)
-		Spr.text("JAVALI-REI", W / 2, 68, 13, Color("#ffcf9a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_title)
-		Spr.rr(W / 2 - bw / 2, 74, bw, 10, 5, Color(.2, .1, .08, .9))
-		Spr.rr(W / 2 - bw / 2, 74, bw * b.hp / float(b.maxhp), 10, 5, Color("#e0463a"))
+		var fr: float = clamp(float(bb.hp) / float(max(1, bb.max)), 0, 1)
+		if boss_name != bb.name:
+			boss_name = bb.name
+			boss_lag = fr
+			boss_shk = 0.0
+		if fr < boss_lag - .001 and boss_shk <= 0.0 and boss_hold <= 0:
+			boss_hold = 30
+			boss_shk = 1.0
+		if boss_hold > 0:
+			boss_hold -= 1
+		else:
+			boss_lag = move_toward(boss_lag, fr, .006)
+		boss_shk = max(0.0, boss_shk - .05)
+		var sx: float = sin(game.T * 1.3) * 4.0 * boss_shk
+		_box(W / 2 - bw / 2 - 10 + sx, 52, bw + 20, 40)
+		Spr.text(bb.name, W / 2 + sx, 68, 13, Color("#ffcf9a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_title)
+		Spr.rr(W / 2 - bw / 2 + sx, 74, bw, 10, 5, Color(.2, .1, .08, .9))
+		if boss_lag > fr:
+			Spr.rr(W / 2 - bw / 2 + sx, 74, bw * boss_lag, 10, 5, Color(1, .95, .85, .9))
+		if fr > 0:
+			var pc: Color = Color("#e0463a").lerp(Color("#ff8a5a"), .5 + .5 * sin(game.T * .2)) if bb.hp == 1 else Color("#e0463a")
+			Spr.rr(W / 2 - bw / 2 + sx, 74, bw * fr, 10, 5, pc)
+	else:
+		boss_name = ""
 	# dica do lugar: pergaminho com o rostinho do Tomé; aparece, fica uns segundos e some sozinha
 	# (o pergaminho pequeno no alto traz a dica de volta)
 	var h := game.hint_text() if game.running else ""

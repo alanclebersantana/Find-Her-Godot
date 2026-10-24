@@ -2,7 +2,14 @@ extends RefCounted
 class_name WorldKings
 ## Desenho do Gavião-Rei e do Bagre-Rei.
 
-static func _crown(x: float, y: float, s: float) -> void:
+static func _crown(x: float, y: float, s: float, rot: float = 0.0) -> void:
+	if rot != 0.0:
+		Spr.save()
+		Spr.translate(x, y)
+		Spr.rotate(rot)
+		_crown(0, 0, s)
+		Spr.restore()
+		return
 	var gold := Color("#e8b030")
 	var pts := PackedVector2Array([Vector2(x - 14 * s, y), Vector2(x - 14 * s, y - 10 * s), Vector2(x - 7 * s, y - 4 * s),
 		Vector2(x, y - 14 * s), Vector2(x + 7 * s, y - 4 * s), Vector2(x + 14 * s, y - 10 * s), Vector2(x + 14 * s, y)])
@@ -47,6 +54,7 @@ static func _hawk(g: Game, K: Kings, T: int) -> void:
 		"mark":
 			fr = (T / 4) % 3
 	var tint := Color(1, .5, .45) if h.red > 0 and (T / 3) % 2 == 0 else Color(1, 1, 1)
+	tint = tint * Polish.fury(int(h.hp))   # última vida: pulsa avermelhado
 	var y: float = h.y - (6 if h.st == "stuck" else 50)
 	# inclinação do mergulho entra e sai aos poucos; o corpo sobe a cada batida de asa
 	h._rot = lerpf(float(h.get("_rot", 0.0)), rot, .2)
@@ -113,7 +121,8 @@ static func _hawk(g: Game, K: Kings, T: int) -> void:
 			Spr.region_mix(Spr.tex.gaviao, Rect2(-66, -96, 132, 124), 132, 124, [0, 1, 2], T / hsp, Color(tint.r, tint.g, tint.b, Spr.alpha))
 		Spr.restore()
 	if h.get("skin", "hawk") != "bat":
-		_crown(h.x + hfs * 14, y - 112 * hsy, 1.2)
+		if h.st != "flee":
+			_crown(h.x + hfs * 14, y - 112 * hsy, 1.2, sin(float(h.red) * .7) * .4 * float(h.red) / 30.0)
 	if h.st == "stuck":
 		# garras presas na madeira
 		for i in 3:
@@ -148,6 +157,7 @@ static func _fish(g: Game, K: Kings, T: int) -> void:
 			fr = 6
 	var a: float = f.al * (clamp(1.0 - f.t / 160.0, 0, 1) if f.st == "down" else 1.0)
 	var tint := Color(1, .55, .5) if f.red > 0 and (T / 3) % 2 == 0 else Color(1, 1, 1)
+	tint = tint * Polish.fury(int(f.hp))   # última vida: pulsa avermelhado
 	# nada com o corpo: inclina para onde sobe/desce, estica no bote, encolhe ao mirar e achata ao bater
 	var fvy: float = f.y - float(f.get("_py", f.y))
 	f._py = f.y
@@ -318,6 +328,7 @@ static func _bear(g: Game, K: Kings, T: int) -> void:
 				fr = 2
 				warn = true
 	var tint := Color(1, .55, .5) if b.red > 0 and (T / 3) % 2 == 0 else Color(1, 1, 1)
+	tint = tint * Polish.fury(int(b.hp))   # última vida: pulsa avermelhado
 	var k: float = .35 + .25 * sin(T * .5)
 	# avisos no chão: patada (à frente), tremor (dos dois lados)
 	if b.st == "rear":

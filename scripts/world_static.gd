@@ -93,6 +93,7 @@ func _draw_raw() -> void:
 		# desenham por cima o que fica na frente; antes o morro cobria o carrinho da mina)
 		if s.t in ["hill", "cliff"] and (s.x < x0 or s.x >= x1):
 			continue
+		_contact_shadow(s)
 		match s.t:
 			"ground": ground(s)
 			"plat", "branch":
@@ -321,6 +322,7 @@ func ground(s: Dictionary) -> void:
 		_ground_end(s, t, tw, true)
 	if s.get("snow"):
 		_snow_top(x_a + (8.0 if ol and x_a <= s.x else 0.0), x_b - (8.0 if orr and x_b >= s.x + s.w else 0.0), s.y)
+	_ground_vary(s, x_a, x_b)
 	_ground_deco(s)
 
 ## terra por baixo do chão: a parte de terra da textura do chão repetida para baixo (uma cópia
@@ -473,6 +475,27 @@ func _earth_detail(xa: float, xb: float, ya: float, yb: float, base: Color) -> v
 	Spr.vgrad(xa, ya, xb - xa, min(yb - ya, 260.0), Color(0, 0, 0, 0), Color(0, 0, 0, .28))
 	if yb - ya > 260:
 		Spr.rect(xa, ya + 260, xb - xa, yb - ya - 260, Color(0, 0, 0, .28))
+	# camadas da terra: faixas de tons diferentes (mais avermelhada, mais escura), onduladas de leve
+	var sy0: float = ya + 26
+	var li := 0
+	while sy0 < min(yb, ya + 520):
+		var bh: float = 16 + hh(sy0 + xa * .01, 71) * 22
+		var tone: Color = [Color(.45, .2, .08, .10), Color(0, 0, 0, .10), Color(.6, .45, .25, .07)][li % 3]
+		var pts := PackedVector2Array()
+		var stp: float = 48.0
+		var xx: float = floor(xa / stp) * stp
+		var top := PackedVector2Array()
+		while xx <= xb + stp:
+			top.push_back(Vector2(clamp(xx, xa, xb), sy0 + sin(xx * .011 + li) * 5))
+			xx += stp
+		for q in top:
+			pts.push_back(q)
+		for qi in range(top.size() - 1, -1, -1):
+			pts.push_back(Vector2(top[qi].x, top[qi].y + bh))
+		if pts.size() >= 3:
+			Spr.poly(pts, tone)
+		sy0 += bh + 30 + hh(sy0, 72) * 40
+		li += 1
 	var gx: float = floor(xa / 46.0) * 46.0
 	while gx < xb:
 		var gy: float = floor(ya / 40.0) * 40.0
@@ -815,6 +838,9 @@ func _end_band(ya: float, yb: float, stp: float, inner: float, e: float, right: 
 func _snow_top(xa: float, xb: float, y: float) -> void:
 	Spr.rect(xa, y - 6, xb - xa, 14, Color(.95, .97, 1))
 	Spr.rect(xa, y + 6, xb - xa, 4, Color(.78, .85, .96))
+	# volume: sombra azulada embaixo do monte de neve e brilho quente no topo
+	Spr.vgrad(xa, y + 2, xb - xa, 8, Color(.7, .78, .95, 0), Color(.62, .7, .92, .55))
+	Spr.rect(xa, y - 7, xb - xa, 2, Color(1, .98, .92, .7))
 	var x: float = floor(xa / 26.0) * 26.0
 	while x < xb:
 		var hgt: float = 4 + fmod(x * 7.31, 5.0)
@@ -975,6 +1001,12 @@ func _masonry(s: Dictionary, c_hi: Color, c_lo: Color, mortar: Color, y0: float)
 				var pick: int = int(hh(seed_x + row * 5 + i * 11, 37) * 6)
 				# um pouco maior que a vaga: os contornos se encostam e o muro fica fechado
 				Spr.PR("wb%d" % pick, bx - 4, byy - 4, bww + 8, bhh + 7, col, hh(seed_x + i, 38) > .5)
+				# volume: luz no topo da pedra, sombra embaixo e pontinhos/rachadura
+				Spr.rect(bx + 4, byy + 1, bww - 8, 2, Color(1, .98, .9, .18))
+				Spr.rect(bx + 3, byy + bhh - 4, bww - 6, 3, Color(0, 0, 0, .16))
+				if hh(bx, 39) > .6:
+					Spr.circle(bx + bww * hh(byy, 40), byy + bhh * .5, 1.2, Color(0, 0, 0, .25))
+					Spr.seg(bx + bww * .3, byy + bhh * .3, bx + bww * .42, byy + bhh * .6, Color(0, 0, 0, .18), 1.0)
 			x += bw
 			i += 1
 		yy += bh
@@ -1077,6 +1109,14 @@ func planks(s: Dictionary, dark: bool) -> void:
 			Spr.ci.draw_texture_rect_region(tt, Rect2(s.x + i * bw - 1, yy2, bw + 2, hh2), Rect2(tt.get_width() * .3, 0, tt.get_width() * .4, tt.get_height() * hh2 / sh * .5), Color(c.r, c.g, c.b, 1))
 			yy2 += sh
 		Spr.seg(s.x + i * bw, a, s.x + i * bw, b, Color(.1, .06, .03, .5), 1.5)
+		# veios e nós da madeira, borda gasta mais clara
+		var gy0: float = a + hh(s.x + i, 65) * 40
+		while gy0 < b - 10:
+			if hh(gy0 + i, 66) > .55:
+				Spr.ellipse(s.x + i * bw + bw * .5, gy0, 2.6, 4.2, Color(.18, .1, .05, .45))
+				Spr.ring(s.x + i * bw + bw * .5, gy0, 4.5, Color(.2, .12, .06, .25), 1.0)
+			gy0 += 60 + hh(gy0, 67) * 50
+		Spr.seg(s.x + i * bw + 2, a, s.x + i * bw + 2, b, Color(1, .95, .85, .12), 1.0)
 	var y: float = s.y + 30
 	while y < b:
 		if y > a - 10:
@@ -1141,6 +1181,7 @@ func stone(s: Dictionary) -> void:
 		# pedra baixa: um bloco de rocha com musgo, meio enterrado no chão
 		Spr.ellipse(cx, gy + 2, s.w * .62, 7, Color(0, 0, 0, .25))
 		Spr.PR("mossrock_l", s.x - 8, s.y - 8, s.w + 16, s.h + 16)
+		_weather_coat(s.x - 4, s.y - 4, s.w + 8, s.h + 8)
 		return
 	# degrau de rocha (pedras em escada): um maciço firme que sai da terra, mais largo embaixo,
 	# com uma laje achatada em cima onde o Tomé pisa — nada equilibrado na ponta
@@ -1156,6 +1197,7 @@ func stone(s: Dictionary) -> void:
 	var lw: float = s.w + 18
 	var lh: float = 26.0
 	Spr.PR("slab%d" % (h % 3), cx - lw / 2, s.y - 6, lw, lh)
+	_weather_coat(s.x - 4, s.y - 6, s.w + 8, s.h + 6)
 	# trepadeira descendo de um lado
 	var vx: float = s.x + (6.0 if h % 2 == 0 else s.w - 8)
 	var vl: float = min(s.h * .6, 140.0)
@@ -1359,3 +1401,62 @@ func rockw(s: Dictionary) -> void:
 					var r2 := hh(yy + e, 33)
 					Spr.ellipse(e, yy, 10 + r2 * 8, 14, rim2)
 					yy += 26
+
+
+## sombra macia de contato na base do que fica apoiado no chão (casas, cabana, muros, carrinhos, troncos)
+func _contact_shadow(s: Dictionary) -> void:
+	var t: String = str(s.t)
+	if not t in ["house", "cabin", "wall", "damwall", "cart", "log", "treehouse", "shed", "brickw"]:
+		return
+	var w: float = float(s.get("w", 0))
+	var base: float = s.y + float(s.get("h", 0)) if t != "house" else s.y + 3.0
+	if t == "log":
+		base = s.y + float(s.get("h", 20))
+	var c: Color = _shade_col(_theme_at(s.x + w / 2))
+	Spr.ellipse(s.x + w / 2, base + 2, w * .62 + 10, 9, Color(c.r, c.g, c.b, .22))
+	Spr.ellipse(s.x + w / 2, base + 1, w * .48, 5, Color(c.r, c.g, c.b, .25))
+
+static func _shade_col(th: String) -> Color:
+	match th:
+		"tarde":
+			return Color(.28, .08, .22)
+		"chuva":
+			return Color(.04, .16, .1)
+		"neve":
+			return Color(.2, .25, .5)
+	return Color(.08, .1, .25)
+
+## umidade e frio nas pedras: musgo esverdeado na base perto do brejo; geada branca em cima na neve
+func _weather_coat(x: float, y: float, w: float, h: float) -> void:
+	var th: String = _theme_at(x + w / 2)
+	if th == "chuva":
+		Spr.vgrad(x, y + h * .55, w, h * .45, Color(.25, .45, .15, 0), Color(.22, .42, .14, .35))
+		for i in 4:
+			Spr.ellipse(x + w * hh(x + i, 81), y + h * (.7 + hh(y + i, 82) * .25), 6 + hh(x - i, 83) * 6, 3, Color(.3, .5, .18, .45))
+	elif th == "neve":
+		Spr.vgrad(x, y, w, h * .35, Color(.95, .97, 1, .55), Color(.9, .94, 1, 0))
+		for i in 5:
+			Spr.circle(x + w * hh(x + i, 84), y + h * hh(y + i, 85) * .3, 1.3, Color(1, 1, 1, .8))
+
+## chão sem repetição: manchas suaves (mais escuro, mais claro, mais avermelhado) e capim na beirada
+func _ground_vary(s: Dictionary, xa: float, xb: float) -> void:
+	if s.get("snow") or gt_at(game, (xa + xb) * .5) != "":
+		return
+	var x: float = floor(xa / 90.0) * 90.0
+	while x < xb:
+		var r: float = hh(x, 91)
+		if r > .35:
+			var cx: float = x + hh(x, 92) * 90
+			var wv: float = 40 + hh(x, 93) * 70
+			var col: Color = [Color(0, 0, 0, .07), Color(1, 1, .85, .06), Color(.5, .2, .05, .07)][int(hh(x, 94) * 3)]
+			if cx > xa and cx < xb:
+				Spr.ellipse(cx, s.y + 6 + hh(x, 95) * 14, wv, 8 + hh(x, 96) * 6, col)
+		x += 90
+	# fios de capim saindo da beirada do chão (quebra a linha reta)
+	var gx: float = floor(xa / 7.0) * 7.0
+	var tc: Color = _ground_tint(gx).darkened(.05)
+	while gx < xb:
+		var hgt: float = 3 + hh(gx, 97) * 6
+		if hh(gx, 98) > .35:
+			Spr.seg(gx, s.y - 30, gx + (hh(gx, 99) - .5) * 4, s.y - 30 - hgt, Color(.36 * tc.r, .55 * tc.g, .22 * tc.b, .8), 1.4)
+		gx += 7

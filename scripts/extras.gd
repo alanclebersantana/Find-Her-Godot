@@ -678,6 +678,7 @@ func _boss() -> void:
 				b.t = 0
 				b.spd = 2.0
 				Audio.play("roar", -14)
+				Polish.roar(b.x + b.dir * 60, b.y - 60)
 		"charge":
 			b.spd = min(b.spd + .42, 8.0)
 			b.x += b.dir * b.spd
@@ -695,6 +696,8 @@ func _boss() -> void:
 				b.hitT = 18
 				b.kb = 7.0
 				g.shake = 18
+				g.shake_dir = Vector2(b.dir, 0)
+				Polish.debris(b.x + b.dir * 20, b.x + b.dir * 160, 500.0, 18)
 				g.hit_stop = 6
 				Audio.play("stomp")
 				Audio.play("thunder", -12)
@@ -732,6 +735,7 @@ func _boss() -> void:
 			if b.t > 150:
 				b.done = true
 				b.active = false
+				Polish.smoke_cloud(b.x, b.y)
 	# contato com o Tomé
 	if b.st in ["intro", "idle", "paw", "charge", "stun", "trot"] and p.dyingT == 0:
 		var bb := boss_box()
@@ -757,6 +761,10 @@ func boss_damage(from_slam: bool = false) -> void:
 	if b.hp <= 0:
 		b.st = "down"
 		b.t = 0
+		Polish.final_blow()
+		if b.get("skin", "") != "dog":
+			Polish.crown_drop("leaf", b.x + 30, b.y - 140, -b.dir, 500.0)
+		Polish.loot_arc(b.x, b.y - 80, 12, 500.0)
 		_gate_on(false)
 		if b.skin == "dog":
 			g.flash("O Brutus desistiu e fugiu com o rabo entre as pernas! O portão do quintal abriu.", 260)

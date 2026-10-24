@@ -316,8 +316,11 @@ func _process(_d: float) -> void:
 		var amp: float = game.shake * (.55 if Save.getv("opt", "shake", true) else 0.0)
 		var tt := Time.get_ticks_msec() / 1000.0
 		var sh := Vector2(sin(tt * 53.0) + sin(tt * 31.0) * .5, cos(tt * 47.0) + sin(tt * 29.0) * .5) * amp * .5
+		# tremor com direção: empurra para o lado do impacto e volta
+		sh += game.shake_dir * amp * .9
+		game.shake_dir *= .86
 		# câmera chega mais perto nas cenas calmas e abre nas de ação
-		var zt: float = _zoom_target()
+		var zt: float = _zoom_target() * (1.12 if game.slowmo > 0 else 1.0)
 		cam_zoom = lerpf(cam_zoom, zt, .02)
 		game.camera.zoom = Vector2(cam_zoom, cam_zoom)
 		game.W = vs.x / cam_zoom
@@ -416,6 +419,11 @@ func _physics_process(_d: float) -> void:
 		return
 	if state == S.PLAY:
 		var __t := Time.get_ticks_usec()
+		# câmera lenta: só um de cada dois passos roda
+		if game.slowmo > 0:
+			game.slowmo -= 1
+			if game.slowmo % 2 == 1:
+				return
 		game.step()
 		Spr.pt("step", __t)
 

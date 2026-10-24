@@ -60,6 +60,7 @@ func __draw_raw() -> void:
 			draw_line(Vector2(d.x, d.y), Vector2(d.x + 3, d.y - 14), Color(.78, .84, .9, .45), 1.3)
 	if not game.low_fx:
 		_vignette(vs)
+	Polish.draw_screen(self, vs)
 	if game.lightning > 0:
 		draw_rect(Rect2(Vector2.ZERO, vs), Color(.9, .94, 1, game.lightning / 14.0))
 	# transição em círculo (íris), como nos desenhos antigos: fecha no Tomé quando ele cai e abre de novo

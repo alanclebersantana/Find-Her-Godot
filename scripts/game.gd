@@ -90,6 +90,8 @@ var coins := 0
 var coin_life := 0
 var shake := 0.0
 var hit_stop := 0
+var slowmo := 0            # câmera lenta (golpe final nos chefes)
+var shake_dir := Vector2.ZERO   # tremor com direção (empurra para o lado do impacto)
 var bird_near := false     # algum passarinho voando perto (o Tomé olha para cima)
 var iris_t := 0
 var flash_msg := ""
@@ -1212,8 +1214,13 @@ func step() -> void:
 	player.landV = prev_vy if (player.onGround and not was_ground) else 0.0
 	if player.onGround and not was_ground and prev_vy > 3:
 		Audio.step(ground_kind(), -10.0 if prev_vy > 8 else -14.0)
+		# o capim em volta deita em círculo com o pouso
+		Polish.blasts.append({"x": player.x + player.w / 2, "y": player.y + player.h, "t": 14, "r": 40.0 + prev_vy * 4.0, "f": 8.0 + prev_vy})
+	if player.onGround and not was_ground and prev_vy > 11 and not player.slam:
+		Polish.land_heavy(player.x + player.w / 2, player.y + player.h, prev_vy)
+		player.squash = min(1.2, prev_vy / 11)
 	if player.onGround and not was_ground and prev_vy > 6:
-		player.squash = min(1, prev_vy / 14)
+		player.squash = max(player.squash, min(1, prev_vy / 14))
 		player.landT = 8
 		if prev_vy > 10:
 			Audio.vib(18)
@@ -1224,6 +1231,9 @@ func step() -> void:
 		player.landT -= 1
 	if player.slam and player.onGround:
 		shake = max(shake, 9)
+		shake_dir = Vector2(0, 1)
+		Polish.flatten(player.x + player.w / 2, player.y + player.h, 80.0, 240)
+		Polish.scare(player.x, 420.0)
 		burst(player.x + player.w / 2, player.y + player.h, 16, Color("#d9c290"))
 		var r := R(player.x - 30, player.y - 6, player.w + 60, player.h + 40)
 		for c in CR:
@@ -1241,7 +1251,7 @@ func step() -> void:
 			PARTS.append({"x": player.x + player.w / 2 + player.face * 8, "y": player.y + player.h - 3, "vx": player.face * randf_range(2.5, 4.0), "vy": -randf_range(2.0, 3.0),
 				"life": 60, "col": Color(.5, .46, .4), "gy": player.y + player.h - 3})
 	# cansaço: depois de correr bastante, quando para, fica ofegante um tempinho
-	if player.run and abs(player.vx) > 3 and player.onGround:
+	if (player.run and abs(player.vx) > 3 or player.get("isis") and abs(player.vx) > 2.4) and player.onGround:
 		player.runT = player.get("runT", 0) + 1
 	elif abs(player.vx) < .4 and player.onGround:
 		if player.get("runT", 0) > 160:
@@ -1324,6 +1334,7 @@ func step() -> void:
 			flash(d.txt, 280)
 			burst(d.x, d.y, 24, Color("#f6efdc"))
 			drawing_found.emit(int(d.i))
+			Polish.celebrate(player.x + player.w / 2, player.y + 10)
 			Audio.play("clue")
 			Audio.vib(50)
 	# molas (cogumelo)
@@ -1460,12 +1471,18 @@ func step() -> void:
 	Spr.pt("s_fxcam", __m)
 
 func _tick_fx() -> void:
+	Polish.g = self
+	Polish.tick(self)
 	for f in FXS:
 		f.t += 1
 		f.y += f.vy
 		f.sc *= 1.01
 	FXS = FXS.filter(func(f): return f.t < f.life)
+	var wnd: float = AMB.get("wind", 0.0)
 	for p in PARTS:
+		if p.has("k"):
+			Polish.tick_part(p, wnd)
+			continue
 		p.vy += -.015 if p.has("ember") else .18
 		p.x += p.vx
 		p.y += p.vy
@@ -2364,6 +2381,7 @@ func _p1_post(pcx: float, _pcy: float) -> void:
 			Audio.play("clue")
 			Audio.vib(80)
 			clue_opened.emit(int(c.id))
+			Polish.celebrate(player.x + player.w / 2, player.y + 10)
 	for s in SPECS:
 		if not s.got and hit(player, R(s.x - 20, s.y - 22, 40, 44)):
 			s.got = true
@@ -2754,8 +2772,10 @@ func _enemy_life(e: Dictionary) -> void:
 	if e.get("landT", 0) > 0:
 		e.landT -= 1
 	if on and not e.get("_on", true):
-		# pousou: poeira e achata (o desenho usa landT)
+		# pousou: poeira e achata (o desenho usa landT); o sapo respinga água
 		e.landT = 10
+		if e.k == "frog":
+			Polish.drops(e.x, e.y - 4, 5, 2.4)
 		for k in (5 if e.k == "frog" else 3):
 			PARTS.append({"x": e.x + (k - 2) * 7, "y": e.y - 1, "vx": (k - 2) * .7, "vy": -randf_range(.4, 1.2), "life": 16, "col": _dust_col()})
 	e._on = on
@@ -2798,6 +2818,7 @@ func _update_enemy_core(e: Dictionary) -> void:
 		e.jt = e.get("jt", 0) + 1
 		var t: int = int(e.jt) % 130
 		if t == 100:
+			Polish.drops(e.x, e.y - 10, 4)
 			var dx: float = player.x - e.x
 			e.jdir = (sign(dx) if dx != 0 else 1) if abs(dx) < 300 else (1 if e.x < (e.r[0] + e.r[1]) / 2.0 else -1)
 		if t >= 100:
@@ -2911,6 +2932,9 @@ func _crow(e: Dictionary) -> void:
 	var st: int = e.get("st", 0)
 	var pc := Vector2(player.x + player.w / 2, player.y + player.h / 2)
 	e.t = e.get("t", 0) + 1
+	# penas: uma de vez em quando batendo as asas, várias no mergulho
+	if (st == 0 and rng.randf() < .006) or (st == 1 and rng.randf() < .12):
+		Polish.part("feather", e.x - e.dir * 10, e.y - 4, -e.dir * randf_range(.3, 1.2), -randf_range(.2, .8), 140, Color(.13, .13, .17))
 	if st == 0:
 		_glide(e, 2.2)
 		e.y = e.cy + sin(T * .06 + e.x * .01) * 16
@@ -3084,6 +3108,7 @@ func kill_enemy(e: Dictionary, how: String = "") -> void:
 	e.ddy = 0.0
 	e.dvy = -6.0
 	burst(e.x, e.y - 12, 14, Color("#ccbbbb"))
+	Polish.ko(e)
 	shake = max(shake, 5)
 	hit_stop = 5 if how == "stomp" else 3
 	Audio.play("stomp")
@@ -3161,6 +3186,9 @@ func hurt(d: int, from_x: float) -> void:
 		return
 	player.hp -= d
 	kb.call()
+	# impacto: clarão branco curto e corpo achatado com o tranco
+	player.hitFx = 10
+	player.squash = .7
 	Audio.play("hurt")
 	Audio.vib(60)
 	burst(player.x + player.w / 2, player.y + player.h / 2, 12, Color("#e07a6a"))

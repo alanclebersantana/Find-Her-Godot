@@ -194,6 +194,8 @@ func swing_box() -> Dictionary:
 
 func _swing_hits() -> void:
 	var hb := swing_box()
+	if g.player.onGround:
+		Polish.cut_grass(hb.x, hb.x + hb.w, g.player.y + g.player.h)
 	var p: Dictionary = g.player
 	for e in g.EN:
 		if e.dead or swing_hit.has(e):

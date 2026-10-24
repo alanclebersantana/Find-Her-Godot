@@ -59,6 +59,7 @@ func __draw_raw() -> void:
 		g.VL.draw(T)
 	var __d__deco := Time.get_ticks_usec()
 	_deco(g)
+	Polish.draw_back(g, T)
 	WorldExtras.flowers(g, T)
 	Spr.pt("d__deco", __d__deco)
 	var __d__climb := Time.get_ticks_usec()
@@ -224,6 +225,11 @@ func _draw_player_node(n: CanvasItem) -> void:
 	env = env.lerp(Color(.94, .97, 1.04), ws.get("neve", 0.0))
 	env = env.lerp(Color(.9, .94, 1.02), ws.get("noite", 0.0))
 	env = env.lerp(Color(.92, .96, .94), ws.get("pantano", 0.0))
+	# levou golpe: clarão branco curto (some em 10 quadros)
+	var hf: int = int(p.get("hitFx", 0))
+	if hf > 0:
+		var u: float = hf / 10.0
+		env = Color(env.r + 2.2 * u, env.g + 2.2 * u, env.b + 2.2 * u)
 	n.self_modulate = env
 	_player(g)
 	_breath(g)
@@ -244,9 +250,13 @@ func _draw_front_node(n: CanvasItem) -> void:
 	var __d_Extras_grass := Time.get_ticks_usec()
 	WorldExtras.grass(g, T)
 	Spr.pt("d_Extras_grass", __d_Extras_grass)
+	Polish.draw_front(g, T)
 	for f in g.FXS:
 		Spr.A(f.n, f.x, f.y, f.sc, false, 1.0 - float(f.t) / f.life)
 	for p in g.PARTS:
+		if p.has("k"):
+			Polish.draw_part(p)
+			continue
 		var c: Color = p.col
 		var pa: float = c.a * clamp(p.life / 24.0, 0, 1)
 		if p.get("ember"):
@@ -563,7 +573,9 @@ func _enemy_fx_under(g: Game, e: Dictionary, eo: Vector2) -> void:
 	if e.dead:
 		return
 	if not Game.FLY.has(e.k) and not NO_SHADOW.has(e.k):
-		Spr.ellipse(e.x + eo.x, e.y + 3, 24, 4.5, Color(0, 0, 0, .24))
+		Spr.ellipse(e.x + eo.x, e.y + 3, 24, 4.5, Polish.shadow_col(.24))
+	elif e.k in ["crow", "bat", "owl", "fly"]:
+		Polish.flyer_shadow(e, eo.x)
 	if not e.has("seen"):
 		var p: Dictionary = g.player
 		if abs(p.x + p.w / 2 - e.x) < 300 and abs(p.y + p.h - e.y) < 180:
@@ -588,9 +600,15 @@ func _enemy_eyes(e: Dictionary) -> void:
 	var f: float = 1.0 if e.dir > 0 else -1.0
 	var b: float = .75 + .25 * sin(T * .2 + e.x)
 	var oy: float = e.get("eyeY", 0.0)
+	# antes do bote os olhos acendem forte (aviso)
+	var wk: float = clamp(float(e.get("warnT", 0)) / 14.0, 0, 1)
+	if e.get("wind", 0) > 0:
+		wk = 1.0
 	for v in ey:
 		var x: float = e.x + v.x * f
 		var y: float = e.y + v.y + oy
+		if wk > 0:
+			Spr.glow(x, y, 9 + 16 * wk, Color(1, .15, .05, .6 * wk))
 		Spr.glow(x, y, 9, Color(1, .1, .05, .55 * b))
 		Spr.circle(x, y, 2.4, Color(1, .2, .1, b))
 		Spr.circle(x - .6, y - .6, .9, Color(1, .9, .8, b))
@@ -611,12 +629,18 @@ func _enemy_fx_over(g: Game, e: Dictionary, eo: Vector2, hop_u: float) -> void:
 	e.pst = s
 	if e.get("charge") and not e.get("pch"):
 		e.warnT = 34
+	if e.k == "boar" and e.get("wind", 0) == 15:
+		Polish.snort(e.x + e.dir * 34, e.y - 22, e.dir)
 	e.pch = e.get("charge", false)
 	if e.k == "frog":
 		var jt: int = int(e.get("jt", 0)) % 130
 		var pp: Dictionary = g.player
 		if jt >= 74 and jt < 100 and abs(pp.x - e.x) < 320:
 			e.warnT = max(e.get("warnT", 0), 2)
+	if e.k == "squirrel" and s == 1 and int(e.get("t", 0)) < 22:
+		# esquilo leva um susto antes do bote
+		var qa: float = clamp(1.0 - e.t / 22.0, 0, 1)
+		Spr.text("?", hx + 10, hy - 30, 22, Color(1, .95, .7, qa), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
 	var wt: int = e.get("warnT", 0)
 	if wt > 0:
 		e.warnT = wt - 1
@@ -645,11 +669,16 @@ static func dizzy(x: float, y: float, t: int) -> void:
 ## corpo vivo dos bichos (como nos filmes 3D): inclina na direção em que acelera, respira parado,
 ## achata antes do bote do javali e se inclina nas curvas de quem voa
 func _enemy_body(e: Dictionary, dist: float) -> void:
-	var vx: float = e.x - float(e.get("_pbx", e.x))
-	e._pbx = e.x
 	var fly: bool = Game.FLY.has(e.k) or e.k in ["crow", "bat", "owl", "piranha"]
-	var tl: float = clamp(vx * (.05 if fly else .035), -.12, .12)
-	e._ln = lerp(float(e.get("_ln", 0.0)), tl, .12)
+	# estado só avança uma vez por quadro (o contorno chama este desenho 8 vezes)
+	var fpf := Engine.get_process_frames()
+	if int(e.get("_bodyf", -1)) != fpf:
+		e._bodyf = fpf
+		e._bvx = e.x - float(e.get("_pbx", e.x))
+		e._pbx = e.x
+		var tl: float = clamp(float(e._bvx) * (.05 if fly else .035), -.12, .12)
+		e._ln = lerp(float(e.get("_ln", 0.0)), tl, .12)
+	var vx: float = e.get("_bvx", 0.0)
 	var w: int = int(e.get("wind", 0))
 	if w > 0:
 		# antecipação do bote: abaixa e joga o peso para trás
@@ -681,8 +710,11 @@ func _enemy(e: Dictionary) -> void:
 		# virada com peso: espelha de uma vez, agachando e se recompondo (sem "folha de papel")
 		var tw: float = 1.0 + (1.0 - Spr.tsy(e)) * .6
 		Spr.scale(sign(fs) * tw, Spr.tsy(e))
-		if Spr.turned_now(e) and not Game.FLY.has(e.k) and not e.k in ["crow", "bat", "owl", "piranha", "spider", "leech", "plant", "mole"]:
+		if Spr.turned_now(e) and not e.get("_tdust", false) and not Game.FLY.has(e.k) and not e.k in ["crow", "bat", "owl", "piranha", "spider", "leech", "plant", "mole"]:
+			e._tdust = true
 			WorldExtras.turn_dust(game, e.x, e.get("base", e.y), e.dir, game._dust_col())
+		elif not Spr.turned_now(e):
+			e._tdust = false
 	if e.dead:
 		if e.dk == "flat":
 			var q: float = min(1, e.dead / 4.0)
@@ -1122,7 +1154,7 @@ func _isis_draw(p: Dictionary) -> void:
 	_ppos = Vector2(p.x, p.y)
 	var air: float = clamp(1 - abs(p.vy) / 16.0, .35, 1) if not p.onGround else 1.0
 	if fr != 10 and fr != 8:
-		Spr.ellipse(cx, p.y + p.h + 1, 13 * air, 3 * air, Color(0, 0, 0, .3 * air))
+		Polish.shadow(cx, p.y + p.h + 1, 13 * air, 3 * air, .3 * air)
 	var t: Texture2D = Spr.tex.get("isis2")
 	if t == null:
 		return
@@ -1132,6 +1164,11 @@ func _isis_draw(p: Dictionary) -> void:
 	if fr <= 6:
 		st = _body_flex(p, "isis", fr, 4)
 		rot = p.lean
+		if fr == 4:
+			# parada: respira; ofegante depois de correr muito (curvada, rápido)
+			var ip: float = p.get("pant", 0) / 150.0
+			st.y *= 1.0 + sin(T * .07) * .012 + sin(T * .32) * .035 * ip - .02 * ip
+			rot += p.face * .07 * ip
 		if fr < 4:
 			# passada: o corpo sobe um tiquinho no quadro de apoio (1 e 3)
 			st.y *= 1 + (.012 if fr % 2 == 1 else -.008) * clamp(abs(p.vx) / 4.3, 0, 1)
@@ -1414,7 +1451,7 @@ func _player_draw(g: Game) -> void:
 			var sz: float = a.s
 			var k2 := 78.0 / sz
 			var air3: float = clamp(1 - abs(p.vy) / 16.0, .35, 1) if not p.onGround else 1.0
-			Spr.ellipse(cx, by + 1, 16 * air3, 4 * air3, Color(0, 0, 0, .25 * air3))
+			Polish.shadow(cx, by + 1, 16 * air3, 4 * air3, .25 * air3)
 			var sq3: float = p.squash
 			var st: Vector2 = _body_flex(p, key, f, n)
 			var turn3: float = .7 + .3 * (1 - p.turnT / 6.0) if p.turnT > 0 else 1.0
@@ -1450,6 +1487,15 @@ func _player_draw(g: Game) -> void:
 				src4 = Spr.x4_src(m4, q4[1])
 				k4 = smoothstep(.5, 1.0, q4[2]) * .5 if q4[1] != q4[0] else 0.0
 			_pose(key, tx3, src3, dst3, cx, by, p.lean, sx3, sy3)
+			# vento forte com ele parado: a ponta do cachecol voa para o lado do vento
+			var wnd: float = g.AMB.get("wind", 0.0)
+			if wnd > .3 and key in ["idle", "look", "lantern", "shiver", "rain"]:
+				Spr.save()
+				Spr.translate(cx, by)
+				Spr.rotate(p.lean)
+				Spr.scale(-.48 if wnd > 0 else .48, .48)   # o vento sopra para a direita: a ponta vai para lá
+				_scarf(p, clamp(abs(wnd), .4, 1.0))
+				Spr.restore()
 			Spr.save()
 			Spr.translate(cx, by)
 			Spr.rotate(p.lean)
@@ -1501,7 +1547,7 @@ func _player_draw(g: Game) -> void:
 		otex = om.tex
 		osrc = Spr.x4_src(om, Spr.x4_pos(om, ofp)[0])
 	var air: float = clamp(1 - abs(p.vy) / 16.0, .3, 1)
-	Spr.ellipse(cx, by + 1, 16 * air, 4 * air, Color(0, 0, 0, .25 * air))
+	Polish.shadow(cx, by + 1, 16 * air, 4 * air, .25 * air)
 	if p.puff:
 		Spr.glow(cx, by - 30, 50, Color(1, .96, .82, .55))
 	if p.run and p.onGround:
@@ -1592,8 +1638,8 @@ func _pose(key: String, tex: Texture2D, src: Rect2, dst: Rect2, x: float, y: flo
 	_pose_last = {"key": key, "tex": tex, "src": src, "dst": dst, "rot": rot, "sx": sx, "sy": sy, "t": T, "off": Vector2(x, y) - _ppos}
 
 ## ponta do cachecol esvoaçando para trás quando corre ou pula (atrás do corpo)
-func _scarf(p: Dictionary) -> void:
-	var sp: float = clamp(abs(p.vx) / 6.0, .4, 1.0)
+func _scarf(p: Dictionary, force: float = -1.0) -> void:
+	var sp: float = clamp(abs(p.vx) / 6.0, .4, 1.0) if force < 0.0 else force
 	var pts_top := PackedVector2Array()
 	var pts_bot := PackedVector2Array()
 	var n := 7
