@@ -718,11 +718,14 @@ func _enemy(e: Dictionary) -> void:
 				else:
 					fsq = 1.0 + sin(T * .09 + e.x) * .015
 				Spr.scale(1.0 / sqrt(fsq), fsq)
-				Spr.frame(Spr.tex.en_frog2, ff, 130, 70, 65, 68, 0, 3, .82)
+				if ff <= 1:
+					Spr.frame_seq(Spr.tex.en_frog2, [0, 1], T / 22.0, 130, 70, 65, 68, 0, 3, .82)
+				else:
+					Spr.frame(Spr.tex.en_frog2, ff, 130, 70, 65, 68, 0, 3, .82)
 			else:
 				Spr.A("en_frog_jump" if e.leap else "en_frog", 0, 3, .9 if e.leap else .82 + sin(T * .12) * .02)
 		"fly":
-			WorldExtras._pc("fly%d" % ((T / 2) % 2), 0, 0, 40)
+			Spr.P_cycle("fly", ["fly0", "fly1"], T / 2.0, 0, 0, 40, false, Color.WHITE, true)
 		"owl":
 			if e.dead:
 				Spr.A("en_owl_dead", 0, 22, .9)
@@ -731,7 +734,7 @@ func _enemy(e: Dictionary) -> void:
 			elif e.st == 1:
 				Spr.A("en_owl_dive" if e.t < 34 else "en_owl_atk", 0, 0, .95)
 			else:
-				Spr.A("en_owl1" if (T / 7) % 2 else "en_owl2", 0, 0, .95)
+				Spr.A_cycle("en_owl", ["en_owl1", "en_owl2"], T / 7.0 + 1.0, 0, 0, .95)
 		"bat":
 			WorldExtras.bat(e, T)
 		"spider":
@@ -1139,13 +1142,33 @@ func _isis_draw(p: Dictionary) -> void:
 	if fr < 4 and rt and rn > 0:
 		t = rt
 		src = Rect2((int(fp2) % rn) * 150, 0, 150, 150)
+	# quadros intermediários (x4): corrida e engatinhar agachada
+	var im4: Dictionary = {}
+	var ifp := 0.0
+	if fr < 4 and p.onGround and not p.crouch:
+		im4 = Spr.x4("isis_run:0-1-2-3-4-5-6-7") if (rt and rn == 8) else Spr.x4("isis2:0-1-2-3")
+		ifp = fp2 if (rt and rn == 8) else p.anim * .78
+	elif fr >= 11 and fr <= 12:
+		im4 = Spr.x4("isis2:11-12")
+		ifp = p.anim * .5
+	var ik4 := 0.0
+	var isrc4 := Rect2()
+	if not im4.is_empty():
+		var iq: Array = Spr.x4_pos(im4, ifp)
+		t = im4.tex
+		src = Spr.x4_src(im4, iq[0])
+		isrc4 = Spr.x4_src(im4, iq[1])
+		ik4 = smoothstep(.5, 1.0, iq[2]) * .5 if iq[1] != iq[0] else 0.0
 	_pose("isis%d" % (fr if fr >= 4 else 0), t, src, dst, cx, by, rot, sx, sy)
 	Spr.save()
 	Spr.translate(cx, by)
 	Spr.rotate(rot)
 	Spr.scale(sx, sy)
 	Spr.ci.draw_texture_rect_region(t, dst, src, Color(1, 1, 1, Spr.alpha))
-	if fr < 4 and rt and rn > 0 and p.onGround and not p.crouch:
+	if not im4.is_empty():
+		if ik4 > .02:
+			Spr.ci.draw_texture_rect_region(t, dst, isrc4, Color(1, 1, 1, Spr.alpha * ik4))
+	elif fr < 4 and rt and rn > 0 and p.onGround and not p.crouch:
 		var kr: float = smoothstep(.6, 1.0, fp2 - floor(fp2)) * .5
 		if kr > .02:
 			Spr.ci.draw_texture_rect_region(t, dst, Rect2(((int(fp2) + 1) % rn) * 150, 0, 150, 150), Color(1, 1, 1, Spr.alpha * kr))
@@ -1165,7 +1188,7 @@ func _warp_pose(p: Dictionary) -> void:
 		"crouch":
 			Spr.A("pai_crouch", cx, by, .56, p.face < 0)
 		"crawl":
-			Spr.A(["pai_crawl1", "pai_crawl2", "pai_crawl3", "pai_crawl2"][(T / 7) % 4], cx, by, .56, p.face < 0)
+			Spr.A_cycle("pai_crawl", ["pai_crawl1", "pai_crawl2", "pai_crawl3", "pai_crawl2"], T / 7.0, cx, by, .56, p.face < 0)
 		"climb":
 			var t3: Texture2D = Spr.tex.pai_climb
 			var mv := int(p.climbA / 22) % 2
@@ -1281,11 +1304,17 @@ func _player_draw(g: Game) -> void:
 	# poses novas (atlas 2)
 	if not (p.iframe > 40):
 		var n := ""
+		var cyk := ""
+		var cyn: Array = []
+		var cyf := 0.0
 		if p.crouch:
 			if p.slideT:
 				n = "pai_slide"
 			elif abs(p.vx) > .3:
-				n = ["pai_crawl1", "pai_crawl2", "pai_crawl3", "pai_crawl2"][(T / 8) % 4]
+				cyk = "pai_crawl"
+				cyn = ["pai_crawl1", "pai_crawl2", "pai_crawl3", "pai_crawl2"]
+				cyf = T / 8.0
+				n = cyn[(T / 8) % 4]
 			else:
 				n = "pai_crouch"
 		elif p.actT > 0 and p.act in ["throw1", "throw2", "gear"]:
@@ -1293,17 +1322,26 @@ func _player_draw(g: Game) -> void:
 		elif p.actT > 0 and p.act == "swing":
 			n = "pai_throw1" if p.actT > 14 else "pai_throw2"
 		elif p.pushT > 0 and p.onGround:
-			n = ["pai_push1", "pai_push2", "pai_push3"][(T / 10) % 3]
+			cyk = "pai_push"
+			cyn = ["pai_push1", "pai_push2", "pai_push3"]
+			cyf = T / 10.0
+			n = cyn[(T / 10) % 3]
 		elif p.run and p.onGround and abs(p.vx) > 3 and not Spr.anim.has("run"):
 			n = "pai_run1" if int(p.anim * 1.6) % 2 else "pai_run2"
 		if n != "":
 			if p.onGround:
 				Spr.ellipse(cx, by + 1, 18, 4, Color(0, 0, 0, .22))
+			var cm: Dictionary = Spr.x4("A:" + cyk) if cyk != "" else {}
 			var ar = Spr.AR.get(n)
-			if ar != null:
+			if not cm.is_empty():
+				_pose(cyk, cm.tex, Spr.x4_src(cm, Spr.x4_pos(cm, cyf)[0]), Rect2(-float(cm.ax), -float(cm.ay), float(cm.cw), float(cm.ch)), cx, by, 0.0, -.56 if p.face < 0 else .56, .56)
+			elif ar != null:
 				_pose(n, Spr.atlas_tex(ar), Rect2(ar[0], ar[1], ar[2], ar[3]), Rect2(-ar[4], -ar[5], ar[2], ar[3]), cx, by, 0.0, -.56 if p.face < 0 else .56, .56)
 			p.lean = lerp(float(p.get("lean", 0.0)), 0.0, .3)
-			Spr.A(n, cx, by, .56, p.face < 0)
+			if not cm.is_empty():
+				Spr.A_cycle(cyk, cyn, cyf, cx, by, .56, p.face < 0)
+			else:
+				Spr.A(n, cx, by, .56, p.face < 0)
 			_armor(p, cx, by)
 			return
 	# nadando: o corpo deita na direção do nado (braçada), sobe e desce devagar; parado, fica de pé
@@ -1377,13 +1415,43 @@ func _player_draw(g: Game) -> void:
 			var sy3: float = k2 * (1 - sq3 * .25) * st.y
 			var src3 := Rect2(f * sz, 0, sz, sz)
 			var dst3 := Rect2(-sz / 2, -sz, sz, sz)
-			_pose(key, a.tex, src3, dst3, cx, by, p.lean, sx3, sy3)
+			# quadros intermediários (x4): posição contínua dentro da animação
+			var tx3: Texture2D = a.tex
+			var src4 := Rect2()
+			var k4 := 0.0
+			var m4: Dictionary = {}
+			var fp := -1.0
+			match key:
+				"walk", "run":
+					fp = p.get("gait", p.anim * 1.2) * n / 4.0
+				"shiver":
+					fp = T / 3.0
+				"lantern":
+					fp = T / 40.0
+				"jump":
+					fp = clamp((p.vy + 12) / 12.0, 0, 1) * (n - 1)
+				"fall":
+					fp = clamp(p.vy / 10.0, 0, 1) * (n - 1)
+				"land":
+					fp = clamp(1 - p.landT / 8.0, 0, 1) * (n - 1)
+			if fp >= 0.0:
+				m4 = Spr.x4("tome/" + key + ":" + Spr.seqkey(range(n)))
+			if not m4.is_empty():
+				var q4: Array = Spr.x4_pos(m4, fp)
+				tx3 = m4.tex
+				src3 = Spr.x4_src(m4, q4[0])
+				src4 = Spr.x4_src(m4, q4[1])
+				k4 = smoothstep(.5, 1.0, q4[2]) * .5 if q4[1] != q4[0] else 0.0
+			_pose(key, tx3, src3, dst3, cx, by, p.lean, sx3, sy3)
 			Spr.save()
 			Spr.translate(cx, by)
 			Spr.rotate(p.lean)
 			Spr.scale(sx3, sy3)
-			Spr.ci.draw_texture_rect_region(a.tex, dst3, src3, Color(1, 1, 1, Spr.alpha))
-			if fnext >= 0 and fmix > .2:
+			Spr.ci.draw_texture_rect_region(tx3, dst3, src3, Color(1, 1, 1, Spr.alpha))
+			if not m4.is_empty():
+				if k4 > .02:
+					Spr.ci.draw_texture_rect_region(tx3, dst3, src4, Color(1, 1, 1, Spr.alpha * k4))
+			elif fnext >= 0 and fmix > .2:
 				# mistura com o próximo quadro: o passo fica contínuo (sem "pulos" entre quadros)
 				Spr.ci.draw_texture_rect_region(a.tex, dst3, Rect2(fnext * sz, 0, sz, sz), Color(1, 1, 1, Spr.alpha * smoothstep(.2, 1.0, fmix) * .55))
 			Spr.restore()
@@ -1407,6 +1475,24 @@ func _player_draw(g: Game) -> void:
 		fr = [1, 2, 3, 2][int(p.anim * (1.6 if p.run else 1.2)) % 4]
 	else:
 		fr = 0
+	# quadros intermediários (x4) dos ciclos da folha antiga
+	var otex: Texture2D = tex
+	var osrc := Rect2(fr * 170, 0, 170, 160)
+	var om: Dictionary = {}
+	var ofp := 0.0
+	if p.iframe <= 40:
+		if p.puff:
+			om = Spr.x4("pai2:0-1")
+			ofp = T / 14.0
+		elif p.slam:
+			om = Spr.x4("pai2:4-7")
+			ofp = T / 6.0
+		elif p.onGround and abs(p.vx) > .4:
+			om = Spr.x4("pai:1-2-3-2")
+			ofp = p.anim * (1.6 if p.run else 1.2)
+	if not om.is_empty():
+		otex = om.tex
+		osrc = Spr.x4_src(om, Spr.x4_pos(om, ofp)[0])
 	var air: float = clamp(1 - abs(p.vy) / 16.0, .3, 1)
 	Spr.ellipse(cx, by + 1, 16 * air, 4 * air, Color(0, 0, 0, .25 * air))
 	if p.puff:
@@ -1428,7 +1514,7 @@ func _player_draw(g: Game) -> void:
 	var rot0: float = p.lean + (p.face * .06 * pant if (pant > 0 and fr == 0 and tex == pai) else 0.0)
 	var sx0: float = p.face * sc * (1 + sq * .25) * turn
 	var sy0: float = sc * (1 - sq * .3 + idle)
-	_pose("old%d_%d" % [tex.get_instance_id(), fr], tex, Rect2(fr * 170, 0, 170, 160), Rect2(-85, -156, 170, 160), cx, by, rot0, sx0, sy0)
+	_pose("old%d_%d" % [tex.get_instance_id(), fr], otex, osrc, Rect2(-85, -156, 170, 160), cx, by, rot0, sx0, sy0)
 	for pass_i in (2 if rim2.a > 0 else 1):
 		var rimp: bool = pass_i == 0 and rim2.a > 0
 		Spr.save()
@@ -1436,11 +1522,11 @@ func _player_draw(g: Game) -> void:
 		Spr.rotate(rot0)
 		Spr.scale(sx0, sy0)
 		if rimp:
-			Spr.ci.draw_texture_rect_region(Spr.sil(tex), Rect2(-85, -156, 170, 160), Rect2(fr * 170, 0, 170, 160), Color(rim2.r, rim2.g, rim2.b, rim2.a * Spr.alpha))
+			Spr.ci.draw_texture_rect_region(Spr.sil(otex), Rect2(-85, -156, 170, 160), osrc, Color(rim2.r, rim2.g, rim2.b, rim2.a * Spr.alpha))
 		else:
 			if tex == pai and (abs(p.vx) > 2.2 or not p.onGround):
 				_scarf(p)
-			Spr.ci.draw_texture_rect_region(tex, Rect2(-85, -156, 170, 160), Rect2(fr * 170, 0, 170, 160), Color(1, 1, 1, Spr.alpha))
+			Spr.ci.draw_texture_rect_region(otex, Rect2(-85, -156, 170, 160), osrc, Color(1, 1, 1, Spr.alpha))
 			if tex == pai and fr == 0:
 				_blink(p)
 		Spr.restore()

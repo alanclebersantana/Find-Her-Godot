@@ -178,7 +178,7 @@ class _Memory extends Control:
 		var dir: float = cos(t * .03)
 		var tx: float = lx - sign(dir) * 90
 		_lia(2 if int(t / 12) % 2 == 0 else 1, lx, h * .84 - abs(sin(t * .2)) * 8, _kid(h), dir < 0)
-		Spr.frame(Spr.tex.pai, [1, 2, 3, 2][int(t / 8) % 4], 170, 160, 85, 156, tx, h * .84, _dad(h), dir < 0)
+		Spr.frame_seq(Spr.tex.pai, [1, 2, 3, 2], t / 8.0, 170, 160, 85, 156, tx, h * .84, _dad(h), dir < 0)
 		Spr.text("hihi!", lx, h * .3, 15, Color(.4, .25, .2), HORIZONTAL_ALIGNMENT_CENTER)
 
 	func _puddles(w: float, h: float, t: float) -> void:

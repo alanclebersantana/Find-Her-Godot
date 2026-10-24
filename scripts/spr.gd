@@ -86,6 +86,7 @@ func _ready() -> void:
 		var cp := "res://assets/ui/cena_%s.jpg" % k
 		if ResourceLoader.exists(cp):
 			tex["cena_" + k] = load(cp)
+	_x4_load()
 	var j = JSON.parse_string(FileAccess.get_file_as_string("res://assets/data/atlas.json"))
 	for n in j.atlas1:
 		var r = j.atlas1[n]
@@ -371,20 +372,133 @@ func frame(t: Texture2D, fr: int, cw: float, ch: float, ax: float, ay: float, x:
 ## ciclo de quadros com transição: perto da troca, o quadro seguinte aparece por cima aos poucos
 ## (fpos = posição contínua no ciclo; quadros base .. base + n - 1)
 func frame_mix(t: Texture2D, fpos: float, n: int, base: int, cw: float, ch: float, ax: float, ay: float, x: float, y: float, sc: float, flip: bool = false, al: float = 1.0) -> void:
+	frame_seq(t, range(base, base + n), fpos, cw, ch, ax, ay, x, y, sc, flip, al)
+
+## ciclo em ordem livre (ex.: [1, 2, 3, 2]); usa os quadros intermediários (x4) quando existem
+func frame_seq(t: Texture2D, seq: Array, fpos: float, cw: float, ch: float, ax: float, ay: float, x: float, y: float, sc: float, flip: bool = false, al: float = 1.0) -> void:
+	var m := x4(tkey(t) + ":" + seqkey(seq))
+	if not m.is_empty():
+		save()
+		translate(x, y)
+		scale(-sc if flip else sc, sc)
+		x4_draw(m, Rect2(-ax, -ay, cw, ch), fpos, Color(1, 1, 1, al))
+		restore()
+		return
+	var n: int = seq.size()
 	var f0: int = int(floor(fpos))
-	frame(t, base + posmod(f0, n), cw, ch, ax, ay, x, y, sc, flip, al)
+	frame(t, int(seq[posmod(f0, n)]), cw, ch, ax, ay, x, y, sc, flip, al)
 	var k: float = smoothstep(.55, 1.0, fpos - f0) * .7
 	if k > .02:
-		frame(t, base + posmod(f0 + 1, n), cw, ch, ax, ay, x, y, sc, flip, al * k)
+		frame(t, int(seq[posmod(f0 + 1, n)]), cw, ch, ax, ay, x, y, sc, flip, al * k)
 
 ## mesma ideia para folhas desenhadas direto (chefes): seq = ordem dos quadros no ciclo
 func region_mix(t: Texture2D, dst: Rect2, cw: float, ch: float, seq: Array, fpos: float, mod: Color) -> void:
+	var m := x4(tkey(t) + ":" + seqkey(seq))
+	if not m.is_empty():
+		x4_draw(m, dst, fpos, Color(mod.r, mod.g, mod.b, mod.a / max(alpha, .001)))
+		return
 	var f0: int = int(floor(fpos))
 	var n: int = seq.size()
 	ci.draw_texture_rect_region(t, dst, Rect2(int(seq[posmod(f0, n)]) * cw, 0, cw, ch), mod)
 	var k: float = smoothstep(.55, 1.0, fpos - f0) * .7
 	if k > .02:
 		ci.draw_texture_rect_region(t, dst, Rect2(int(seq[posmod(f0 + 1, n)]) * cw, 0, cw, ch), Color(mod.r, mod.g, mod.b, mod.a * k))
+
+# ---------- quadros intermediários (tools/x4.py): 4 quadros para cada quadro desenhado ----------
+var X4M := {}
+func _x4_load() -> void:
+	var pth := "res://assets/data/x4.json"
+	if FileAccess.file_exists(pth):
+		var j = JSON.parse_string(FileAccess.get_file_as_string(pth))
+		if j is Dictionary:
+			X4M = j
+
+## folha x4 da chave (vazio se não existir); carrega a textura na primeira vez
+func x4(key: String) -> Dictionary:
+	var m = X4M.get(key)
+	if m == null:
+		return {}
+	if not m.has("tex"):
+		var pth: String = "res://assets/sprites/" + str(m.file)
+		if not ResourceLoader.exists(pth):
+			X4M.erase(key)
+			return {}
+		m.tex = load(pth)
+	return m
+
+func tkey(t: Texture2D) -> String:
+	var p := t.resource_path
+	if p.begins_with("res://assets/sprites/"):
+		p = p.substr(21)
+	return p.get_basename()
+
+func seqkey(seq: Array) -> String:
+	var parts := PackedStringArray()
+	for v in seq:
+		parts.append(str(int(v)))
+	return "-".join(parts)
+
+## quadro i da folha x4
+func x4_src(m: Dictionary, i: int) -> Rect2:
+	var cols: int = int(m.cols)
+	return Rect2((i % cols) * float(m.cw), (i / cols) * float(m.ch), float(m.cw), float(m.ch))
+
+## posição contínua (em quadros originais) -> [quadro, próximo, fração]
+func x4_pos(m: Dictionary, fpos: float) -> Array:
+	var n: int = int(m.n)
+	var p: float = fpos * 4.0
+	if m.get("cyc", true):
+		var i0: int = posmod(int(floor(p)), n)
+		return [i0, (i0 + 1) % n, p - floor(p)]
+	p = clamp(p, 0.0, n - 1.0)
+	var j0: int = int(floor(p))
+	return [j0, min(j0 + 1, n - 1), p - j0]
+
+## desenha a folha x4 no retângulo de um quadro original (com leve transição para o próximo)
+func x4_draw(m: Dictionary, dst: Rect2, fpos: float, mod: Color = Color(1, 1, 1)) -> void:
+	var q := x4_pos(m, fpos)
+	var t: Texture2D = m.tex
+	var c := Color(mod.r, mod.g, mod.b, mod.a * alpha)
+	if sil_c.a > 0:
+		t = sil(t)
+		c = Color(sil_c.r, sil_c.g, sil_c.b, sil_c.a * alpha * mod.a)
+	ci.draw_texture_rect_region(t, dst, x4_src(m, q[0]), c)
+	var k: float = smoothstep(.5, 1.0, q[2]) * .5
+	if k > .02 and q[1] != q[0]:
+		ci.draw_texture_rect_region(t, dst, x4_src(m, q[1]), Color(c.r, c.g, c.b, c.a * k))
+
+## ciclo de peças do atlas (Spr.A): nomes na ordem do ciclo
+func A_cycle(key: String, names: Array, fpos: float, x: float, y: float, sc: float = 1.0, flip: bool = false, al: float = 1.0) -> void:
+	var m := x4("A:" + key)
+	if m.is_empty():
+		A(names[posmod(int(floor(fpos)), names.size())], x, y, sc, flip, al)
+		return
+	save()
+	translate(x, y)
+	scale(-sc if flip else sc, sc)
+	x4_draw(m, Rect2(-float(m.ax), -float(m.ay), float(m.cw), float(m.ch)), fpos, Color(1, 1, 1, al))
+	restore()
+
+## ciclo de peças pintadas com largura fixa: centradas (PC, como WorldExtras._pc) ou pela base (P)
+func P_cycle(key: String, names: Array, fpos: float, cx: float, y: float, w: float, flip: bool = false, c: Color = Color.WHITE, centered: bool = false) -> void:
+	var m := x4(("PC:" if centered else "P:") + key)
+	if m.is_empty():
+		var nm: String = names[posmod(int(floor(fpos)), names.size())]
+		if centered:
+			var hgt: float = PH(nm, w)
+			PR(nm, cx - w / 2, y - hgt / 2, w, hgt, c)
+		else:
+			P(nm, cx, y, w, flip, 0.0, c)
+		return
+	var u: float = w / (float(m.w) * float(m.px))
+	var W: float = float(m.cw) * u
+	var H: float = float(m.ch) * u
+	save()
+	translate(cx, y)
+	if flip:
+		scale(-1, 1)
+	x4_draw(m, Rect2(-W / 2, -H / 2 if centered else -H, W, H), fpos, c)
+	restore()
 
 # ---------- formas ----------
 func col(c: Color, a: float = 1.0) -> Color:
@@ -519,6 +633,15 @@ func sheet_cycle(name: String, fpos: float, n: int, base: int, cw: float, ch: fl
 			n = wn
 			base = 0
 			name = name + "_walk"
+	var m := x4(name + ":" + seqkey(range(base, base + n)))
+	if not m.is_empty():
+		var s4: float = hgt / ch
+		save()
+		translate(x, by)
+		scale(-s4 if flip else s4, s4)
+		x4_draw(m, Rect2(-cw / 2, -ch, cw, ch), fpos, mod)
+		restore()
+		return
 	var f0: int = int(floor(fpos))
 	var fr: float = fpos - f0
 	var a: int = base + posmod(f0, n)

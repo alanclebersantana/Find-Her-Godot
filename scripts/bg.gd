@@ -106,8 +106,7 @@ func _geese(al: float, w: float, oy: float, tint: Color) -> void:
 		var gy: float = ly + row * 11 * side + sin(game.T * .02 + k) * 2
 		# o líder troca de vez em quando: a formação "respira"
 		gx += sin(game.T * .01 + k * 1.7) * 3
-		var fr: int = ((game.T / 6) + k * 2) % 4
-		Spr.P("goose%d" % [0, 1, 2, 1][fr], gx, gy + 6, 24, dir < 0, 0.0, c)
+		Spr.P_cycle("goose", ["goose0", "goose1", "goose2", "goose1"], game.T / 6.0 + k * 2, gx, gy + 6, 24, dir < 0, c)
 
 func _cloud(x: float, y: float, cw: float, c: Color) -> void:
 	# contorno único (sem sobreposição de transparências): bolotas em cima, base reta e arredondada

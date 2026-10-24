@@ -454,7 +454,7 @@ static func crow(e: Dictionary, T: int) -> void:
 	if Spr.tex.has("en_crow2"):
 		Spr.frame_mix(Spr.tex.en_crow2, T / float(fs) + int(e.x * .1), 4, 0, 170, 130, 85, 65, 0, -8, .74)
 	else:
-		Spr.A("crow%d" % ((T / 4) % 3), 0, -8, .74)
+		Spr.A_cycle("crow", ["crow0", "crow1", "crow2"], T / 4.0, 0, -8, .74)
 
 static func piranha(e: Dictionary, T: int) -> void:
 	WorldExtras._pc("piranha%d" % (1 if (not e.dead and (T / 10) % 3 == 0) else 0), 0, 0, 46)
@@ -494,8 +494,12 @@ static func horse(x: float, y: float, g: float, run: float, st: String, T: int) 
 	var cw: float = m.w
 	var ch: float = m.h
 	Spr.ellipse(x, y + 2, 64, 8, Color(0, 0, 0, .25 if st != "jump" else .12))
-	Spr.ci.draw_texture_rect_region(Spr.tex.cavalo, Rect2(x - float(m.ax) * s, y - float(m.ay) * s, cw * s, ch * s),
-		Rect2(fr * cw, 0, cw, ch), Color(1, 1, 1, Spr.alpha))
+	var hdst := Rect2(x - float(m.ax) * s, y - float(m.ay) * s, cw * s, ch * s)
+	if fr < 6:
+		# galope com quadros intermediários (x4)
+		Spr.region_mix(Spr.tex.cavalo, hdst, cw, ch, [0, 1, 2, 3, 4, 5], g * 6.0, Color(1, 1, 1, Spr.alpha))
+	else:
+		Spr.ci.draw_texture_rect_region(Spr.tex.cavalo, hdst, Rect2(fr * cw, 0, cw, ch), Color(1, 1, 1, Spr.alpha))
 	if st == "trapped":
 		# arame farpado enrolado nas patas
 		for k in 3:

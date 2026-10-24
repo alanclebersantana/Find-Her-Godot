@@ -337,6 +337,7 @@ static func _toucans(g: Game, T: int) -> void:
 					n = "tuc_glide"
 				else:
 					n = "tuc_f%d" % fl[(T / 5) % 4]
+					u._fly = true
 			"land":
 				n = "tuc_land"
 			"sit":
@@ -346,4 +347,9 @@ static func _toucans(g: Game, T: int) -> void:
 					u.f = -u.f
 		# bichos do cenário: menores e de cor suave (os inimigos são grandes, fortes e com contorno vermelho)
 		var w: float = 36.0 if u.st == "sit" else 42.0
-		Spr.P(n, u.x, u.y + (0.0 if u.st == "sit" else 16.0), w, u.f < 0, 0.0, SOFT)
+		if u.get("_fly", false) and n.begins_with("tuc_f"):
+			# batendo asas: quadros intermediários (x4)
+			Spr.P_cycle("tuc_f", ["tuc_f0", "tuc_f1", "tuc_f2", "tuc_f1"], T / 5.0, u.x, u.y + 16.0, w, u.f < 0, SOFT)
+		else:
+			Spr.P(n, u.x, u.y + (0.0 if u.st == "sit" else 16.0), w, u.f < 0, 0.0, SOFT)
+		u._fly = false

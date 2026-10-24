@@ -105,10 +105,12 @@ static func _hawk(g: Game, K: Kings, T: int) -> void:
 		Spr.translate(h.x, y)
 		Spr.rotate(rot)
 		Spr.scale(hfs * sc * hsx, sc * hsy)
-		if h.st in ["dive", "stuck", "mark"]:
+		if h.st == "dive":
 			Spr.ci.draw_texture_rect_region(Spr.tex.gaviao, Rect2(-66, -96, 132, 124), Rect2(fr * 132, 0, 132, 124), Color(tint.r, tint.g, tint.b, Spr.alpha))
 		else:
-			Spr.region_mix(Spr.tex.gaviao, Rect2(-66, -96, 132, 124), 132, 124, [0, 1, 2], T / 5.0, Color(tint.r, tint.g, tint.b, Spr.alpha))
+			# asas: preso no chão bate rápido, mirando bate médio, voando bate devagar
+			var hsp: float = 3.0 if h.st == "stuck" else (4.0 if h.st == "mark" else 5.0)
+			Spr.region_mix(Spr.tex.gaviao, Rect2(-66, -96, 132, 124), 132, 124, [0, 1, 2], T / hsp, Color(tint.r, tint.g, tint.b, Spr.alpha))
 		Spr.restore()
 	if h.get("skin", "hawk") != "bat":
 		_crown(h.x + hfs * 14, y - 112 * hsy, 1.2)
@@ -354,8 +356,8 @@ static func _bear(g: Game, K: Kings, T: int) -> void:
 		bsy *= 1.06
 	Spr.scale(Spr.eturn(b, .15) * bsx, bsy)
 	Spr.rotate(rot)
-	if b.st in ["walk", "charge", "back", "tree", "flee", "hop"] or (b.st == "backoff" and b.t < 24):
-		Spr.region_mix(Spr.tex.urso, Rect2(-140, -228, 280, 230), 280, 230, [0, 1], b.anim * 2.0, Color(tint.r, tint.g, tint.b, Spr.alpha))
+	if b.st in ["walk", "charge", "back", "tree", "flee", "hop", "scrape"] or (b.st == "backoff" and b.t < 24):
+		Spr.region_mix(Spr.tex.urso, Rect2(-140, -228, 280, 230), 280, 230, [0, 1], (T / 6.0) if b.st == "scrape" else b.anim * 2.0, Color(tint.r, tint.g, tint.b, Spr.alpha))
 	else:
 		Spr.ci.draw_texture_rect_region(Spr.tex.urso, Rect2(-140, -228, 280, 230), Rect2(fr * 280, 0, 280, 230), Color(tint.r, tint.g, tint.b, Spr.alpha))
 	Spr.restore()

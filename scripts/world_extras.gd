@@ -460,6 +460,8 @@ static func _brutus(b: Dictionary, T: int, bd: float = 0.0) -> void:
 	Spr.scale(tw * bsx, bsy)
 	if b.st in ["charge", "trot"]:
 		Spr.sheet_cycle("cao", bd / (14.0 if b.st == "charge" else 15.0), 4, 0, 200, 150, 0, 0, 210.0, flip, Color(tint.r, tint.g, tint.b, a))
+	elif b.st == "down":
+		Spr.sheet_cycle("cao", T / 3.0, 4, 0, 200, 150, 0, 0, 210.0, flip, Color(tint.r, tint.g, tint.b, a))
 	else:
 		Spr.sheet("cao", fr, 200, 150, 0, 0, 210.0, flip, Color(tint.r, tint.g, tint.b, a))
 	Spr.restore()
@@ -486,7 +488,7 @@ static func bat(e: Dictionary, T: int) -> void:
 		# pendurado de cabeça para baixo, dormindo
 		_pc("bat_hang", 0, 18, 24)
 		return
-	_pc("bat%d" % [0, 1, 2, 1][(T / 4) % 4], 0, 0, 50)
+	Spr.P_cycle("bat", ["bat0", "bat1", "bat2", "bat1"], T / 4.0, 0, 0, 50, false, Color.WHITE, true)
 
 static func spider(e: Dictionary, T: int) -> void:
 	if not e.dead:
@@ -499,7 +501,7 @@ static func spider(e: Dictionary, T: int) -> void:
 		_pc("spider_hang", 0, 10, 30)
 		Spr.restore()
 	else:
-		_pc("spider%d" % ((T / 7) % 3), 0, 6, 42)
+		Spr.P_cycle("spider", ["spider0", "spider1", "spider2"], T / 7.0, 0, 6, 42, false, Color.WHITE, true)
 
 static func mole(e: Dictionary, T: int) -> void:
 	var st: int = e.get("st", 0)
@@ -649,7 +651,11 @@ static func dog(g: Game, T: int) -> void:
 				Spr.translate(0, -abs(sin(T * .9)) * 2.0)
 				wag_k = .05
 		Spr.scale(sc if d.face > 0 else -sc, sc * (1.0 + bob))
-		_dog_frame(fr, sin(T * (.45 if d.st == "sit" else .3)) * wag_k)
+		if d.moving and not Spr.x4("A:dog").is_empty():
+			# correndo: quadros intermediários (x4) com o rabo junto do corpo
+			Spr.A_cycle("dog", ["dog0", "dog1", "dog2", "dog3"], d.anim, 0, 0, 1.0)
+		else:
+			_dog_frame(fr, sin(T * (.45 if d.st == "sit" else .3)) * wag_k)
 	Spr.restore()
 	if d.carry:
 		Spr.save()
