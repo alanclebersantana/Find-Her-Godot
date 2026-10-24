@@ -75,7 +75,7 @@ static func _hawk(g: Game, K: Kings, T: int) -> void:
 		Spr.save()
 		Spr.translate(h.x, y - 34 + flap)
 		Spr.rotate(rot * .6)
-		Spr.scale(hfs * hsx, hsy)
+		Spr.scale(hfs * hsx, hsy * Spr.tsy(h))
 		if mrt:
 			# arte própria: 0-2 batendo as asas, 3 mergulho, 4 tonto (coroa e olhos já desenhados)
 			var mf: int = bf
@@ -104,7 +104,7 @@ static func _hawk(g: Game, K: Kings, T: int) -> void:
 		Spr.save()
 		Spr.translate(h.x, y)
 		Spr.rotate(rot)
-		Spr.scale(hfs * sc * hsx, sc * hsy)
+		Spr.scale(hfs * sc * hsx, sc * hsy * Spr.tsy(h))
 		if h.st == "dive":
 			Spr.ci.draw_texture_rect_region(Spr.tex.gaviao, Rect2(-66, -96, 132, 124), Rect2(fr * 132, 0, 132, 124), Color(tint.r, tint.g, tint.b, Spr.alpha))
 		else:
@@ -170,7 +170,7 @@ static func _fish(g: Game, K: Kings, T: int) -> void:
 	Spr.translate(f.x, f.y + (sin(T * .06) * 3.0 if f.st != "down" else 0.0))
 	var ffs: float = Spr.eturn(f, .1)
 	Spr.rotate(f._pt * sign(ffs) if f.st != "down" else 0.0)
-	Spr.scale(ffs * fsx, fsy)
+	Spr.scale(ffs * fsx, fsy * Spr.tsy(f))
 	if f.get("skin", "fish") == "frog" and Spr.tex.has("en_frog2"):
 		# Sapo-Rei nadando: o sapo pintado bem grande, pernas batendo; boca aberta quando suga
 		var ff: int = 0 if f.st in ["tired", "down"] else (3 if f.st == "suck" and f.mouth > .3 else [1, 2][(T / 8) % 2])
@@ -354,7 +354,9 @@ static func _bear(g: Game, K: Kings, T: int) -> void:
 	if b.st == "hop" and hc == 0.0 and float(b.get("hy", 0.0)) < -10.0:
 		bsx *= .95
 		bsy *= 1.06
-	Spr.scale(Spr.eturn(b, .15) * bsx, bsy)
+	Spr.scale(Spr.eturn(b, .15) * bsx, bsy * Spr.tsy(b))
+	if Spr.turned_now(b):
+		WorldExtras.turn_dust(g, b.x, b.gy, b.dir, Color(.95, .97, 1, .8))
 	Spr.rotate(rot)
 	if b.st in ["walk", "charge", "back", "tree", "flee", "hop", "scrape"] or (b.st == "backoff" and b.t < 24):
 		Spr.region_mix(Spr.tex.urso, Rect2(-140, -228, 280, 230), 280, 230, [0, 1], (T / 6.0) if b.st == "scrape" else b.anim * 2.0, Color(tint.r, tint.g, tint.b, Spr.alpha))

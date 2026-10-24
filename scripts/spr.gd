@@ -605,18 +605,56 @@ func edist(e: Dictionary) -> float:
 	e._lx = e.x
 	return e._dd
 
-## virada macia: o bicho gira (estreita e abre) em vez de espelhar de um quadro para o outro
-func eturn(e: Dictionary, k: float = .2) -> float:
-	var d: float = 1.0 if e.dir > 0 else -1.0
-	var fs: float = move_toward(float(e.get("_fs", d)), d, k)
-	e._fs = fs
-	return turnw(fs, d)
+## virada com peso (sem efeito de folha de papel): o bicho freia agachando um pouco, espelha de uma vez
+## e se recompõe com um pequeno impulso. Devolve a escala x (com o lado); a escala y fica em e._tsy.
+const TURN_T := 12      # duração da virada (quadros)
+const TURN_FLIP := 7    # quadro em que espelha (antes disso: antecipação)
+func eturn(e: Dictionary, _k: float = .2) -> float:
+	return turn_face(e, 1.0 if e.dir > 0 else -1.0)
 
-## largura na virada: o bicho estreita só até metade e espelha (vira de corpo, não vira "papel")
+func turn_face(e: Dictionary, d: float) -> float:
+	var fd: float = float(e.get("_fd", d))
+	var tt: int = int(e.get("_tt", 0))
+	var f := Engine.get_process_frames()
+	if int(e.get("_tg", -1)) != f:
+		e._tg = f
+		if tt == 0 and d != fd:
+			tt = TURN_T
+		if tt > 0:
+			tt -= 1
+			if tt == TURN_FLIP:
+				fd = d
+		e._tt = tt
+		e._fd = fd
+	var sx := 1.0
+	var sy := 1.0
+	if tt > TURN_FLIP:
+		# antecipação: abaixa e alarga um pouco
+		var u: float = float(TURN_T - tt) / float(TURN_T - TURN_FLIP)
+		sy = 1.0 - .09 * u
+		sx = 1.0 + .06 * u
+	elif tt > 0:
+		# recompõe: sai do achatado e passa um tiquinho do normal (impulso para o novo lado)
+		var v: float = float(TURN_FLIP - tt) / float(TURN_FLIP)
+		sy = lerpf(.91, 1.0, v) + sin(v * PI) * .05
+		sx = lerpf(1.06, 1.0, v) - sin(v * PI) * .03
+	e._tsy = sy
+	e._fs = fd
+	return fd * sx
+
+## escala y da virada (achatar/esticar) calculada no último eturn/turn_face
+func tsy(e: Dictionary) -> float:
+	return float(e.get("_tsy", 1.0))
+
+## acabou de espelhar neste quadro? (para soltar poeira nos pés)
+func turned_now(e: Dictionary) -> bool:
+	return int(e.get("_tt", 0)) == TURN_FLIP and int(e.get("_tg", -1)) == Engine.get_process_frames()
+
+## compatibilidade: largura na virada (agora sem estreitar)
 func turnw(fs: float, d: float = 1.0) -> float:
 	if fs == 0:
-		return d * .45
-	return sign(fs) * (.45 + .55 * abs(fs))
+		return d
+	return sign(fs)
 
 
 ## ciclo de poucos quadros (andar/correr) com transição: perto da troca, o próximo quadro

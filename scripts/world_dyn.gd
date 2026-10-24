@@ -675,7 +675,14 @@ func _enemy(e: Dictionary) -> void:
 	Spr.translate(e.x, e.y)
 	if not e.dead:
 		_enemy_body(e, dist)
-	Spr.scale(Spr.turnw(fs) if not e.dead else (1.0 if e.dir > 0 else -1.0), 1)
+	if e.dead:
+		Spr.scale(1.0 if e.dir > 0 else -1.0, 1)
+	else:
+		# virada com peso: espelha de uma vez, agachando e se recompondo (sem "folha de papel")
+		var tw: float = 1.0 + (1.0 - Spr.tsy(e)) * .6
+		Spr.scale(sign(fs) * tw, Spr.tsy(e))
+		if Spr.turned_now(e) and not Game.FLY.has(e.k) and not e.k in ["crow", "bat", "owl", "piranha", "spider", "leech", "plant", "mole"]:
+			WorldExtras.turn_dust(game, e.x, e.get("base", e.y), e.dir, game._dust_col())
 	if e.dead:
 		if e.dk == "flat":
 			var q: float = min(1, e.dead / 4.0)

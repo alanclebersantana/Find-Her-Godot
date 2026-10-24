@@ -307,6 +307,8 @@ static func boss(g: Game, T: int) -> void:
 			fr = 0
 	if b.get("skin", "boar") == "dog":
 		_brutus(b, T, bd)
+		if Spr.turned_now(b) and b.st != "down":
+			turn_dust(g, b.x, 502, b.dir)
 		return
 	var sc := 1.12
 	# corpo vivo: cada estado tem peso (antecipação, esticar, achatar, quicar)
@@ -377,7 +379,9 @@ static func boss(g: Game, T: int) -> void:
 	Spr.save()
 	Spr.translate(b.x + shake_x + ox, b.y + dy)
 	Spr.rotate(rot)
-	Spr.scale(Spr.eturn(b, .14) * sx, sy)
+	Spr.scale(Spr.eturn(b) * sx, sy * Spr.tsy(b))
+	if Spr.turned_now(b):
+		turn_dust(g, b.x, 502, b.dir)
 	var tint := Color(1, .45, .4, 1) if b.red > 0 and (T / 3) % 2 == 0 else Color(1, 1, 1, 1)
 	if b.st == "down":
 		tint.a = clamp(1.0 - (b.t - 90) / 60.0, 0.0, 1.0)
@@ -457,7 +461,7 @@ static func _brutus(b: Dictionary, T: int, bd: float = 0.0) -> void:
 		Spr.translate(-b.x, -b.y)
 	Spr.save()
 	Spr.translate(b.x + dx + box, b.y + 4 + gb)
-	Spr.scale(tw * bsx, bsy)
+	Spr.scale(tw * bsx, bsy * Spr.tsy(b))
 	if b.st in ["charge", "trot"]:
 		Spr.sheet_cycle("cao", bd / (14.0 if b.st == "charge" else 15.0), 4, 0, 200, 150, 0, 0, 210.0, flip, Color(tint.r, tint.g, tint.b, a))
 	elif b.st == "down":
@@ -475,6 +479,11 @@ static func _brutus(b: Dictionary, T: int, bd: float = 0.0) -> void:
 		Spr.text("AU!", b.x + b.dir * 60, b.y - 160, 26, Color("#ff6a4a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 5)
 
 # ---------------------------------------------------------------- inimigos novos (desenhados por código)
+## poeirinha nos pés no instante da virada (o peso trocando de lado)
+static func turn_dust(g, x: float, y: float, d: float, col: Color = Color(.62, .55, .42, .5)) -> void:
+	for k in 4:
+		g.PARTS.append({"x": x + (k - 1.5) * 6, "y": y - 2, "vx": -d * randf_range(.6, 1.8), "vy": -randf_range(.4, 1.3), "life": 16, "col": col})
+
 static func _pc(n: String, cx: float, cy: float, w: float) -> void:
 	## peça pintada centrada em (cx, cy)
 	var hgt: float = Spr.PH(n, w)
@@ -622,15 +631,15 @@ static func dog(g: Game, T: int) -> void:
 	var dvx: float = x - float(d.get("_lx", x))
 	d._lx = x
 	d._lean = lerp(float(d.get("_lean", 0.0)), clamp(dvx / 5.0, -1, 1) * .07, .15)
-	var dfs: float = move_toward(float(d.get("_fs", d.face)), d.face, .2)
-	d._fs = dfs
-	var ns: float = Spr.turnw(dfs, float(d.face))
+	var ns: float = Spr.turn_face(d, float(d.face))
+	if Spr.turned_now(d) and d.moving:
+		turn_dust(g, x, d.y, d.face)
 	var breath: float = 0.0 if d.moving else sin(T * .09) * .018
 	var gal: float = abs(sin(d.anim * PI / 3.0)) * 1.4 if d.moving else 0.0
 	Spr.save()
 	Spr.translate(0, -gal)
 	Spr.rotate(d._lean)
-	Spr.scale(abs(ns), 1.0 + breath)
+	Spr.scale(abs(ns), (1.0 + breath) * Spr.tsy(d))
 	var drew: bool = Spr.novo("pipoca", nf, 54, ns < 0)
 	Spr.restore()
 	if not drew:
