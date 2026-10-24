@@ -17,9 +17,9 @@ const GRAV := .62
 const JUMP := -11.8
 const DJUMP := -10.8
 const TOP := 4.3
-const ACCg := .9
+const ACCg := .8
 const ACCa := .52
-const FRIC := .74
+const FRIC := .78
 const COY := 10
 const BUF := 11
 const PUFF_GRAV := .10
@@ -1207,7 +1207,7 @@ func step() -> void:
 		move_y(player.vy)
 	# pousou sem segurar direção: freia na hora (não escorrega para fora da plataforma)
 	if player.onGround and not was_ground and not kd("L") and not kd("R") and not (player._g != null and player._g.get("wet")):
-		player.vx *= .35
+		player.vx *= .5
 		player.run = 0
 	player.landV = prev_vy if (player.onGround and not was_ground) else 0.0
 	if player.onGround and not was_ground and prev_vy > 3:
@@ -1590,10 +1590,10 @@ func _camera() -> void:
 	var cb := cam_bounds()
 	tx = clamp(tx, cb.position.x, max(cb.position.x, cb.end.x - W))
 	ty = clamp(ty, cb.position.y, max(cb.position.y, cb.end.y - H))
-	var rx := damp(cam, tx, cam_vx, .16 if CINE.is_empty() else .5)
+	var rx := damp(cam, tx, cam_vx, .13 if CINE.is_empty() else .5)
 	cam = rx[0]
 	cam_vx = rx[1]
-	var ry := damp(cam_y, ty, cam_vy, .26 if CINE.is_empty() else .5)
+	var ry := damp(cam_y, ty, cam_vy, .21 if CINE.is_empty() else .5)
 	cam_y = ry[0]
 	cam_vy = ry[1]
 

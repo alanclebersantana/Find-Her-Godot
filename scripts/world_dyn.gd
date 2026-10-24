@@ -1302,6 +1302,8 @@ func _player_draw(g: Game) -> void:
 	if not Spr.anim.is_empty() and not (p.iframe > 40) and not p.puff and not p.slam:
 		var key := ""
 		var f := 0
+		var fnext := -1      # quadro seguinte (mistura suave entre quadros = animação mais fluida)
+		var fmix := 0.0
 		if not p.onGround:
 			key = "jump" if p.vy < 0 else "fall"
 		elif p.landT > 0:
@@ -1319,9 +1321,14 @@ func _player_draw(g: Game) -> void:
 				"lantern":
 					f = (T / 40) % n
 				"walk", "run":
-					f = int(p.get("gait", p.anim * 1.2) * n / 4.0) % n
+					var ff: float = p.get("gait", p.anim * 1.2) * n / 4.0
+					f = int(ff) % n
+					fnext = (f + 1) % n
+					fmix = ff - floor(ff)
 				"idle":
 					f = (T / 12) % n
+					fnext = (f + 1) % n
+					fmix = (T % 12) / 12.0
 				"jump":
 					f = int(clamp((p.vy + 12) / 12.0, 0, .999) * n)
 				"fall":
@@ -1345,6 +1352,9 @@ func _player_draw(g: Game) -> void:
 			Spr.rotate(p.lean)
 			Spr.scale(sx3, sy3)
 			Spr.ci.draw_texture_rect_region(a.tex, dst3, src3, Color(1, 1, 1, Spr.alpha))
+			if fnext >= 0 and fmix > .2:
+				# mistura com o próximo quadro: o passo fica contínuo (sem "pulos" entre quadros)
+				Spr.ci.draw_texture_rect_region(a.tex, dst3, Rect2(fnext * sz, 0, sz, sz), Color(1, 1, 1, Spr.alpha * smoothstep(.2, 1.0, fmix) * .55))
 			Spr.restore()
 			_armor(p, cx, by)
 			return
