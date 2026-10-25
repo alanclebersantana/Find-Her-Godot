@@ -47,6 +47,8 @@ func _initialize() -> void:
 	g.load_level(0)
 	g.no_coal = true
 	g.lives = 99
+	# a fogueira antes do cais é grande (fim do Pântano): o jogo para e espera a cena; aqui segue direto
+	g.rest_reached.connect(func(_n): g.running = true)
 	for e in g.EN:
 		e.dead = 99
 	var fire: Array = []
