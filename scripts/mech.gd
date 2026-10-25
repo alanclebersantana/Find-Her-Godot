@@ -178,7 +178,8 @@ func pre() -> void:
 		swing_hit = {}
 		p.act = "swing"
 		p.actT = 22
-		Audio.play("slide", -6)
+		# "vush" da picareta: o mesmo som do deslize, mais agudo e curto (não confunde com o deslizar)
+		Audio.play("slide", -8, randf_range(1.3, 1.45))
 	if g.kd("G"):
 		hold_g += 1
 	else:

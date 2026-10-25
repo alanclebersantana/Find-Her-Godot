@@ -1182,6 +1182,8 @@ func step() -> void:
 		# mergulho
 		if pressed("S") and not player.onGround and not player.slam and not player.dog and not player.get("isis"):
 			player.slam = true
+			# "fffu" do mergulho começando (antes era mudo até bater no chão)
+			Audio.play("slide", -10, .78)
 			player.puff = false
 			player.vy = max(player.vy, 4)
 		# horizontal (logo depois de pular na parede, o controle fica um instante travado)
@@ -1284,6 +1286,11 @@ func step() -> void:
 		# deslizar na parede só encostado nela de verdade (a memória de alguns quadros deixava o Tomé
 		# "flutuando" devagar no ar depois que a parede acabava, e marcava deslize já pousado no chão)
 		if player.wall != 0 and player.get("wtouch", false) and not player.onGround and player.vy > 1.5 and kd("R" if player.wall > 0 else "L") and player.wlock == 0:
+			# raspar na parede: um "chhh" ao encostar e bem baixinho enquanto escorrega
+			if player.wsl == 0:
+				Audio.play("slide", -15, 1.35)
+			elif T % 22 == 0:
+				Audio.play("slide", -24, 1.5)
 			player.vy = min(player.vy, 2.3)
 			player.wslide = true
 			player.wsl = 6
@@ -1306,6 +1313,9 @@ func step() -> void:
 	player.landV = prev_vy if (player.onGround and not was_ground) else 0.0
 	if player.onGround and not was_ground and prev_vy > 3:
 		Audio.step(ground_kind(), -10.0 if prev_vy > 8 else -14.0)
+		# queda alta: um baque grave por baixo do passo (o pouso tem peso)
+		if prev_vy > 11 and not player.slam:
+			Audio.play("stomp", -13.0 + min(5.0, (prev_vy - 11.0) * .8), .72)
 		# o capim em volta deita em círculo com o pouso
 		Polish.blasts.append({"x": player.x + player.w / 2, "y": player.y + player.h, "t": 14, "r": 40.0 + prev_vy * 4.0, "f": 8.0 + prev_vy})
 	if player.onGround and not was_ground and prev_vy > 11 and not player.slam:
@@ -1325,6 +1335,9 @@ func step() -> void:
 	if player.landT > 0:
 		player.landT -= 1
 	if player.slam and player.onGround:
+		# o mergulho batendo no chão: pancada grave e tremida (a onda de choque tem peso)
+		Audio.play("stomp", -1, .62)
+		Audio.vib(70)
 		shake = max(shake, 9)
 		shake_dir = Vector2(0, 1)
 		Polish.flatten(player.x + player.w / 2, player.y + player.h, 80.0, 240)
@@ -1510,6 +1523,8 @@ func step() -> void:
 		if not c.on:
 			c.on = true
 			Audio.play("fire")
+			Audio.play("special", -12, .8)
+			Audio.vib(35)
 			flash("Fogueira acesa: progresso salvo.")
 			burst(c.x, c.y - 30, 12, Color("#ffd76a"))
 		else:
@@ -3370,14 +3385,20 @@ func break_crate(c: Dictionary) -> void:
 	Polish.impact(c.x + c.w / 2, c.y + c.h / 2, Color(1, .92, .75), 6, 24.0)
 	fx("fx_pieces", c.x + c.w / 2, c.y + c.h / 2, 20, .35, -.4)
 	burst(c.x + c.w / 2, c.y + c.h / 2, 16, Color("#b08a4e"))
+	# caixa quebrando: estalo de madeira (antes era muda)
+	Audio.play("stomp", -6, 1.3)
+	Audio.play("door", -16, 1.7)
+	Audio.vib(25)
 	var it: String = c.get("item", "")
 	if it == "armor":
 		player.armor = 1
 		flash("Armadura! Ela aguenta 1 golpe.")
+		Audio.play("item", -2, .85)
 	elif it == "heart":
 		if player.hp < MAXHP:
 			player.hp += 1
 			flash("+1 coração.")
+			Audio.play("item", -2, 1.2)
 		else:
 			for i in 5:
 				gain_coin(c.x + c.w / 2, c.y - 10, true)

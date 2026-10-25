@@ -62,11 +62,13 @@ func _ready() -> void:
 			var sp := "res://assets/audio/step_%s_%s.wav" % [k, v]
 			if ResourceLoader.exists(sp):
 				sfx["step_%s_%s" % [k, v]] = load(sp)
-	for i in 8:
+	for i in 10:
 		var p := AudioStreamPlayer.new()
 		p.bus = "Efeitos"
 		add_child(p)
 		players.append(p)
+		_pname.append("")
+		_pt0.append(0)
 	music = AudioStreamPlayer.new()
 	music2 = AudioStreamPlayer.new()
 	music.bus = "Musica"
@@ -134,7 +136,16 @@ func set_world(v: bool) -> void:
 
 ## sons que se repetem muito: mais baixos e sempre um pouco diferentes (tom variando)
 const TRIM := {"coin": -6.0, "jump": -5.0, "stomp": -3.0, "climb": -5.0, "swing": -4.0, "splash": -3.0, "crate": -3.0, "spring": -3.0, "unlock": -3.0}
+## outros sons comuns também variam um pouquinho o tom (o mesmo som idêntico toda vez cansa)
+const VARY := {"slide": .05, "door": .04, "hurt": .05, "dj": .03, "item": .03, "roar": .05, "pen": .02, "thunder": .06}
+## quantas vozes do mesmo som podem tocar juntas (o resto rouba a mais antiga do mesmo som: nada
+## de oito "stomp" empilhados estourando o volume quando várias coisas caem juntas)
+const MAXV := {"stomp": 3, "pen": 2, "unlock": 2, "splash": 2, "slide": 2, "door": 2, "roar": 2, "thunder": 1, "die": 1, "clue": 1, "special": 1, "fire": 1}
 var _last := {}
+var _pname: Array[String] = []
+var _pt0: Array[int] = []
+var _pen_n := 0
+var _pen_ms := -9999
 func play(n: String, vol_db: float = 0.0, pitch: float = 1.0) -> void:
 	if not sfx.has(n):
 		return
@@ -147,24 +158,48 @@ func play(n: String, vol_db: float = 0.0, pitch: float = 1.0) -> void:
 		vol_db += TRIM[n]
 		if pitch == 1.0:
 			pitch = randf_range(.93, 1.07)
-	for p in players:
-		if not p.playing:
-			p.stream = sfx[n]
-			p.volume_db = vol_db
-			p.pitch_scale = pitch
-			p.play()
-			return
-	players[0].stream = sfx[n]
-	players[0].volume_db = vol_db
-	players[0].pitch_scale = pitch
-	players[0].play()
+	elif VARY.has(n) and pitch == 1.0:
+		pitch = 1.0 + randf_range(-1.0, 1.0) * VARY[n]
+	# lápis pegos em sequência: cada um um pouquinho mais agudo (a trilha "canta"); recomeça ao parar
+	if n == "pen":
+		_pen_n = _pen_n + 1 if now - _pen_ms < 700 else 0
+		_pen_ms = now
+		pitch *= 1.0 + .035 * min(_pen_n, 10)
+	var p := _voice(n, now)
+	p.stream = sfx[n]
+	p.volume_db = vol_db
+	p.pitch_scale = pitch
+	p.play()
+
+## escolhe o tocador: respeita o limite de vozes do som; senão um livre; senão o mais antigo
+func _voice(n: String, now: int) -> AudioStreamPlayer:
+	var cap: int = MAXV.get(n, 3) if not n.begins_with("step_") else 2
+	var same := 0
+	var old_same := -1
+	var free := -1
+	var oldest := -1
+	for i in players.size():
+		if players[i].playing:
+			if _pname[i] == n:
+				same += 1
+				if old_same < 0 or _pt0[i] < _pt0[old_same]:
+					old_same = i
+			if oldest < 0 or _pt0[i] < _pt0[oldest]:
+				oldest = i
+		elif free < 0:
+			free = i
+	var k: int = old_same if same >= cap else (free if free >= 0 else oldest)
+	_pname[k] = n
+	_pt0[k] = now
+	return players[k]
 
 ## passo no tipo de chão (grama, terra, neve, madeira, pedra, lama), com variação de tom
 const STEPS := ["grass", "dirt", "snow", "wood", "stone", "mud"]
 var _alt := false
 func step(kind: String, vol_db: float = -19.0) -> void:
 	_alt = not _alt
-	play("step_%s_%s" % [kind, "a" if _alt else "b"], vol_db, randf_range(.9, 1.12))
+	# cada passo um pouco diferente: tom e força variam (o pé não bate sempre igual)
+	play("step_%s_%s" % [kind, "a" if _alt else "b"], vol_db + randf_range(-1.5, 1.0), randf_range(.9, 1.12))
 
 var _st_cache := {}
 func _stream(base: String) -> AudioStream:
@@ -253,8 +288,16 @@ func set_amb(n: String) -> void:
 func stop_music() -> void:
 	if _mus_tw and _mus_tw.is_valid():
 		_mus_tw.kill()
-	music.stop()
-	music2.stop()
+	# some em meio segundo em vez de cortar seco (fim de jogo, menu)
+	var tw := create_tween().set_parallel(true)
+	_mus_tw = tw
+	for m in [music, music2]:
+		if m.playing:
+			tw.tween_property(m, "volume_db", -40.0, .5)
+	tw.chain().tween_callback(func():
+		if song == "":
+			music.stop()
+			music2.stop())
 	danger.stop()
 	danger_lv = 0.0
 	song = ""
@@ -264,7 +307,9 @@ func stop_music() -> void:
 func set_danger(v: float) -> void:
 	if danger.stream == null:
 		return
-	danger_lv = lerpf(danger_lv, v, .02 if v > danger_lv else .008)
+	# (suavização pelo tempo, não por quadro: o mesmo ritmo em telas de 60, 90 ou 120 Hz)
+	var f: float = get_process_delta_time() * 60.0
+	danger_lv = lerpf(danger_lv, v, 1.0 - pow(1.0 - (.02 if v > danger_lv else .008), f))
 	if danger_lv > .02 and not danger.playing:
 		danger.play()
 	elif danger_lv <= .02 and danger.playing:
@@ -303,10 +348,19 @@ func _process(_d: float) -> void:
 			danger.stop()
 			danger_lv = 0.0
 	var tgt := -60.0 if rain_target < 0.01 else lerpf(-30.0, -10.0, rain_target)
-	rain.volume_db = lerpf(rain.volume_db, tgt, 0.05)
+	rain.volume_db = lerpf(rain.volume_db, tgt, 1.0 - pow(.95, _d * 60.0))
 	if rain_target < 0.01 and rain.volume_db < -55 and rain.playing:
 		rain.stop()
 
+## vibração: uma por vez — pedidos durante uma vibração mais longa são ignorados (vários golpes no
+## mesmo instante não viram um zumbido contínuo), e nada mais longo que 250 ms
+var _vib_until := 0
 func vib(ms: int) -> void:
-	if Save.getv("opt", "vibrate", true):
-		Input.vibrate_handheld(ms)
+	if not Save.getv("opt", "vibrate", true):
+		return
+	var now := Time.get_ticks_msec()
+	if now < _vib_until and now + ms <= _vib_until + 20:
+		return
+	ms = mini(ms, 250)
+	_vib_until = now + ms
+	Input.vibrate_handheld(ms)

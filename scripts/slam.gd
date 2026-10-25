@@ -118,9 +118,9 @@ func step() -> void:
 				if p.hp < Game.MAXHP:
 					p.hp += 1
 					g.flash("Uma fruta fresquinha! +1 coração.", 100)
+					Audio.play("item", -4, 1.2)
 				else:
 					g.gain_coin(d.x, d.y - 10)
-				Audio.play("pen", -6)
 			else:
 				g.gain_coin(d.x, d.y - 10)
 	# marca de aprender: perto da primeira rachadura, ensina o mergulho uma vez
