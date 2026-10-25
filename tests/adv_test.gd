@@ -250,7 +250,7 @@ func _initialize() -> void:
 		# trenó: senta, escorrega, a tela fecha e abre lá no morro
 		g.load_level(0)
 		P = g.player
-		put(51860, 500)
+		put(52460, 500)
 		until({"R": true}, func(): return g.VH.mode == "sled", 300)
 		S("trenó: embarque com animação", g.VH.mode == "sled" and g.VH.sboard > 0)
 		var sc: float = meas.call(80, {})
@@ -588,7 +588,7 @@ func _initialize() -> void:
 		S("bicho ficou tonto", en.stun > 0)
 		en.dead = 99
 	if all or args.has("treno"):
-		put(51860, 500)
+		put(52460, 500)
 		until({"R": true}, func(): return g.VH.mode == "sled", 300)
 		S("subiu no trenó", g.VH.mode == "sled")
 		var VH = g.VH
@@ -636,7 +636,7 @@ func _initialize() -> void:
 		# batidas de propósito nas duas primeiras: perde 1 coração cada e segue (sem voltar)
 		g.load_level(0)
 		P = g.player
-		put(51860, 500)
+		put(52460, 500)
 		until({"R": true}, func(): return g.VH.mode == "sled", 300)
 		VH = g.VH
 		var back := false
@@ -677,7 +677,7 @@ func _initialize() -> void:
 		# batendo em tudo: sem corações, morre e volta para a fogueira; o trenó fica no alto de novo
 		g.load_level(0)
 		P = g.player
-		put(51860, 500)
+		put(52460, 500)
 		until({"R": true}, func(): return g.VH.mode == "sled", 300)
 		VH = g.VH
 		var lv0: int = g.lives
@@ -690,61 +690,64 @@ func _initialize() -> void:
 			frame({})
 		hold({}, 40)
 		S("bateu em tudo: morreu", died and g.lives <= lv0)
-		S("bateu em tudo: volta da fogueira", VH.mode == "" and abs(px() - 51760) < 200)
+		S("bateu em tudo: volta da fogueira", VH.mode == "" and abs(px() - 52360) < 200)
 		S("bateu em tudo: trenó de volta no alto", not VH.sled_done and VH.near_sled() or abs(float(VH.SL.x) - px()) < 300)
 	if all or args.has("urso"):
-		put(50690, 500)
+		# perseguição inteira: troncos, galho, pingentes, fresta e a coroa
+		put(50300, 500)
+		walk_to(50400)
 		S("Urso-Rei", bear_fight())
 		S("urso: Tomé vivo", g.lives >= 9)
-		# o galho não é esconderijo: parado nele, o urso sacode a árvore e derruba
+		# parado não tem esconderijo: em cima do tronco o urso arrebenta o tronco e pega o Tomé
 		g.load_level(0)
 		for e in g.EN:
 			e.dead = 99
 		P = g.player
-		put(50690, 500)
-		hold({}, 300)
+		put(50300, 500)
+		walk_to(50400)
 		var bb: Dictionary = g.K.BEAR
-		bb.x = 51390.0
-		bb.st = "walk"
-		put(50765, 310)
-		var shook := false
-		for i in 600:
-			frame()
-			if bb.st == "shake":
-				shook = true
-			if shook and bb.st == "back":
-				break
-		S("urso sacode o galho", shook)
-		S("Tomé caiu do galho", g.player.y + g.player.h > 400)
-		# os muros não dão para pular (do chão, do bloco de gelo, do galho, com pulo duplo)
+		walk_to(50560)
+		jump_to(50637)
+		var hp0: int = P.hp
+		until({}, func(): return g.player.hp < hp0, 400)
+		S("urso pega quem fica parado (até em cima do tronco)", g.player.hp < hp0)
+		S("urso arrebenta o tronco", g.K.BOBS[0].get("fallen", false))
+		# a rocha é alta demais: nem com pulo duplo dá para passar por cima (só pela fresta)
 		g.load_level(0)
 		for e in g.EN:
 			e.dead = 99
 		P = g.player
-		put(50690, 500)
-		hold({}, 300)
-		var esc := false
-		for side in ["L", "R"]:
-			for start in [50550.0, 50780.0, 51270.0, 51540.0]:
-				put(start, 500)
-				g.K.BEAR.x = 51040.0
-				g.K.BEAR.st = "dizzy"
-				g.K.BEAR.t = 0
-				djump(side)
-				hold({side: true}, 60)
-				if px() < 50500 or px() > 51590:
-					esc = true
-		put(50765, 310)
-		djump("L")
-		hold({"L": true}, 60)
-		if px() < 50500:
-			esc = true
-		put(51265, 310)
+		var rx: float = float(g.K.BEAR.rock.x)
+		put(rx - 60, 500)
 		djump("R")
 		hold({"R": true}, 60)
-		if px() > 51590:
-			esc = true
-		S("não pula os muros da arena", not esc)
+		S("não passa por cima da rocha", px() < rx)
+		put(rx - 40, 500)
+		S("passa abaixado pela fresta", crawl(rx + 150) == true and px() > rx + 140)
+		# o Tomé cai depois que a coroa saltou: ela continua lá, esperando
+		g.load_level(0)
+		for e in g.EN:
+			e.dead = 99
+		P = g.player
+		put(rx + 262, 500)
+		g.K.BEAR.active = true
+		g.K.BEAR.won = true
+		g.K.BEAR.st = "chase"
+		g.K.BEAR.x = rx - 300.0
+		until({}, func(): return g.K.DROPPED.has("urso"), 400)
+		g.die("teste")
+		until({}, func(): return P.dyingT == 0 and g.player.hp == 5, 400)
+		hold({}, 120)
+		P = g.player
+		var cr = null
+		for c in g.K.CROWNS:
+			if c.id == "urso":
+				cr = c
+		S("coroa continua no chão depois de cair", true if (cr != null and cr.st == "rest") else str(cr))
+		if cr != null:
+			walk_to(cr.x)
+			hold({}, 30)
+		S("pegou a coroa depois de voltar", g.K.TOOK.has("urso"))
 	if all or args.has("cavalo"):
 		put(39820, 500)
 		for h in g.NT.HOLES:

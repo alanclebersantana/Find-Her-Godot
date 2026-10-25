@@ -146,14 +146,15 @@ func _initialize() -> void:
 					g.NT.harpoon = true
 				elif k == "mud":
 					g.K.FISH.mud = .8
-				elif k in ["bearw", "bearr", "beard", "bears", "bearq"]:
+				elif k in ["bearw", "bearr", "bearc", "bearo", "bearj"]:
+					# perseguição do urso: correndo, patada, investida (agachado), rugido, entalado na fresta
 					var b: Dictionary = g.K.BEAR
 					b.active = true
-					b.waves = []
-					b.st = {"bearw": "walk", "bearr": "rear", "beard": "dizzy", "bears": "scrape", "bearq": "rear2"}[k]
+					b.seen = true
+					b.st = {"bearw": "chase", "bearr": "rear", "bearc": "crouch", "bearo": "roar", "bearj": "jam"}[k]
 					b.t = 20
-					b.x = x + 220
-					b.dir = -1
+					b.x = x - 260
+					b.dir = 1
 				elif k == "ride":
 					g.RD._start()
 					g.RD.hx = x

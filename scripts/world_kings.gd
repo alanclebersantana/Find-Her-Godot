@@ -17,6 +17,182 @@ static func _crown(x: float, y: float, s: float, rot: float = 0.0) -> void:
 	Spr.ci.draw_polyline(pts + PackedVector2Array([pts[0]]), Color("#5a3a10"), 2, true)
 	Spr.circle(x, y - 5 * s, 2.6 * s, Color("#e0463a"))
 
+# ======================================================================
+#  COROAS DOS REIS (desenhadas em código, cada uma do jeito do seu rei)
+#  javali: folhas e frutinhas · gaviao: penas · bagre: escamas e pérolas · urso: gelo
+#  Origem no meio da base (onde assenta na cabeça); sobe uns 30 px (escala 1).
+# ======================================================================
+const CROWN_IDS := ["javali", "gaviao", "bagre", "urso"]
+const CROWN_NAME := {"javali": "Coroa de Folhas", "gaviao": "Coroa de Penas", "bagre": "Coroa de Pérolas", "urso": "Coroa de Gelo"}
+const CROWN_KING := {"javali": "Javali-Rei", "gaviao": "Gavião-Rei", "bagre": "Bagre-Rei", "urso": "Urso-Pardo-Rei"}
+const _OL := Color("#24160c")
+
+## polígono pintado: preenchimento, uma luz do lado de cima e o contorno escuro
+static func _cp(pts: PackedVector2Array, fill: Color, w: float = 1.6, ol: Color = _OL) -> void:
+	Spr.poly(pts, fill)
+	var c := PackedVector2Array(pts)
+	c.push_back(pts[0])
+	Spr.line(c, ol, w)
+
+## folha pontuda (base em b, ponta na direção a, comprimento l, largura w)
+static func _leaf_pts(b: Vector2, a: float, l: float, w: float) -> PackedVector2Array:
+	var d := Vector2(cos(a), sin(a))
+	var n := Vector2(-d.y, d.x)
+	var pts := PackedVector2Array()
+	for i in 7:
+		var u: float = i / 6.0
+		pts.push_back(b + d * l * u + n * w * sin(u * PI) * (1.0 - u * .25))
+	for i in range(5, 0, -1):
+		var u2: float = i / 6.0
+		pts.push_back(b + d * l * u2 - n * w * sin(u2 * PI) * (1.0 - u2 * .25))
+	return pts
+
+static func crown_art(kind: String, x: float, y: float, s: float, rot: float = 0.0, T: int = 0) -> void:
+	Spr.save()
+	Spr.translate(x, y)
+	if rot != 0.0:
+		Spr.rotate(rot)
+	Spr.scale(s, s)
+	match kind:
+		"javali":
+			_crown_leaf()
+		"gaviao":
+			_crown_feather()
+		"bagre":
+			_crown_pearl(T)
+		"urso":
+			_crown_ice(T)
+		_:
+			_crown(0, 0, 1.0)
+	Spr.restore()
+
+static func _crown_leaf() -> void:
+	# fundo de folhas escuras (fecha os vãos entre as folhas da frente)
+	Spr.poly(PackedVector2Array([Vector2(-17, -4), Vector2(-17, -15), Vector2(-9, -23), Vector2(0, -27), Vector2(9, -23), Vector2(17, -15), Vector2(17, -4)]), Color("#2f5e22"))
+	var cols := [Color("#4f8f30"), Color("#6aaa3c"), Color("#3f7a28"), Color("#7cbc48"), Color("#3f7a28"), Color("#6aaa3c"), Color("#4f8f30")]
+	for i in 7:
+		var a: float = -PI / 2 + (i - 3) * .36
+		var l: float = 20.0 - abs(i - 3) * 1.8
+		var b := Vector2((i - 3) * 4.4, -5)
+		var pts := _leaf_pts(b, a, l, 6.4)
+		_cp(pts, cols[i], 1.3, Color("#1c3812"))
+		# nervura e a luz de um lado da folha
+		var d := Vector2(cos(a), sin(a))
+		Spr.seg(b.x + d.x * 3, b.y + d.y * 3, b.x + d.x * l * .8, b.y + d.y * l * .8, Color("#c8e890", .8), 1.0)
+		var n := Vector2(-d.y, d.x)
+		Spr.seg(b.x + d.x * l * .3 + n.x * 2.2, b.y + d.y * l * .3 + n.y * 2.2, b.x + d.x * l * .62 + n.x * 2.2, b.y + d.y * l * .62 + n.y * 2.2, Color(1, 1, 1, .28), 1.4)
+	# aro de casca trançada
+	_cp(PackedVector2Array([Vector2(-18, -8), Vector2(18, -8), Vector2(19, -1), Vector2(14, 1.5), Vector2(-14, 1.5), Vector2(-19, -1)]), Color("#7a5230"))
+	for k in 7:
+		var tx: float = -15 + k * 5
+		Spr.seg(tx - 2, -7, tx + 2.5, 0.5, Color("#4a2e18"), 1.4)
+		Spr.seg(tx - 1, -6.5, tx + 1, -3, Color("#b08458", .8), 1.0)
+	Spr.seg(-16, -7, 16, -7, Color("#a87a4c", .7), 1.0)
+	# frutinhas vermelhas
+	for bx in [-10.0, 0.0, 10.0]:
+		var by: float = -9.5 - (2.0 if bx == 0.0 else 0.0)
+		Spr.circle(bx, by, 3.3, _OL)
+		Spr.circle(bx, by, 2.6, Color("#d8402e"))
+		Spr.circle(bx - .9, by - .9, .9, Color(1, 1, 1, .8))
+
+static func _crown_feather() -> void:
+	var angs := [-.62, -.32, 0.0, .32, .62]
+	var lens := [20.0, 26.0, 31.0, 26.0, 20.0]
+	for j in [0, 4, 1, 3, 2]:
+		var a: float = -PI / 2 + angs[j]
+		var b := Vector2(angs[j] * 16.0, -6)
+		var l: float = lens[j]
+		var pts := _leaf_pts(b, a, l, 5.0 if j == 2 else 4.4)
+		_cp(pts, Color("#9a6534") if j % 2 == 0 else Color("#b98048"), 1.3, Color("#2a180a"))
+		var d := Vector2(cos(a), sin(a))
+		var n := Vector2(-d.y, d.x)
+		# faixas escuras atravessadas e a ponta creme (pena de gavião)
+		for k in 3:
+			var u: float = .28 + k * .2
+			var c := b + d * l * u
+			var ww: float = 4.4 * sin(u * PI) * (1.0 - u * .25)
+			Spr.seg(c.x - n.x * ww, c.y - n.y * ww, c.x + n.x * ww + d.x * 1.5, c.y + n.y * ww + d.y * 1.5, Color("#4a2a12"), 1.6)
+		var tip := b + d * l * .88
+		Spr.ellipse(tip.x, tip.y, 2.6, 1.6, Color("#f4e6c4"), a)
+		# haste
+		Spr.seg(b.x, b.y, b.x + d.x * l * .92, b.y + d.y * l * .92, Color("#f0dcb0", .9), 1.0)
+	# aro de ouro com o rubi âmbar
+	_cp(PackedVector2Array([Vector2(-17, -9), Vector2(17, -9), Vector2(18, -1), Vector2(13, 1.5), Vector2(-13, 1.5), Vector2(-18, -1)]), Color("#e8b030"), 1.6, Color("#5a3a10"))
+	Spr.rect(-16, -3, 32, 3, Color("#b87a1c"))
+	Spr.seg(-15, -7.5, 15, -7.5, Color("#fff0b0", .8), 1.2)
+	_cp(PackedVector2Array([Vector2(0, -10), Vector2(3.6, -5), Vector2(0, -.5), Vector2(-3.6, -5)]), Color("#ff8a20"), 1.2, Color("#5a2a08"))
+	Spr.circle(-1, -6.5, .9, Color(1, 1, 1, .85))
+	for bx in [-10.0, 10.0]:
+		Spr.circle(bx, -5, 1.8, Color("#5a3a10"))
+		Spr.circle(bx, -5, 1.2, Color("#ffe9a0"))
+
+static func _crown_pearl(T: int) -> void:
+	# capa de escamas (fecha os vãos)
+	_cp(PackedVector2Array([Vector2(-18, -3), Vector2(-17, -16), Vector2(-9, -22), Vector2(0, -24), Vector2(9, -22), Vector2(17, -16), Vector2(18, -3)]), Color("#2c7480"), 1.6, Color("#0e2e36"))
+	for row in 3:
+		var yy: float = -8 - row * 5.0
+		var half: float = 13.0 - row * 3.5
+		var sx: float = -half
+		while sx <= half + .1:
+			Spr.circle(sx, yy, 3.0, Color("#3f9aa2") if (row + int(sx)) % 2 == 0 else Color("#358c96"))
+			Spr.ring(sx, yy - .4, 2.2, Color("#a8f0ec", .7), 1.0, PI * 1.15, PI * 1.7)
+			sx += 5.2
+	# pontas com pérolas
+	var tips := [[-14.0, -19.0], [-7.0, -25.0], [0.0, -31.0], [7.0, -25.0], [14.0, -19.0]]
+	for i in tips.size():
+		var tx: float = tips[i][0]
+		var ty: float = tips[i][1]
+		_cp(PackedVector2Array([Vector2(tx - 4, ty + 9), Vector2(tx, ty + 2), Vector2(tx + 4, ty + 9)]), Color("#3a9aa0"), 1.2, Color("#0e2e36"))
+		var r: float = 3.9 if i == 2 else 3.2
+		Spr.circle(tx, ty, r + .9, Color("#2a2030"))
+		Spr.circle(tx, ty, r, Color("#f2eefa"))
+		Spr.circle(tx + r * .25, ty + r * .3, r * .55, Color("#d8cce8"))
+		Spr.circle(tx - r * .35, ty - r * .35, r * .32, Color(1, 1, 1, .95))
+	# aro de escamas
+	_cp(PackedVector2Array([Vector2(-18, -9), Vector2(18, -9), Vector2(19, -1), Vector2(14, 1.5), Vector2(-14, 1.5), Vector2(-19, -1)]), Color("#3a9aa0"), 1.6, Color("#0e2e36"))
+	var bx := -15.0
+	while bx <= 15.1:
+		Spr.circle(bx, -3.2, 3.4, Color("#2c8088"))
+		Spr.ring(bx, -3.2, 3.4, Color("#0e2e36"), 1.0, PI, TAU)
+		Spr.ring(bx, -3.6, 2.4, Color("#a8f0ec", .8), 1.0, PI * 1.15, PI * 1.6)
+		bx += 5.0
+	# pérola grande no meio, com um brilho que passeia
+	Spr.circle(0, -9.5, 5.2, Color("#2a2030"))
+	Spr.circle(0, -9.5, 4.4, Color("#f6f2ff"))
+	Spr.circle(.9, -8.5, 2.6, Color("#e2d6f0"))
+	var sh: float = sin(T * .08) * 1.2
+	Spr.circle(-1.5 + sh, -11, 1.3, Color(1, 1, 1, .95))
+
+static func _crown_ice(T: int) -> void:
+	# geada de fundo (fecha os vãos entre os cristais)
+	_cp(PackedVector2Array([Vector2(-18, -3), Vector2(-19, -14), Vector2(-10, -22), Vector2(0, -25), Vector2(10, -22), Vector2(19, -14), Vector2(18, -3)]), Color("#b8d8f0"), 1.6, Color("#2c5578"))
+	var spk := [[-15.0, 16.0, -.28], [-9.5, 22.0, -.14], [-4.0, 27.0, -.05], [1.5, 33.0, 0.0], [6.5, 26.0, .06], [11.5, 21.0, .16], [16.0, 15.0, .3]]
+	for i in spk.size():
+		var bx: float = spk[i][0]
+		var h: float = spk[i][1]
+		var a: float = spk[i][2]
+		var top := Vector2(bx + sin(a) * h, -6 - cos(a) * h)
+		var l := Vector2(bx - 3.6, -5)
+		var r := Vector2(bx + 3.6, -5)
+		var mid := Vector2(bx + sin(a) * h * .45, -6 - cos(a) * h * .45)
+		_cp(PackedVector2Array([l, top, r]), Color(.72, .88, 1.0, .95), 1.3, Color("#2c5578"))
+		# faces do cristal: uma clara (luz) e uma azul mais funda
+		Spr.poly(PackedVector2Array([l, top, mid]), Color(1, 1, 1, .55))
+		Spr.poly(PackedVector2Array([mid, top, r]), Color(.35, .6, .9, .35))
+		Spr.seg(top.x, top.y + 2, mid.x, mid.y, Color(1, 1, 1, .7), .9)
+	# aro de neve batida com pinguinhos de gelo
+	_cp(PackedVector2Array([Vector2(-18, -9), Vector2(-9, -10.5), Vector2(0, -9.5), Vector2(9, -10.5), Vector2(18, -9), Vector2(19, -1), Vector2(14, 1.5), Vector2(-14, 1.5), Vector2(-19, -1)]), Color("#eef6ff"), 1.6, Color("#2c5578"))
+	Spr.rect(-16, -3.5, 32, 3.5, Color("#c4dcf2"))
+	for k in 5:
+		var ix: float = -12 + k * 6
+		Spr.poly(PackedVector2Array([Vector2(ix - 1.6, 1), Vector2(ix + 1.6, 1), Vector2(ix, 4.5 + (k % 2) * 1.5)]), Color(.8, .92, 1, .9))
+	# cristal azul no meio
+	_cp(PackedVector2Array([Vector2(0, -12), Vector2(3.8, -6.5), Vector2(0, -1.5), Vector2(-3.8, -6.5)]), Color("#3aa4ff"), 1.2, Color("#123a66"))
+	Spr.poly(PackedVector2Array([Vector2(0, -12), Vector2(-3.8, -6.5), Vector2(0, -6.5)]), Color(1, 1, 1, .45))
+	# brilho de gelo piscando na ponta mais alta
+	var tw: float = .5 + .5 * sin(T * .13)
+	Spr.circle(1.5, -33, 1.6, Color(1, 1, 1, .85 * tw))
+
 static func draw(g: Game, T: int) -> void:
 	var K: Kings = g.K
 	if K == null:
@@ -29,6 +205,7 @@ static func draw(g: Game, T: int) -> void:
 static func draw_fish(g: Game, T: int) -> void:
 	if g.K:
 		_fish(g, g.K, T)
+		draw_crowns(g, T)
 
 static func _hawk(g: Game, K: Kings, T: int) -> void:
 	var h: Dictionary = K.HAWK
@@ -133,7 +310,7 @@ static func _hawk(g: Game, K: Kings, T: int) -> void:
 		# coroa presa no alto da cabeça (no mesmo transform do corpo: acompanha o mergulho, a virada e o
 		# achatar); balança a cada golpe recebido e cai na derrota
 		if h.st != "flee":
-			_crown(26, -49, .8, sin(float(h.red) * .7) * .4 * float(h.red) / 30.0)
+			crown_art("gaviao", 26, -49, .62, sin(float(h.red) * .7) * .4 * float(h.red) / 30.0, T)
 		Spr.restore()
 	if h.st == "stuck":
 		# garras presas na madeira
@@ -218,6 +395,17 @@ static func _fish(g: Game, K: Kings, T: int) -> void:
 			Spr.region_mix(Spr.tex.bagre, Rect2(-140, -80, 280, 160), 280, 160, [0, 1, 2, 3], T / 7.0, Color(tint.r, tint.g, tint.b, Spr.alpha * a))
 		else:
 			Spr.ci.draw_texture_rect_region(Spr.tex.bagre, Rect2(-140, -80, 280, 160), Rect2(fr * 280, 0, 280, 160), Color(tint.r, tint.g, tint.b, Spr.alpha * a))
+	# coroa de pérolas por cima da coroa pintada (acompanha a troca de quadros, como as escamas)
+	if f.get("skin", "fish") != "frog" and f.st != "down" and not K.DROPPED.has("bagre"):
+		var ca: Vector2 = K.FISH_CROWN.get(fr, K.FISH_CROWN[0])
+		if f.st == "charge" and Spr.opt("fish_bite"):
+			ca = K.FISH_CROWN["bite"]
+		elif fr < 4 and not f.st in ["suck", "tired", "down"]:
+			var cyc2: float = T / 7.0
+			var c02: int = int(floor(cyc2))
+			var cu3: float = floor((cyc2 - c02) * 4.0) / 4.0
+			ca = (K.FISH_CROWN[posmod(c02, 4)] as Vector2).lerp(K.FISH_CROWN[posmod(c02 + 1, 4)], cu3)
+		crown_cover("bagre", ca, 0.0, 1.0, T)
 	# escamas azuis = pontos fracos: brilham quando ele cansa; as que já caíram viram marca escura.
 	# Desenhadas no mesmo transform do corpo, em cima das escamas pintadas do quadro que está na tela
 	# (nadando, as posições acompanham a troca de quadros)
@@ -253,6 +441,14 @@ static func _fish(g: Game, K: Kings, T: int) -> void:
 			var r: float = 160 * (1.0 - u)
 			var ang: float = (i - 2.5) * .25
 			Spr.seg(mx2 + f.dir * cos(ang) * r, f.y + sin(ang) * r, mx2 + f.dir * cos(ang) * (r - 26), f.y + sin(ang) * (r - 26), Color(.8, .95, 1, .5), 2)
+	# aviso da sucção: a boca começa a abrir e a água em volta gira para dentro antes de puxar
+	if f.st == "suck" and f.t <= 30:
+		var mx3: float = f.x + f.dir * 118
+		var k3: float = 1.0 - f.t / 30.0
+		Spr.ring(mx3, f.y + 6, 30 + 90 * k3, Color(.8, .95, 1, .55 * (1.0 - k3) + .15), 3)
+		Spr.ring(mx3, f.y + 6, 20 + 50 * k3, Color(.8, .95, 1, .4), 2)
+		if (T / 6) % 2 == 0:
+			Spr.text("!", f.x, f.y - 100, 32, Color("#ff6a4a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 5)
 	if f.st == "aim" and (T / 6) % 2 == 0:
 		Spr.text("!", f.x, f.y - 100, 32, Color("#ff6a4a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 5)
 
@@ -352,119 +548,307 @@ static func sinking(g: Game, T: int) -> void:
 					Spr.circle(s.x + s.w * .5 + randf_range(-30, 30), s.y + s.h - randf() * 14, 6 + randf() * 8, Color(.8, .74, .64, .5))
 	K.SINK = keep
 
+## centro da coroa pintada em cada quadro do urso.png (x, y em relação aos pés, olhando para a direita, e
+## a inclinação): a coroa de gelo (ou o monte de neve, depois que ela cai) é desenhada por cima
+const BEAR_CROWN := [Vector3(81, -131, .05), Vector3(82, -129, .05), Vector3(-6, -195, 0), Vector3(55, -131, .35), Vector3(20, -137, 0), Vector3(105, -57, .6)]
+
+## coroa por cima da coroa pintada (cv = centro da pintada, rotação, escala): um fundo largo na cor da coroa
+## cobre as pontas douradas e a coroa nova vem por cima
+static func crown_cover(kind: String, cv: Vector2, rot: float, s: float, T: int, wob: float = 0.0) -> void:
+	var base: Vector2 = cv + Vector2(0, 12.0 * s / 1.3).rotated(rot)
+	Spr.save()
+	Spr.translate(base.x, base.y)
+	Spr.rotate(rot + wob)
+	Spr.scale(s, s)
+	var bc := Color("#b8d8f0") if kind == "urso" else Color("#2c7480")
+	var oc := Color("#2c5578") if kind == "urso" else Color("#0e2e36")
+	Spr.ellipse(0, -14, 24.2, 18.2, oc)
+	Spr.ellipse(0, -14, 23, 17, bc)
+	Spr.restore()
+	crown_art(kind, base.x, base.y, s, rot + wob, T)
+
+## monte de neve na cabeça do urso (caiu da rocha quando ele entalou)
+static func snow_lump(cv: Vector2, rot: float, T: int) -> void:
+	Spr.save()
+	Spr.translate(cv.x, cv.y)
+	Spr.rotate(rot)
+	var ol := Color("#5a7898")
+	Spr.ellipse(0, 2, 27, 15, ol)
+	Spr.ellipse(-8, -8, 17, 14, ol)
+	Spr.ellipse(9, -6, 16, 13, ol)
+	Spr.ellipse(0, 2, 25.5, 13.5, Color("#dce8f6"))
+	Spr.ellipse(-8, -8, 15.5, 12.5, Color("#f4f8ff"))
+	Spr.ellipse(9, -6, 14.5, 11.5, Color("#eef4fc"))
+	Spr.ellipse(-11, -12, 6, 4, Color(1, 1, 1, .9))
+	Spr.ellipse(5, 8, 16, 4, Color(.62, .74, .9, .5))
+	# floquinhos caindo da cabeça
+	for k in 2:
+		var u: float = fmod(T * .02 + k * .5, 1.0)
+		Spr.circle(-18 + k * 34, 6 + u * 40, 1.6, Color(1, 1, 1, .8 * (1.0 - u)))
+	Spr.restore()
+
 ## Urso-Pardo-Rei (arte em assets/sprites/urso.png: 0-1 andando, 2 em pé, 3 patada, 4 tonto, 5 derrotado)
 static func _bear(g: Game, K: Kings, T: int) -> void:
 	var b: Dictionary = K.BEAR
-	if b.is_empty() or b.done or b.st == "wait":
+	if b.is_empty():
 		return
-	if not Spr.tex.has("urso"):
-		Spr.tex["urso"] = load("res://assets/sprites/urso.png")
+	var cx0: float = g.cam - 400
+	var cx1: float = g.cam + g.W + 400
+	var rk: Dictionary = b.rock
+	if float(rk.x) + 400 < cx0 or float(b.den) - 300 > cx1:
+		return
+	_bear_obs(g, K, T)
+	if not (b.done or b.st == "wait"):
+		_bear_body(g, K, T)
+	_bear_rock(g, K, T)
+
+## troncos e galho do caminho (arrebentados somem: os pedaços voam no passo da lógica)
+static func _bear_obs(g: Game, K: Kings, T: int) -> void:
+	for o in K.BOBS:
+		if o.x > g.cam + g.W + 200 or o.x + o.w < g.cam - 200:
+			continue
+		var fallen: bool = o.get("fallen", false)
+		match o.k:
+			"log":
+				if not fallen:
+					Spr.ellipse(o.x + o.w / 2.0, o.y + o.h + 2, o.w * .62, 6, Color(0, 0, 0, .22))
+					WorldNature.prop("tora_neve", o.x + o.w / 2.0, o.y + o.h + 5, o.h + 18)
+				else:
+					_splinters(o.x + o.w / 2.0, o.y + o.h)
+			"logs":
+				if not fallen:
+					Spr.ellipse(o.x + o.w / 2.0, o.y + o.h + 2, o.w * .7, 6, Color(0, 0, 0, .22))
+					WorldNature.prop("tora_neve", o.x + o.w / 2.0, o.y + o.h + 5, 44, false)
+					WorldNature.prop("tora_neve", o.x + o.w / 2.0 + 4, o.y + 32, 40, true)
+				else:
+					_splinters(o.x + o.w / 2.0, o.y + o.h)
+			"branch":
+				# tronco atravessado em cima de duas pedras (as pedras ficam atrás, do lado do caminho):
+				# só passa abaixado por baixo, ou pulando por cima
+				var pt: Texture2D = Spr.opt("p_pedra_neve")
+				var lt: Texture2D = Spr.opt("p_tora_neve")
+				if pt:
+					for sd in [-1.0, 1.0]:
+						var rx2: float = o.x + o.w / 2.0 + sd * (o.w / 2.0 + 8.0)
+						Spr.ci.draw_texture_rect(pt, Rect2(rx2 - 34, o.y + o.h + 6 - 62, 68, 62), sd > 0, Color(.72, .78, .9, Spr.alpha))
+				if not fallen:
+					Spr.ellipse(o.x + o.w / 2.0, o.y + o.h + 26, o.w * .6, 4, Color(0, 0, 0, .18))
+					if lt:
+						Spr.ci.draw_texture_rect(lt, Rect2(o.x - 34, o.y + o.h + 4 - 66, o.w + 68, 66), false, Color(1, 1, 1, Spr.alpha))
+				else:
+					_splinters(o.x + o.w / 2.0, o.y + o.h + 26)
+		if not fallen and o.has("crawl"):
+			_duck_hint(g, o.x + o.w / 2.0, o.y - 40, abs(g.player.x + g.player.w / 2 - (o.x + o.w / 2.0)) < o.w / 2.0 + 170, T)
+
+static func _splinters(x: float, y: float) -> void:
+	for k in 4:
+		var sx: float = x - 30 + k * 20
+		Spr.poly(PackedVector2Array([Vector2(sx - 6, y + 2), Vector2(sx + 7, y + 2), Vector2(sx + 2, y - 6 - (k % 2) * 4)]), Color("#6a4528"))
+	Spr.ellipse(x, y + 1, 40, 5, Color(.95, .97, 1))
+
+## ícone de "abaixe" (o desenho da passagem cobre o ícone comum)
+static func _duck_hint(g: Game, cx: float, iy: float, near: bool, T: int) -> void:
+	if not near or g.player.crouch:
+		return
+	var by: float = iy + sin(T * .15) * 4
+	Spr.circle(cx, by, 22, Color(0, 0, 0, .35))
+	Spr.ci.draw_texture_rect(Spr.tex.pad_S, Rect2(cx - 18, by - 18, 36, 36), false, Color(1, 1, 1, .95))
+	Spr.text("abaixe", cx, by + 34, 13, Color(1, .93, .7, .9), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3)
+
+## a rocha com a fresta embaixo (o urso não cabe), a laje com os pingentes e os avisos
+static func _bear_rock(g: Game, K: Kings, T: int) -> void:
+	var b: Dictionary = K.BEAR
+	var rx: float = float(b.rock.x)
+	var rw: float = float(b.rock.w)
+	var gy: float = b.gy
+	if rx - 420 > g.cam + g.W + 100 or rx + rw + 160 < g.cam - 100:
+		return
+	var ry: float = float(b.rock.y) + float(b.rock.h)   # teto da fresta
+	var pk := "pedra_neve"
+	# pés da rocha (encostados atrás, dos dois lados da fresta)
+	WorldNature.prop(pk, rx - 26, gy + 6, 58, false, 1.0)
+	WorldNature.prop(pk, rx + rw + 30, gy + 6, 64, true, 1.0)
+	# coluna de pedras empilhadas, de cima para baixo (a de baixo por último: o teto da fresta)
+	WorldNature.prop(pk, rx + rw * .5 + 6, 150, 230, true)
+	WorldNature.prop(pk, rx + rw * .5 - 4, 330, 210, false)
+	# laje para a esquerda, de onde pendem os pingentes
+	var iy: float = float(b.get("iciY", 300))
+	WorldNature.prop(pk, rx - 150, iy + 14, 150, true)
+	WorldNature.prop(pk, rx - 26, iy + 30, 170, false)
+	# a pedra de baixo: o fundo arredondado dela é o teto da fresta
+	WorldNature.prop(pk, rx + rw * .5, ry + 10, 200, true)
+	# pingentes (tremem antes de cair; a sombra no chão mostra onde)
+	for c in K.ICI:
+		if c.st == "gone":
+			continue
+		var wob: float = 0.0
+		if c.st == "shake":
+			wob = sin(T * 1.7) * 2.0
+		elif int(c.get("wob", 0)) > 0:
+			wob = sin(T * 1.3) * 1.2
+			if Polish.FRESH:
+				c.wob = int(c.wob) - 1
+		var tip: float = c.y + float(c.len)
+		if c.st in ["shake", "fall"]:
+			var k: float = clamp((tip - float(c.y0)) / max(1.0, gy - float(c.y0)), 0.0, 1.0) if c.st == "fall" else clamp(c.t / 30.0, .2, .6)
+			var pul: float = .8 + .2 * sin(T * .5)
+			Spr.ellipse(c.x, gy + 1, 22 * (.6 + k * .6) * pul, 5, Color(0, 0, 0, .25 + .35 * k))
+			Spr.ring(c.x, gy - 1, 20 * (.6 + k * .6) * pul, Color(1, .3, .2, .5 + .4 * k), 2.5, PI, TAU)
+		var x: float = c.x + wob
+		Spr.poly(PackedVector2Array([Vector2(x - 8, c.y - 4), Vector2(x + 8, c.y - 4), Vector2(x + 1.5, tip), Vector2(x - 1.5, tip)]), Color("#2c5578"))
+		Spr.poly(PackedVector2Array([Vector2(x - 6.5, c.y - 3), Vector2(x + 6.5, c.y - 3), Vector2(x + .8, tip - 2), Vector2(x - .8, tip - 2)]), Color(.78, .9, 1, .95))
+		Spr.poly(PackedVector2Array([Vector2(x - 5, c.y - 2), Vector2(x - 1, c.y - 2), Vector2(x, tip - 6)]), Color(1, 1, 1, .7))
+	# a fresta: sombra funda e um brilho na borda (o ícone de abaixar fica por cima de tudo)
+	var p: Dictionary = g.player
+	var pcx: float = p.x + p.w / 2
+	_duck_hint(g, rx + rw * .5, ry - 70, pcx < rx + rw and pcx > rx - 220 and abs(p.y + p.h - gy) < 40, T)
+
+static func _bear_body(g: Game, K: Kings, T: int) -> void:
+	var b: Dictionary = K.BEAR
 	var fr: int = int(b.anim * 2.0) % 2
 	var rot := 0.0
 	var dy := 0.0
 	var warn := false
+	var walk := false
+	var bsx := 1.0
+	var bsy := 1.0
 	match b.st:
-		"rear", "rear2", "shake":
+		"rear", "roar":
 			fr = 2
-			warn = b.st != "shake"
-		"slam", "quake":
+			warn = b.st == "rear"
+		"slam":
 			fr = 3
-		"dizzy":
-			fr = 4
-		"scrape":
-			fr = int(T / 6) % 2
-			rot = .12
-			dy = 6
+		"taunt":
+			fr = 2 if b.t > 6 and b.t < 28 else 0
+		"crouch":
+			fr = 0
+			rot = .14
+			dy = 10
+			var cu: float = clamp(b.t / 12.0, 0, 1)
+			bsx = 1.0 + .07 * cu
+			bsy = 1.0 - .1 * cu
 			warn = true
 		"charge":
-			fr = int(b.anim * 2.0) % 2
-			rot = .16
+			walk = true
+			rot = .17
 			dy = 8
-		"skid":
-			fr = 0
-			rot = -.1
-		"backoff":
-			if b.t >= 24:
-				fr = 2
-				warn = true
+			bsx = 1.06
+			bsy = .95
+		"jam":
+			if b.t < 26:
+				fr = 0
+				rot = .22
+				dy = 6
+				bsx = 1.0 - .08 * sin(b.t * .9)
+			elif b.t <= 84:
+				fr = 4
+			else:
+				walk = true
+		"intro", "chase", "recover", "flee":
+			walk = true
 	var tint := Color(1, .55, .5) if b.red > 0 and (T / 3) % 2 == 0 else Color(1, 1, 1)
-	tint = tint * Polish.fury(int(b.hp))   # última vida: pulsa avermelhado
 	var k: float = .35 + .25 * sin(T * .5)
-	# avisos no chão: patada (à frente), tremor (dos dois lados)
+	# avisos no chão: a mancha da patada, a seta da investida
 	if b.st == "rear":
 		var paw: Rect2 = K.bear_paw()
 		Spr.ellipse(paw.position.x + paw.size.x / 2, b.gy + 1, paw.size.x / 2, 9, Color(1, .25, .15, k))
-	if b.st == "rear2":
-		Spr.ellipse(b.x, b.gy + 1, 300, 10, Color(1, .3, .15, k * .7))
-	if b.st == "scrape":
-		Spr.seg(b.x + b.dir * 100, b.gy - 2, b.x + b.dir * 420, b.gy - 2, Color(1, .3, .15, k), 5)
-	var bsh: float = clamp(1.0 + float(b.get("hy", 0.0)) / 260.0, .4, 1.0)
-	Spr.ellipse(b.x, b.gy + 2, 100 * bsh, 12 * bsh, Color(0, 0, 0, .28 * bsh))
+	if b.st == "crouch":
+		var lx: float = K.bear_lunge_end()
+		var x0: float = b.x + b.dir * 100
+		Spr.seg(x0, b.gy - 3, lx, b.gy - 3, Color(1, .3, .15, k), 6)
+		Spr.poly(PackedVector2Array([Vector2(lx + b.dir * 16, b.gy - 3), Vector2(lx - b.dir * 4, b.gy - 14), Vector2(lx - b.dir * 4, b.gy + 8)]), Color(1, .3, .15, k + .2))
+	Spr.ellipse(b.x, b.gy + 2, 100, 12, Color(0, 0, 0, .28))
 	# inclinação e agachar com peso (sem estalar de uma pose para a outra)
 	if Polish.FRESH:
-		b._rot = lerpf(float(b.get("_rot", 0.0)), rot, .18)
-		b._dy = lerpf(float(b.get("_dy", 0.0)), dy, .2)
+		b._rot = lerpf(float(b.get("_rot", 0.0)), rot, .2)
+		b._dy = lerpf(float(b.get("_dy", 0.0)), dy, .22)
 	rot = float(b.get("_rot", rot))
 	dy = float(b.get("_dy", dy))
-	if b.st in ["walk", "charge"]:
-		dy -= abs(sin(b.anim * PI)) * (4.0 if b.st == "charge" else 2.5)
-	Spr.save()
-	var sway: float = sin(T * .9) * 5.0 if b.st == "shake" else 0.0
-	Spr.translate(b.x + sway, b.gy + 2 + b.get("hy", 0.0) + dy)
-	if b.st in ["rear", "rear2"]:
-		Spr.translate(0, -sin(min(1.0, b.t / 20.0) * PI * .5) * 6)
-	# agacha antes do pulo e achata ao cair
-	var bsx := 1.0
-	var bsy := 1.0
-	var hc: float = float(b.get("hcr", 0.0)) if b.st == "hop" else 0.0
-	bsx += .08 * hc
-	bsy -= .12 * hc
+	if walk:
+		# galope pesado: o corpo sobe e desce a cada passada
+		dy -= abs(sin(b.anim * PI)) * (5.0 if b.st == "charge" else 3.0)
 	var blt: int = int(b.get("landT", 0))
 	if blt > 0:
-		bsx *= 1.0 + .14 * blt / 14.0
-		bsy *= 1.0 - .16 * blt / 14.0
-	if b.st == "hop" and hc == 0.0 and float(b.get("hy", 0.0)) < -10.0:
-		bsx *= .95
-		bsy *= 1.06
-	Spr.scale(Spr.eturn(b, .15) * bsx, bsy * Spr.tsy(b))
+		bsx *= 1.0 + .12 * blt / 12.0
+		bsy *= 1.0 - .14 * blt / 12.0
+	var shake_x: float = sin(T * 1.6) * 2.0 if b.st == "crouch" else 0.0
+	Spr.save()
+	Spr.translate(b.x + shake_x, b.gy + 2 + dy)
+	if b.st in ["rear", "roar"]:
+		Spr.translate(0, -sin(min(1.0, b.t / 16.0) * PI * .5) * 6)
+	var fs: float = Spr.eturn(b, .15)
+	Spr.scale(fs * bsx, bsy * Spr.tsy(b))
 	if Spr.turned_now(b):
 		WorldExtras.turn_dust(g, b.x, b.gy, b.dir, Color(.95, .97, 1, .8))
 	Spr.rotate(rot)
-	if b.st in ["walk", "charge", "back", "tree", "flee", "hop", "scrape"] or (b.st == "backoff" and b.t < 24):
-		Spr.region_mix(Spr.tex.urso, Rect2(-140, -228, 280, 230), 280, 230, [0, 1], (T / 6.0) if b.st == "scrape" else b.anim * 2.0, Color(tint.r, tint.g, tint.b, Spr.alpha))
+	var mod := Color(tint.r, tint.g, tint.b, Spr.alpha)
+	var ut: Texture2D = Spr.opt("urso")
+	var cv: Vector3
+	if walk:
+		var ph: float = b.anim * 2.0
+		Spr.region_mix(ut, Rect2(-140, -228, 280, 230), 280, 230, [0, 1], ph, mod)
+		var f0: int = posmod(int(floor(ph)), 2)
+		var cu2: float = floor((ph - floor(ph)) * 4.0) / 4.0
+		var a0: Vector3 = BEAR_CROWN[f0]
+		var a1: Vector3 = BEAR_CROWN[1 - f0]
+		cv = a0.lerp(a1, cu2)
 	else:
-		Spr.ci.draw_texture_rect_region(Spr.tex.urso, Rect2(-140, -228, 280, 230), Rect2(fr * 280, 0, 280, 230), Color(tint.r, tint.g, tint.b, Spr.alpha))
+		Spr.ci.draw_texture_rect_region(ut, Rect2(-140, -228, 280, 230), Rect2(fr * 280, 0, 280, 230), mod)
+		cv = BEAR_CROWN[fr]
+	# a coroa de gelo (ou o monte de neve, depois que ela caiu)
+	if b.get("crown", true):
+		crown_cover("urso", Vector2(cv.x, cv.y), cv.z, 1.3, T)
+	elif b.get("lump", false):
+		snow_lump(Vector2(cv.x, cv.y - 2), cv.z, T)
 	Spr.restore()
-	# pata(s) erguida(s) brilhando antes de bater
+	if b.st == "jam" and b.t < 26:
+		# neve caindo da rocha em cima dele
+		for i in 3:
+			Spr.circle(float(b.rock.x) - 10 + i * 14, b.gy - 160 + fmod(T * 3.0 + i * 40, 120.0), 3, Color(1, 1, 1, .85))
 	if b.st == "rear":
 		Spr.glow(b.x + b.dir * 62, b.gy - 176, 34 + 6 * k, Color(1, .45, .2, .55 + .3 * k))
-	if b.st == "rear2":
-		for sd in [-1.0, 1.0]:
-			Spr.glow(b.x + sd * 50, b.gy - 190, 32 + 6 * k, Color(1, .45, .2, .55 + .3 * k))
 	if b.st == "charge":
 		for i in 4:
 			var ly: float = b.gy - 30 - i * 22
 			Spr.seg(b.x - b.dir * (110 + i * 6), ly, b.x - b.dir * (170 + i * 10), ly, Color(1, 1, 1, .55), 3)
-	# ondas do tremor: uma onda de neve correndo pelo chão
-	for w in b.get("waves", []):
-		var wx: float = w.x
-		Spr.ellipse(wx, b.gy - 6, 26, 18, Color(.98, .99, 1, .95))
-		Spr.ellipse(wx - w.d * 18, b.gy - 3, 18, 10, Color(.85, .92, 1, .9))
-		Spr.ring(wx, b.gy - 8, 22, Color(1, .4, .2, .5), 2, PI, TAU)
-		if Polish.FRESH and T % 3 == 0:
-			g.PARTS.append({"x": wx, "y": b.gy - 18, "vx": w.d * 1.0, "vy": -2.0, "life": 16, "col": Color(.97, .98, 1, .9)})
-	# o galho tremendo antes do urso derrubar quem está nele
-	var br = b.get("br")
-	if b.st == "shake" and br != null:
-		var tr: float = sin(T * 1.3) * 3.0
-		for i in 3:
-			var lx: float = br.x + br.w * (.2 + i * .3)
-			Spr.seg(lx + tr, br.y - 10, lx - tr, br.y - 20, Color(1, 1, 1, .8), 2)
-		if (T / 6) % 2 == 0:
-			Spr.text("!", br.x + br.w * .5, br.y - 40, 26, Color("#ff6a4a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 5)
-	if b.st == "dizzy":
+	if b.st == "jam" and b.t > 26 and b.t <= 84:
 		for i in 3:
 			var a := T * .12 + TAU * i / 3.0
-			Spr.text("★", b.x + cos(a) * 34, b.gy - 150 + sin(a) * 8, 16, Color("#ffe27a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3)
+			Spr.text("★", b.x + 10 + cos(a) * 34, b.gy - 160 + sin(a) * 8, 16, Color("#ffe27a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3)
 	if warn and (T / 6) % 2 == 0:
 		Spr.text("!", b.x, b.gy - 240, 34, Color("#ff6a4a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 5)
+
+## coroas caídas (brilhando no chão) e a que o Tomé está erguendo
+static func draw_crowns(g: Game, T: int) -> void:
+	var K: Kings = g.K
+	if K == null or K.CROWNS.is_empty():
+		return
+	for c in K.CROWNS:
+		if c.x < g.cam - 120 or c.x > g.cam + g.W + 120:
+			continue
+		var x: float = c.x
+		var y: float = c.y
+		var s := 1.25
+		Spr.save()
+		if c.st == "rest":
+			y -= 4.0 + sin(T * .08) * 3.0
+			var pul: float = .7 + .3 * sin(T * .12)
+			Spr.ellipse(c.x, c.y + 1, 26, 5, Color(0, 0, 0, .25))
+			Spr.glow(x, y - 16, 64 * pul, Color(1, .85, .4, .35))
+			Spr.glow(x, y - 16, 34, Color(1, .95, .7, .4))
+			# raios girando atrás
+			for i in 6:
+				var a: float = T * .02 + TAU * i / 6.0
+				Spr.seg(x + cos(a) * 18, y - 16 + sin(a) * 18, x + cos(a) * (40 + 6 * pul), y - 16 + sin(a) * (40 + 6 * pul), Color(1, .92, .6, .35), 3)
+			if Polish.FRESH and T % 9 == 0:
+				Polish.part("spark", x + randf_range(-24, 24), y - randf_range(0, 36), 0, -.5, 30, Color(1, .9, .5), {"g": 0.0})
+		elif c.st == "lift":
+			var u: float = clamp(c.t / 16.0, 0, 1)
+			s = 1.25 + .35 * u + (sin(c.t * .25) * .06 if u >= 1.0 else 0.0)
+			Spr.glow(x, y - 18, 70, Color(1, .88, .45, .5 * u))
+			if c.t > 60:
+				Spr.alpha *= clamp(1.0 - (c.t - 60) / 14.0, 0, 1)
+		elif c.water:
+			Spr.glow(x, y - 14, 40, Color(.7, 1, 1, .3))
+		crown_art(str(c.id), x, y, s, c.rot, T)
+		Spr.restore()

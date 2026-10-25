@@ -1789,6 +1789,9 @@ func _camera() -> void:
 			look_hold = 0
 		if look_hold < 14:
 			want = look_x
+		# perseguição do urso: o Tomé fica mais à direita da tela e o urso aparece atrás dele
+		if K and K.bear_chase():
+			want = (-1.0 if K.BEAR.x < px else 1.0) * W * .16
 		var r := damp(look_x, want, look_vx, .7)
 		look_x = r[0]
 		look_vx = r[1]

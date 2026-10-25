@@ -458,6 +458,9 @@ func _zoom_target() -> float:
 	# ação: veículos, cavalgada, chefes, pedra rolando, perseguição
 	if (g.VH and g.VH.active()) or (g.RD and g.RD.riding) or (g.X and g.X.boss_active()):
 		return .88
+	# perseguição do urso: abre mais para mostrar o urso correndo atrás
+	if g.K and g.K.bear_chase():
+		return .8
 	if g.K and (g.K.bear_on() or (not g.K.HAWK.is_empty() and g.K.HAWK.active and not g.K.HAWK.done) or (not g.K.FISH.is_empty() and g.K.FISH.active and not g.K.FISH.done)):
 		return .88
 	if g.VIL and g.VIL.go and not g.VIL.gone:
@@ -567,7 +570,10 @@ func _input(e: InputEvent) -> void:
 			if state == S.PLAY:
 				open_bag()
 			elif state == S.BAG:
-				close_panel()
+				if panel and panel.has_meta("assembled"):
+					panel.get_meta("ok").call()
+				else:
+					close_panel()
 			return
 		if e.pressed and e.keycode in [KEY_ENTER, KEY_KP_ENTER] and panel and panel.has_meta("ok"):
 			panel.get_meta("ok").call()
@@ -585,7 +591,10 @@ func _input(e: InputEvent) -> void:
 			if state == S.PLAY:
 				open_bag()
 			elif state == S.BAG:
-				close_panel()
+				if panel and panel.has_meta("assembled"):
+					panel.get_meta("ok").call()
+				else:
+					close_panel()
 		elif e.button_index == JOY_BUTTON_START and e.pressed:
 			_toggle_pause("botão Start do controle")
 		elif m.has(e.button_index):
@@ -676,7 +685,10 @@ func _joy_menu_button(e: InputEventJoypadButton) -> bool:
 		return true
 	var bs := _joy_buttons()
 	if bs.is_empty():
-		if panel.has_meta("ok"):
+		# painel do objeto montado: B pula na hora (os outros botões continuam depois que ele aparece)
+		if e.button_index == JOY_BUTTON_B and panel.has_meta("assembled"):
+			panel.get_meta("back").call()
+		elif panel.has_meta("ok"):
 			panel.get_meta("ok").call()
 		return true
 	_joy_sync(bs)
@@ -1772,8 +1784,172 @@ func _bag_pairs() -> Array:
 			out.append(r)
 	return out
 
-## juntou: fecha a mochila e já usa o objeto novo (na trava que está perto, ou chegando nela)
+## o que cada objeto montado faz (frase do painel de montagem)
+const BUILT_INFO := {
+	"gancho_corda": "Prenda na argola da pedra: vira uma corda para subir o barranco alto.",
+	"manivela": "Encaixe na comporta do canal e gire para a água passar.",
+	"lanterna_acesa": "Acesa de novo! Ilumina os túneis escuros. Segure ✦ para concentrar o facho.",
+	"vela": "Uma vela nova para o moinho: com ela as pás voltam a girar.",
+	"chave": "A chave inteira da porteira da mina.",
+}
+
+## juntou: antes de voltar ao jogo, mostra o objeto novo montado (as peças voam e se juntam, o objeto
+## aparece grande, girando e brilhando, com o nome e o que ele faz). Tocar continua.
 func _bag_combined(res: String, msg: String) -> void:
+	var pa := ""
+	var pb := ""
+	for r in GameData.RECIPES:
+		if r[2] == res:
+			pa = r[0]
+			pb = r[1]
+	if panel:
+		panel.queue_free()
+	var root := Control.new()
+	root.theme = theme_ui
+	root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var asm := _Assemble.new()
+	asm.a = pa
+	asm.b = pb
+	asm.res = res
+	asm.title = GameData.ITEM_INFO[res][0] if GameData.ITEM_INFO.has(res) else res
+	asm.desc = BUILT_INFO.get(res, msg)
+	asm.font_t = Spr.font_title
+	asm.font_i = Spr.font_i
+	asm.gold = GOLD
+	root.add_child(asm)
+	ui_layer.add_child(root)
+	panel = root
+	_clear_keys()
+	# tocar/confirmar só continua depois que o objeto apareceu (o mesmo toque do JUNTAR não pula o
+	# painel); Voltar (B, Esc) pula na hora
+	var go := func(skip: bool = false):
+		if not is_instance_valid(asm) or asm.done or (asm.t < asm.READY and not skip):
+			return
+		asm.done = true
+		_bag_combined_go(res, msg)
+	asm.cont = go
+	panel.set_meta("ok", go)
+	panel.set_meta("back", go.bind(true))
+	panel.set_meta("assembled", true)
+
+## painel de montagem: as duas peças voam e se encaixam num clarão; o objeto novo aparece grande,
+## girando como uma moeda e brilhando, com o nome e a frase do que ele faz
+class _Assemble extends Control:
+	const READY := 1.15
+	var a := ""
+	var b := ""
+	var res := ""
+	var title := ""
+	var desc := ""
+	var font_t: Font
+	var font_i: Font
+	var gold := Color("#e8d39a")
+	var t := 0.0
+	var done := false
+	var cont: Callable
+	var _snd := false
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_STOP
+		position = Vector2.ZERO
+		size = get_viewport_rect().size
+	func _process(d: float) -> void:
+		size = get_viewport_rect().size
+		t += d
+		if not _snd and t > .55:
+			_snd = true
+			Audio.play("special")
+			Audio.vib(60)
+		queue_redraw()
+	func _gui_input(e: InputEvent) -> void:
+		if (e is InputEventMouseButton and e.pressed) or (e is InputEventScreenTouch and e.pressed):
+			accept_event()
+			if cont.is_valid():
+				cont.call()
+	func _icon(id: String, c: Vector2, h: float, rot: float, sx: float, al: float) -> void:
+		var r = Spr.AR.get("it_" + id)
+		if r == null:
+			return
+		var w: float = h * r[2] / r[3]
+		draw_set_transform(c, rot, Vector2(sx, 1.0))
+		draw_texture_rect_region(Spr.atlas_tex(r), Rect2(-w / 2, -h / 2, w, h), Rect2(r[0], r[1], r[2], r[3]), Color(1, 1, 1, al))
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	func _draw() -> void:
+		Spr.begin(self)
+		var vs: Vector2 = size
+		var fade: float = clamp(t / .2, 0, 1)
+		draw_rect(Rect2(Vector2.ZERO, vs), Color(.02, .02, .05, .86 * fade))
+		var c := Vector2(vs.x * .5, vs.y * .4)
+		var hsz: float = clamp(vs.y * .3, 120.0, 220.0)
+		# 1) as peças voam de lados opostos girando e se encaixam no meio
+		if t < .62:
+			var u: float = clamp((t - .08) / .5, 0, 1)
+			var e: float = u * u * (3.0 - 2.0 * u)
+			for k in 2:
+				var sd: float = -1.0 if k == 0 else 1.0
+				var p0 := c + Vector2(sd * vs.x * .3, 30)
+				var p := p0.lerp(c, e) + Vector2(0, -sin(e * PI) * 90)
+				_icon(a if k == 0 else b, p, hsz * .55, sd * (1.0 - e) * 2.6, 1.0, fade)
+		# 2) clarão do encaixe
+		var fl: float = clamp(1.0 - abs(t - .6) / .16, 0, 1)
+		if fl > 0:
+			Spr.glow(c.x, c.y, hsz * (.7 + fl), Color(1, .95, .75, .9 * fl))
+			for i in 12:
+				var an: float = TAU * i / 12.0
+				var rr: float = hsz * (.3 + (t - .44) * 2.2)
+				draw_circle(c + Vector2(cos(an), sin(an)) * rr, 5.0 * fl, Color(1, .9, .5, fl))
+		# 3) o objeto novo, grande, girando e brilhando
+		if t > .52:
+			var v: float = clamp((t - .52) / .4, 0, 1)
+			var pop: float = v + sin(v * PI) * .35
+			var ray_a: float = clamp((t - .6) / .4, 0, 1)
+			for i in 12:
+				var an2: float = t * .45 + TAU * i / 12.0
+				var p1 := c + Vector2(cos(an2), sin(an2)) * hsz * .45
+				var p2 := c + Vector2(cos(an2 + .1), sin(an2 + .1)) * hsz * 1.25
+				var p3 := c + Vector2(cos(an2 - .1), sin(an2 - .1)) * hsz * 1.25
+				draw_colored_polygon(PackedVector2Array([p1, p2, p3]), Color(1, .86, .45, .16 * ray_a))
+			Spr.glow(c.x, c.y, hsz * 1.1, Color(1, .85, .4, .45 * ray_a))
+			var spin: float = cos((t - .52) * 2.2)
+			if abs(spin) < .12:
+				spin = .12 * (1.0 if spin >= 0 else -1.0)
+			var bob: float = sin(t * 2.4) * 6.0
+			_icon(res, c + Vector2(0, bob), hsz * pop, sin(t * 1.3) * .06, spin, 1.0)
+			# brilhinhos em volta
+			for i in 5:
+				var ph: float = fmod(t * .7 + i * .2, 1.0)
+				var sp := c + Vector2(cos(i * 2.4 + t * .3), sin(i * 1.7)) * hsz * .7
+				var ss: float = sin(ph * PI) * 7.0
+				draw_line(sp - Vector2(ss, 0), sp + Vector2(ss, 0), Color(1, 1, 1, .9 * ray_a), 2.0, true)
+				draw_line(sp - Vector2(0, ss), sp + Vector2(0, ss), Color(1, 1, 1, .9 * ray_a), 2.0, true)
+		# 4) nome, o que faz e "toque para continuar"
+		var ta: float = clamp((t - .75) / .3, 0, 1)
+		if ta > 0:
+			var ty: float = c.y + hsz * .82 + (1.0 - ta) * 16.0
+			Spr.text("VOCÊ MONTOU:", c.x, ty, 15, Color(.85, .8, .7, ta), HORIZONTAL_ALIGNMENT_CENTER, font_i)
+			Spr.text(title.to_upper(), c.x, ty + 40, 36, Color(gold.r, gold.g, gold.b, ta), HORIZONTAL_ALIGNMENT_CENTER, font_t, 6, Color(0, 0, 0, .6 * ta))
+			var lines: Array = _wrap(desc, min(vs.x - 80.0, 640.0), 18)
+			for i in lines.size():
+				Spr.text(lines[i], c.x, ty + 74 + i * 24, 18, Color(.94, .9, .8, ta), HORIZONTAL_ALIGNMENT_CENTER, font_i)
+			if t > READY:
+				var bl: float = .55 + .45 * sin(t * 4.0)
+				Spr.text("toque para continuar", c.x, min(vs.y - 22, ty + 92 + lines.size() * 24), 15, Color(1, .93, .7, bl), HORIZONTAL_ALIGNMENT_CENTER, font_i)
+	func _wrap(s: String, mw: float, fs: int) -> Array:
+		var out: Array = []
+		var cur := ""
+		for w in s.split(" "):
+			var tst: String = w if cur == "" else cur + " " + w
+			if font_i and font_i.get_string_size(tst, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > mw and cur != "":
+				out.append(cur)
+				cur = w
+			else:
+				cur = tst
+		if cur != "":
+			out.append(cur)
+		return out
+
+## (depois do painel de montagem) fecha a mochila e já usa o objeto novo, na trava que está perto
+## ou chegando nela
+func _bag_combined_go(res: String, msg: String) -> void:
 	close_panel()
 	var nl = game.player.nearL
 	if nl != null and not nl.done and nl.need == res:
@@ -1861,6 +2037,14 @@ func _render_bag(msg: String) -> void:
 		ic2.modulate = Color(1, 1, 1, 1 if game.SPECGOT.has(c) else .2)
 		pens.add_child(ic2)
 	vb.add_child(pens)
+	if game.level_idx == 0:
+		var crw := HBoxContainer.new()
+		crw.alignment = BoxContainer.ALIGNMENT_CENTER
+		crw.add_theme_constant_override("separation", 6)
+		crw.add_child(_label("COROAS DOS REIS ", 13, Color("#b8a888")))
+		for cid in WorldKings.CROWN_IDS:
+			crw.add_child(_CrownIcon.new(cid, Save.getv("gallery", "crown_" + cid, false), 26.0))
+		vb.add_child(crw)
 	vb.add_child(_label("CADERNO DE PISTAS", 13, Color("#b8a888")))
 	var clues := HBoxContainer.new()
 	clues.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -1977,6 +2161,38 @@ class _Speaker extends Control:
 		else:
 			draw_line(Vector2(c.x + 9, c.y - 7), Vector2(c.x + 19, c.y + 7), Color("#ff8a6a"), 3, true)
 			draw_line(Vector2(c.x + 19, c.y - 7), Vector2(c.x + 9, c.y + 7), Color("#ff8a6a"), 3, true)
+
+class _CrownIcon extends Control:
+	## coroa de um rei desenhada em código (a mesma do jogo); ainda não pega: silhueta escura com "?"
+	var id := "javali"
+	var got := false
+	var h := 60.0
+	var t := 0.0
+	func _init(cid: String, have: bool, hh: float) -> void:
+		id = cid
+		got = have
+		h = hh
+		custom_minimum_size = Vector2(hh * 1.5, hh * 1.25)
+		size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+	func _process(d: float) -> void:
+		if got:
+			t += d
+			queue_redraw()
+	func _draw() -> void:
+		Spr.begin(self)
+		var c := Vector2(size.x / 2, size.y * .86)
+		var s: float = h / 34.0
+		if got:
+			Spr.glow(c.x, c.y - h * .45, h * .8, Color(1, .85, .4, .3 + .1 * sin(t * 2.0)))
+			WorldKings.crown_art(id, c.x, c.y + sin(t * 1.6) * 1.5, s, sin(t * 1.1) * .05, int(t * 60.0))
+		else:
+			# ainda não pega: só o fantasminha da coroa
+			Spr.save()
+			Spr.alpha = .2
+			WorldKings.crown_art(id, c.x, c.y, s, 0.0, 0)
+			Spr.restore()
+			Spr.text("?", c.x, c.y - h * .3, int(h * .45), Color(1, .93, .75, .9), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
 
 class _Badge extends Control:
 	## O crachá do gerente, com o rosto e o nome
@@ -2176,6 +2392,20 @@ func show_gallery(ep: int = 1) -> void:
 		fd.position = Vector2(1, 4)
 		hold.add_child(fd)
 		row.add_child(hold)
+	if ep == 1:
+		# coroas dos reis: cada rei vencido deixa a sua (pegas no chão depois da luta)
+		var crl := HBoxContainer.new()
+		crl.alignment = BoxContainer.ALIGNMENT_CENTER
+		crl.add_theme_constant_override("separation", 14)
+		crl.add_child(_label("COROAS DOS REIS", 13, Color("#b8a888")))
+		for cid in WorldKings.CROWN_IDS:
+			var have: bool = Save.getv("gallery", "crown_" + cid, false)
+			var cc := VBoxContainer.new()
+			cc.add_theme_constant_override("separation", 0)
+			cc.add_child(_CrownIcon.new(cid, have, 38.0))
+			cc.add_child(_label(WorldKings.CROWN_NAME[cid] if have else WorldKings.CROWN_KING[cid], 11, GOLD if have else Color(.6, .55, .45)))
+			crl.add_child(cc)
+		vb.add_child(crl)
 	if Save.getv("gallery", "gold", false) and ep == 1:
 		var gl := HBoxContainer.new()
 		gl.alignment = BoxContainer.ALIGNMENT_CENTER

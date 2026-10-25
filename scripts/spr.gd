@@ -770,7 +770,7 @@ func sheet_cycle(name: String, fpos: float, n: int, base: int, cw: float, ch: fl
 const WARM_OPT := ["boar_ko", "boar_wind", "boss_charge", "crow_dive", "crow_ko", "dog_dig", "dog_joy", "dog_sniff",
 	"dragonfly", "fish_bite", "frog_ko", "frog_tongue", "horse_free", "isis_run", "leaves", "morcego_rei", "ride_dis",
 	"ride_gallop", "ride_jump", "sapo_rei", "sled_tome", "urso", "esquilo", "cavalo",
-	"isis_climb", "isis_joy", "isis_scared"]
+	"isis_climb", "isis_joy", "isis_scared", "p_tora_neve", "p_pedra_neve", "p_galho_neve"]
 ## folhas que saem em silhueta (clarão do golpe, contorno vermelho dos inimigos, contorno de luz do Tomé)
 const WARM_SIL := ["atlas1", "atlas2", "extra", "en_boar", "en_frog2", "en_crow2", "javali", "pai", "pai2", "isis2",
 	"pai_climb", "pai_rope_a", "pai_rope_b", "pai_vine_a", "pai_vine_b", "cao", "esquilo", "gaviao", "bagre", "urso",

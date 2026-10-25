@@ -1955,32 +1955,27 @@
    "h": 120
   },
   {
-   "t": "stone",
-   "x": 50780,
-   "y": 410,
-   "w": 64,
-   "h": 90,
-   "ice": 1
+   "t": "ice",
+   "x": 50800,
+   "y": 494,
+   "w": 190,
+   "h": 6,
+   "wet": 1
   },
   {
-   "t": "branch",
-   "x": 50690,
-   "y": 310,
-   "w": 150
+   "t": "ice",
+   "x": 51460,
+   "y": 494,
+   "w": 130,
+   "h": 6,
+   "wet": 1
   },
   {
-   "t": "stone",
-   "x": 51270,
-   "y": 410,
-   "w": 64,
-   "h": 90,
-   "ice": 1
-  },
-  {
-   "t": "branch",
-   "x": 51240,
-   "y": 310,
-   "w": 150
+   "t": "bearrock",
+   "x": 52120,
+   "y": -60,
+   "w": 130,
+   "h": 534
   },
   {
    "t": "ground",
@@ -5971,7 +5966,7 @@
    500
   ],
   [
-   51760,
+   52360,
    500
   ],
   [
@@ -6337,19 +6332,19 @@
    "horse": 1
   },
   {
-   "a": 50340,
-   "b": 50540,
-   "t": "Pegadas enormes na neve... alguma coisa grande vive nesta clareira."
+   "a": 50140,
+   "b": 50390,
+   "t": "Pegadas enormes na neve saindo daquela toca... alguma coisa grande dorme ali dentro."
   },
   {
-   "a": 50440,
-   "b": 51740,
-   "t": "Desvie das patadas! Na terceira que ele errar, ele fica tonto. Suba no gelo e nos galhos para pular por cima dele.",
+   "a": 50400,
+   "b": 52250,
+   "t": "Corra até a fresta da rocha! Pule os troncos, abaixe (↓) sob o tronco atravessado e fuja da sombra dos pingentes.",
    "yl": 520
   },
   {
-   "a": 51890,
-   "b": 52340,
+   "a": 52260,
+   "b": 52740,
    "t": "Marcas de rodas na neve: o carrinho do Vargas passou por aqui, descendo para a mina!"
   },
   {
@@ -7288,9 +7283,9 @@
   },
   {
    "k": "tracks",
-   "x": 51840,
+   "x": 52440,
    "y": 500,
-   "w": 1050
+   "w": 470
   },
   {
    "k": "snowtree",
@@ -7348,9 +7343,9 @@
   },
   {
    "k": "bearden",
-   "x": 51090,
+   "x": 50090,
    "y": 500,
-   "s": 1
+   "s": 0.7
   }
  ],
  "holes": [
@@ -7430,11 +7425,57 @@
   }
  ],
  "bear": {
-  "x0": 50520,
-  "x1": 51570,
+  "x0": 49950,
+  "x1": 52250,
   "y": 500,
-  "trig": 50670,
-  "hp": 3
+  "trig": 50390,
+  "hp": 3,
+  "den": 50100,
+  "rock": {
+   "x": 52120,
+   "y": -60,
+   "w": 130,
+   "h": 534
+  },
+  "roar": 51700,
+  "iciY": 300,
+  "ici": [
+   51820,
+   51870,
+   51920,
+   51970,
+   52020
+  ],
+  "obs": [
+   {
+    "k": "log",
+    "x": 50600,
+    "y": 462,
+    "w": 74,
+    "h": 38
+   },
+   {
+    "k": "branch",
+    "x": 51110,
+    "y": 430,
+    "w": 110,
+    "h": 44
+   },
+   {
+    "k": "logs",
+    "x": 51340,
+    "y": 444,
+    "w": 66,
+    "h": 56
+   },
+   {
+    "k": "log",
+    "x": 51660,
+    "y": 462,
+    "w": 74,
+    "h": 38
+   }
+  ]
  },
  "shafts": [
   [
@@ -7649,7 +7690,7 @@
   }
  },
  "sled": {
-  "x": 51880,
+  "x": 52480,
   "x1": 52910,
   "y": 500,
   "tx0": 82000,

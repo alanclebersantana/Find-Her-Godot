@@ -496,13 +496,13 @@ static func boss(g: Game, T: int) -> void:
 		# (sem estalo de uma pose para a outra)
 		Spr.ci.draw_texture_rect(bct, dst, false, Color(tint.r, tint.g, tint.b, tint.a * ka))
 		head = head.lerp(Vector2(157, 35), ka)
-	# coroa de ouro (é o rei — igual ao quadrinho de apresentação e aos outros reis)
+	# coroa de folhas do rei do bosque (cada rei tem a sua; ela cai na derrota e vira colecionável)
 	var cx: float = (head.x - 105.0) * sc
 	var cy: float = -136.0 * sc + 4 + head.y * sc
 	# a coroa balança a cada golpe recebido (e some na derrota: ela cai e rola pelo chão)
 	if b.st != "down":
 		var wob: float = sin(float(b.red) * .7) * .4 * float(b.red) / 30.0
-		WorldKings._crown(cx, cy, 1.15, wob - .12)
+		WorldKings.crown_art("javali", cx, cy, .95, wob - .12, T)
 	Spr.restore()
 	if b.st == "stun":
 		for i in 4:

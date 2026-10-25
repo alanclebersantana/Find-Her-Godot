@@ -1,16 +1,23 @@
 extends RefCounted
 class_name Kings
-## Os outros dois reis do caminho:
+## Os outros reis do caminho (o Javali-Rei fica em extras.gd):
 ##  - GAVIÃO-REI (nas copas, à tarde): avisa o mergulho com a sombra no chão; se errar, as garras
 ##    ficam presas na madeira e a picareta acerta. O facho da lanterna confunde. 4 golpes;
 ##    depois de 2, mergulha duas vezes seguidas e chama corvos.
 ##  - BAGRE-REI (no fundo do lago): investe, revolve a lama e suga. Cansado, mostra as escamas
 ##    que brilham: é ali que o arpão acerta. 4 acertos. Vencido, abre a corrente de bolhas.
+##  - URSO-PARDO-REI (fim da neve): não se luta com ele — é uma perseguição até a fresta da rocha.
+##  Cada rei vencido deixa cair a sua COROA (colecionável): ela fica no chão brilhando até o Tomé pegar.
 
 var g
 var HAWK := {}
 var FISH := {}
 var BEAR := {}
+var BOBS: Array = []     # troncos e galho no caminho da perseguição do urso (sólidos que ele arrebenta)
+var ICI: Array = []      # pingentes da laje da rocha (caem com o rugido)
+var CROWNS: Array = []   # coroas caídas esperando o Tomé (e as que ele está erguendo)
+var TOOK := {}           # coroas que o Tomé já pegou nesta partida
+var DROPPED := {}        # coroas que já saltaram da cabeça do rei nesta partida
 
 func _init(game) -> void:
 	g = game
@@ -19,11 +26,30 @@ func load_level() -> void:
 	HAWK = {}
 	FISH = {}
 	BEAR = {}
+	BOBS = []
+	ICI = []
+	CROWNS = []
+	TOOK = {}
+	DROPPED = {}
 	var L: Dictionary = g.L
 	if L.has("bear"):
 		var b: Dictionary = L.bear
-		BEAR = {"x0": b.x0, "x1": b.x1, "gy": b.y, "trig": b.trig, "maxhp": b.hp, "hp": b.hp, "st": "wait",
-			"x": b.x1 - 160.0, "dir": -1, "t": 0, "red": 0, "anim": 0.0, "active": false, "done": false, "hx": 0.0, "miss": 0}
+		BEAR = {"x0": b.x0, "x1": b.x1, "gy": b.y, "trig": b.trig, "maxhp": b.hp, "hp": b.hp, "st": "wait", "den": b.den,
+			"rock": b.rock, "roar": b.roar, "x": float(b.den), "dir": 1, "t": 0, "red": 0, "anim": 0.0, "active": false,
+			"done": false, "v": 0.0, "won": false, "crown": true, "rt": -1, "cool": 70}
+		var gy: float = b.y
+		for i in b.get("obs", []).size():
+			var o: Dictionary = b.obs[i]
+			var so := {"t": "bearobs", "k": o.k, "x": float(o.x), "y": float(o.y), "w": float(o.w), "h": float(o.h), "id": "bobs%d" % i}
+			if float(o.y) + float(o.h) < gy - 15:
+				# galho baixo: só passa abaixado (ou por cima)
+				so.crawl = {"x": so.x, "w": so.w, "top": so.y + so.h, "y": gy}
+				g.X.CRAWL.append(so.crawl)
+			g.SOL.append(so)
+			BOBS.append(so)
+		for ix in b.get("ici", []):
+			var iy: float = float(b.get("iciY", 300))
+			ICI.append({"x": float(ix), "y0": iy, "y": iy, "len": 34.0 + fmod(float(ix) * 1.7, 14.0), "st": "hang", "t": 0, "vy": 0.0})
 	if L.has("hawk"):
 		var h: Dictionary = L.hawk
 		HAWK = {"x0": h.x0, "x1": h.x1, "gy": h.y, "trig": h.trig, "maxhp": h.hp, "hp": h.hp, "st": "wait",
@@ -65,6 +91,7 @@ func post() -> void:
 	_hawk()
 	_fish()
 	_bear()
+	_crowns()
 
 # ======================================================================
 #  GAVIÃO-REI
@@ -221,9 +248,6 @@ func hawk_shadow() -> Vector2:
 
 ## golpe de picareta (Mech chama com a caixa do golpe)
 func swing_hits(hb: Dictionary) -> void:
-	if not BEAR.is_empty() and not BEAR.done and BEAR.st == "dizzy" and BEAR.red == 0 and Game.hit(hb, bear_box()):
-		_bear_hit()
-		return
 	if HAWK.is_empty() or HAWK.done or HAWK.st != "stuck" or HAWK.red > 0:
 		return
 	if not Game.hit(hb, hawk_box()):
@@ -244,7 +268,8 @@ func swing_hits(hb: Dictionary) -> void:
 		h.t = 0
 		Polish.final_blow()
 		if h.get("skin", "hawk") != "bat":
-			Polish.crown_drop("gold", h.x + h.dir * 38, h.y - 84, h.dir, h.gy)
+			# a coroa de penas salta da cabeça e cai na arena
+			drop_crown("gaviao", h.x + h.dir * 38, h.y - 84, h.dir * 2.2, -6.0)
 		Polish.loot_arc(h.x, h.y - 40, 10, h.gy)
 		_gate("hawkL", false, Rect2())
 		_gate("hawkR", false, Rect2())
@@ -274,95 +299,148 @@ func swing_hits(hb: Dictionary) -> void:
 
 
 # ======================================================================
-#  URSO-PARDO-REI (fim da neve)
-#  anda até o Tomé, se ergue com um rugido e dá uma patada forte no chão à frente.
-#  Três ataques (patada, investida, tremor); no terceiro erro fica tonto: pular na cabeça ou picareta. 3 acertos.
-#  Na clareira há blocos de gelo e galhos para subir e pular por cima dele.
+#  URSO-PARDO-REI (fim da neve): PERSEGUIÇÃO
+#  O Tomé acorda o urso na toca e precisa fugir pela neve até a fresta da rocha, onde o urso não cabe.
+#  No caminho: troncos para pular (o urso arrebenta), gelo liso, um galho baixo (abaixe/deslize) e,
+#  embaixo da laje da rocha, pingentes que caem com o rugido (a sombra avisa onde).
+#  O urso corre atrás: investida (agacha e cava a neve antes — a seta no chão mostra até onde vai),
+#  patada (pata erguida brilhando — a mancha vermelha mostra onde bate) e rugido. Fica mais rápido
+#  conforme o Tomé avança. O Tomé ganha ao passar inteiro pela fresta: o urso entala, a coroa cai e
+#  rola pela fresta até o lado do Tomé, e o urso volta para a toca com a cabeça cheia de neve.
 # ======================================================================
+const BEAR_CHASE := ["chase", "rear", "slam", "crouch", "charge", "recover", "roar", "taunt"]
+
 func bear_box() -> Dictionary:
 	var b: Dictionary = BEAR
 	match b.st:
-		"rear", "slam", "rear2", "quake", "shake":
+		"rear", "slam", "roar":
 			return g.R(b.x - 60, b.gy - 180, 120, 180)
-		"dizzy":
-			return g.R(b.x - 70, b.gy - 120, 140, 120)
-		"charge", "scrape", "skid":
-			# investida de cabeça baixa: dá para pular por cima
-			return g.R(b.x - 90, b.gy - 84, 180, 84)
-		"down", "flee":
+		"crouch", "charge":
+			# investida de cabeça baixa
+			return g.R(b.x - 90 + b.dir * 10, b.gy - 96, 180, 96)
+		"wait", "jam", "flee", "giveup":
 			return g.R(-9999, -9999, 0, 0)
-	return g.R(b.x - 95, b.gy - 130, 190, 130)
+	return g.R(b.x - 90, b.gy - 126, 180, 126)
+
+## a perseguição está acontecendo (para a câmera e a música)
+func bear_chase() -> bool:
+	return bear_on() and BEAR.st in BEAR_CHASE
 
 ## área da patada (à frente do urso)
 func bear_paw() -> Rect2:
 	var b: Dictionary = BEAR
 	var a: float = b.x + b.dir * 25.0
-	var c: float = b.x + b.dir * 215.0
+	var c: float = b.x + b.dir * 205.0
+	# na fresta a pata só entra um pouquinho
+	c = min(c, float(b.rock.x) + 26.0)
 	return Rect2(min(a, c), b.gy - 80, abs(c - a), 80)
 
-## o urso machuca o Tomé: empurra para o MEIO da clareira (nunca para o canto) e dá 1,5 s de folga
+## até onde a investida chega (para a seta de aviso no chão)
+func bear_lunge_end() -> float:
+	var b: Dictionary = BEAR
+	return clamp(b.x + b.dir * 330.0, b.x0, float(b.rock.x) - 100.0)
+
+## quanto do caminho o Tomé já fez (0 na toca, 1 na fresta): o urso acelera junto
+func _bear_u() -> float:
+	var b: Dictionary = BEAR
+	var p: Dictionary = g.player
+	return clamp((p.x + p.w / 2 - float(b.trig)) / max(1.0, float(b.rock.x) - float(b.trig)), 0.0, 1.0)
+
+## o urso machucou o Tomé: tranco para longe do urso, folga de 1,5 s e o urso para e ruge (sem
+## acertar duas vezes seguidas)
 func _bear_dmg() -> void:
 	var b: Dictionary = BEAR
 	var p: Dictionary = g.player
 	if p.iframe > 0 or p.dyingT > 0:
 		return
-	var pcx: float = p.x + p.w / 2
-	var mid: float = (b.x0 + b.x1) * .5
-	g.hurt(1, pcx + (20.0 if pcx > mid else -20.0))
+	g.hurt(1, b.x)
 	p.iframe = max(p.iframe, 90)
-	b.hitme = true
+	if p.dyingT == 0:
+		b.st = "taunt"
+		b.t = 0
 
-## galho da clareira em que o Tomé está de pé (ou null)
-func _bear_branch():
+func _bear_obs_reset() -> void:
+	for o in BOBS:
+		o.erase("fallen")
+		if o.has("crawl") and not g.X.CRAWL.has(o.crawl):
+			g.X.CRAWL.append(o.crawl)
+	for c in ICI:
+		c.st = "hang"
+		c.t = 0
+		c.y = float(c.y0)
+		c.vy = 0.0
+	g.blockers_dirty()
+
+## o urso arrebenta o tronco ou o galho que estava no caminho
+func _bear_smash(o: Dictionary) -> void:
+	var b: Dictionary = BEAR
+	o.fallen = true
+	if o.has("crawl"):
+		g.X.CRAWL.erase(o.crawl)
+	g.blockers_dirty()
+	b.stumble = 12
+	b.v = float(b.v) * .55
+	g.shake = max(g.shake, 9)
+	g.shake_dir = Vector2(b.dir, 0)
+	Audio.play("stomp", -2)
+	Audio.play("thunder", -16)
+	Audio.vib(60)
+	var cx: float = o.x + o.w / 2.0
+	var cy: float = o.y + o.h / 2.0
+	g.fx("fx_pieces", cx, cy, 24, .4, -.4)
+	g.burst(cx, cy, 16, Color(.95, .97, 1))
+	for i in 9:
+		g.PARTS.append({"x": cx + randf_range(-o.w / 2.0, o.w / 2.0), "y": cy, "vx": b.dir * randf_range(1.0, 5.0), "vy": -randf_range(2.0, 6.0), "life": 40, "col": Color("#7a5232") if i % 2 == 0 else Color("#a87a4c")})
+
+## pingentes da laje: tremem (a sombra marca o chão), caem e se quebram no chão
+func _ici_tick() -> void:
 	var b: Dictionary = BEAR
 	var p: Dictionary = g.player
-	if not p.onGround:
-		return null
-	var pcx: float = p.x + p.w / 2
-	var feet: float = p.y + p.h
-	for s2 in g.SOL:
-		if str(s2.get("t", "")) == "branch" and s2.x > b.x0 - 50 and s2.x < b.x1 and abs(feet - s2.y) < 5 and pcx > s2.x - 4 and pcx < s2.x + s2.w + 4:
-			return s2
-	return null
+	var gy: float = b.gy
+	for c in ICI:
+		match c.st:
+			"shake":
+				c.t += 1
+				if c.t > 30:
+					c.st = "fall"
+					c.t = 0
+					c.vy = 1.0
+					Audio.play("slide", -10)
+			"fall":
+				c.t += 1
+				c.vy = min(c.vy + .55, 16.0)
+				c.y += c.vy
+				var tip: float = c.y + float(c.len)
+				if p.dyingT == 0 and p.x < c.x + 9 and p.x + p.w > c.x - 9 and p.y < tip and p.y + p.h > c.y + 6:
+					g.hurt(1, c.x)
+				if tip >= gy - 2:
+					c.st = "gone"
+					g.shake = max(g.shake, 4)
+					Audio.play("stomp", -12)
+					g.burst(c.x, gy - 4, 14, Color(.85, .95, 1))
+					for i in 7:
+						g.PARTS.append({"x": c.x, "y": gy - 6, "vx": randf_range(-3, 3), "vy": -randf_range(2, 5), "life": 26, "col": Color(.8, .93, 1, .95)})
 
-func _bear_attack() -> void:
-	var b: Dictionary = BEAR
-	b.t = 0
-	b.hitme = false
-	var k: int = int(b.get("atk", 0)) % 3
-	b.atk = int(b.get("atk", 0)) + 1
-	match k:
-		0:
-			b.st = "rear"
-			Audio.play("roar", -6)
-		1:
-			b.st = "scrape"
-			Audio.play("dj", -10)
-		2:
-			b.st = "rear2"
-			Audio.play("roar", -4)
+## o rugido solta pingentes onde o Tomé vai passar (o mais perto de onde ele estará daqui a pouco)
+func _ici_drop() -> void:
+	var p: Dictionary = g.player
+	var aim: float = p.x + p.w / 2 + p.vx * 34.0
+	var best = null
+	var bd := 1e9
+	for c in ICI:
+		if c.st == "hang" and abs(c.x - aim) < bd:
+			bd = abs(c.x - aim)
+			best = c
+	if best != null and bd < 160:
+		best.st = "shake"
+		best.t = 0
+		Audio.play("unlock", -14)
 
-func _bear_missed() -> void:
+func _bear_attack_or_chase(u: float) -> void:
 	var b: Dictionary = BEAR
+	b.st = "chase"
 	b.t = 0
-	if b.hitme:
-		b.st = "back"
-		return
-	b.miss = b.get("miss", 0) + 1
-	if b.miss >= 3:
-		# o terceiro ataque errado cansa o urso: fica tonto
-		b.miss = 0
-		b.st = "dizzy"
-		Audio.play("dj", -6)
-		if not g.L.get("_bear_tip", false):
-			g.L["_bear_tip"] = true
-			g.flash_tut("Ele está tonto: pule na cabeça ou GOLPE!", "Três ataques errados e o urso ficou tonto! Pule na cabeça (o mergulho vale 2), ou acerte com a picareta (GOLPE)!", 200)
-	else:
-		b.st = "back"
-		g.note("Ele errou! (%d/3)" % b.miss)
-		if b.miss == 1 and not g.L.get("_bear_tip0", false):
-			g.L["_bear_tip0"] = true
-			g.flash_tut("Desvie dos ataques!", "Fuja dos ataques: patada (pata brilhando), investida (ele cava o chão — pule por cima) e tremor (pule a onda). Três erros e ele fica tonto.", 220)
+	b.cool = int(64 - u * 26)
 
 func _bear() -> void:
 	if BEAR.is_empty() or BEAR.done:
@@ -372,318 +450,268 @@ func _bear() -> void:
 	var pcx: float = p.x + p.w / 2
 	var feet: float = p.y + p.h
 	var gy: float = b.gy
+	var rock: Rect2 = Rect2(float(b.rock.x), float(b.rock.y), float(b.rock.w), float(b.rock.h))
+	var stop_x: float = rock.position.x - 100.0
 	if b.red > 0:
 		b.red -= 1
 	if b.get("landT", 0) > 0:
 		b.landT -= 1
-	var lvl: int = b.maxhp - b.hp          # fica mais rápido a cada rodada
+	if b.get("stumble", 0) > 0:
+		b.stumble -= 1
+	_ici_tick()
+	# rugido: os pingentes caem um depois do outro
+	var rt: int = int(b.get("rt", -1))
+	if rt >= 0:
+		b.rt = rt + 1
+		if b.rt in [14, 34, 54]:
+			_ici_drop()
+		if b.rt > 60:
+			b.rt = -1
+	var u: float = _bear_u()
 	var dx: float = pcx - b.x
-	# ondas de choque do tremor correndo pelo chão
-	var waves: Array = b.get("waves", [])
-	for w in waves:
-		w.x += w.d * (6.0 + lvl * .8)
-		w.t += 1
-		if p.dyingT == 0 and p.onGround and feet >= gy - 3 and abs(pcx - w.x) < 22:
-			_bear_dmg()
-	b.waves = waves.filter(func(w): return w.x > b.x0 - 20 and w.x < b.x1 + 20)
+	# o Tomé passou inteiro pela fresta: venceu
+	if not b.won and b.st != "wait" and p.x > rock.end.x + 4 and p.dyingT == 0:
+		b.won = true
+		b.hp = 0
+		b.cool = 0
+		if b.st in ["rear", "slam", "crouch", "charge", "recover", "roar", "taunt"]:
+			b.st = "chase"
+			b.t = 0
+		Audio.play("special", -8)
+		g.start_cine("urso_fim", float(b.rock.x) + 20.0, gy - 120, 150)
+	# rugido quando o Tomé chega perto da laje (interrompe a corrida ou o fôlego depois da investida)
+	if not b.won and not b.get("roared", false) and b.st in ["chase", "recover"] and pcx > float(b.roar) and p.dyingT == 0:
+		b.roared = true
+		b.st = "roar"
+		b.t = 0
 	match b.st:
 		"wait":
-			if pcx > b.trig and pcx < b.x1 and feet <= gy + 4 and feet > gy - 300 and p.dyingT == 0:
+			if pcx > b.trig and pcx < rock.position.x and feet <= gy + 4 and feet > gy - 300 and p.dyingT == 0:
 				b.active = true
-				b.st = "walk"
+				b.st = "intro"
 				b.t = 0
 				b.hp = b.maxhp
-				b.miss = 0
-				b.atk = 0
-				b.perch = 0
-				b.waves = []
-				b.x = b.x1 - 420.0
-				b.dir = -1
-				# muros altos (até bem acima da tela): não dá para pular nem com pulo duplo
-				_gate("bearL", true, Rect2(b.x0 - 24, gy - 900, 24, 900))
-				_gate("bearR", true, Rect2(b.x1, gy - 900, 24, 900))
+				b.x = float(b.den)
+				b.dir = 1
+				b.v = 0.0
+				b.won = false
+				b.roared = false
+				b.cool = 70
+				b.rt = -1
+				b.crown = true
+				_bear_obs_reset()
+				if b.get("seen", false):
+					# já viu a apresentação: o urso sai da toca rugindo e a corrida começa na hora
+					b.x = float(b.den) + 70.0
+					b.st = "roar"
+					b.t = 0
+					g.flash("O urso acordou de novo: CORRA!", 120)
+					return
+				b.seen = true
 				Audio.play("roar", -4)
-				g.start_cine("urso", (b.x0 + b.x1) / 2.0, gy - 140, 250,
-					[[150, 245, "TOMÉ", "Um urso enorme... e de coroa! Quando ele errar três vezes, é a minha vez.", "tome"]],
-					[60, 150, "URSO-PARDO-REI", "o guardião da neve"])
+				g.start_cine("urso", (float(b.den) + pcx) / 2.0 + 40, gy - 140, 230,
+					[[130, 225, "TOMÉ", "Acordei o urso! Grande demais para enfrentar... CORRE! Lá na frente, a fresta da rocha: ele não cabe!", "tome"]],
+					[50, 130, "URSO-PARDO-REI", "o guardião da neve"])
 			return
-		"walk":
+		"intro":
+			# (a cena terminou sem passar pelo cine_end, como nos testes): já sai correndo
+			b.st = "chase"
+			b.t = 0
+		"chase":
 			b.t += 1
-			b.dir = 1 if dx > 0 else -1
-			var spd: float = 1.6 + lvl * .4
-			# arranca e freia com peso; para virar, primeiro desacelera
-			var wv: float = move_toward(float(b.get("wv", 0.0)), b.dir * spd, .09)
-			b.wv = wv
-			var nx: float = clamp(b.x + wv, b.x0 + 140, b.x1 - 140)
-			var blk = _bear_block(nx)
-			if blk != null:
-				g.burst(blk.x + blk.w / 2.0, blk.y + 20, 6, Color(.85, .95, 1))
-				if abs(dx) < 300:
-					_bear_attack()
-				else:
-					b.st = "hop"
-					b.t = 0
-					b.hx0 = b.x
-					b.hx1 = (blk.x + blk.w + 66.0) if b.dir > 0 else (blk.x - 66.0)
-			else:
-				b.x = nx
-			b.anim += abs(wv) * .05
-			# o Tomé parado no galho: o urso vai sacudir a árvore
-			var br = _bear_branch()
-			b.perch = b.get("perch", 0) + 1 if br != null else 0
-			if b.perch > 70 and b.t > 30:
-				b.st = "tree"
-				b.t = 0
-				b.br = br
+			if abs(dx) > 40:
+				b.dir = 1 if dx > 0 else -1
+			var ad: float = abs(dx)
+			var spd: float = 5.1 + u * 1.2
+			if b.won:
+				spd = 9.0
+				b.dir = 1
+			elif ad > 470:
+				spd = 7.8       # ficou muito para trás: dispara (nunca some da tela)
+			elif ad > 320:
+				spd = 6.1
+			if b.get("stumble", 0) > 0:
+				spd *= .45
+			b.v = move_toward(float(b.v), b.dir * spd, .22)
+			_bear_move()
+			if b.won and b.x >= stop_x - 2:
+				_bear_jam()
 				return
-			if abs(dx) < 230 and b.t > 30 and p.dyingT == 0:
-				# perto da parede: dá dois passos para trás e ruge antes de atacar (dá tempo de fugir)
-				var near_edge: bool = pcx < b.x0 + 200 or pcx > b.x1 - 200
-				if near_edge:
-					b.st = "backoff"
+			b.cool = int(b.get("cool", 0)) - 1
+			if not b.won and p.dyingT == 0:
+				if b.cool <= 0 and ad < 170 and abs(feet - gy) < 120:
+					b.st = "rear"
 					b.t = 0
-				else:
-					_bear_attack()
-		"backoff":
-			b.t += 1
-			var away: float = -1.0 if dx > 0 else 1.0
-			if b.t < 24:
-				var bx3: float = clamp(b.x + away * 2.6, b.x0 + 140, b.x1 - 140)
-				if _bear_block(bx3) == null:
-					b.x = bx3
-				b.anim += .12
-			elif b.t == 24:
-				Audio.play("roar", -4)
-				Polish.roar(b.x + b.dir * 90, b.gy - 150)
-				g.shake = max(g.shake, 5)
-			elif b.t > 24 + 46 - lvl * 6:
-				_bear_attack()
+					Audio.play("roar", -8)
+					return
+				if b.cool <= 0 and ad > 150 and ad < 320 and b.x < stop_x - 240 and sign(dx) == b.dir:
+					b.st = "crouch"
+					b.t = 0
+					Audio.play("dj", -10)
+					return
 		"rear":
-			# patada: ergue a pata brilhando (aviso), depois desce na frente dele
+			# patada: ergue a pata brilhando (aviso) e continua vindo devagar; depois bate na frente
 			b.t += 1
-			if b.t > 46 - lvl * 6:
+			b.v = move_toward(float(b.v), b.dir * 2.0, .3)
+			_bear_move()
+			if b.t > int(26 - u * 6):
 				b.st = "slam"
 				b.t = 0
 				var paw := bear_paw()
-				if p.dyingT == 0 and pcx > paw.position.x - 12 and pcx < paw.end.x + 12 and feet > gy - 90:
+				if p.dyingT == 0 and pcx > paw.position.x - 10 and pcx < paw.end.x + 10 and feet > gy - 84:
 					_bear_dmg()
-				g.shake = 14
+				g.shake = max(g.shake, 12)
+				g.shake_dir = Vector2(0, 1)
 				Audio.play("stomp")
 				Audio.vib(80)
-				for s2 in g.SOL:
-					if s2.get("ice") and s2.y < gy and s2.x < paw.end.x and s2.x + s2.w > paw.position.x:
-						s2.shk = 18
-				g.burst(b.x + b.dir * 150, gy, 24, Color(.95, .97, 1))
-				g.fx("fx_dust", b.x + b.dir * 150, gy - 10, 20, .4, -.3)
-				g.shake_dir = Vector2(0, 1)
-				Polish.debris(b.x - 200, b.x + 200, gy, 12)
+				g.burst(b.x + b.dir * 140, gy, 22, Color(.95, .97, 1))
+				g.fx("fx_dust", b.x + b.dir * 140, gy - 10, 20, .4, -.3)
+				Polish.debris(b.x - 160, b.x + 220, gy, 8)
 		"slam":
 			b.t += 1
-			if b.t > 22:
-				_bear_missed()
-		"scrape":
-			# investida: cava o chão com a pata (neve voando), de cabeça baixa
+			b.v = move_toward(float(b.v), 0.0, .4)
+			_bear_move()
+			if b.t > 16:
+				_bear_attack_or_chase(u)
+		"crouch":
+			# investida: agacha, cava a neve com as patas de trás e mira (a seta no chão mostra até onde)
 			b.t += 1
-			b.dir = 1 if dx > 0 else -1
-			if b.t % 6 == 0:
+			b.v = move_toward(float(b.v), 0.0, .4)
+			_bear_move()
+			if b.t % 5 == 0:
 				g.PARTS.append({"x": b.x - b.dir * 60, "y": gy - 6, "vx": -b.dir * randf_range(2, 4), "vy": -randf_range(2, 4), "life": 24, "col": Color(.95, .97, 1, .95)})
-			if b.t > 50 - lvl * 6:
+			if b.t > int(32 - u * 8):
 				b.st = "charge"
 				b.t = 0
+				b.v = b.dir * 12.5
+				b.lx = bear_lunge_end()
 				Audio.play("roar", -6)
-				Polish.roar(b.x + b.dir * 90, b.gy - 150)
+				Polish.roar(b.x + b.dir * 90, gy - 120)
 		"charge":
 			b.t += 1
-			# dispara ganhando velocidade
-			var cs: float = min(7.0 + lvl * .8, 2.0 + b.t * .45)
-			b.cv = cs
-			var nx2: float = b.x + b.dir * cs
-			b.anim += .04 * cs
-			if Game.hit(p, bear_box()) and p.dyingT == 0:
-				_bear_dmg()
-			if nx2 < b.x0 + 140 or nx2 > b.x1 - 140 or _bear_block(nx2) != null or b.t > 120:
-				b.st = "skid"
+			b.v = move_toward(float(b.v), b.dir * 4.0, .32)
+			_bear_move()
+			if b.t % 3 == 0:
+				g.PARTS.append({"x": b.x - b.dir * 70, "y": gy - 4, "vx": -b.dir * 2.0, "vy": -1.5, "life": 18, "col": Color(.97, .98, 1, .9)})
+			if b.t > 24 or (b.dir > 0 and b.x >= float(b.lx)) or (b.dir < 0 and b.x <= float(b.lx)):
+				b.st = "recover"
 				b.t = 0
-				g.shake = max(g.shake, 8)
-				g.burst(b.x + b.dir * 80, gy, 14, Color(.95, .97, 1))
-			else:
-				b.x = nx2
-				if b.t % 3 == 0:
-					g.PARTS.append({"x": b.x - b.dir * 70, "y": gy - 4, "vx": -b.dir * 2.0, "vy": -1.5, "life": 18, "col": Color(.97, .98, 1, .9)})
-		"skid":
+				g.burst(b.x + b.dir * 80, gy, 12, Color(.95, .97, 1))
+		"recover":
+			# derrapa e ofega um pouco: é a hora de abrir distância
 			b.t += 1
-			# derrapa: as patas travam e ele escorrega até parar, levantando neve
-			var sv: float = float(b.get("cv", 0.0)) * .86
-			b.cv = sv
-			if sv > .3:
-				var sx2: float = clamp(b.x + b.dir * sv, b.x0 + 140, b.x1 - 140)
-				if _bear_block(sx2) == null:
-					b.x = sx2
-				if b.t % 2 == 0:
-					g.PARTS.append({"x": b.x + b.dir * 70, "y": gy - 4, "vx": b.dir * randf_range(1.0, 2.5), "vy": -randf_range(1.0, 2.2), "life": 18, "col": Color(.97, .98, 1, .9)})
-			if b.t > 30:
-				_bear_missed()
-		"rear2":
-			# tremor: fica de pé com as duas patas no alto (brilhando) e bate no chão
+			b.v = move_toward(float(b.v), b.dir * 1.2, .35)
+			_bear_move()
+			if b.t % 2 == 0 and abs(float(b.v)) > 1.5:
+				g.PARTS.append({"x": b.x + b.dir * 70, "y": gy - 4, "vx": b.dir * randf_range(1.0, 2.5), "vy": -randf_range(1.0, 2.2), "life": 18, "col": Color(.97, .98, 1, .9)})
+			if b.t > 20:
+				_bear_attack_or_chase(u)
+		"roar":
+			# para, se ergue e ruge: a laje treme e os pingentes começam a cair
 			b.t += 1
-			if b.t > 52 - lvl * 6:
-				b.st = "quake"
+			b.v = move_toward(float(b.v), 0.0, .4)
+			_bear_move()
+			if b.t == 8:
+				Audio.play("roar", 0)
+				Audio.vib(120)
+				Polish.roar(b.x + b.dir * 80, gy - 170)
+				g.shake = max(g.shake, 12)
+				b.rt = 0
+				for c in ICI:
+					if c.st == "hang":
+						c.wob = 30
+			if b.t > 38:
+				_bear_attack_or_chase(u)
+		"taunt":
+			# acertou: para um instante e bufa (dá tempo de o Tomé levantar e fugir)
+			b.t += 1
+			b.v = move_toward(float(b.v), 0.0, .5)
+			_bear_move()
+			if b.t == 6:
+				Audio.play("roar", -12)
+			if b.t > 34:
+				_bear_attack_or_chase(u)
+		"jam":
+			# entalou na fresta: empurra, sacode a cabeça, a coroa cai e rola para o lado do Tomé;
+			# depois senta tonto, com a cabeça cheia de neve, levanta e desiste
+			b.t += 1
+			b.v = 0.0
+			if b.t < 26:
+				b.x = stop_x + 6.0 + sin(b.t * .9) * 3.0 * (1.0 - b.t / 26.0)
+			if b.t < 60 and b.t % 4 == 0:
+				g.PARTS.append({"x": rock.position.x + randf() * 40, "y": gy - 90 - randf() * 120, "vx": randf_range(-1, 1), "vy": 1.0, "life": 30, "col": Color(.97, .98, 1, .95)})
+			if b.t == 18 and b.crown:
+				b.crown = false
+				b.lump = true
+				Audio.play("special", -6)
+				drop_crown("urso", rock.position.x - 6, gy - 150, 3.2, -4.0, false, rock.end.x + 70.0)
+				g.flash("O Urso-Rei entalou na fresta! A coroa dele caiu e rolou para o seu lado. Pegue!", 260)
+				for i in 10:
+					g.gain_coin(rock.end.x + 40, gy - 60, true)
+				p.hp = Game.MAXHP
+			if b.t == 26:
+				# senta tonto (afasta um pouco da pedra)
+				b.x = stop_x - 20.0
+				b.landT = 12
+				g.shake = max(g.shake, 6)
+				Audio.play("stomp", -8)
+			if b.t > 84 and b.t < 110:
+				# levanta e recua
+				b.dir = 1
+				b.x -= 1.4
+				b.anim += .08
+			if b.t == 96:
+				Audio.play("roar", -10)
+				Polish.snort(b.x + 110, gy - 150, 1.0)
+			if b.t > 110:
+				b.st = "flee"
 				b.t = 0
-				g.shake = 18
-				Audio.play("stomp")
-				Audio.vib(100)
-				b.waves.append({"x": b.x - 70, "d": -1.0, "t": 0})
-				g.shake_dir = Vector2(0, 1)
-				Polish.debris(b.x - 300, b.x + 300, gy, 18)
-				b.waves.append({"x": b.x + 70, "d": 1.0, "t": 0})
-				g.burst(b.x, gy, 30, Color(.95, .97, 1))
-		"quake":
-			b.t += 1
-			if b.t > 70:
-				_bear_missed()
-		"tree":
-			# vai até debaixo do galho onde o Tomé está
-			b.t += 1
-			var br2: Dictionary = b.br
-			var tx: float = clamp(br2.x + br2.w * .5, b.x0 + 140, b.x1 - 140)
-			b.dir = 1 if tx > b.x else -1
-			if abs(tx - b.x) > 6 and b.t < 160:
-				var bx4: float = b.x + b.dir * (2.4 + lvl * .4)
-				if _bear_block(bx4) == null:
-					b.x = bx4
-				else:
-					b.t = 160
-				b.anim += .12
-			else:
-				b.st = "shake"
-				b.t = 0
-				Audio.play("roar", -4)
-		"shake":
-			# se ergue, agarra o tronco e sacode: o galho treme (aviso) e derruba quem ficar
-			b.t += 1
-			var br3: Dictionary = b.br
-			br3.trem = b.t
-			if b.t % 5 == 0:
-				g.PARTS.append({"x": br3.x + randf() * br3.w, "y": br3.y - 6, "vx": randf_range(-.5, .5), "vy": 1.0, "life": 30, "col": Color(.97, .98, 1, .95)})
-			if b.t == 50:
-				g.shake = max(g.shake, 10)
-				Polish.debris(br3.x, br3.x + br3.w, gy, 16)
-				if _bear_branch() == br3:
-					# o galho sacode e o Tomé cai (atravessa o galho para baixo)
-					p.onGround = false
-					p.dropT = 20
-					p.y += 6
-					_bear_dmg()
-					p.vy = 1.0
-			if b.t > 75:
-				br3.trem = 0
-				b.perch = 0
-				b.st = "back"
-				b.t = 0
-		"dizzy":
-			b.t += 1
-			# pular na cabeça dele conta como acerto (o mergulho conta dois)
-			if p.vy > 0 and p.dyingT == 0 and abs(pcx - b.x) < 75 and feet > gy - 130 and feet < gy - 92 and b.red == 0:
-				var dive: bool = p.get("slam", false)
-				p.vy = -10.5
-				p.y = gy - 130 - p.h
-				_bear_hit()
-				if dive and b.hp > 0:
-					b.st = "dizzy"
-					_bear_hit()
-					g.note("Mergulho! Acerto duplo!")
-				return
-			if b.t > 160 - lvl * 20:
-				b.st = "back"
-				b.t = 0
-		"hop":
-			b.t += 1
-			# agacha antes de pular (antecipação) e achata ao cair
-			if b.t <= 8:
-				b.hy = 0.0
-				b.hcr = b.t / 8.0
-				return
-			b.hcr = 0.0
-			var u: float = min(1.0, (b.t - 8) / 34.0)
-			b.x = lerpf(b.hx0, b.hx1, u)
-			b.hy = -sin(u * PI) * 150.0
-			b.anim += .1
-			if u >= 1.0:
-				b.hy = 0.0
-				b.st = "walk"
-				b.t = 20
-				b.landT = 14
-				b.wv = 0.0
-				g.shake = max(g.shake, 10)
-				Audio.play("stomp")
-				g.burst(b.x, gy, 18, Color(.95, .97, 1))
-		"back":
-			# acorda e se afasta um pouco antes de voltar a andar
-			b.t += 1
-			var away2: float = -1.0 if pcx > b.x else 1.0
-			b.dir = -int(away2)
-			var bsp: float = min(4.0, b.t * .25) * (1.0 if b.t < 34 else (45 - b.t) / 11.0)
-			var bx2: float = clamp(b.x + away2 * bsp, b.x0 + 140, b.x1 - 140)
-			if _bear_block(bx2) == null:
-				b.x = bx2
-			b.anim += .2
-			if b.t > 45:
-				b.st = "walk"
-				b.t = 0
-				b.wv = 0.0
 		"flee":
+			# desiste e volta para a toca, sacudindo a neve da cabeça
 			b.t += 1
-			b.dir = 1
-			b.x += min(5.0, .5 + b.t * .12)
-			b.anim += .2
-			if b.t > 140:
+			b.dir = -1
+			b.v = move_toward(float(b.v), -3.4, .12)
+			b.x += float(b.v)
+			b.anim += abs(float(b.v)) * .05
+			if b.t > 260 or b.x < float(b.den):
 				b.done = true
 				b.active = false
-				Polish.smoke_cloud(b.x, b.gy)
-	# encostar no urso andando machuca (por cima dele, quica)
-	if b.st in ["walk", "rear", "rear2", "backoff", "tree"] and p.dyingT == 0 and Game.hit(p, bear_box()):
-		if p.vy > 0 and feet < gy - 110:
-			p.vy = -8.0
-		else:
-			_bear_dmg()
+	# encostar no urso machuca
+	if b.st in BEAR_CHASE and not b.won and p.dyingT == 0 and Game.hit(p, bear_box()):
+		_bear_dmg()
 
-## bloco de gelo da clareira que o urso encostaria em x (ou null)
-func _bear_block(x: float):
+## anda com a velocidade atual: arrebenta troncos e galho no caminho e nunca passa da rocha
+func _bear_move() -> void:
 	var b: Dictionary = BEAR
-	for s2 in g.SOL:
-		if s2.get("ice") and s2.t == "stone" and s2.x < b.x1 and s2.x + s2.w > b.x0:
-			if x + 62 > s2.x and x - 62 < s2.x + s2.w:
-				if not (b.x + 62 > s2.x and b.x - 62 < s2.x + s2.w):
-					return s2
-	return null
+	var nx: float = b.x + float(b.v)
+	nx = clamp(nx, float(b.x0), float(b.rock.x) - 100.0)
+	var front: float = nx + b.dir * 86.0
+	for o in BOBS:
+		if o.get("fallen") or abs(o.x + o.w / 2.0 - b.x) > 400:
+			continue
+		if front > o.x - 4 and front < o.x + o.w + 4 or (nx - 70 < o.x + o.w and nx + 70 > o.x):
+			_bear_smash(o)
+	b.x = nx
+	b.anim += abs(float(b.v)) * .05
 
-func _bear_hit() -> void:
+## a coroa saltou: o urso empurra mais um pouco e desiste
+func _bear_jam() -> void:
 	var b: Dictionary = BEAR
-	b.hp -= 1
-	b.red = 30
-	g.hit_stop = 6
-	g.shake = 10
-	Audio.play("stomp")
-	Audio.play("roar", -10)
-	Audio.vib(60)
-	g.burst(b.x, b.gy - 100, 18, Color("#c89a6a"))
-	if b.hp <= 0:
-		b.st = "flee"
-		b.t = 0
-		b.waves = []
-		Polish.final_blow()
-		Polish.loot_arc(b.x, b.gy - 120, 10, b.gy)
-		_gate("bearL", false, Rect2())
-		_gate("bearR", false, Rect2())
-		for i in 10:
-			g.gain_coin(b.x, b.gy - 120, true)
-		g.player.hp = Game.MAXHP
-		Audio.play("door", -4)
-		g.flash("O Urso-Rei voltou para a floresta! O caminho da mina está livre.", 240)
-		return
-	b.st = "back"
+	b.st = "jam"
 	b.t = 0
-	g.flash("Acertou! Falta%s %d." % ["m" if b.hp > 1 else "", b.hp], 120)
+	b.v = 0.0
+	b.hp = 0
+	g.shake = 20
+	g.shake_dir = Vector2(1, 0)
+	g.hit_stop = 6
+	Audio.play("stomp")
+	Audio.play("thunder", -8)
+	Audio.vib(140)
+	Polish.final_blow()
+	var rx: float = float(b.rock.x)
+	Polish.debris(rx - 60, rx + 160, b.gy, 18)
+	g.burst(rx, b.gy - 100, 26, Color(.95, .97, 1))
+	g.fx("fx_pieces", rx + 4, b.gy - 120, 20, .4, -.3)
 
 # ======================================================================
 #  BAGRE-REI
@@ -702,6 +730,10 @@ const FISH_SC := {
 	5: [Vector2(-10.6, 5.2), Vector2(12.3, 6.5), Vector2(22.3, -6.9), Vector2(31.6, 2.7)],
 	"bite": [Vector2(-6.7, 7.2), Vector2(17, 7.4), Vector2(24.8, -7.4), Vector2(36.7, 1.4)],
 }
+## centro da coroa pintada em cada quadro do bagre.png (em relação ao centro, olhando para a direita):
+## a coroa de pérolas é desenhada por cima dela ("bite" = fish_bite.png). O quadro 6 (vencido) já não tem coroa
+const FISH_CROWN := {0: Vector2(79, -28), 1: Vector2(75, -29), 2: Vector2(80, -26), 3: Vector2(79, -27), 4: Vector2(54, -37),
+	5: Vector2(72, -27), "bite": Vector2(72, -33.5)}
 ## pintas do Sapo-Rei (o desenho não tem pintas próprias: são desenhadas por cima, no peito)
 const FROG_SC := [Vector2(-1, 7), Vector2(23, 8), Vector2(34, -6), Vector2(44, 3)]
 
@@ -915,6 +947,10 @@ func harpoon_hit(hp: Dictionary) -> bool:
 					f.st = "down"
 					f.t = 0
 					Polish.final_blow()
+					if f.get("skin", "fish") != "frog":
+						# a coroa de pérolas escorrega da cabeça e afunda até o fundo do lago
+						var ca: Vector2 = FISH_CROWN[5]
+						drop_crown("bagre", f.x + ca.x * f.dir, f.y + ca.y + 8, f.dir * .6, .4, true)
 					_gate("fishR", false, Rect2())
 					_gate("fishL", false, Rect2())
 					for k in 10:
@@ -956,13 +992,39 @@ func cine_step(c: Dictionary) -> void:
 				return
 			f.dir = -1
 			f.x = lerpf(f.x, f.x1 - 170.0, .035)
+		"urso":
+			# o urso sai da toca, se ergue e ruge; a câmera mostra a toca e o Tomé
+			var b: Dictionary = BEAR
+			if b.is_empty():
+				return
+			b.dir = 1
+			if c.t < 60:
+				b.x = lerpf(b.x, float(b.den) + 70.0, .05)
+				b.anim += .06
+				b.st = "intro"
+			elif c.t < 110:
+				b.st = "roar"
+				b.t = c.t - 60
+				if c.t == 68:
+					Audio.play("roar", 0)
+					Polish.roar(b.x + 80, b.gy - 170)
+					g.shake = max(g.shake, 10)
+			else:
+				b.st = "intro"
+		"urso_fim":
+			# o Tomé passou pela fresta: a cena mostra o urso chegando, entalando e perdendo a coroa
+			_bear()
+			_crowns()
 
 func cine_end(id: String) -> void:
 	match id:
 		"gaviao":
 			g.tip("Fuja da sombra! Se ele errar, acerte com a picareta. O facho (segure ✦) ofusca o gavião.", 220)
 		"urso":
-			g.tip("Fique longe da frente dele quando ele se erguer. Se a patada errar, pule na cabeça ou use a picareta (GOLPE).", 220)
+			if not BEAR.is_empty() and BEAR.st in ["intro", "roar"]:
+				BEAR.st = "chase"
+				BEAR.t = 0
+			g.flash_tut("CORRA até a fresta da rocha!", "Fuja! Pule os troncos, abaixe (↓) sob o tronco atravessado, fuja da sombra dos pingentes e entre abaixado na fresta da rocha: o urso não cabe!", 240)
 		"bagre":
 			g.tip("Com o capacete você não perde fôlego. Fuja das investidas e use o arpão (GOLPE) nas escamas brilhantes.", 220)
 		"sapo":
@@ -998,14 +1060,17 @@ func reset_on_respawn() -> void:
 		BEAR.active = false
 		BEAR.st = "wait"
 		BEAR.hp = BEAR.maxhp
-		BEAR.miss = 0
 		BEAR.red = 0
 		BEAR.t = 0
-		BEAR.dir = -1
-		BEAR.x = BEAR.x1 - 160.0
+		BEAR.dir = 1
+		BEAR.v = 0.0
+		BEAR.rt = -1
+		BEAR.won = false
+		BEAR.x = float(BEAR.den)
 		_zero(BEAR)
-		_gate("bearL", false, Rect2())
-		_gate("bearR", false, Rect2())
+		_bear_obs_reset()
+	# rei vencido que não chegou a soltar a coroa (o Tomé caiu no meio da cena): ela fica no lugar
+	_crown_fallback()
 	if not FISH.is_empty() and FISH.active and not FISH.done:
 		FISH.active = false
 		FISH.st = "wait"
@@ -1030,7 +1095,11 @@ func _zero(B: Dictionary) -> void:
 		B.waves = []
 
 func save_data() -> Dictionary:
-	return {"hawk": _beaten(HAWK), "fish": _beaten(FISH), "bear": _beaten(BEAR)}
+	var cr: Array = []
+	for c in CROWNS:
+		if c.st in ["fall", "rest"]:
+			cr.append({"id": c.id, "x": c.get("to", c.x) if c.has("to") else c.x, "y": c.fy if c.st == "fall" else c.y, "water": c.water})
+	return {"hawk": _beaten(HAWK), "fish": _beaten(FISH), "bear": _beaten(BEAR), "crowns": cr, "took": TOOK.keys()}
 
 ## vencido conta mesmo se ainda estiver fugindo/caindo no instante do salvamento
 func _beaten(B: Dictionary) -> bool:
@@ -1045,3 +1114,152 @@ func restore(d: Dictionary) -> void:
 		FISH.done = true
 	if d.get("bear", false) and not BEAR.is_empty():
 		BEAR.done = true
+		BEAR.crown = false
+	for k in d.get("took", []):
+		TOOK[str(k)] = true
+	CROWNS = []
+	for c in d.get("crowns", []):
+		_put_crown(str(c.id), float(c.x), float(c.y), bool(c.get("water", false)))
+	if not d.has("crowns"):
+		# jogo salvo de antes das coroas: o rei vencido deixa a coroa no meio da arena
+		_crown_fallback()
+
+# ======================================================================
+#  COROAS DOS REIS (colecionáveis)
+# ======================================================================
+## a coroa de um rei saltou da cabeça: cai (ou afunda, na água), quica, para no chão e fica
+## brilhando até o Tomé pegar. "to": desliza pelo chão até ali (a do urso rola pela fresta)
+func drop_crown(id: String, x: float, y: float, vx: float, vy: float, water: bool = false, to: float = -1.0) -> void:
+	for c in CROWNS:
+		if c.id == id:
+			return
+	DROPPED[id] = true
+	var c := {"id": id, "x": x, "y": y, "vx": vx, "vy": vy, "rot": 0.0, "vr": vx * .06, "st": "fall", "t": 0, "water": water}
+	c.fy = _crown_floor(x, y)
+	if to > 0:
+		c.to = to
+	CROWNS.append(c)
+
+## coroa já parada no chão (jogo salvo)
+func _put_crown(id: String, x: float, y: float, water: bool) -> void:
+	if TOOK.has(id):
+		return
+	DROPPED[id] = true
+	for c in CROWNS:
+		if c.id == id:
+			return
+	CROWNS.append({"id": id, "x": x, "y": y, "vx": 0.0, "vy": 0.0, "rot": 0.0, "vr": 0.0, "st": "rest", "t": 0, "water": water, "fy": y})
+
+## chão embaixo da coroa (o primeiro sólido de cima para baixo; troncos arrebentados não contam)
+func _crown_floor(x: float, y: float) -> float:
+	var best := INF
+	for s in g.SOL:
+		if s.get("fallen") or s.get("ghost") or s.t in ["kinggate", "bossgate"]:
+			continue
+		if x >= s.x and x <= s.x + s.w and s.y >= y - 2 and s.y < best:
+			best = s.y
+	return best if best < INF else y + 300.0
+
+## reis vencidos sem coroa no mundo e não pegos: a coroa aparece parada no meio da arena
+func _crown_fallback() -> void:
+	var have: Dictionary = DROPPED.duplicate()
+	for k in TOOK:
+		have[k] = true
+	var X = g.X
+	if X and not X.BOSS.is_empty() and X.BOSS.get("skin", "boar") == "boar" and (X.BOSS.done or X.BOSS.get("st", "") == "down") and not have.has("javali"):
+		_put_crown("javali", float(X.BOSS.item[0]), 500.0, false)
+	if not HAWK.is_empty() and HAWK.get("skin", "hawk") == "hawk" and _beaten(HAWK) and not have.has("gaviao"):
+		_put_crown("gaviao", (HAWK.x0 + HAWK.x1) / 2.0, HAWK.gy, false)
+	if not FISH.is_empty() and FISH.get("skin", "fish") == "fish" and _beaten(FISH) and not have.has("bagre"):
+		var fx: float = (FISH.x0 + FISH.x1) / 2.0
+		_put_crown("bagre", fx, _crown_floor(fx, FISH.y0), true)
+	if not BEAR.is_empty() and _beaten(BEAR) and not have.has("urso"):
+		BEAR.crown = false
+		BEAR.lump = true
+		_put_crown("urso", float(BEAR.rock.x) + float(BEAR.rock.w) + 70.0, BEAR.gy, false)
+
+func _crowns() -> void:
+	if CROWNS.is_empty():
+		return
+	var p: Dictionary = g.player
+	var pcx: float = p.x + p.w / 2
+	for c in CROWNS:
+		c.t += 1
+		match c.st:
+			"fall":
+				if c.water:
+					# afunda devagar, balançando como uma folha
+					c.vy = min(c.vy + .05, 1.5)
+					c.vx *= .96
+					c.x += c.vx + sin(c.t * .07) * .7
+					c.rot = sin(c.t * .06) * .45
+				else:
+					c.vy = min(c.vy + .42, 12.0)
+					c.x += c.vx
+					c.rot += c.vr
+				c.y += c.vy
+				if c.t % 4 == 0:
+					c.fy = _crown_floor(c.x, c.y - 30)
+				if c.y >= c.fy:
+					c.y = c.fy
+					if not c.water and c.vy > 3.6:
+						# quica e perde força
+						c.vy = -c.vy * .38
+						c.vx *= .6
+						c.vr = -c.vr * .5
+						Audio.play("stomp", -18)
+						g.burst(c.x, c.y - 2, 5, Color(1, .9, .5))
+					else:
+						c.st = "rest"
+						c.t = 0
+						c.vy = 0.0
+						Audio.play("pen", -6)
+						g.burst(c.x, c.y - 10, 10, Color(1, .9, .5))
+						if c.water:
+							for i in 5:
+								g.X.BUB.append({"x": c.x + randf_range(-14, 14), "y": c.y - 8, "t": 0, "top": c.y - 400})
+			"rest":
+				# rolando pela fresta até o lado do Tomé
+				if c.has("to"):
+					c.x = move_toward(c.x, float(c.to), max(.6, abs(float(c.to) - c.x) * .07))
+					c.rot = lerpf(c.rot, sin(c.x * .12) * .25 if abs(float(c.to) - c.x) > 2 else 0.0, .3)
+					if abs(float(c.to) - c.x) < .5:
+						c.erase("to")
+				else:
+					c.rot = lerpf(c.rot, 0.0, .15)
+				if p.dyingT == 0 and not p.get("dog") and Game.hit(p, g.R(c.x - 24, c.y - 40, 48, 44)):
+					_take_crown(c)
+			"lift":
+				# o Tomé pega e ergue a coroa bem alto, comemorando
+				var u: float = clamp(c.t / 16.0, 0.0, 1.0)
+				var hx: float = p.x + p.w / 2
+				var hy: float = p.y - 18.0 - 6.0 * sin(c.t * .2)
+				c.x = lerpf(c.x0, hx, smoothstep(0.0, 1.0, u))
+				c.y = lerpf(c.y0, hy, smoothstep(0.0, 1.0, u)) - sin(u * PI) * 30.0
+				c.rot = sin(c.t * .3) * .12 * (1.0 - u)
+				if c.t == 16:
+					Polish.celebrate(pcx, p.y + 10)
+					Audio.play("clue")
+				if c.t > 74:
+					c.st = "got"
+					g.burst(c.x, c.y - 10, 22, Color(1, .88, .4))
+					Audio.play("pen", -4)
+	CROWNS = CROWNS.filter(func(c): return c.st != "got")
+
+func _take_crown(c: Dictionary) -> void:
+	var p: Dictionary = g.player
+	c.st = "lift"
+	c.t = 0
+	c.x0 = c.x
+	c.y0 = c.y
+	c.erase("to")
+	TOOK[c.id] = true
+	var first: bool = not Save.getv("gallery", "crown_" + str(c.id), false)
+	Save.setv("gallery", "crown_" + str(c.id), true)
+	Audio.play("special")
+	Audio.vib(90)
+	p.cheerT = 74
+	g.burst(c.x, c.y - 12, 20, Color(1, .9, .5))
+	var nm: String = WorldKings.CROWN_NAME.get(c.id, "Coroa")
+	var kg: String = WorldKings.CROWN_KING.get(c.id, "rei")
+	g.flash(("%s do %s! Uma nova coroa na sua coleção (veja na Galeria)." if first else "%s do %s! Ela já estava na sua coleção.") % [nm, kg], 240)

@@ -199,32 +199,25 @@ func cavalo() -> void:
 		return d)
 
 func urso() -> void:
+	# perseguição: o urso vem correndo atrás, o Tomé foge pulando o tronco
 	kill_enemies()
-	put(50790, 500)
+	put(50460, 500)
 	var b: Dictionary = g.K.BEAR
 	b.active = true
-	b.st = "walk"
+	b.st = "chase"
 	b.t = 40
-	b.x = 51090.0
-	b.dir = -1
-	b.hp = 2
-	g.K._gate("bearL", true, Rect2(b.x0 - 24, b.gy - 260, 24, 260))
-	g.K._gate("bearR", true, Rect2(b.x1, b.gy - 260, 24, 260))
+	b.x = 50200.0
+	b.dir = 1
+	b.v = 5.0
+	b.seen = true
 	await run(200, func(i):
-		var bb: Dictionary = g.K.BEAR
-		var px: float = g.player.x + 12
-		var dx: float = px - bb.x
-		match bb.st:
-			"rear", "slam":
-				if abs(dx) < 245:
-					return {"R" if dx > 0 else "L": true}
-			"dizzy":
-				var tx: float = bb.x + (90.0 if dx > 0 else -90.0)
-				if abs(tx - px) > 6:
-					return {"R": tx > px, "L": tx < px}
-				g.player.face = -1 if dx > 0 else 1
-				return {"Gp": i % 26 == 0}
-		return {})
+		var d := {"R": true}
+		for o in g.K.BOBS:
+			var dist: float = o.x - (g.player.x + g.player.w)
+			if not o.get("fallen") and o.k != "branch" and dist > 0 and dist < abs(g.player.vx) * 7.0 + 6.0 and g.player.onGround:
+				d["Jp"] = true
+				d["J"] = true
+		return d)
 
 func noite() -> void:
 	kill_enemies()

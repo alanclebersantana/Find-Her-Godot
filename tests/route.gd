@@ -260,66 +260,93 @@ func hawk_fight():
 	return "hp=%d st=%s" % [h.hp, h.st]
 
 
-## Urso-Rei: espera ele vir; quando se ergue, recua para fora da patada; tonto: picareta
+## Urso-Rei: perseguição. Corre para a direita pulando os troncos, abaixa embaixo do galho, para quando
+## a sombra de um pingente está logo à frente, entra abaixado na fresta e pega a coroa do outro lado.
+## Rigoroso: o urso não pode encostar no Tomé (nenhum coração perdido) e não pode passar da rocha.
 func bear_fight():
-	var b: Dictionary = g.K.BEAR
-	for it in 9440:
+	var K = g.K
+	var b: Dictionary = K.BEAR
+	var rx: float = float(b.rock.x)
+	var rend: float = rx + float(b.rock.w)
+	var min_hp: int = P.hp
+	var past_rock := false
+	var saw := {}
+	for it in 3000:
 		P = g.player
 		if not ok():
 			return "state"
-		if b.done or b.st == "flee":
-			hold({}, 60)
-			return true
-		var dx: float = px() - b.x
-		if it % 30 == 0 and OS.get_environment("BEARDBG") != "":
-			print("bear st=%s t=%d bx=%d px=%d hp=%d php=%d" % [b.st, b.t, int(b.x), int(px()), b.hp, P.hp])
-		var away := "R" if dx > 0 else "L"
-		var room_ok: bool = (px() < b.x1 - 120) if dx > 0 else (px() > b.x0 + 120)
-		# onda do tremor chegando: pula
-		var wave_near := false
-		for w in b.get("waves", []):
-			if abs(w.x - px()) < 70 and sign(px() - w.x) == w.d:
-				wave_near = true
-		if wave_near and P.onGround:
-			press("J")
-			frame({"J": true})
+		min_hp = min(min_hp, int(P.hp))
+		saw[b.st] = 1
+		if b.x > rx - 99.0:
+			past_rock = true
+		if OS.get_environment("BEARDBG") != "" and it % 20 == 0:
+			print("bear st=%s t=%d bx=%d px=%d php=%d" % [b.st, b.t, int(b.x), int(px()), P.hp])
+		if K.TOOK.has("urso"):
+			hold({}, 80)
+			break
+		var pcx: float = px()
+		var feet: float = P.y + P.h
+		var d := {"R": true}
+		# do outro lado da fresta: espera a coroa rolar e vai pegar
+		if P.x > rend + 2:
+			var cr = null
+			for c in K.CROWNS:
+				if c.id == "urso":
+					cr = c
+			if cr == null or cr.st == "fall" or cr.has("to"):
+				frame({})
+				continue
+			if abs(cr.x - pcx) > 6:
+				frame({"R" if cr.x > pcx else "L": true})
+			else:
+				frame({})
 			continue
-		match b.st:
-			"rear", "slam":
-				if abs(dx) < 245 and room_ok:
-					frame({away: true})
-				else:
-					frame()
-			"charge":
-				if abs(dx) < 150 and P.onGround and sign(dx) == b.dir:
-					djump(away)
-				else:
-					frame()
-			"scrape", "skid", "rear2", "quake":
-				frame()
-			"dizzy":
-				var side: float = -1.0 if dx < 0 else 1.0
-				var tx: float = b.x + side * 90
-				if abs(tx - px()) > 6:
-					var before: float = px()
-					frame({"R" if tx > px() else "L": true})
-					if abs(px() - before) < .2 and P.onGround:
-						jump_to(b.x)
-				else:
-					P.face = -int(side)
-					press("G")
-					hold({}, 26)
-			"walk", "backoff", "back":
-				var mid: float = (b.x0 + b.x1) * .5
-				if abs(dx) < 260 and room_ok:
-					frame({away: true})
-				elif abs(px() - mid) > 200 and abs(dx) > 300:
-					frame({"R" if mid > px() else "L": true})
-				else:
-					frame()
-			_:
-				frame()
-	return "hp=%d st=%s" % [b.hp, b.st]
+		# fresta: abaixa e vai
+		if pcx > rx - 70:
+			frame({"R": true, "S": true})
+			continue
+		# pingente marcado logo à frente: espera ele cair (se estiver bem em cima, sai de baixo correndo)
+		var wait := false
+		var under := false
+		for c in K.ICI:
+			if c.st in ["shake", "fall"]:
+				if abs(c.x - pcx) < 26:
+					under = true
+				elif c.x - pcx > 0 and c.x - pcx < 80:
+					wait = true
+		if wait and not under and P.onGround:
+			frame({})
+			continue
+		var jumped := false
+		for o in K.BOBS:
+			if o.get("fallen"):
+				continue
+			var dist: float = o.x - (P.x + P.w)
+			if o.k == "branch":
+				if dist < 30 and dist > -o.w - 10 and P.onGround:
+					d["S"] = true
+			elif P.onGround and dist > 0 and dist < max(16.0, abs(P.vx) * 7.0 + 6.0):
+				press("J")
+				jumped = true
+		if jumped:
+			d["J"] = true
+			frame(d)
+			for k in 14:
+				frame({"R": true, "J": true})
+			continue
+		frame(d)
+	if not K.TOOK.has("urso"):
+		return "sem coroa st=%s bx=%d px=%d" % [b.st, int(b.x), int(px())]
+	if min_hp < g.MAXHP:
+		return "levou golpe (coração %d)" % min_hp
+	if past_rock:
+		return "urso passou da rocha"
+	if not (saw.has("crouch") and saw.has("roar") and K.DROPPED.has("urso")):
+		return "faltou ataque: %s" % str(saw.keys())
+	for o in K.BOBS:
+		if not o.get("fallen"):
+			return "urso não arrebentou %s" % o.k
+	return true
 
 ## pula de um cipó para o próximo (solta no auge do balanço para a frente)
 func vine_hop(next_vine, mx: int = 600):
@@ -1112,12 +1139,11 @@ func _initialize() -> void:
 	S("cavalgada começou", until({}, func(): return g.RD.riding, 400))
 	S("cavalgada", ride())
 	S("sem tropeço", g.RD.tries == 0)
-	S("clareira do urso", walk_to(50690))
-	S("Urso-Rei", bear_fight())
-	for bx in [50780.0, 51270.0]:
-		if px() < bx:
-			walk_to(bx - 30)
-			jump_to(bx + 110)
+	S("toca do urso", walk_to(50400))
+	S("urso acordou", g.K.BEAR.st != "wait")
+	S("Urso-Rei: fuga pela fresta e coroa", bear_fight())
+	S("urso desistiu", until({}, func(): return g.K.BEAR.done, 600))
+	S("coroa do urso na coleção", root.get_node("Save").getv("gallery", "crown_urso", false))
 	# o trenó parte sozinho quando o Tomé chega nele
 	S("chega no trenó e parte sozinho", until({"R": true}, func(): return g.VH.mode == "sled", 600))
 	S("trenó chegou", sled_drive())
