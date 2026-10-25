@@ -57,6 +57,40 @@ func dot(c: Color, r: float, tex: Texture2D) -> Dot:
 	dots.append(d)
 	return d
 
+## escuridão com cor: a penumbra de dia (chuva do pântano, rio) escurece menos e não acinzenta;
+## a noite puxa para o azul do luar e a mina para o âmbar das lamparinas (sem mudar o quanto escurece)
+func tinted(g: Game) -> Color:
+	var a := ambient
+	if g == null or not g.L or (a.r > .995 and a.g > .995 and a.b > .995):
+		return a
+	var song: String = str(g.AMB.get("song", ""))
+	if float(g.AMB.get("night", 0.0)) < .5 and a.r > .45:
+		a = a.lerp(Color(.97, 1.0, .98), .38)
+	elif song in ["noite", "perseguicao"]:
+		a = Color(a.r * .97, a.g, min(1.0, a.b * 1.14 + .03))
+	elif song == "tunel":
+		a = Color(min(1.0, a.r * 1.1 + .02), a.g * 1.0, a.b * .86)
+	return a
+
+## textura do clarão largo da lanterna (feita uma vez): cai devagar até a borda
+var _wide: Texture2D
+func wide_tex() -> Texture2D:
+	if _wide:
+		return _wide
+	var gr := Gradient.new()
+	gr.set_color(0, Color(1, 1, 1, 1))
+	gr.add_point(.45, Color(1, 1, 1, .6))
+	gr.set_color(gr.get_point_count() - 1, Color(1, 1, 1, 0))
+	var t := GradientTexture2D.new()
+	t.gradient = gr
+	t.fill = GradientTexture2D.FILL_RADIAL
+	t.fill_from = Vector2(.5, .5)
+	t.fill_to = Vector2(1, .5)
+	t.width = 128
+	t.height = 128
+	_wide = t
+	return t
+
 func clear() -> void:
 	dots.clear()
 
@@ -81,7 +115,7 @@ class _Painter extends Node2D:
 	func _draw() -> void:
 		var g: Game = lm.game
 		var sz: Vector2 = Vector2(lm.vp.size)
-		draw_rect(Rect2(Vector2.ZERO, sz), lm.ambient)
+		draw_rect(Rect2(Vector2.ZERO, sz), lm.tinted(g))
 		if g == null or g.camera == null:
 			return
 		var z: float = g.camera.zoom.x
@@ -103,3 +137,15 @@ class _Painter extends Node2D:
 			var h: float = d.texture.get_height()
 			draw_texture_rect(d.texture, Rect2(d.offset / d.texture_scale - Vector2(w, h) / 2, Vector2(w, h)), false, c)
 		draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
+		# lanterna acesa no escuro: um clarão largo e fraco em volta do Tomé, para o chão, as tábuas e
+		# os perigos por perto ficarem legíveis (longe continua escuro; o óleo ainda manda no tamanho)
+		var amb: float = lm.ambient.r
+		if g.lantern_lit and g.running and g.player and amb < .7 and not g.submerged():
+			var p: Dictionary = g.player
+			var pc: Vector2 = Vector2(p.x + p.w / 2, p.y + p.h / 2)
+			var fv: float = clamp(g.fuel_vis, 0.0, 1.0)
+			var rw: float = lerpf(420.0, 680.0, fv) * k
+			var e: float = (.7 - amb) / .7 * lerpf(.4, .62, fv) * (.25 + .75 * float(p.get("wal", 1.0)))
+			var c2 := Color(1, .9, .74) * e
+			c2.a = 1.0
+			draw_texture_rect(lm.wide_tex(), Rect2((pc - cp) * k - Vector2(rw, rw * .8), Vector2(rw * 2, rw * 1.6)), false, c2)

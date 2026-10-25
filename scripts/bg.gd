@@ -12,16 +12,19 @@ const PX := .35
 const GL := 600.0
 
 ## cor do céu de cada cenário (névoa de distância, perspectiva atmosférica)
-const SKY := {"bosque": Color(.80, .90, .97), "tarde": Color(1, .78, .55), "pantano": Color(.58, .66, .64),
-	"noite": Color(.16, .2, .38), "neve": Color(.88, .92, 1), "mina": Color(.16, .11, .07), "moinho": Color(1, .84, .66),
-	"vila": Color(.16, .2, .38), "esconderijo": Color(.15, .1, .07)}
+const SKY := {"bosque": Color(.80, .90, .97), "tarde": Color(1, .78, .55), "pantano": Color(.5, .7, .63),
+	"noite": Color(.15, .2, .44), "neve": Color(.88, .92, 1), "mina": Color(.3, .19, .09), "moinho": Color(1, .84, .66),
+	"vila": Color(.16, .21, .46), "esconderijo": Color(.28, .17, .08)}
 ## névoa de distância na base do fundo
-const FOGC := {"bosque": Color(.86, .94, .82), "tarde": Color(1, .78, .5), "pantano": Color(.55, .65, .6),
-	"noite": Color(.2, .25, .45), "neve": Color(.92, .95, 1), "mina": Color(.16, .11, .07), "moinho": Color(1, .82, .6),
-	"vila": Color(.16, .2, .38), "esconderijo": Color(.15, .1, .07)}
-## quanto o fundo puxa para a cor do céu (x) e perde cor (y) com a distância
-const HAZE := {"bosque": Vector2(.10, .10), "tarde": Vector2(.08, .06), "pantano": Vector2(.12, .16), "noite": Vector2(.06, .12),
-	"neve": Vector2(.10, .08), "mina": Vector2(0, .04), "moinho": Vector2(.08, .06), "vila": Vector2(.05, .1), "esconderijo": Vector2(0, .04)}
+# (névoas com cor: verde-água no pântano, azul de luar à noite, âmbar de lamparina na mina — cinza
+# e marrom-escuro lavavam a cena)
+const FOGC := {"bosque": Color(.86, .94, .82), "tarde": Color(1, .78, .5), "pantano": Color(.46, .7, .6),
+	"noite": Color(.2, .27, .55), "neve": Color(.92, .95, 1), "mina": Color(.36, .22, .1), "moinho": Color(1, .82, .6),
+	"vila": Color(.18, .24, .52), "esconderijo": Color(.32, .19, .09)}
+## quanto o fundo puxa para a cor do céu (x) e perde cor (y) com a distância (pouca perda de cor: a
+## distância vem da névoa colorida, não de deixar o fundo cinza)
+const HAZE := {"bosque": Vector2(.10, .06), "tarde": Vector2(.08, .04), "pantano": Vector2(.12, .06), "noite": Vector2(.06, .04),
+	"neve": Vector2(.10, .05), "mina": Vector2(0, .02), "moinho": Vector2(.08, .04), "vila": Vector2(.05, .04), "esconderijo": Vector2(0, .02)}
 ## onde está o sol pintado (pixels da pintura) e a força do brilho
 const SUN := {"tarde": Vector3(686, 322, 1.0), "moinho": Vector3(900, 224, .6)}
 
@@ -77,7 +80,7 @@ func _update_mat() -> void:
 	mat.set_shader_parameter("t", FxClock.ft)
 	mat.set_shader_parameter("haze_col", Vector3(sky.r, sky.g, sky.b))
 	mat.set_shader_parameter("haze_amt", hz.x + .05 * rain)
-	mat.set_shader_parameter("desat", hz.y + .12 * rain)
+	mat.set_shader_parameter("desat", hz.y + .05 * rain)
 	var sh: float = FxClock.wsum(_w, ["tarde"]) + .6 * float(_w.get("moinho", 0.0))
 	mat.set_shader_parameter("shimmer", sh * clamp(1.0 - rain * 2.0, 0, 1))
 	mat.set_shader_parameter("flash", clamp(game.lightning / 12.0, 0.0, 1.0))

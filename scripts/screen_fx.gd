@@ -93,19 +93,43 @@ func _draw_grade(n: CanvasItem) -> void:
 	if game == null or not game.L or game.low_fx:
 		return
 	var c: Color = FxClock.blend(FxClock.nw(game), GRADE, Color(1, 1, 1))
+	# a maior parte da cor do trecho entra aqui, multiplicada: tinge sem acinzentar (o véu por cima
+	# lavava o pântano, o rio e a noite de cinza)
+	var tc: Color = _tint()
+	if tc.a > .002 and _dark_tint(tc):
+		var m: float = max(tc.r, max(tc.g, tc.b))
+		if m > .01:
+			var ch := Color(tc.r / m, tc.g / m, tc.b / m)
+			c *= Color(1, 1, 1).lerp(ch, clamp(tc.a * TINT_MUL, 0.0, .6))
 	if c.r > .995 and c.g > .995 and c.b > .995:
 		return
 	n.draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), Color(c.r, c.g, c.b, 1))
+
+## quanto da cor do trecho vira véu por cima e quanto vira filtro multiplicado
+const TINT_VEIL := .45
+const TINT_MUL := .9
+
+func _tint() -> Color:
+	var tc = game.AMB.get("tint_c")
+	if not (tc is Color):
+		var tint = game.AMB.get("tint", "")
+		tc = css(str(tint)) if tint != null and str(tint) != "" else Color(0, 0, 0, 0)
+	return tc
+
+## cor escura (pântano, rio, noite, mina): essa acinzenta como véu, então vira filtro. As claras
+## (tarde, neve) continuam como véu, que dá o brilho quente/frio por cima
+static func _dark_tint(c: Color) -> bool:
+	return c.get_luminance() < .45
 
 func __draw_raw() -> void:
 	if game == null or not game.L:
 		return
 	var vs := get_viewport_rect().size
-	# cor do trecho: já vem misturada entre um trecho e o outro (sem salto na troca)
-	var tc = game.AMB.get("tint_c")
-	if not (tc is Color):
-		var tint = game.AMB.get("tint", "")
-		tc = css(str(tint)) if tint != null and str(tint) != "" else Color(0, 0, 0, 0)
+	# cor do trecho: já vem misturada entre um trecho e o outro (sem salto na troca). Com o acerto
+	# de cor ligado, só um pouco dela vira véu (o resto é multiplicado em _draw_grade)
+	var tc: Color = _tint()
+	if not game.low_fx and _dark_tint(tc):
+		tc.a *= TINT_VEIL
 	if tc.a > .002:
 		draw_rect(Rect2(Vector2.ZERO, vs), tc)
 	var r: float = game.AMB.rain

@@ -385,13 +385,17 @@ static func _bank(e: float, y0: float, dir: float) -> void:
 			Spr.rr(jx + dir * 3 - 2.5, y0 + 4 - jh - 2, 5, 12, 2.5, Color("#6b4626"))
 
 ## o vale visto do avião: colinas suaves ao longe, copas de árvore com contorno e um riozinho brilhando
-static func _valley(a: float, b: float, bottom: float, T: int) -> void:
+## v0/v1: as pontas do vale (beira da pista e chão do pouso): nada passa delas, senão o morro claro
+## e as copas aparecem por cima da beira do barranco
+static func _valley(a: float, b: float, bottom: float, T: int, v0: float = -1e9, v1: float = 1e9) -> void:
 	var hills := PackedVector2Array()
 	var x: float = floor(a / 20.0) * 20.0 - 20
 	var x_end: float = b + 20
 	while x <= x_end:
-		hills.push_back(Vector2(x, 548 - 22 * sin(x * .0021) - 12 * sin(x * .0057 + 1.3)))
+		var xc: float = clamp(x, v0, v1)
+		hills.push_back(Vector2(xc, 548 - 22 * sin(xc * .0021) - 12 * sin(xc * .0057 + 1.3)))
 		x += 20
+	x_end = clamp(x_end, v0, v1)
 	var hp := PackedVector2Array(hills)
 	hp.push_back(Vector2(x_end, 700))
 	hp.push_back(Vector2(hills[0].x, 700))
@@ -401,7 +405,7 @@ static func _valley(a: float, b: float, bottom: float, T: int) -> void:
 	var rv := PackedVector2Array()
 	x = floor(a / 20.0) * 20.0 - 20
 	while x <= x_end:
-		rv.push_back(Vector2(x, 600 + 8 * sin(x * .004)))
+		rv.push_back(Vector2(clamp(x, v0, v1), 600 + 8 * sin(x * .004)))
 		x += 20
 	Spr.line(rv, Color("#9fd0e8"), 5)
 	Spr.line(rv, Color(1, 1, 1, .4), 1.5)
@@ -414,6 +418,10 @@ static func _valley(a: float, b: float, bottom: float, T: int) -> void:
 			var h1: float = WorldStatic_hh(tx + layer * 7.0, 1)
 			var cx: float = tx + h1 * 10
 			var r: float = (14 + h1 * 9) * (1.0 if layer == 0 else 1.3)
+			# copas só um pouco além das pontas (encostadas no pé do barranco, não por cima dele)
+			if cx - r * .6 < v0 - 6.0 or cx + r * .6 > v1 + 6.0:
+				tx += step
+				continue
 			var col := Color("#5b8a4c") if layer == 0 else Color("#3f6a36")
 			col = col.lightened(h1 * .08)
 			Spr.circle(cx, base_y - r * .4, r, col)
@@ -477,7 +485,7 @@ static func _after_runway(g: Game, VH: Vehicles, T: int) -> void:
 	var a: float = max(v0, g.cam - 50)
 	var b: float = min(v1, g.cam + g.W + 50)
 	if a < b:
-		_valley(a, b, float(g.L.bottom), T)
+		_valley(a, b, float(g.L.bottom), T, v0 - 6.0, v1 + 6.0)
 	# os obstáculos do céu
 	if VH.mode == "plane":
 		# aviso de longe: plaquinha na borda da tela na altura do que vem aí

@@ -249,7 +249,7 @@ func _draw_place(W: float) -> void:
 	if hint_alpha >= .05:
 		ty = max(ty, 146.0)
 	if msg_bot > 0.0:
-		ty = max(ty, msg_bot + 38.0)
+		ty = max(ty, msg_bot + 44.0)
 	place_ty = ty
 	if place_y < 0.0 or place_t < .05:
 		place_y = ty
