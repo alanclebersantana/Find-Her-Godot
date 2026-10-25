@@ -372,10 +372,14 @@ static func draw_bogs(g: Game, T: int) -> void:
 				# sanguessuga se contorcendo para fora da lama
 				var hgt: float = sin(t * PI) * 30
 				var sw: float = sin(T * .2 + i) * 5
-				var pts := PackedVector2Array([Vector2(x - 6, b.y), Vector2(x - 4 + sw * .5, b.y - hgt * .5), Vector2(x + sw, b.y - hgt), Vector2(x + 6 + sw, b.y - hgt + 4), Vector2(x + 4 + sw * .5, b.y - hgt * .5 + 4), Vector2(x + 6, b.y)])
-				Spr.poly(pts, Color("#1e1610"))
-				Spr.ci.draw_polyline(pts, Color("#5a3a2a"), 1.5, true)
-				if hgt > 6:
+				if hgt < 10:
+					# entrando/saindo da lama: só a pontinha (o polígono baixo demais se cruzava e
+					# não desenhava — dava erro de triangulação a cada quadro)
+					Spr.ellipse(x + sw * .3, b.y - hgt * .3, 6, 2.0 + hgt * .3, Color("#1e1610"))
+				else:
+					var pts := PackedVector2Array([Vector2(x - 6, b.y), Vector2(x - 4 + sw * .5, b.y - hgt * .5), Vector2(x + sw, b.y - hgt), Vector2(x + 6 + sw, b.y - hgt + 4), Vector2(x + 4 + sw * .5, b.y - hgt * .5 + 4), Vector2(x + 6, b.y)])
+					Spr.poly(pts, Color("#1e1610"))
+					Spr.ci.draw_polyline(pts, Color("#5a3a2a"), 1.5, true)
 					Spr.circle(x + sw + 2, b.y - hgt + 2, 1.8, Color(1, .35, .25))
 			else:
 				Spr.ring(x, b.y - 2, 4 + t * 12, Color(.9, .78, .5, .6 * (1.0 - t)), 1.5)

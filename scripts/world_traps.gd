@@ -578,27 +578,70 @@ static func _bee(x: float, y: float, t: int, right: bool) -> void:
 
 # ---------- areia movediça ----------
 static func _sand_back(o: Dictionary, T: int) -> void:
+	# fundo da cova (atrás do Tomé): a mesma bacia da frente, mais escura
+	Spr.ci.draw_polygon(_sand_bowl(o, 0.0, 6.0), _sand_cols(_sand_bowl(o, 0.0, 6.0), o.y, Color("#7a643c"), Color("#3e301a")))
+
+## contorno da areia movediça: borda de cima ondulando e o fundo em bacia (fundo no meio, raso nas
+## beiradas) para se misturar com a terra em vez de parecer um caixote recortado no chão
+static func _sand_bowl(o: Dictionary, T: float, top_off: float) -> PackedVector2Array:
 	var x: float = o.x
 	var y: float = o.y
-	Spr.rect(x, y - 2, o.w, 44, Color("#8a7448"))
-	Spr.vgrad(x, y + 6, o.w, 40, Color("#7a643c"), Color("#4a3a20"))
+	var w: float = o.w
+	var pts := PackedVector2Array()
+	for i in 17:
+		pts.push_back(Vector2(x + w * i / 16.0, y - 2 + top_off + sin(T * .05 + i * .9) * 1.5))
+	for i in 17:
+		var u: float = i / 16.0
+		pts.push_back(Vector2(x + w * (1.0 - u) + (6.0 if i == 0 else (-6.0 if i == 16 else 0.0)), y + 6 + sin(u * PI) * 34.0))
+	return pts
+
+static func _sand_cols(pts: PackedVector2Array, y: float, c0: Color, c1: Color) -> PackedColorArray:
+	var cols := PackedColorArray()
+	for q in pts:
+		cols.push_back(Spr.col(c0.lerp(c1, clamp((q.y - y) / 40.0, 0.0, 1.0))))
+	return cols
 
 static func _sand_front(o: Dictionary, T: int) -> void:
 	var x: float = o.x
 	var y: float = o.y
 	var w: float = o.w
+	var cx: float = x + w / 2
+	# corpo da areia em bacia: mais clara e seca na superfície, escura e molhada no fundo
+	var body := _sand_bowl(o, T, 0.0)
+	Spr.ci.draw_polygon(body, _sand_cols(body, y, Color("#a8895a"), Color("#5e4626")))
+	# superfície ondulando devagar (uma faixa clara por cima)
 	var pts := PackedVector2Array()
-	for i in 13:
-		var px: float = x + w * i / 12.0
+	for i in 17:
+		var px: float = x + w * i / 16.0
 		pts.push_back(Vector2(px, y - 2 + sin(T * .05 + i * .9) * 1.5))
-	pts.push_back(Vector2(x + w, y + 40))
-	pts.push_back(Vector2(x, y + 40))
-	Spr.poly(pts, Color("#a88c58"))
-	for k in 4:
-		var rx: float = x + 20 + fmod(k * 47.0 + T * .15, w - 40)
-		Spr.ellipse(rx, y + 4, 14 + sin(T * .06 + k) * 4, 3, Color("#8a7448"))
-	Spr.ellipse(x + 10, y + 1, 12, 3, Color("#c4a872"))
-	Spr.seg(x, y - 1, x + w, y - 1, Color("#5e4a2a"), 2)
+	for i in range(16, -1, -1):
+		var px2: float = x + w * i / 16.0
+		pts.push_back(Vector2(px2, y + 6 + sin(T * .05 + i * .9 + 1.3) * 1.2))
+	Spr.poly(pts, Color("#c2a46c"))
+	# redemoinho: anéis achatados girando devagar para o meio (é ele que puxa para baixo)
+	for k in 3:
+		var rx: float = w * (.42 - k * .13)
+		var ry: float = 4.0 - k * 1.1
+		var ph: float = T * (.02 + k * .012) + k * 1.7
+		for sg in 3:
+			var arc := PackedVector2Array()
+			for j in 7:
+				var a: float = ph + sg * TAU / 3.0 + j * .16
+				arc.push_back(Vector2(cx + cos(a) * rx, y + 3 + sin(a) * ry))
+			Spr.line(arc, Color(.45, .34, .18, .55 - k * .1), 1.6)
+	# grãos (escuros e claros) e uma bolha que estoura de vez em quando
+	for k in 9:
+		var gx: float = x + 10 + fmod(k * 37.0, w - 20)
+		var gy: float = y + 10 + fmod(k * 13.0, 26)
+		Spr.circle(gx, gy, 1.4, Color(.36, .27, .14, .7) if k % 2 == 0 else Color(.8, .68, .45, .6))
+	var bu: float = fposmod(T * .012, 1.0)
+	if bu < .25:
+		var bx: float = x + w * (.3 + .4 * fposmod(floor(T * .012) * .618, 1.0))
+		Spr.ring(bx, y + 2, 2.0 + bu * 14.0, Color(.92, .82, .6, .6 * (1.0 - bu * 4.0)), 1.2)
+	# beiradas de terra molhada encostando no chão dos dois lados
+	Spr.ellipse(x + 4, y + 2, 10, 5, Color("#6e5430"))
+	Spr.ellipse(x + w - 4, y + 2, 10, 5, Color("#6e5430"))
+	Spr.seg(x + 8, y - 1, x + w - 8, y - 1, Color(.37, .29, .16, .8), 1.5)
 
 # ---------- teia de aranha ----------
 static func _web(g: Game, o: Dictionary, T: int) -> void:

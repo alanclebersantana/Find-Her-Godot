@@ -196,7 +196,10 @@ func _draw_enemy_node(n: CanvasItem) -> void:
 		Spr.translate(eo.x, eo.y)
 		var st0: int = e.get("startT", -99)
 		var hop_u: float = (g.T - st0) / 18.0
-		if hop_u >= 0 and hop_u < 1:
+		# pulinho de susto ao ver o Tomé (a poça da sanguessuga, a aranha no fio e o morcego
+		# pendurado dormindo não pulam)
+		var can_hop: bool = not e.k in ["leech", "spider", "plant", "mole"] and not (e.k == "bat" and e.get("st", 0) == 0)
+		if hop_u >= 0 and hop_u < 1 and can_hop:
 			Spr.translate(0, -sin(hop_u * PI) * 12)
 		# inimigo: contorno vermelho pulsando (mais forte quando o Tomé está perto) — os bichos
 		# do cenário nunca têm isso
