@@ -121,6 +121,7 @@ var look_x := 0.0
 var look_vx := 0.0
 var look_hold := 0
 var CINE := {}             # cena dramática dentro do jogo (câmera, faixas de cinema, falas)
+const CINE_BACK := 46      # quadros para a câmera voltar do chefe para o Tomé no fim da cena
 var W := 960.0
 var H := 540.0
 var running := false
@@ -1775,7 +1776,13 @@ func _comic_check() -> void:
 ## id: "boss", "vargas", "cao". A câmera vai até o foco, aparecem as faixas de cinema e as falas.
 func start_cine(id: String, fx: float, fy: float, dur: int, lines: Array = [], title: Array = []) -> void:
 	want_comic(COMIC_CINE.get(id, ""))
-	CINE = {"id": id, "t": 0, "dur": dur, "fx": fx, "fy": fy, "fx0": fx, "lines": lines, "title": title}
+	# a câmera só volta para o Tomé depois que a última fala sai da tela (antes voltava com a fala
+	# ainda aberta e cortava o chefe pela metade); a cena ganha o tempo da volta, se precisar
+	var last_end := 0
+	for l in lines:
+		last_end = max(last_end, int(l[1]))
+	var back: int = max(dur - 50, last_end)
+	CINE = {"id": id, "t": 0, "dur": max(dur, back + CINE_BACK), "fx": fx, "fy": fy, "fx0": fx, "lines": lines, "title": title, "back": back}
 	keys.clear()
 	player.vx = 0.0
 	player.run = 0
@@ -1835,10 +1842,15 @@ func _cine_step() -> void:
 		lightning -= 1
 	if shake > 0:
 		shake *= .85
-	# volta a câmera para o Tomé no fim
-	if t > CINE.dur - 50:
-		CINE.fx = lerpf(CINE.fx, player.x + player.w / 2, .08)
-		CINE.fy = lerpf(CINE.fy, player.y, .08)
+	# volta a câmera para o Tomé no fim, com aceleração e freada suaves (sem estalo no último quadro)
+	var back: int = int(CINE.get("back", CINE.dur - 50))
+	if t > back:
+		if not CINE.has("fxs"):
+			CINE.fxs = CINE.fx
+			CINE.fys = CINE.fy
+		var u: float = smoothstep(0.0, 1.0, clamp(float(t - back) / float(max(1, CINE.dur - back)), 0.0, 1.0))
+		CINE.fx = lerpf(float(CINE.fxs), player.x + player.w / 2, u)
+		CINE.fy = lerpf(float(CINE.fys), player.y, u)
 	if t >= CINE.dur:
 		var id: String = CINE.id
 		CINE = {}

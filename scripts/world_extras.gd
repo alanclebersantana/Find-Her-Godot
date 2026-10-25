@@ -37,23 +37,25 @@ static func grass(g: Game, T: int) -> void:
 			if r > .3:
 				# o capim abre quando alguém passa e volta balançando como mola; o empurrão passa
 				# para os tufos vizinhos (onda no capim)
+				# (a mola anda uma vez por passo da lógica: em telas de 90/120 Hz não balança mais rápido)
 				var gkey: int = int(x)
 				var gs: Vector2 = _gspring.get(gkey, Vector2.ZERO)
-				var gt: float = Polish.grass_push(x, s.y, 34.0)
-				var nb: float = 0.0
-				var gl = _gspring.get(gkey - 34)
-				var gr = _gspring.get(gkey + 34)
-				if gl != null:
-					nb += gl.x
-				if gr != null:
-					nb += gr.x
-				gs.y += (gt + nb * .22 - gs.x) * .2
-				gs.y *= .8
-				gs.x += gs.y
-				if abs(gs.x) < .02 and abs(gs.y) < .02 and gt == 0.0:
-					_gspring.erase(gkey)
-				else:
-					_gspring[gkey] = gs
+				if Polish.FRESH:
+					var gt: float = Polish.grass_push(x, s.y, 34.0)
+					var nb: float = 0.0
+					var gl = _gspring.get(gkey - 34)
+					var gr = _gspring.get(gkey + 34)
+					if gl != null:
+						nb += gl.x
+					if gr != null:
+						nb += gr.x
+					gs.y += (gt + nb * .22 - gs.x) * .2
+					gs.y *= .8
+					gs.x += gs.y
+					if abs(gs.x) < .02 and abs(gs.y) < .02 and gt == 0.0:
+						_gspring.erase(gkey)
+					else:
+						_gspring[gkey] = gs
 				var push: float = gs.x
 				var sway: float = sin(T * (.03 + wind * .05) + x * .03) * (1.2 + wind * 4.0) + wind * 3.0 + Polish.wind_wave(x)
 				var kind: int = int(h(x, 3) * 5)
@@ -108,17 +110,19 @@ static func flowers(g: Game, T: int) -> void:
 			# mola: o empurrão decai e a flor volta balançando
 			var key: int = int(fx)
 			var sp: Vector2 = _fspring.get(key, Vector2.ZERO)
-			var tgt: float = Polish.grass_push(fx, s.y, 30.0) * .85
-			# pétalas soltando: correndo por cima ou com vento forte
-			if (near > .5 and abs(p.vx) > 2.5 and randf() < .25) or (wind > .6 and randf() < .004):
-				Polish.part("petal", fx, s.y - 18, sign(fx - pcx) * randf_range(.5, 1.6) + wind, -randf_range(.6, 1.6), 120, f[4] if f.size() > 4 else Color(1, .8, .9), {"gy": s.y + 2})
-			sp.y += (tgt - sp.x) * .18
-			sp.y *= .78
-			sp.x += sp.y
-			if abs(sp.x) < .02 and abs(sp.y) < .02 and near == 0.0:
-				_fspring.erase(key)
-			else:
-				_fspring[key] = sp
+			# mola e pétalas andam uma vez por passo da lógica (mesmo ritmo em qualquer tela)
+			if Polish.FRESH:
+				var tgt: float = Polish.grass_push(fx, s.y, 30.0) * .85
+				# pétalas soltando: correndo por cima ou com vento forte
+				if (near > .5 and abs(p.vx) > 2.5 and randf() < .25) or (wind > .6 and randf() < .004):
+					Polish.part("petal", fx, s.y - 18, sign(fx - pcx) * randf_range(.5, 1.6) + wind, -randf_range(.6, 1.6), 120, f[4] if f.size() > 4 else Color(1, .8, .9), {"gy": s.y + 2})
+				sp.y += (tgt - sp.x) * .18
+				sp.y *= .78
+				sp.x += sp.y
+				if abs(sp.x) < .02 and abs(sp.y) < .02 and near == 0.0:
+					_fspring.erase(key)
+				else:
+					_fspring[key] = sp
 			var sway: float = sin(T * (.035 + wind * .05) + fx * .05) * (1.4 + wind * 4.0) + wind * 3.0
 			if f.size() < 5:
 				f.append(WSt.tint_at(g, fx))
@@ -705,7 +709,8 @@ static func dog(g: Game, T: int) -> void:
 			if d.get("_air", false) and not dog_air:
 				d._land = clamp(float(cb.get("landV", 6.0)) / 12.0, .25, .6)
 			d._land = float(d.get("_land", 0.0)) * .8
-		d._air = dog_air
+			# (lido e gravado só no passo da lógica: um desenho extra não "engole" o pouso)
+			d._air = dog_air
 	if d.st == "tied":
 		# estaca e corda
 		Spr.rect(d.x0 - 64, d.y - 34, 6, 36, Color("#5a3e24"))
@@ -733,9 +738,11 @@ static func dog(g: Game, T: int) -> void:
 	if d.st == "tied" and not d.moving:
 		nf = 13
 	# corpo vivo: inclina para a frente na corrida (suave), respira parado, vira girando
-	var dvx: float = x - float(d.get("_lx", x))
-	d._lx = x
-	d._lean = lerp(float(d.get("_lean", 0.0)), clamp(dvx / 5.0, -1, 1) * .07, .15)
+	# (a inclinação anda no passo da lógica: o mesmo balanço em telas de 60, 90 ou 120 Hz)
+	if Polish.FRESH:
+		var dvx: float = x - float(d.get("_lx", x))
+		d._lx = x
+		d._lean = lerp(float(d.get("_lean", 0.0)), clamp(dvx / 5.0, -1, 1) * .07, .15)
 	var ns: float = Spr.turn_face(d, float(d.face))
 	if Spr.turned_now(d) and d.moving:
 		turn_dust(g, x, d.y, d.face)
@@ -743,7 +750,7 @@ static func dog(g: Game, T: int) -> void:
 	var gal: float = abs(sin(d.anim * PI / 3.0)) * 1.4 if d.moving else 0.0
 	Spr.save()
 	Spr.translate(0, -gal)
-	Spr.rotate(d._lean)
+	Spr.rotate(float(d.get("_lean", 0.0)))
 	Spr.scale(abs(ns), (1.0 + breath) * Spr.tsy(d))
 	var drew: bool = Spr.novo("pipoca", nf, 54, ns < 0)
 	Spr.restore()
