@@ -301,6 +301,7 @@ func _draw_front_node(n: CanvasItem) -> void:
 	Spr.begin(n)
 	_front_decor_fade(g)
 	_ride_front(g)
+	WorldVehicles.front(g, T)
 	if g.VL:
 		g.VL.draw_front(T)
 	var __d_Traps_draw_front := Time.get_ticks_usec()
@@ -1051,7 +1052,7 @@ func _ride_world(g: Game) -> void:
 	# longe da trilha da cavalgada: nem olha os obstáculos (o cavalo continua sendo desenhado abaixo)
 	var near_trail: bool = x1 > float(RD.H.get("ride0", -1e9)) - 200.0 and x0 < float(RD.H.get("ride1", 1e9)) + 400.0
 	for o in (RD.OBS if near_trail else []):
-		if o.x > x1 or o.x + 160 < x0:
+		if o.x > x1 or o.x + 400 < x0:
 			continue
 		# marca de cascos na neve: o melhor ponto para saltar
 		var cx: float = Ride.obs_center(o)
@@ -1065,12 +1066,22 @@ func _ride_world(g: Game) -> void:
 				Spr.ring(hxk, 497.5, 4, Color(.3, .38, .5, .6), 1.2, PI, TAU)
 		match o.k:
 			"log":
-				WorldVehicles._hlog(o.x + 2, o.x + 62, 474, 26)
-				Spr.P("logend0", o.x + 62, 501, 26)
-				Spr.ellipse(o.x + 32, 474, 30, 5, Color(.97, .98, 1))
+				# tora pintada com neve em cima (sombra azulada no chão)
+				Spr.ellipse(o.x + 32, 501, 34, 4, Color(.25, .32, .5, .25))
+				WorldNature.prop("tora_neve", o.x + 32, 503, 36)
+			"logs":
+				# pilha de toras amarradas: duas embaixo, uma em cima
+				Spr.ellipse(o.x + 50, 501, 54, 5, Color(.25, .32, .5, .25))
+				WorldNature.prop("tora_neve", o.x + 28, 503, 30)
+				WorldNature.prop("tora_neve", o.x + 74, 503, 30, true)
+				WorldNature.prop("tora_neve", o.x + 50, 478, 26)
+				Spr.seg(o.x + 50, 466, o.x + 50, 501, Color("#6b4a2a"), 3)
+				Spr.seg(o.x + 51, 466, o.x + 51, 501, Color("#c9a26a"), 1.2)
 			"rock":
-				Spr.P("rock0", o.x + 30, 504, 58)
-				Spr.ellipse(o.x + 28, 466, 18, 5, Color(.97, .98, 1))
+				Spr.ellipse(o.x + 30, 501, 30, 4, Color(.25, .32, .5, .25))
+				WorldNature.prop("pedra_neve", o.x + 30, 504, 48)
+			"leap":
+				_leap(o, T)
 			"fence":
 				# cerquinha de madeira: dois mourões e duas travessas, neve em cima
 				for px2 in [o.x + 14.0, o.x + 46.0]:
@@ -1116,12 +1127,9 @@ func _ride_world(g: Game) -> void:
 				WorldNature.prop("arvore_neve", o.x + 130, 504, 300)
 				WorldNature.prop("galho_neve", o.x + 73, 504, 130, true)
 			"rope":
-				for px3 in [o.x - 4.0, o.x + 88.0]:
-					Spr.PR("stake", px3 - 6, 360, 12, 142, Color(.85, .8, .75))
-				Spr.seg(o.x - 4, 380, o.x + 88, 384, Color("#7a5a32"), 4)
-				Spr.seg(o.x - 4, 380, o.x + 88, 384, Color("#d4ae74"), 2)
-				for k in 4:
-					Spr.poly(PackedVector2Array([Vector2(o.x + 8 + k * 20, 383), Vector2(o.x + 14 + k * 20, 395), Vector2(o.x + 20 + k * 20, 383)]), [Color("#e0463a"), Color("#f0c040"), Color("#3a8ad0"), Color("#5ab04a")][k])
+				_ride_rope(o, T)
+	if near_trail:
+		_ride_marks(g, RD, x0, x1)
 	var H: Dictionary = RD.H
 	if RD.riding:
 		return
@@ -1146,6 +1154,131 @@ func _ride_world(g: Game) -> void:
 			Spr.ellipse(H.hx, 502, 60, 7, Color(0, 0, 0, .22))
 			if ft:
 				Spr.frame(ft, 3, 260, 250, 130, 244, H.hx, 503, RS, true)
+
+## corda esticada entre dois mourões, com bandeirinhas de pano balançando no vento do galope
+func _ride_rope(o: Dictionary, T: int) -> void:
+	for px3 in [o.x - 4.0, o.x + 88.0]:
+		Spr.ellipse(px3, 501, 12, 3, Color(.25, .32, .5, .25))
+		Spr.PR("stake", px3 - 7, 362, 14, 142, Color(.85, .8, .75))
+		Spr.ellipse(px3, 363, 8, 3, Color(.97, .98, 1))
+	var rope := PackedVector2Array()
+	for k in 9:
+		var u: float = k / 8.0
+		rope.push_back(Vector2(lerpf(o.x - 4, o.x + 88, u), 381 + sin(u * PI) * 7))
+	Spr.line(rope, Color("#4a3018"), 5)
+	Spr.line(rope, Color("#b08850"), 3)
+	# trança da corda: risquinhos claros
+	for k in 8:
+		var q: Vector2 = rope[k].lerp(rope[k + 1], .5)
+		Spr.seg(q.x - 2, q.y - 1.5, q.x + 2, q.y + 1.5, Color("#e2c48e"), 1.2)
+	var cols := [Color("#e0463a"), Color("#f0c040"), Color("#3a8ad0"), Color("#5ab04a")]
+	for k in 4:
+		var u2: float = (k + .6) / 4.6
+		var a: Vector2 = Vector2(lerpf(o.x - 4, o.x + 88, u2), 381 + sin(u2 * PI) * 7)
+		var sw: float = sin(T * .25 + k * 1.3) * 3.0
+		var c: Color = cols[k]
+		var tri := PackedVector2Array([a + Vector2(-7, 0), a + Vector2(7, 0), a + Vector2(sw, 16)])
+		Spr.poly(tri, c)
+		Spr.poly(PackedVector2Array([a + Vector2(-7, 0), a + Vector2(-1, 0), a + Vector2(sw - 1, 15)]), c.darkened(.25))
+		tri.push_back(tri[0])
+		Spr.line(tri, Color(.16, .1, .05, .85), 1.3)
+
+## desfiladeiro do salto grande: a fenda de gelo cortando a trilha, a rampa de neve batida antes da
+## beirada (com as bandeirinhas de aviso) e a névoa subindo lá de dentro
+func _leap(o: Dictionary, T: int) -> void:
+	var w: float = float(o.w)
+	var cx: float = o.x + w / 2.0
+	# o vão: escuro azulado sumindo lá embaixo, com as bordas de pedra irregulares
+	var bot: float = 900.0
+	var L0 := PackedVector2Array()
+	var R0 := PackedVector2Array()
+	for k in 10:
+		var yy: float = 498.0 + k * 45.0
+		L0.push_back(Vector2(o.x + 6 + 10 * sin(k * 1.9 + o.x) + k * 3.0, yy))
+		R0.push_back(Vector2(o.x + w - 6 - 10 * sin(k * 2.3 + o.x) - k * 3.0, yy))
+	var body := PackedVector2Array(L0)
+	var cols := PackedColorArray()
+	for q in L0:
+		cols.push_back(Color("#3a5576").lerp(Color("#03060b"), pow(clamp((q.y - 498.0) / 260.0, 0, 1), .55)))
+	for i in range(R0.size() - 1, -1, -1):
+		body.push_back(R0[i])
+		cols.push_back(Color("#3a5576").lerp(Color("#03060b"), pow(clamp((R0[i].y - 498.0) / 260.0, 0, 1), .55)))
+	Spr.ci.draw_polygon(body, cols)
+	# paredão do fundo (do outro lado do vão, longe): faixas de pedra azuladas sumindo na névoa
+	for k in 5:
+		var sy: float = 530.0 + k * 34.0
+		var pts := PackedVector2Array()
+		for j in 7:
+			var u: float = j / 6.0
+			pts.push_back(Vector2(lerpf(L0[min(k + 1, 9)].x, R0[min(k + 1, 9)].x, u), sy + 5.0 * sin(u * 9.0 + k * 2.0)))
+		Spr.line(pts, Color(.75, .85, 1, .13 - k * .02), 3)
+	# paredes de pedra: pedras pintadas escurecendo com a fundura, encostadas nas bordas
+	for k in 9:
+		var yy2: float = 512.0 + k * 40.0
+		var dk: float = clamp(1.0 - k * .1, .25, 1.0)
+		var tc := Color(.58 * dk, .56 * dk, .6 * dk)
+		var jx: float = 6.0 * sin(k * 2.7 + o.x)
+		Spr.P("rock%d" % (k % 2), L0[min(k + 1, 9)].x - 10 + jx, yy2 + 34, 62 - k * 3, k % 2 == 0, 0.0, tc)
+		Spr.P("rock%d" % ((k + 1) % 2), R0[min(k + 1, 9)].x + 10 - jx, yy2 + 34, 62 - k * 3, k % 2 == 1, 0.0, tc)
+	# névoa fria subindo do fundo
+	for k in 3:
+		var u: float = fposmod(T * .005 + k * .33, 1.0)
+		Spr.glow(o.x + w * (.25 + k * .25), 640 - u * 120, 70, Color(.85, .93, 1, .16 * sin(u * PI)))
+	# beiradas de neve com pingentes de gelo pendurados
+	for sd in [0, 1]:
+		var ex: float = o.x + (0.0 if sd == 0 else w)
+		var dr: float = 1.0 if sd == 0 else -1.0
+		Spr.poly(PackedVector2Array([Vector2(ex - dr * 30, 492), Vector2(ex + dr * 14, 494), Vector2(ex + dr * 18, 503), Vector2(ex - dr * 30, 506)]), Color(.92, .96, 1))
+		Spr.line(PackedVector2Array([Vector2(ex - dr * 30, 492), Vector2(ex + dr * 14, 494), Vector2(ex + dr * 18, 503)]), Color(1, 1, 1), 2)
+		for j in 3:
+			Spr.P("icicle", ex + dr * (12 - j * 9), 503 + 26 - j * 5, 9 - j)
+	# rampa de neve batida antes da beirada
+	var r0: float = o.x - Ride.LEAP_RAMP
+	var ramp := PackedVector2Array([Vector2(r0 - 10, 501), Vector2(o.x - 30, 494), Vector2(o.x + 2, 490), Vector2(o.x + 6, 501)])
+	Spr.poly(ramp, Color(.88, .93, 1))
+	Spr.line(PackedVector2Array([Vector2(r0 - 10, 500), Vector2(o.x - 30, 493), Vector2(o.x + 2, 489)]), Color(1, 1, 1), 2.5)
+	# estacas com bandeirinhas vermelhas no começo da rampa e na beirada
+	for fx in [r0, o.x - 4.0, o.x + w + 8.0]:
+		Spr.save()
+		Spr.translate(fx, 502)
+		Spr.rotate(sin(T * .1 + fx) * .03)
+		Spr.P("flagred", 0, 0, 40)
+		Spr.restore()
+
+## marcos (bandeiras) da trilha e placas de aviso antes dos obstáculos de abaixar e do desfiladeiro
+func _ride_marks(g: Game, RD: Ride, x0: float, x1: float) -> void:
+	var C: Array = RD.cps()
+	for i in C.size():
+		var cx: float = float(C[i])
+		if cx < x0 - 100 or cx > x1 + 100:
+			continue
+		var passed: bool = RD.cp_i >= i and RD.riding
+		# mastro alto com a bandeira: vermelha antes, dourada depois de passar
+		Spr.ellipse(cx, 501, 16, 4, Color(.25, .32, .5, .3))
+		Spr.PR("stake", cx - 6, 380, 12, 122, Color(.85, .8, .75))
+		Spr.save()
+		Spr.translate(cx, 400)
+		Spr.rotate(sin(T * .12 + cx) * .04)
+		Spr.P("flagred", 0, 0, 64, false, 0.0, Color(1.25, 1.1, .45) if passed else Color.WHITE)
+		Spr.restore()
+		if passed:
+			Spr.glow(cx + 14, 352, 40, Color(1, .85, .4, .25 + .1 * sin(T * .2)))
+		Spr.text("%d" % (i + 1), cx + 16, 368, 15, Color(1, 1, 1), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3, Color(.3, .1, .05, .8))
+	# arco de chegada
+	var ax: float = RD.finish_x()
+	if ax > x0 - 200 and ax < x1 + 200:
+		WorldVehicles.finish_arch(ax, 500.0, 0.0, T)
+	for o in RD.OBS:
+		if o.hit:
+			continue
+		var sx: float = float(o.x) - 300.0
+		if sx < x0 - 60 or sx > x1 + 60:
+			continue
+		if o.k in ["branch", "rope"]:
+			WorldVehicles._ground_sign(sx, 500, false, T)
+		elif o.k == "leap":
+			WorldVehicles._ground_sign(sx, 500, true, T)
+			WorldVehicles._ground_sign(sx - 40, 500, true, T)
 
 var _hpitch := 0.0
 ## cavalgada: o galho baixo por cima do Tomé e do cavalo (a árvore fica atrás, em _ride_world)
@@ -1198,11 +1331,23 @@ func _rider(g: Game) -> void:
 			Spr.restore()
 		Spr.alpha = 1.0
 		return
-	Spr.ellipse(RD.hx, 502, 62 * (1.0 - clamp((500.0 - RD.hy) / 160.0, 0, .6)), 7, Color(0, 0, 0, .22))
+	# sombra no chão (some em cima do desfiladeiro)
+	var over_gap := false
+	for o in RD.OBS:
+		if (o.k == "leap" or o.k == "gap") and RD.hx > o.x + 10 and RD.hx < o.x + o.w - 10:
+			over_gap = true
+	if not over_gap:
+		Spr.ellipse(RD.hx, 502, 62 * (1.0 - clamp((500.0 - RD.hy) / 160.0, 0, .6)), 7, Color(0, 0, 0, .22 * (1.0 - clamp((500.0 - RD.hy) / 300.0, 0, .7))))
 	Spr.save()
 	Spr.translate(RD.hx, RD.hy + 3)
 	if RD.stumble > 0:
 		Spr.rotate(sin(T * .6) * .06)
+	elif RD.hy >= 497.0:
+		# galopando: o corpo sobe e desce com a passada e inclina para a frente quando corre mais
+		Spr.rotate(-clamp((RD.spd - 5.0) / 1.5, 0.0, 1.0) * .035)
+	# pouso: amassa um pouco e volta (peso)
+	if RD.land_k > 0.0:
+		Spr.scale(1.0 + RD.land_k * .07, 1.0 - RD.land_k * .1)
 	# no salto o cavalo empina subindo e abaixa o focinho descendo (gira em volta das patas)
 	var pt: float = clamp(RD.vy * .014, -.12, .1) if RD.hy < 497.0 else 0.0
 	if FRESH:
@@ -1341,11 +1486,21 @@ func _breath(g: Game) -> void:
 
 # ---------- o Tomé ----------
 func _player(g: Game) -> void:
+	# cavalgada e veículos andam no ritmo da lógica: desenha "entre passos" junto com a câmera
+	# (sem isso, a 90/120 Hz o cavalo/veículo tremia em relação ao cenário)
 	if g.RD and g.RD.riding:
+		var ro := g.ip_off()
+		Spr.save()
+		Spr.translate(ro.x, ro.y)
 		_rider(g)
+		Spr.restore()
 		return
 	if g.VH and g.VH.active():
+		var vo := g.ip_off()
+		Spr.save()
+		Spr.translate(vo.x, vo.y)
 		WorldVehicles.rider(g, T)
+		Spr.restore()
 		return
 	if g.M and g.M.ctrl:
 		# o jogador está com o Pipoca: o Tomé fica parado onde estava

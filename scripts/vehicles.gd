@@ -49,6 +49,51 @@ func load_level() -> void:
 func active() -> bool:
 	return mode != ""
 
+## qual sequência especial está rolando agora (para música, câmera e efeitos):
+## "ride" (cavalgada), "raft", "sled", "cart", "plane" ou "" (nenhuma)
+func seq() -> String:
+	if g.RD and g.RD.riding:
+		return "ride"
+	if mode == "sled" and is_cart():
+		return "cart"
+	return mode
+
+## faixa grande no alto da tela: chegada (com a nota), marcos e momentos "uau" (desenhada em
+## WorldVehicles.front; o tempo anda no desenho, só no 1º quadro depois de cada passo)
+var CH := {"t": 0, "t0": 1, "title": "", "sub": "", "small": false}
+func cheer(title: String, sub: String = "", t: int = 120, small: bool = false) -> void:
+	CH = {"t": t, "t0": t, "title": title, "sub": sub, "small": small}
+
+## o tempo da faixa anda com a lógica (chamado pelo passo da cavalgada e dos veículos)
+func tick_cheer() -> void:
+	if int(CH.t) > 0:
+		CH.t = int(CH.t) - 1
+
+## zoom da câmera nas sequências: abre um pouco com a velocidade (vê mais o que vem) e mais ainda
+## nos saltos grandes; fecha de leve no fim
+func zoom_want() -> float:
+	var z := .88
+	var RD = g.RD
+	if RD and RD.riding:
+		if RD.endT >= 0:
+			return .96
+		z = .9 - clamp((RD.spd - 5.0) / 1.5, 0.0, 1.0) * .05
+		if RD.big:
+			z -= .07
+		return z
+	match mode:
+		"sled":
+			if sboard > 0 or sfin > 0:
+				return .94
+			z = .9 - clamp((spd - 4.0) / 4.0, 0.0, 1.0) * .08
+			if hy < sled_y(su) - 40.0:
+				z -= .05
+		"raft":
+			z = .88 - (.04 if hy < water_y(hx) - 30.0 else 0.0)
+		"plane":
+			z = .84 if phase == "fly" else .9
+	return z
+
 ## a jangada volta para o cais (chão de verdade: pular nela também embarca)
 func _dock_raft() -> void:
 	RA.px = float(RA.x)
@@ -220,6 +265,11 @@ func _start_raft() -> void:
 	hx = max(float(RA.x), float(RA.get("px", RA.x)))
 	hy = water_y(hx)
 	spd = .6
+	hits = 0
+	cp_i = -1
+	fin_cheer = false
+	big = false
+	land_k = 0.0
 	_place_player()
 	Audio.play("splash", -4)
 	g.flash_tut("Segure firme!", "Corredeira! PULAR salta pedras e troncos boiando (e as quedas, na beirada). ↓ abaixa sob galhos, troncos caídos, pontes e redes.", 260)
@@ -239,6 +289,13 @@ var sfin := 0          # chegou no monte de neve: a tela fecha antes de voltar p
 var vg_t0 := -1        # carrinho: quadro em que o Vargas parou no fim dos trilhos e saltou com a Isis
 const VG_STOP := 850.0  # o Vargas chega ao fim dos trilhos quando o Tomé ainda está esta distância atrás
 const SBOARD := 40
+const KICK_LEN := 80.0  # comprimento da rampa de neve (kick) antes da beirada
+var hits := 0          # batidas neste passeio (para a nota da chegada)
+var cp_i := -1         # último marco do passeio que já passou
+var fin_cheer := false # já mostrou a faixa de chegada
+var big := false       # no ar num salto grande (rampa)
+var ff_ok := false     # ↓ no ar desce rápido (depois de soltar o ↓ que estava apertado no pulo)
+var land_k := 0.0      # amassado do pouso (desenho)
 
 func sled_y(u: float) -> float:
 	var pts: Array = SL.get("pts", [])
@@ -272,6 +329,9 @@ func _start_sled() -> void:
 	srest = 40.0
 	sboard = SBOARD
 	sfin = 0
+	hits = 0
+	cp_i = -1
+	fin_cheer = false
 	vg_t0 = -1
 	su = 0.0
 	hx = float(SL.x)
@@ -304,6 +364,8 @@ func _sled_place(u: float, v: float) -> void:
 	sang = 0.0
 	crashT = 0
 	duck = false
+	big = false
+	land_k = 0.0
 	_place_player()
 
 func _sled_step() -> void:
@@ -326,10 +388,23 @@ func _sled_step() -> void:
 	if crashT > 0:
 		# bateu: o trenó balança um pouco, mas segue descendo
 		crashT -= 1
+	land_k = move_toward(land_k, 0.0, .08)
 	# o que foi atingido: pedra quebra, tora sai rolando, galho cai
 	for o in OBS:
 		if o.hit and o.get("ft", -1) >= 0 and o.ft < 90:
 			o.ft += 1
+	var ln: float = float(SL.get("len", 4650))
+	# marcos da descida: passou da bandeira, recomeça dali se ficar sem corações
+	var C: Array = SL.get("cps", [])
+	if cp_i + 1 < C.size() and su > float(C[cp_i + 1]):
+		cp_i += 1
+		cheer("MARCO %d" % (cp_i + 1), "Se o trenó capotar, recomeça daqui.", 110, true)
+		Audio.play("unlock", -8, 1.2)
+	# chegada (trenó): a faixa com a nota da descida
+	if not is_cart() and not fin_cheer and su > ln - 520.0:
+		fin_cheer = true
+		cheer("CHEGADA!", _grade(), 190)
+		Audio.play("special", -4)
 	var gy: float = sled_y(su)
 	var on_ground: bool = hy >= gy - 1.0
 	lean = g.kd("R")
@@ -342,20 +417,41 @@ func _sled_step() -> void:
 			spd += .045
 		if brake:
 			spd -= .11
-		spd = clamp(spd, 2.2 if su < float(SL.get("len", 4650)) - 200 else 0.0, 8.0)
+		spd = clamp(spd, 2.2 if su < ln - 200 else 0.0, 8.0)
+	# rampa de neve (kick) à frente: PULAR em cima dela guarda o pulo até a beirada (salto grande)
+	var ramp := _kick_at(su)
 	if g.pressed("J"):
 		jbuf = 9
-	elif jbuf > 0:
+	elif jbuf > 0 and ramp.is_empty():
 		jbuf -= 1
-	if jbuf > 0 and on_ground:
+	if jbuf > 0 and on_ground and ramp.is_empty():
 		jbuf = 0
 		vy = sdv - 8.2
+		ff_ok = not g.kd("S")
 		on_ground = false
 		Audio.play("jump", -6)
 		g.burst(hx - 20, hy, 8, Color(.97, .98, 1))
 	duck = g.kd("S") and on_ground
+	if not on_ground and not g.kd("S"):
+		ff_ok = true
 	var nu: float = su + spd
 	var ngy: float = sled_y(nu)
+	# passou pela beirada da rampa: decola (grande se PULAR foi apertado na rampa, senão um pulinho)
+	if on_ground and not ramp.is_empty() and nu >= float(ramp.u):
+		var go_big: bool = jbuf > 0 or g.kd("J")
+		jbuf = 0
+		vy = sdv - ((6.8 + spd * .55) if go_big else 4.2)
+		big = go_big
+		ff_ok = not g.kd("S")
+		hy = gy - 2.0
+		on_ground = false
+		if go_big:
+			Audio.play("jump", -2, .85)
+			g.shake = max(g.shake, 3)
+			for k in 12:
+				Polish.part("snow", hx + randf_range(-12, 12), hy - 4, randf_range(-1, 3) + spd * .3, -randf_range(2, 6), 34, Color(.97, .98, 1), {"size": randf_range(1.6, 3.0)})
+		else:
+			Audio.play("slide", -12, 1.3)
 	if on_ground:
 		var dv: float = ngy - gy
 		# o chão "some" embaixo (fim de rampa): decola com a velocidade de subida que tinha
@@ -369,12 +465,25 @@ func _sled_step() -> void:
 			vy = 0.0
 	if not on_ground:
 		vy += .45
+		if ff_ok and g.kd("S") and vy > -5.0:
+			# ↓ no ar: desce mais rápido
+			vy += .5
 		hy += vy
 		if hy >= ngy:
 			if vy > 5:
 				g.burst(hx, ngy, 14, Color(.97, .98, 1))
 				Audio.step("stone" if is_cart() else "snow", -6)
 				g.shake = max(g.shake, 3)
+				land_k = clamp(vy / 12.0, .35, 1.0)
+				if not is_cart():
+					for k in 10:
+						Polish.part("snow", hx + randf_range(-26, 26), ngy - 2, randf_range(-2, 2) + spd * .25, -randf_range(1.5, 4.5), 34, Color(.97, .98, 1), {"size": randf_range(1.6, 3.2)})
+				if big:
+					g.shake = max(g.shake, 5)
+					Polish.impact(hx, ngy - 4, Color(.95, .98, 1), 7, 30.0)
+					if crashT == 0:
+						cheer("QUE SALTO!", "", 55, true)
+			big = false
 			hy = ngy
 			vy = 0.0
 			sdv = ngy - gy
@@ -390,8 +499,13 @@ func _sled_step() -> void:
 					g.PARTS.append({"x": hx - 24 + k * 40, "y": hy - 2, "vx": -spd * .3 - randf() * 2.0, "vy": -randf_range(.5, 2.5), "life": 12, "col": Color(1, .75 + randf() * .2, .3, 1)})
 			else:
 				g.PARTS.append({"x": hx - 28, "y": hy - 2, "vx": -spd * .35 - randf() * 1.5, "vy": -randf_range(1.0, 3.0) - spd * .1, "life": 22, "col": Color(.97, .98, 1, .95)})
+		# rápido: rabo de neve fofa levantando atrás dos esquis
+		if not is_cart() and spd > 5.0:
+			Polish.part("snow", hx - 30 + randf_range(-4, 4), hy - 3, -spd * .45 - randf() * 1.5, -randf_range(1.5, 3.5) - (spd - 5.0) * .5, 26, Color(.97, .98, 1, .9), {"size": randf_range(1.8, 3.4), "drag": .97})
 	if brake and hy >= ngy - 1 and g.T % 3 == 0:
 		g.PARTS.append({"x": hx + 20, "y": hy - 3, "vx": spd * .2, "vy": -2.0, "life": 18, "col": Color(.9, .95, 1, .9)})
+		if not is_cart():
+			Polish.part("snow", hx + 24, hy - 3, spd * .3 + randf(), -randf_range(2, 4), 24, Color(.95, .97, 1), {"size": 2.6})
 	# obstáculos
 	var b := box()
 	for o in OBS:
@@ -417,23 +531,48 @@ func _sled_step() -> void:
 			o.hit = true
 			_hurt_sled(o)
 	_coins(b)
-	if SL.get("vargas") and vg_t0 < 0 and su >= float(SL.get("len", 4650)) - VG_STOP:
+	if SL.get("vargas") and vg_t0 < 0 and su >= ln - VG_STOP:
 		vg_t0 = g.T
-	if su >= float(SL.get("len", 4650)) - 200:
+	if su >= ln - 200:
 		# freia sozinho no fim e para no monte de neve
 		spd = move_toward(spd, 0.0, .18)
 		if spd <= .3:
 			sfin = 30
+			if not is_cart():
+				# afunda no monte de neve: neve para todo lado
+				g.shake = max(g.shake, 4)
+				Polish.impact(hx + 20, hy - 20, Color(.95, .98, 1), 8, 40.0)
+				for k in 24:
+					Polish.part("snow", hx + 20 + randf_range(-20, 20), hy - 20, randf_range(-3, 4), -randf_range(2, 7), 44, Color(.97, .98, 1), {"size": randf_range(2.0, 4.0)})
+				Audio.play("splash", -10, .7)
+
+## rampa de neve (kick) em que o trenó está (até 80 px antes da beirada)
+func _kick_at(u: float) -> Dictionary:
+	for o in OBS:
+		if o.k == "kick" and u > float(o.u) - KICK_LEN and u < float(o.u):
+			return o
+	return {}
+
+## nota da chegada: estrelas pelas batidas
+func _grade() -> String:
+	if hits == 0:
+		return "Sem nenhuma batida!  ★★★"
+	if hits <= 2:
+		return "%d batida%s  ★★☆" % [hits, "" if hits == 1 else "s"]
+	return "%d batidas  ★☆☆" % hits
 
 func _hurt_sled(o: Dictionary = {}) -> void:
 	var p: Dictionary = g.player
+	hits += 1
 	o.ft = 0
 	crashT = 30
 	g.shake = 7
+	g.shake_dir = Vector2(-1, 0) * 5.0
 	g.hit_stop = 4
 	Audio.play("hurt")
 	Audio.vib(70)
 	g.burst(hx + 10, hy - 20, 20, Color(.97, .98, 1))
+	Polish.impact(hx + 20, hy - 24, Color(1, .65, .55), 6, 24.0)
 	match o.get("k", ""):
 		"rock":
 			# a pedra se parte em pedaços
@@ -461,7 +600,23 @@ func _hurt_sled(o: Dictionary = {}) -> void:
 	p.hp -= 1
 	if p.hp <= 0:
 		tries += 1
-		g.die("O carrinho descarrilou! PULAR salta, ↓ abaixa, ← freia." if is_cart() else "O trenó capotou! Volta da fogueira — PULAR salta, ↓ abaixa, ← freia.")
+		var C: Array = SL.get("cps", [])
+		if C.is_empty():
+			g.die("O carrinho descarrilou! PULAR salta, ↓ abaixa, ← freia." if is_cart() else "O trenó capotou! Volta da fogueira — PULAR salta, ↓ abaixa, ← freia.")
+			return
+		# capotou: volta para o último marco da descida (ou para o alto), com os corações cheios
+		var u0: float = float(C[cp_i]) - 160.0 if cp_i >= 0 else 40.0
+		for ob in OBS:
+			if float(ob.u) > u0 - 20.0:
+				ob.hit = false
+				ob.erase("ft")
+		p.hp = Game.MAXHP
+		p.iframe = 40
+		_sled_place(u0, 4.0)
+		g.iris_t = 30
+		g.snap_camera()
+		g.set_cam(hx - g.W * .26, hy * .6 + sled_y(su + 300.0) * .4 - g.H * .56)
+		g.flash("O trenó capotou! De volta ao marco — PULAR salta, ↓ abaixa, ← freia." if cp_i >= 0 else "O trenó capotou! De novo do alto — PULAR salta, ↓ abaixa, ← freia.", 220)
 
 func _finish_sled() -> void:
 	var p: Dictionary = g.player
@@ -501,11 +656,16 @@ func _start_plane() -> void:
 		d.t = 0
 		d.st = "wait"
 		d.ox = float(d.x)
-		d.oy = float(d.y)
+		d.oy = float(d.get("y", d.get("top", 0.0)))
+		if not d.has("y"):
+			d.y = d.oy
 		OBS.append(d)
 	hx = float(PL.x)
 	hy = float(PL.y)
 	spd = 0.0
+	hits = 0
+	cp_i = -1
+	fin_cheer = false
 	phase = "board"
 	pb = 0
 	var p: Dictionary = g.player
@@ -536,6 +696,7 @@ func _place_player() -> void:
 # ======================================================================
 func step() -> void:
 	g.T += 1
+	tick_cheer()
 	if mode == "raft":
 		_raft_step()
 	elif mode == "sled":
@@ -557,7 +718,22 @@ func box() -> Dictionary:
 		return g.R(hx - 30, top, 60, hy - top)
 	return g.R(hx - 50, hy - 46, 100, 40)
 
+## velocidade da correnteza em x: depois de cada queda-d'água o rio corre um pouco mais
+func raft_spd_at(x: float) -> float:
+	var v: float = float(RA.spd)
+	for f in RA.get("falls", []):
+		if x >= float(f):
+			v += .4
+	return v
+
 func _raft_step() -> void:
+	land_k = move_toward(land_k, 0.0, .08)
+	# marcos da corredeira: passou da bandeira, recomeça dali se a jangada virar
+	var C: Array = RA.get("cps", [])
+	if cp_i + 1 < C.size() and hx > float(C[cp_i + 1]):
+		cp_i += 1
+		cheer("MARCO %d" % (cp_i + 1), "Se a jangada virar, recomeça daqui.", 110, true)
+		Audio.play("unlock", -8, 1.2)
 	if stumble > 0:
 		stumble -= 1
 		spd = move_toward(spd, 2.0, .4)
@@ -568,7 +744,7 @@ func _raft_step() -> void:
 		for o in OBS:
 			last_o = max(last_o, float(o.x))
 		var slow0: float = max(last_o + 140.0, float(RA.x1) - 70.0 - 420.0)
-		var want_s: float = float(RA.spd) * clamp(1.0 - (hx - slow0) / max(60.0, float(RA.x1) - 70.0 - slow0) * .7, .3, 1.0)
+		var want_s: float = raft_spd_at(hx) * clamp(1.0 - (hx - slow0) / max(60.0, float(RA.x1) - 70.0 - slow0) * .7, .3, 1.0)
 		spd = move_toward(spd, want_s, .08 if want_s >= spd else .12)
 	var wl: float = water_y(hx)
 	var on_water: bool = hy >= wl - 1
@@ -579,15 +755,29 @@ func _raft_step() -> void:
 	if jbuf > 0 and on_water and stumble < 20:
 		jbuf = 0
 		vy = -10.5
+		ff_ok = not g.kd("S")
 		Audio.play("jump", -4)
 		g.burst(hx - 20, wl, 10, Color(.8, .9, 1))
+		g.WV.splash(hx, wl, 3.5)
+		# pulou bem na beirada de uma queda-d'água: salto grande, câmera lenta no alto
+		for f in RA.get("falls", []):
+			if float(f) - hx > 0 and float(f) - hx < 90:
+				big = true
 	duck = g.kd("S") and on_water
+	if not on_water and not g.kd("S"):
+		ff_ok = true
 	# queda-d'água logo à frente: se não pulou, a jangada despenca e bate
 	var nxt: float = hx + spd
 	for f in RA.get("falls", []):
 		if hx < f and nxt >= f and on_water:
 			_hurt_raft("queda")
-	vy += .42 if (vy < 0 and g.kd("J")) else .6
+	var g0: float = .42 if (vy < 0 and g.kd("J")) else .6
+	vy += g0
+	if not on_water and ff_ok and g.kd("S") and vy > -5.0:
+		# ↓ no ar: desce mais rápido
+		vy += .5
+	if big and vy >= 0.0 and vy - g0 < 0.0:
+		g.slowmo = max(g.slowmo, 20)
 	hy += vy
 	hx = nxt
 	wl = water_y(hx)
@@ -596,17 +786,36 @@ func _raft_step() -> void:
 			Audio.play("splash", -8)
 			g.burst(hx, wl, 12, Color(.85, .93, 1))
 			g.WV.splash(hx, wl, min(9.0, vy * .9))
+			land_k = clamp(vy / 12.0, .35, 1.0)
+			g.shake = max(g.shake, 2)
+			# respingos para os dois lados da jangada
+			for k in 10:
+				var d: float = -1.0 if k % 2 == 0 else 1.0
+				Polish.part("drop", hx + d * randf_range(20, 44), wl - 2, d * randf_range(1.0, 3.0), -randf_range(2.5, 5.0), 30, Color(.82, .93, 1, .9), {"g": .2})
+			if big:
+				g.shake = max(g.shake, 5)
+				Polish.impact(hx, wl - 6, Color(.85, .95, 1), 7, 32.0)
+				Audio.play("splash", -2, .8)
+				if stumble == 0:
+					cheer("QUE QUEDA!", "", 60, true)
+		big = false
 		hy = wl
 		vy = 0.0
 	# rastro da jangada na água
 	if hy >= wl - 1 and g.T % 5 == 0:
 		g.WV.splash(hx - 36, wl, 1.2, false)
-	# balanço da água
+	# balanço da água e espuma na proa
 	if hy >= wl - 1 and g.T % 4 == 0:
 		g.PARTS.append({"x": hx - 34, "y": wl + 2, "vx": -spd * .4, "vy": -1.2, "life": 16, "col": Color(.9, .96, 1, .8)})
+		Polish.part("drop", hx + 40 + randf_range(-4, 4), wl - 2, spd * .25 + randf(), -randf_range(1.2, 2.6), 20, Color(.88, .96, 1, .85), {"g": .2, "size": 1.5})
+	# remada: a pá do remo entra na água e espirra
+	if hy >= wl - 1 and not duck and int(g.T) % 52 == 13:
+		Polish.part("drop", hx - 30, wl - 2, -1.5, -2.5, 22, Color(.88, .96, 1, .9), {"g": .2})
+		Polish.part("drop", hx - 26, wl - 2, -.5, -3.2, 22, Color(.88, .96, 1, .9), {"g": .2})
+		g.WV.splash(hx - 30, wl, 1.6, false)
 	var b := box()
 	for o in OBS:
-		if o.hit or o.x + 120 < hx - 80 or o.x > hx + 80:
+		if o.hit or o.x + 220 < hx - 80 or o.x > hx + 80:
 			continue
 		var oy: float = water_y(o.x)
 		var bad := false
@@ -617,6 +826,13 @@ func _raft_step() -> void:
 				bad = Game.hit(b, g.R(o.x + 6, oy - 18, 70, 20))
 			"branch":
 				bad = Game.hit(b, g.R(o.x + 4, oy - 104, 90, 18))
+			"rapid":
+				# corredeira de água branca: a jangada sacode e dá pulinhos (não machuca)
+				if hy >= wl - 1 and hx > o.x and hx < o.x + float(o.get("w", 200)) and g.T % 12 == 0:
+					vy = -2.4
+					hy -= 1
+					g.shake = max(g.shake, 1.5)
+					g.WV.splash(hx, wl, 3.0)
 			# obstáculos de abaixar (↓): passam na altura do Tomé em pé; abaixado ele passa por baixo
 			"lowbranch", "trunk", "bridge", "net", "vinebranch":
 				var dw: float = DUCK_W.get(o.k, 110)
@@ -633,15 +849,19 @@ const DUCK_W := {"lowbranch": 100.0, "trunk": 130.0, "bridge": 170.0, "net": 110
 
 func _hurt_raft(_k: String) -> void:
 	var p: Dictionary = g.player
+	hits += 1
 	stumble = 40
 	spd = 1.5
 	vy = -5.0
+	big = false
 	g.shake = 5
+	g.shake_dir = Vector2(-1, 0) * 5.0
 	g.hit_stop = 4
 	Audio.play("hurt")
 	Audio.play("splash", -4)
 	Audio.vib(60)
 	g.burst(hx + 20, hy - 30, 12, Color("#e07a6a"))
+	Polish.impact(hx + 20, hy - 30, Color(1, .65, .55), 6, 24.0)
 	if p.iframe > 0:
 		return
 	p.iframe = 50
@@ -649,8 +869,21 @@ func _hurt_raft(_k: String) -> void:
 	if p.hp <= 0:
 		tries += 1
 		g.iris_t = 30
-		g.flash("A jangada virou! De novo — PULAR para saltar, ↓ para abaixar.", 220)
+		var C: Array = RA.get("cps", [])
+		var keep: int = cp_i
+		var h0: int = hits
 		_start_raft()
+		hits = h0
+		if keep >= 0:
+			# volta para o último marco (com os obstáculos dali para a frente de volta)
+			cp_i = keep
+			hx = float(C[keep]) - 120.0
+			hy = water_y(hx)
+			spd = raft_spd_at(hx) * .6
+			for o in OBS:
+				o.hit = float(o.x) < hx - 40.0
+			_place_player()
+		g.flash("A jangada virou! De volta ao marco — PULAR para saltar, ↓ para abaixar." if keep >= 0 else "A jangada virou! De novo — PULAR para saltar, ↓ para abaixar.", 220)
 		# a câmera volta junto (antes atravessava o rio inteiro deslizando até o começo)
 		g.snap_camera()
 
@@ -677,6 +910,12 @@ func _finish_raft() -> void:
 		g.X.DOG.x = p.x - 30
 		g.X.DOG.y = 500.0
 	Audio.play("splash", -6)
+	# chegada: a faixa com a nota da corredeira e festa na margem
+	cheer("CHEGADA!", _grade(), 190)
+	Audio.play("special", -4)
+	for k in 26:
+		var an: float = -PI * randf()
+		Polish.part("star" if k % 3 == 0 else "spark", p.x + randf_range(-40, 60), 420, cos(an) * randf_range(1.5, 4.5), sin(an) * randf_range(1.5, 4.5), 55, [Color(1, .86, .4), Color(.6, .9, 1), Color(1, .6, .5)][k % 3], {"g": .08, "drag": .97})
 	g.flash("Terra firme! Que corredeira...", 200)
 
 # ---------- avião ----------
@@ -704,7 +943,13 @@ func _plane_step() -> void:
 				vy = 1.5
 				g.note("Voando!")
 		"fly":
-			spd = move_toward(spd, float(PL.spd), .05)
+			spd = move_toward(spd, plane_spd_at(hx), .05)
+			# marcos do voo: passou da bandeira (balão), recomeça dali se rodopiar
+			var C: Array = PL.get("cps", [])
+			if cp_i + 1 < C.size() and hx > float(C[cp_i + 1]):
+				cp_i += 1
+				cheer("MARCO %d" % (cp_i + 1), "Se o avião rodopiar, recomeça daqui.", 110, true)
+				Audio.play("unlock", -8, 1.2)
 			var up: bool = (g.kd("U") or g.kd("J")) and stumble < 25
 			var dn: bool = g.kd("S") and stumble < 25
 			var want: float = -4.2 if up else (4.2 if dn else .35)
@@ -725,6 +970,14 @@ func _plane_step() -> void:
 			hx += spd
 			tilt = lerpf(tilt, vy * .05, .2)
 			if hx > float(PL.x1) - 260 or hy >= gy - .5:
+				if not fin_cheer:
+					# tocou o chão: pouso! a faixa com a nota do voo
+					fin_cheer = true
+					cheer("POUSO PERFEITO!" if hits == 0 else "CHEGADA!", _grade(), 190)
+					Audio.play("special", -4)
+					g.shake = max(g.shake, 3)
+					for k in 12:
+						Polish.part("dust", hx - 40 + randf_range(-20, 20), gy - 2, -randf_range(1, 4), -randf_range(.3, 1.5), 30, Color(.95, .97, 1, .8), {"size": 4.0})
 				hy = gy
 				spd = move_toward(spd, 0.0, .12)
 				tilt = lerpf(tilt, 0.0, .2)
@@ -736,6 +989,11 @@ func _plane_step() -> void:
 		stumble -= 1
 	if phase == "fly":
 		_coins(box())
+	# fumaça do motor saindo pelo escapamento (preta e mais grossa logo depois de uma batida)
+	if phase in ["taxi", "fly", "land"] and g.T % 3 == 0:
+		var ex := Vector2(30, -52).rotated(tilt)
+		var dark: bool = stumble > 0
+		Polish.part("puff", hx + ex.x, hy + ex.y, -spd * .35 - randf() * .6, -.3 - randf() * .4, 34 if dark else 26, Color(.25, .24, .26, .55) if dark else Color(.85, .87, .9, .4), {"size": 3.5 if dark else 2.6, "grow": .22})
 
 func _plane_obs() -> void:
 	var b := box()
@@ -781,14 +1039,26 @@ func _plane_obs() -> void:
 				if o.st in ["dive", "sweep"] and not o.hit and Game.hit(b, g.R(o.x - 22, o.y - 12, 44, 24)):
 					o.hit = true
 					_hurt_plane()
+			"spire":
+				# pico de pedra subindo do vale: passa por cima
+				if not o.hit and Game.hit(b, g.R(o.x - 38, float(o.top) + 10, 76, 2000)):
+					o.hit = true
+					_hurt_plane()
 			"cloud":
 				if not o.hit and Game.hit(b, g.R(o.x + 20, o.y + 14, o.w - 40, o.h - 28)):
 					o.hit = true
 					g.flash_t = 0
 					_hurt_plane()
 
+## velocidade do voo: vai acelerando até o trecho final
+func plane_spd_at(x: float) -> float:
+	return float(PL.spd) + float(PL.get("ramp", .8)) * smoothstep(float(PL.edge) + 600.0, float(PL.x1) - 1600.0, x)
+
 func _hurt_plane() -> void:
 	var p: Dictionary = g.player
+	hits += 1
+	g.shake_dir = Vector2(-1, 0) * 5.0
+	Polish.impact(hx + 30, hy - 30, Color(1, .65, .55), 6, 26.0)
 	stumble = 40
 	vy = 2.5
 	g.shake = 6
@@ -804,14 +1074,21 @@ func _hurt_plane() -> void:
 	if p.hp <= 0:
 		tries += 1
 		g.iris_t = 30
-		g.flash("O avião rodopiou! De novo — ↑ sobe, ↓ desce.", 220)
+		var keep: int = cp_i
+		var h0: int = hits
+		var C: Array = PL.get("cps", [])
+		g.flash("O avião rodopiou! De volta ao marco — ↑ sobe, ↓ desce." if keep >= 0 else "O avião rodopiou! De novo — ↑ sobe, ↓ desce.", 220)
 		_start_plane()
-		# recomeça já no ar, logo depois do precipício
+		hits = h0
+		cp_i = keep
+		# recomeça já no ar: no último marco, ou logo depois do precipício
 		phase = "fly"
-		hx = float(PL.edge) + 20
+		hx = float(C[keep]) - 120.0 if keep >= 0 else float(PL.edge) + 20
 		hy = float(PL.y) + 30
 		vy = 0.0
-		spd = float(PL.spd)
+		spd = plane_spd_at(hx)
+		for o in OBS:
+			o.hit = float(o.x) < hx - 300.0
 		_place_player()
 		g.snap_camera()
 

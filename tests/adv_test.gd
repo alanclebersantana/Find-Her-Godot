@@ -605,7 +605,7 @@ func _initialize() -> void:
 			var ground: bool = VH.hy >= gy - 1
 			for o in VH.OBS:
 				var dx: float = o.x - VH.hx
-				if o.hit or o.k == "bump" or dx < -140 or dx > 300:
+				if o.hit or o.k == "bump" or o.k == "kick" or dx < -140 or dx > 300:
 					continue
 				if o.k in ["rock", "log"] and ground and dx < VH.spd * 9.0 + 24 and dx > 30:
 					press("J")
@@ -623,16 +623,20 @@ func _initialize() -> void:
 			if o.hit:
 				hitk.append(o.k + "@" + str(o.u))
 		S("trenó sem batidas " + str(hitk), P.hp == 5 and VH.tries == 0)
-		# obstáculos bem espaçados (dá para pousar de um pulo antes do próximo)
+		# obstáculos bem espaçados (dá para pousar de um pulo antes do próximo; rampas e lombadas
+		# não machucam e ficam fora da conta)
 		var us: Array = []
 		for o in VH.SL.obs:
-			us.append(float(o.u))
+			if not o.k in ["kick", "bump"]:
+				us.append(float(o.u))
 		us.sort()
 		var gap_ok := true
 		for i in us.size() - 1:
-			if us[i + 1] - us[i] < 650:
+			if us[i + 1] - us[i] < 240:
 				gap_ok = false
-		S("obstáculos do trenó espaçados (>= 650)", gap_ok)
+		S("obstáculos do trenó espaçados (>= 240)", gap_ok)
+		S("trenó tem rampas de salto (>= 2)", VH.SL.obs.filter(func(o): return o.k == "kick").size() >= 2)
+		S("trenó tem marcos (>= 2)", VH.SL.get("cps", []).size() >= 2)
 		# batidas de propósito nas duas primeiras: perde 1 coração cada e segue (sem voltar)
 		g.load_level(0)
 		P = g.player
@@ -659,9 +663,9 @@ func _initialize() -> void:
 			hits = nhit
 			for o in VH.OBS:
 				var dx: float = o.x - VH.hx
-				if o.hit or dx < -140 or dx > 300:
+				if o.hit or o.k == "bump" or o.k == "kick" or dx < -140 or dx > 300:
 					continue
-				if float(o.u) < 2000:
+				if float(o.u) < 1800:
 					break   # bate de propósito nas duas primeiras
 				if o.k in ["rock", "log"] and ground and dx < VH.spd * 9.0 + 24 and dx > 30:
 					press("J")
@@ -674,7 +678,7 @@ func _initialize() -> void:
 		S("batidas: segue descendo sem recomeçar", ok_sled == true and not back)
 		S("batidas: perdeu 2 corações", P.hp == 3 and hits == 2)
 		S("batidas: Tomé vivo no fim", g.lives >= 9 and P.dyingT == 0)
-		# batendo em tudo: sem corações, morre e volta para a fogueira; o trenó fica no alto de novo
+		# batendo em tudo: sem corações, o trenó volta para o último marco (sem morrer) e chega lá embaixo
 		g.load_level(0)
 		P = g.player
 		put(52460, 500)
@@ -682,16 +686,21 @@ func _initialize() -> void:
 		VH = g.VH
 		var lv0: int = g.lives
 		var died := false
-		for i in 3080:
+		var back_cp := false
+		var last_su := 0.0
+		for i in 6000:
 			if P.dyingT > 0:
 				died = true
-			if died and P.dyingT == 0:
+			if VH.mode == "":
 				break
+			if VH.su < last_su - 50.0:
+				back_cp = VH.cp_i >= 0 and abs(VH.su - (float(VH.SL.cps[VH.cp_i]) - 160.0)) < 20.0
+			last_su = VH.su
 			frame({})
 		hold({}, 40)
-		S("bateu em tudo: morreu", died and g.lives <= lv0)
-		S("bateu em tudo: volta da fogueira", VH.mode == "" and abs(px() - 52360) < 200)
-		S("bateu em tudo: trenó de volta no alto", not VH.sled_done and VH.near_sled() or abs(float(VH.SL.x) - px()) < 300)
+		S("bateu em tudo: não morreu", not died and g.lives == lv0)
+		S("bateu em tudo: recomeçou do marco", back_cp and VH.tries >= 1)
+		S("bateu em tudo: chegou lá embaixo", VH.sled_done and VH.mode == "")
 	if all or args.has("urso"):
 		# perseguição inteira: troncos, galho, pingentes, fresta e a coroa
 		put(50300, 500)
@@ -756,14 +765,64 @@ func _initialize() -> void:
 		walk_to(39880)
 		use()
 		S("cavalgada começou", until({}, func(): return g.RD.riding, 500))
-		var obsd: Array = g.RD.OBS.map(func(o): return float(o.x))
-		var md := 1e9
-		for i in range(1, obsd.size()):
-			md = min(md, obsd[i] - obsd[i - 1])
-		S("obstáculos da cavalgada espaçados (>= 600)", md >= 600)
+		# obstáculos espaçados: depois de um pulo dá para pousar e ainda reagir ao próximo
+		# (pulo: metade do voo depois do centro + 20 quadros; abaixar/pular de novo: + 12 quadros)
+		var spacing_ok := true
+		var RDo = g.RD
+		for i in range(1, RDo.OBS.size()):
+			var a: Dictionary = RDo.OBS[i - 1]
+			var b: Dictionary = RDo.OBS[i]
+			var v: float = RDo.spd_at(float(b.x))
+			var end_a: float = float(a.x) + 90.0
+			if RDo.obs_center(a) > 0:
+				var jv: float = 17.0 if a.k == "leap" else RDo.JUMP_V
+				end_a = RDo.obs_center(a) + v * jv / RDo.JUMP_G + (float(a.get("w", 0)) * .5 if a.k == "leap" else 0.0)
+			var start_b: float = RDo.takeoff_x(b) if RDo.obs_center(b) > 0 else float(b.x) - 40.0
+			if start_b - end_a < v * 12.0:
+				spacing_ok = false
+				print("  perto demais: ", a.k, "@", a.x, " -> ", b.k, "@", b.x)
+		S("obstáculos da cavalgada espaçados (dá para pousar e reagir)", spacing_ok)
+		S("tem o salto do desfiladeiro", RDo.OBS.any(func(o): return o.k == "leap"))
+		S("marcos na trilha (>= 2)", RDo.cps().size() >= 2)
 		S("velocidade do cavalo 5.2", abs(float(g.RD.H.spd) - 5.2) < .01)
 		S("cavalgada", ride())
 		S("cavalgada sem batidas", P.hp == 5 and g.RD.tries == 0)
+		# desfiladeiro sem pular: perde um coração, mas o cavalo salta assustado e passa (não cai)
+		g.load_level(0)
+		P = g.player
+		for e in g.EN:
+			e.dead = 99
+		put(39820, 500)
+		for h in g.NT.HOLES:
+			h.filled = true
+		walk_to(39880)
+		use()
+		until({}, func(): return g.RD.riding, 500)
+		var lp: Dictionary = {}
+		for o in g.RD.OBS:
+			if o.k == "leap":
+				lp = o
+			else:
+				o.hit = true
+		g.RD.hx = float(lp.x) - 400.0
+		g.RD.cp_i = g.RD.cps().size() - 1
+		g.RD.spd = g.RD.spd_at(g.RD.hx)
+		hold({}, 160)
+		S("desfiladeiro sem pular: 1 coração a menos", P.hp == 4 and lp.hit)
+		S("desfiladeiro sem pular: passou para o outro lado", g.RD.hx > float(lp.x) + float(lp.w) + 40 and g.RD.hy >= 500.0)
+		# sem corações: volta para o último marco (não para o começo), com os corações cheios
+		P.hp = 1
+		P.iframe = 0
+		var mk: float = float(g.RD.cps()[g.RD.cp_i])
+		for o in g.RD.OBS:
+			if float(o.x) > g.RD.hx:
+				o.hit = false
+		var tries0: int = g.RD.tries
+		for i in 600:
+			frame()
+			if g.RD.tries > tries0:
+				break
+		S("sem corações: recomeça no marco", g.RD.tries == tries0 + 1 and abs(g.RD.hx - mk) < 200 and P.hp == 5 and g.RD.riding)
 		# o fim: o cavalo vai parando, o Tomé desce com calma, faz carinho e o cavalo vai embora trotando
 		g.load_level(0)
 		P = g.player

@@ -463,7 +463,7 @@ func ride():
 			if dx < -200 or dx > 260:
 				continue
 			# pula em cima da marca de cascos (o melhor ponto)
-			if o.k in ["log", "rock", "gap", "fence"] and not o.hit and RD.hy >= 500:
+			if o.k in ["log", "rock", "gap", "fence", "logs", "leap"] and not o.hit and RD.hy >= 500:
 				var tk: float = RD.takeoff_x(o)
 				if RD.hx >= tk - 3 and RD.hx < tk + 6:
 					press("J")
@@ -526,7 +526,7 @@ func sled_drive():
 		var ground: bool = VH.hy >= VH.sled_y(VH.su) - 1
 		for o in VH.OBS:
 			var dx: float = o.x - VH.hx
-			if o.hit or o.k == "bump" or dx < -140 or dx > 300:
+			if o.hit or o.k == "bump" or o.k == "kick" or dx < -140 or dx > 300:
 				continue
 			if o.k in ["rock", "log"] and ground and dx < VH.spd * 9.0 + 24 and dx > 30:
 				press("J")
@@ -616,7 +616,7 @@ func ride_raft():
 				d["J"] = true
 		for o in VH.OBS:
 			var dx: float = o.x - VH.hx
-			if dx < -240 or dx > 220:
+			if dx < -240 or dx > 220 or o.k == "rapid":
 				continue
 			if o.k in ["rock", "log"] and dx < 70 and dx > 26 and VH.hy >= wl - 1:
 				press("J")
@@ -704,6 +704,8 @@ func _obs_box(o: Dictionary) -> Array:
 			return [o.x - 30, o.x + 90, o.y - 26, o.y + 64]
 		"cloud":
 			return [o.x + 10, o.x + o.w - 10, o.y + 8, o.y + o.h - 8]
+		"spire":
+			return [o.x - 44, o.x + 44, float(o.top) + 6, 2000.0]
 		"hawk":
 			if o.st == "gone":
 				return []
@@ -760,8 +762,10 @@ func fly_plane():
 				nxt = _free_spans(groups[1], VH.PL.top + 10, VH.PL.low - 10)
 			var best := 1e9
 			for sp in spans:
+				# longe das beiradas da faixa livre (o avião não para na hora: sobra margem)
+				var m: float = min(18.0, (sp[1] - sp[0]) * .25)
 				for k in 9:
-					var y: float = lerpf(sp[0], sp[1], k / 8.0)
+					var y: float = lerpf(sp[0] + m, sp[1] - m, k / 8.0)
 					var c: float = abs(y - VH.hy)
 					if not nxt.is_empty():
 						var dn := 1e9
@@ -771,10 +775,12 @@ func fly_plane():
 					if c < best:
 						best = c
 						target = y
+		# onde o avião vai parar se soltar agora (freia com .22 por quadro)
+		var pred: float = VH.hy + VH.vy * abs(VH.vy) / .44
 		var dd := {}
-		if VH.hy > target + 5:
+		if pred > target + 5:
 			dd["U"] = true
-		elif VH.hy < target - 5:
+		elif pred < target - 5:
 			dd["S"] = true
 		frame(dd)
 	return "não terminou x=%d" % int(VH.hx)

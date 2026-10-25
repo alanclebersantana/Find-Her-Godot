@@ -456,7 +456,10 @@ func _zoom_target() -> float:
 	if not g.CINE.is_empty():
 		return 1.0
 	# ação: veículos, cavalgada, chefes, pedra rolando, perseguição
-	if (g.VH and g.VH.active()) or (g.RD and g.RD.riding) or (g.X and g.X.boss_active()):
+	# cavalgada e veículos: o zoom acompanha a velocidade e os saltos (Vehicles.zoom_want)
+	if g.VH and g.VH.seq() != "":
+		return g.VH.zoom_want()
+	if g.X and g.X.boss_active():
 		return .88
 	# perseguição do urso: abre mais para mostrar o urso correndo atrás
 	if g.K and g.K.bear_chase():

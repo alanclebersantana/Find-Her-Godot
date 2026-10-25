@@ -1730,8 +1730,9 @@ func _camera() -> void:
 		ty = CINE.fy - H * .55
 	elif RD and RD.riding:
 		# cavalgada: câmera firme na altura da trilha, cavalo à esquerda para ver os obstáculos chegando
-		tx = RD.hx - W * .3
-		ty = 500.0 - H * .66
+		# (rápido: olha mais para a frente; no salto grande a câmera sobe um pouco junto)
+		tx = RD.hx - W * (.3 - .05 * clamp((RD.spd - 5.0) / 1.4, 0.0, 1.0))
+		ty = 500.0 - H * .66 - (max(0.0, 470.0 - RD.hy) * .4 if RD.big else 0.0)
 		var cb0 := cam_bounds()
 		tx = clamp(tx, cb0.position.x, max(cb0.position.x, cb0.end.x - W))
 		ty = clamp(ty, cb0.position.y, max(cb0.position.y, cb0.end.y - H))

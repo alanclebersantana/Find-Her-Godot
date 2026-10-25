@@ -39,13 +39,28 @@ static func rider(g: Game, T: int) -> void:
 	# acabou de se machucar: pisca com um brilho (sem ficar transparente)
 	var blink: bool = p.iframe > 0 and (T / 5) % 2 == 0
 	if VH.mode == "raft":
-		var bob: float = sin(T * .15) * 1.5 if VH.hy >= VH.water_y(VH.hx) - 1 else 0.0
+		var on_w: bool = VH.hy >= VH.water_y(VH.hx) - 1
+		var bob: float = sin(T * .15) * 1.5 if on_w else 0.0
 		var rot: float = clamp(VH.vy * .02, -.15, .15)
+		# na água: a jangada acompanha as ondas (sobe e inclina com a superfície)
+		var wb: Dictionary = _river_body(g, VH, VH.hx)
+		if on_w and not wb.is_empty():
+			var h0: float = g.WV.height(wb, VH.hx - 32.0)
+			var h1: float = g.WV.height(wb, VH.hx + 32.0)
+			bob += (h0 + h1) * .5
+			rot += clamp(atan((h1 - h0) / 64.0), -.2, .2) + sin(T * .07) * .025
 		if VH.stumble > 0:
 			rot += sin(T * .8) * .1
 		Spr.save()
 		Spr.translate(VH.hx, VH.hy + bob)
 		Spr.rotate(rot)
+		if VH.land_k > 0.0:
+			Spr.scale(1.0 + VH.land_k * .06, 1.0 - VH.land_k * .1)
+		# espuma batendo na proa e no lado da jangada
+		if on_w:
+			for k in 3:
+				var fu: float = fposmod(T * .06 + k * .33, 1.0)
+				Spr.ellipse(44 - fu * 30, 6, 6 + fu * 8, 2.5, Color(1, 1, 1, .6 * (1.0 - fu)))
 		_raft(0, 0)
 		# o Tomé de pé com o remo (abaixado sob os galhos)
 		if VH.duck:
@@ -87,16 +102,25 @@ static func rider(g: Game, T: int) -> void:
 			fr = 2
 		elif VH.lean or VH.spd > 7.5:
 			fr = 1
+		# sombra no chão (encolhe com a altura do salto)
+		var gy2: float = VH.sled_y(VH.su)
+		var ah: float = clamp((gy2 - VH.hy) / 160.0, 0.0, .7)
+		Spr.ellipse(VH.hx, gy2 + 1, 34 * (1.0 - ah), 4, Color(.25, .32, .55, .3 * (1.0 - ah)))
 		Spr.save()
-		Spr.translate(VH.hx, VH.hy + 2)
+		Spr.translate(VH.hx, VH.hy + 2 - (kick_lift(VH, VH.su) if on_g else 0.0))
 		if p.dyingT > 0:
 			Spr.rotate(-p.dyingT * .12)
 		elif VH.crashT > 0:
 			Spr.rotate(VH.sang + sin(VH.crashT * .5) * .25 * VH.crashT / 30.0)
 		elif fr == 3:
 			Spr.rotate(_tilt(VH.sang * .3))
+		elif kick_lift(VH, VH.su) > 0.0 and on_g:
+			Spr.rotate(_tilt(VH.sang - .35))
 		else:
 			Spr.rotate(_tilt(VH.sang))
+		# pouso: amassa um pouco e volta (peso)
+		if VH.land_k > 0.0:
+			Spr.scale(1.0 + VH.land_k * .08, 1.0 - VH.land_k * .12)
 		if st:
 			Spr.frame(st, fr, 260, 200, 130, 196, 0, 0, .56)
 		else:
@@ -182,6 +206,18 @@ static func _hlog(xa: float, xb: float, y: float, h: float) -> void:
 	Spr.rotate(-PI / 2)
 	Spr.PR("log", 0, 0, h, xb - xa)
 	Spr.restore()
+
+## o corpo de água (ondas) do trecho do rio em x
+static func _river_body(g: Game, VH: Vehicles, x: float) -> Dictionary:
+	var RA: Dictionary = VH.RA
+	var xs: Array = [float(RA.x0)]
+	for f in RA.get("falls", []):
+		xs.append(float(f))
+	xs.append(float(RA.x1))
+	for i in xs.size() - 1:
+		if x >= xs[i] and x < xs[i + 1]:
+			return g.WV.B.get("r%d" % i, {})
+	return {}
 
 # ---------- rio ----------
 ## fundo do rio: a água vai escurecendo até um leito de cascalho ondulado, com pedras, seixos e
@@ -280,13 +316,52 @@ static func _river(g: Game, VH: Vehicles, T: int) -> void:
 			if f < a - 80 or f > b + 80:
 				continue
 			var top: float = VH.water_y(f - 1)
-			Spr.vgrad(f - 6, top - 6, 18, 56, Color(.95, .98, 1, .9), Color(.8, .9, 1, .3))
-			for k in 5:
-				var yy: float = top + fposmod(T * 4.0 + k * 11.0, 44.0)
-				Spr.seg(f - 4 + k * 3, yy, f - 2 + k * 3, yy + 8, Color(1, 1, 1, .7), 2)
-			for k in 4:
-				Spr.circle(f + 8 + k * 9, top + 44 + sin(T * .2 + k) * 3, 7 - k, Color(1, 1, 1, .5))
+			var dy: float = VH.water_y(f + 1) - top
+			# a cortina d'água: sai da beirada fazendo uma curva e cai até o nível de baixo
+			var lip := PackedVector2Array()
+			var cols := PackedColorArray()
+			for k in 7:
+				var u: float = k / 6.0
+				lip.push_back(Vector2(f - 4 + u * u * 22.0, top - 3 + u * (dy + 6)))
+				cols.push_back(Color(.9, .97, 1, .95).lerp(Color(.65, .82, .95, .85), u))
+			for k in range(6, -1, -1):
+				var u2: float = k / 6.0
+				lip.push_back(Vector2(f - 4 + u2 * u2 * 22.0 - 16.0 - u2 * 6.0, top - 3 + u2 * (dy + 6)))
+				cols.push_back(Color(.75, .88, 1, .9).lerp(Color(.55, .75, .92, .8), u2))
+			Spr.ci.draw_polygon(lip, cols)
+			# fios d'água descendo rápido na cortina
+			for k in 6:
+				var uu: float = fposmod(T * .06 + k * .17, 1.0)
+				var sx: float = f - 14 + (k % 3) * 6 + uu * uu * 22.0
+				Spr.seg(sx, top + uu * dy, sx + 3, top + uu * dy + 9, Color(1, 1, 1, .8 * (1.0 - uu * .5)), 2)
+			# espuma revirando embaixo e a névoa subindo
+			for k in 6:
+				var fx2: float = f + 6 + k * 11.0
+				var fr: float = 9.0 - k * 1.1 + sin(T * .25 + k * 1.3) * 2.0
+				Spr.circle(fx2, top + dy + 4 + sin(T * .2 + k) * 2.0, fr, Color(1, 1, 1, .7 - k * .08))
+			for k in 3:
+				var mu: float = fposmod(T * .012 + k * .33, 1.0)
+				Spr.glow(f + 16 + k * 14, top + dy - mu * 50, 30 + mu * 20, Color(1, 1, 1, .2 * sin(mu * PI)))
 			Spr.P("rock2", f - 18, top + 8, 44)
+			Spr.P("rock0", f + 30, top + dy + 16, 40, false, 0.0, Color(.6, .68, .72))
+		# marcos da corredeira (bandeira na estaca fincada no rio: dourada depois de passar)
+		var C: Array = RA.get("cps", [])
+		for i in C.size():
+			var cx: float = float(C[i])
+			if cx < a - 100 or cx > b + 100:
+				continue
+			var cy: float = VH.water_y(cx)
+			var passed: bool = VH.mode == "raft" and VH.cp_i >= i
+			Spr.PR("stake", cx - 6, cy - 120, 12, 136, Color(.85, .8, .75))
+			Spr.ellipse(cx, cy + 3, 14, 3, Color(1, 1, 1, .6))
+			Spr.save()
+			Spr.translate(cx, cy - 100)
+			Spr.rotate(sin(T * .12 + cx) * .04)
+			Spr.P("flagred", 0, 0, 60, false, 0.0, Color(1.25, 1.1, .45) if passed else Color.WHITE)
+			Spr.restore()
+			if passed:
+				Spr.glow(cx + 14, cy - 150, 40, Color(1, .85, .4, .25 + .1 * sin(T * .2)))
+			Spr.text("%d" % (i + 1), cx + 16, cy - 132, 15, Color(1, 1, 1), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3, Color(.3, .1, .05, .8))
 		# as margens
 		_bank(float(RA.x0), 470, 1.0)
 		_bank(float(RA.x1), 470, -1.0)
@@ -311,6 +386,19 @@ static func _river(g: Game, VH: Vehicles, T: int) -> void:
 				Spr.ellipse(o.x + 40, oy + 3, 42, 4, Color(1, 1, 1, .35))
 			"branch":
 				pass
+			"rapid":
+				# água branca: ondas quebrando, espuma e pedras pontudas aparecendo
+				var rw: float = float(o.get("w", 200))
+				for k in int(rw / 26.0):
+					var rx: float = o.x + 10 + k * 26.0
+					var ph: float = T * .2 + k * 1.9
+					Spr.P("rock%d" % (k % 3), rx + 6, oy + 14 + (k % 2) * 4, 22 + (k % 3) * 6, k % 2 == 0, 0.0, Color(.55, .65, .7))
+					Spr.ellipse(rx, oy + 1 + sin(ph) * 2.0, 14, 4, Color(1, 1, 1, .75))
+					Spr.ellipse(rx + 8, oy - 3 + sin(ph + 1.3) * 3.0, 7, 3, Color(1, 1, 1, .6))
+				for k in 4:
+					var uu: float = fposmod(T * .03 + k * .25, 1.0)
+					var cx2: float = o.x + uu * rw
+					Spr.line(PackedVector2Array([Vector2(cx2, oy + 3), Vector2(cx2 + 10, oy - 4 - sin(uu * PI) * 4), Vector2(cx2 + 22, oy + 3)]), Color(1, 1, 1, .7 * sin(uu * PI)), 2.5)
 			"vinebranch":
 				_vinebranch(o.x, oy, T)
 			"lowbranch":
@@ -350,12 +438,16 @@ static func _river(g: Game, VH: Vehicles, T: int) -> void:
 				# ponte velha e baixa: tábuas sobre dois postes, corrimão de corda
 				for px in [o.x - 24.0, o.x + 182.0]:
 					Spr.PR("stake", px - 7, oy - 120, 14, 140, Color(.85, .8, .75))
-				Spr.rr(o.x - 34, oy - 66, 236, 20, 4, Color("#6b4626"))
-				Spr.rr(o.x - 34, oy - 66, 236, 6, 3, Color("#8a5e34"))
-				var pk: float = o.x - 30
-				while pk < o.x + 198:
-					Spr.seg(pk, oy - 64, pk, oy - 47, Color("#3e2a18"), 1.5)
-					pk += 18 + fmod(pk * .37, 6.0)
+				# tábuas pintadas lado a lado (vistas de frente: as pontas), e a viga comprida embaixo
+				_hlog(o.x - 34, o.x + 202, oy - 50, 10)
+				Spr.PR("plank", o.x - 36, oy - 70, 240, 20)
+				Spr.PR("plank", o.x - 30, oy - 54, 228, 12, Color(.7, .66, .62), true)
+				# pregos e amarras de corda nos postes
+				for px2 in [o.x - 24.0, o.x + 182.0]:
+					Spr.circle(px2, oy - 61, 2.2, Color(.3, .3, .32))
+					Spr.seg(px2 - 8, oy - 72, px2 + 8, oy - 50, Color("#c9a26a"), 2)
+					Spr.seg(px2 + 8, oy - 72, px2 - 8, oy - 50, Color("#c9a26a"), 2)
+				Spr.ellipse(o.x + 84, oy + 3, 110, 5, Color(0, 0, 0, .15))
 				var rail := PackedVector2Array()
 				for k in 13:
 					var u: float = k / 12.0
@@ -473,12 +565,15 @@ static func _valley(a: float, b: float, bottom: float, T: int, v0: float = -1e9,
 			if cx - r * .6 < v0 - 6.0 or cx + r * .6 > v1 + 6.0:
 				tx += step
 				continue
-			var col := Color("#5b8a4c") if layer == 0 else Color("#3f6a36")
-			col = col.lightened(h1 * .08)
-			Spr.circle(cx, base_y - r * .4, r, col)
-			Spr.circle(cx - r * .6, base_y - r * .1, r * .7, col.darkened(.06))
-			Spr.circle(cx + r * .6, base_y - r * .05, r * .72, col.darkened(.03))
-			Spr.circle(cx - r * .25, base_y - r * .75, r * .35, col.lightened(.12))
+			# pinheiros pintados pequenos (longe: mais claros e azulados pela névoa)
+			var pt: Texture2D = Spr.tex.get("p_pinheiro", null)
+			if pt == null:
+				WorldNature.prop("pinheiro", -99999, 0, 1)
+				pt = Spr.tex["p_pinheiro"]
+			var ph: float = r * 3.4
+			var pw: float = ph * pt.get_width() / pt.get_height()
+			var tc := Color(.78, .88, .9) if layer == 0 else Color(.62, .74, .7)
+			Spr.ci.draw_texture_rect(pt, Rect2(cx - pw / 2, base_y + r * .5 - ph, pw, ph), false, tc.lightened(h1 * .06))
 			tx += step
 	Spr.vgrad(a, 640, b - a, 120, Color("#3f6a36"), Color("#2c4a28"))
 	Spr.rect(a, 760, b - a, bottom - 560, Color("#2c4a28"))
@@ -543,7 +638,7 @@ static func _after_runway(g: Game, VH: Vehicles, T: int) -> void:
 		for o in VH.OBS:
 			var ahead: float = o.x - (g.cam + g.W)
 			if ahead > -40 and ahead < 1000 and not o.hit and o.get("st", "") != "gone":
-				var wy: float = o.y + (o.h * .5 if o.k == "cloud" else (20.0 if o.k == "flock" else 0.0))
+				var wy: float = o.y + (o.h * .5 if o.k == "cloud" else (20.0 if o.k == "flock" else (60.0 if o.k == "spire" else 0.0)))
 				if o.k == "hawk" and o.has("ty"):
 					wy = o.ty
 				var wa: float = clamp(1.0 - ahead / 1000.0, .35, 1.0)
@@ -566,6 +661,8 @@ static func _after_runway(g: Game, VH: Vehicles, T: int) -> void:
 						_hawk(o.x, o.y, T, o.st == "dive", o.st == "sweep")
 				"cloud":
 					_cloud(o, T)
+				"spire":
+					_spire(o, T)
 	# o avião parado (na pista antes de decolar; na clareira depois do pouso)
 	if VH.mode != "plane":
 		var px: float = PL.px
@@ -591,7 +688,39 @@ static func _plane_fly(x: float, y: float, tilt: float, T: int, ground: bool) ->
 			Spr.A("dog0", 0, 0, 1)
 		Spr.restore()
 	WorldNature.prop("biplano_voo", 0, 0, 120)
+	# hélice girando por cima do disco pintado: duas pás que encurtam e esticam (vistas de lado)
+	var pa: float = T * 1.1
+	for j in 2:
+		var c: float = cos(pa + j * PI * .5)
+		Spr.seg(89, -46, 89 + 2.0 * c, -46 - 34.0 * c, Color(.3, .18, .08, .55), 4)
+		Spr.seg(89, -46, 89 - 2.0 * c, -46 + 34.0 * c, Color(.3, .18, .08, .55), 4)
+	Spr.circle(89, -46, 4, Color(.85, .8, .7))
 	Spr.restore()
+
+## pico de pedra subindo lá do vale até "top": pedras pintadas empilhadas, neve no alto e um
+## pinheirinho torto na ponta
+static func _spire(o: Dictionary, T: int) -> void:
+	var x: float = o.x
+	var top: float = float(o.top)
+	var y: float = 720.0
+	var k := 0
+	while y > top + 20.0:
+		var u: float = clamp((y - top) / 500.0, 0.0, 1.0)
+		var w: float = lerpf(84.0, 150.0, u)
+		var jx: float = 8.0 * sin(k * 2.3 + x)
+		var dk: float = lerpf(1.0, .62, u)
+		Spr.P("rock%d" % (k % 3), x + jx, y + w * .45, w, k % 2 == 0, 0.0, Color(.72 * dk, .7 * dk, .74 * dk))
+		y -= w * .55
+		k += 1
+	Spr.P("rock1", x, top + 64, 88, false, 0.0, Color(.8, .78, .8))
+	# neve no alto com pingentes
+	Spr.ellipse(x, top + 14, 42, 13, Color(.94, .97, 1))
+	Spr.ellipse(x - 6, top + 9, 30, 9, Color(1, 1, 1))
+	for j in 4:
+		Spr.P("icicle", x - 30 + j * 20, top + 40 - (j % 2) * 6, 10)
+	WorldNature.prop("pinheiro", x + 18, top + 16, 70)
+	if o.hit:
+		Spr.glow(x, top + 30, 50, Color(1, .4, .3, .2))
 
 static func _bird(x: float, y: float, t: int, hit: bool) -> void:
 	if Spr.has("p_birdp0"):
@@ -719,6 +848,25 @@ static func _sled_track(g: Game, VH: Vehicles, T: int) -> void:
 	for q in top:
 		sh.push_back(q + Vector2(0, 9))
 	Spr.line(sh, Color(.78, .86, .97, .8), 4)
+	# camadas de neve assentada dentro do morro (riscos azulados ondulando, mais fundos mais apagados)
+	for d in [38.0, 92.0, 160.0]:
+		var lay := PackedVector2Array()
+		for q in top:
+			lay.push_back(q + Vector2(0, d + 6.0 * sin(q.x * .011 + d)))
+		Spr.line(lay, Color(.62, .74, .92, .32 - d * .0012), 2.5)
+	# pedrinhas e tufos de capim seco furando a neve (lugares fixos)
+	var dx0: float = floor(a / 97.0) * 97.0
+	while dx0 < b:
+		var hv: float = hh(dx0, 3)
+		if hv < .35:
+			var px: float = dx0 + hv * 60.0
+			var py: float = VH.sled_y(px - t0)
+			if hv < .18:
+				Spr.P("peb%d" % (int(dx0) % 3), px, py + 6, 12 + hv * 30, false, 0.0, Color(.7, .72, .78))
+			else:
+				for j in 3:
+					Spr.seg(px + j * 3 - 3, py + 2, px + j * 4 - 5, py - 9 - j * 2, Color(.55, .48, .32, .9), 1.5)
+		dx0 += 97.0
 	# marcas dos esquis atrás do trenó
 	var mk := PackedVector2Array()
 	var ux: float = max(a - t0, 0.0)
@@ -741,7 +889,7 @@ static func _sled_track(g: Game, VH: Vehicles, T: int) -> void:
 		var ft: int = o.get("ft", -1) if o.hit else -1
 		# destaque forte no meio da neve branca: sombra escura + brilho colorido pulsando
 		# (verde = pular, laranja = abaixar, as mesmas cores das placas)
-		if not o.hit and o.k != "bump":
+		if not o.hit and o.k != "bump" and o.k != "kick":
 			var pul: float = .5 + .5 * sin(T * .15 + o.x)
 			if o.k == "branch":
 				Spr.glow(o.x + 5, oy - 62, 92, Color(1, .45, .05, .4 + .25 * pul))
@@ -761,8 +909,9 @@ static func _sled_track(g: Game, VH: Vehicles, T: int) -> void:
 					for k in 4:
 						Spr.P("peb%d" % (k % 3), o.x - 22 + k * 15, oy + 3, 14)
 				else:
-					Spr.P("rock0", o.x, oy + 8, 50)
-					Spr.ellipse(o.x - 2, oy - 26, 15, 5, Color(.97, .98, 1))
+					WorldNature.prop("pedra_neve", o.x, oy + 6, 44)
+			"kick":
+				_kick(o.x, oy, T, VH)
 			"log":
 				if ft >= 0:
 					# saiu rolando morro abaixo e sumiu
@@ -776,9 +925,11 @@ static func _sled_track(g: Game, VH: Vehicles, T: int) -> void:
 						Spr.restore()
 						Spr.alpha = 1.0
 				else:
-					_hlog(o.x - 32, o.x + 30, oy - 21, 22)
-					Spr.P("logend0", o.x + 30, oy + 1, 22)
-					Spr.ellipse(o.x, oy - 21, 28, 5, Color(.97, .98, 1))
+					Spr.save()
+					Spr.translate(o.x, oy + 4)
+					Spr.rotate(atan((VH.sled_y(float(o.u) + 20.0) - VH.sled_y(float(o.u) - 20.0)) / 40.0))
+					WorldNature.prop("tora_neve", 0, 0, 34)
+					Spr.restore()
 			"bump":
 				Spr.ellipse(o.x, oy + 2, 34, 12, Color(.88, .92, 1))
 				Spr.ellipse(o.x - 3, oy - 1, 28, 9, Color(.98, .99, 1))
@@ -815,13 +966,36 @@ static func _sled_track(g: Game, VH: Vehicles, T: int) -> void:
 					Spr.poly(PackedVector2Array([Vector2(fx + 3, fy - 56), Vector2(fx + 30, fy - 48 + sin(T * .2) * 3), Vector2(fx + 3, fy - 38)]), Color("#e0463a"))
 	# placas antes de cada obstáculo: seta verde para cima (pular) ou laranja para baixo (abaixar)
 	for o in VH.OBS:
-		if o.k == "bump":
+		if o.k == "bump" or o.k == "kick":
 			continue
 		var su0: float = float(o.u) - 260.0
 		var sx0: float = t0 + su0
 		if sx0 < a - 80 or sx0 > b + 80:
 			continue
 		_ground_sign(sx0, VH.sled_y(su0), o.k != "branch", T)
+	# marcos da descida (bandeiras: vermelha antes, dourada depois de passar)
+	var C: Array = VH.SL.get("cps", [])
+	for i in C.size():
+		var cu: float = float(C[i])
+		var cx: float = t0 + cu
+		if cx < a - 100 or cx > b + 100:
+			continue
+		var cy: float = VH.sled_y(cu)
+		var passed: bool = VH.cp_i >= i
+		Spr.ellipse(cx, cy + 2, 14, 4, Color(.6, .7, .86, .6))
+		Spr.PR("stake", cx - 6, cy - 120, 12, 124, Color(.85, .8, .75))
+		Spr.save()
+		Spr.translate(cx, cy - 100)
+		Spr.rotate(sin(T * .12 + cx) * .04)
+		Spr.P("flagred", 0, 0, 60, false, 0.0, Color(1.25, 1.1, .45) if passed else Color.WHITE)
+		Spr.restore()
+		if passed:
+			Spr.glow(cx + 14, cy - 150, 40, Color(1, .85, .4, .25 + .1 * sin(T * .2)))
+		Spr.text("%d" % (i + 1), cx + 16, cy - 132, 15, Color(1, 1, 1), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3, Color(.3, .1, .05, .8))
+	# arco de chegada (trenó; o carrinho termina na porta de ferro)
+	var fxu: float = ln - 520.0
+	if not VH.is_cart() and t0 + fxu > a - 200 and t0 + fxu < b + 200:
+		finish_arch(t0 + fxu, VH.sled_y(fxu), 0.0, T)
 	# monte de neve no fim, onde o trenó para
 	var ex: float = t0 + ln - 40
 	var eyy: float = VH.sled_y(ln - 40)
@@ -830,6 +1004,82 @@ static func _sled_track(g: Game, VH: Vehicles, T: int) -> void:
 	else:
 		Spr.ellipse(ex, eyy - 10, 70, 30, Color(.84, .9, 1))
 		Spr.ellipse(ex - 6, eyy - 16, 60, 24, Color(.98, .99, 1))
+
+## arco de chegada: dois mourões com guirlanda de pinho e a faixa de pano "CHEGADA"
+## (gy = chão no meio; ang = inclinação do chão, no morro do trenó)
+static func finish_arch(ax: float, gy: float, ang: float, T: int) -> void:
+	Spr.save()
+	Spr.translate(ax, gy)
+	Spr.rotate(ang)
+	for px in [-110.0, 110.0]:
+		Spr.ellipse(px, 1, 16, 4, Color(.25, .32, .5, .3))
+		Spr.PR("stake", px - 8, -204, 16, 206, Color(.85, .8, .75))
+		Spr.ellipse(px, -203, 10, 4, Color(.97, .98, 1))
+	Spr.restore()
+	Spr.save()
+	Spr.translate(ax, gy)
+	var gar := PackedVector2Array()
+	for k in 13:
+		var u: float = k / 12.0
+		var xx: float = lerpf(-110, 110, u)
+		gar.push_back(Vector2(xx, -194 + sin(u * PI) * 16 + xx * tan(ang)))
+	Spr.line(gar, Color("#2f5a2a"), 9)
+	Spr.line(gar, Color("#4f8a3a"), 4)
+	for k in 6:
+		var q: Vector2 = gar[k * 2 + 1]
+		Spr.circle(q.x, q.y + 4, 4, [Color("#e0463a"), Color("#f0c040"), Color("#3a8ad0")][k % 3])
+	var sw: float = sin(T * .08) * 2.0
+	var cloth := PackedVector2Array([Vector2(-78, -182), Vector2(78, -182), Vector2(74 + sw, -150), Vector2(-74 + sw, -150)])
+	Spr.poly(cloth, Color("#b8322a"))
+	Spr.poly(PackedVector2Array([Vector2(-78, -182), Vector2(78, -182), Vector2(77, -174), Vector2(-77, -174)]), Color(1, 1, 1, .14))
+	cloth.push_back(cloth[0])
+	Spr.line(cloth, Color(.3, .08, .04, .9), 2)
+	Spr.text("CHEGADA", sw * .5, -158, 20, Color("#ffe9a8"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_title, 4, Color(.25, .05, .02, .9))
+	Spr.restore()
+
+## altura da rampa de neve debaixo do trenó (para o trenó subir nela no desenho)
+static func kick_lift(VH: Vehicles, u: float) -> float:
+	for o in VH.OBS:
+		if o.k == "kick":
+			var d: float = float(o.u) - u
+			if d >= 0.0 and d < Vehicles.KICK_LEN:
+				var t: float = 1.0 - d / Vehicles.KICK_LEN
+				return 26.0 * t * t
+	return 0.0
+
+## rampa de neve batida (kick) com bandeirinhas: PULAR em cima dela = salto grande
+static func _kick(x: float, gy: float, T: int, VH: Vehicles) -> void:
+	var L0: float = Vehicles.KICK_LEN
+	var t0: float = VH.sled_tx0()
+	var pts := PackedVector2Array()
+	var cols := PackedColorArray()
+	for k in 9:
+		var t: float = k / 8.0
+		var u: float = x - L0 + t * L0
+		pts.push_back(Vector2(u, VH.sled_y(u - t0) - 26.0 * t * t))
+		cols.push_back(Color(.97, .98, 1))
+	var top := pts.duplicate()
+	pts.push_back(Vector2(x + 4, VH.sled_y(x - t0) + 4))
+	cols.push_back(Color(.72, .8, .94))
+	pts.push_back(Vector2(x - L0, VH.sled_y(x - L0 - t0) + 4))
+	cols.push_back(Color(.85, .9, 1))
+	Spr.ci.draw_polygon(pts, cols)
+	Spr.line(top, Color(1, 1, 1), 3)
+	# face da beirada na sombra
+	Spr.poly(PackedVector2Array([top[8], Vector2(x + 4, gy + 3), Vector2(x - 6, gy + 3)]), Color(.62, .72, .9))
+	# riscos das marcas de outros trenós na rampa
+	Spr.line(PackedVector2Array([top[2] + Vector2(0, 5), top[5] + Vector2(0, 5), top[8] + Vector2(-3, 5)]), Color(.7, .8, .95, .6), 1.5)
+	# bandeirinhas vermelhas no começo e na beirada, e as setinhas douradas: pule aqui!
+	for fx in [x - L0 - 6.0, x - 4.0]:
+		Spr.save()
+		Spr.translate(fx, VH.sled_y(fx - t0) + 3)
+		Spr.rotate(sin(T * .1 + fx) * .04)
+		Spr.P("flagred", 0, 0, 38)
+		Spr.restore()
+	for k in 2:
+		var u2: float = fposmod(T * .03 + k * .5, 1.0)
+		var ay: float = gy - 44 - u2 * 34
+		Spr.line(PackedVector2Array([Vector2(x - 40 - 12, ay + 9), Vector2(x - 40, ay), Vector2(x - 40 + 12, ay + 9)]), Color(1, .82, .3, sin(u2 * PI) * .95), 5)
 
 ## placa fincada na neve com a seta do que fazer (trenó)
 static func _ground_sign(x: float, gy: float, up: bool, T: int) -> void:
@@ -1117,20 +1367,27 @@ static func _cart_track(g: Game, VH: Vehicles, T: int) -> void:
 				o += hh_ - 1.0
 				row += 1
 			cx += tw
-	# dormentes e trilhos
+	# dormentes de madeira (com veio e a ponta mais clara) e trilhos de ferro com brilho em cima
 	var sx: float = floor(a / 26.0) * 26.0
 	while sx < b:
 		var sy: float = VH.sled_y(sx - t0)
-		Spr.rect(sx - 8, sy - 3, 16, 7, Color("#4a3018"))
+		Spr.rect(sx - 9, sy - 4, 18, 8, Color("#3a2412"))
+		Spr.rect(sx - 8, sy - 4, 16, 3, Color("#6b4524"))
+		Spr.seg(sx - 6, sy, sx + 6, sy + 1, Color(.2, .12, .06, .6), 1)
 		sx += 26
 	var rail := PackedVector2Array()
 	for q in top:
-		rail.push_back(q + Vector2(0, -9))
-	Spr.line(rail, Color("#8a8a92"), 3)
+		rail.push_back(q + Vector2(0, -8))
+	Spr.line(rail, Color("#2e2e34"), 5)
+	Spr.line(rail, Color("#7a7a84"), 3)
 	var rail2 := PackedVector2Array()
 	for q in top:
-		rail2.push_back(q + Vector2(0, -7))
-	Spr.line(rail2, Color("#3a3a40"), 1.5)
+		rail2.push_back(q + Vector2(0, -10))
+	Spr.line(rail2, Color(.85, .85, .9, .8), 1.2)
+	# reflexo dos lampiões correndo nos trilhos perto do carrinho
+	if VH.mode == "sled":
+		var gx: float = VH.hx + 60.0 + fposmod(T * 9.0, 300.0)
+		Spr.glow(gx, VH.sled_y(gx - t0) - 9, 16, Color(1, .8, .45, .35))
 	# obstáculos (o destaque verde/laranja é o mesmo do trenó)
 	for o in VH.OBS:
 		if o.x < a - 160 or o.x > b + 160:
@@ -1234,3 +1491,182 @@ static func _cart_track(g: Game, VH: Vehicles, T: int) -> void:
 	var eyy: float = VH.sled_y(ln - 10)
 	Spr.rect(ex, eyy - 46, 18, 46, WOOD)
 	Spr.rect(ex - 6, eyy - 40, 30, 10, Color("#8a2a1a"))
+
+# ======================================================================
+#  POR CIMA DE TUDO NAS SEQUÊNCIAS: linhas de velocidade e a faixa de chegada/marcos
+# ======================================================================
+static func front(g: Game, T: int) -> void:
+	var VH: Vehicles = g.VH
+	if VH == null:
+		return
+	var sq: String = VH.seq()
+	if sq == "sled" and VH.sboard == 0 and VH.sfin == 0:
+		_fg_pines(g, VH, T)
+	elif sq == "plane":
+		_fg_clouds(g, VH, T)
+	if sq != "":
+		_speed_lines(g, VH, sq, T)
+	_cheer(g, VH, T)
+
+## primeiro plano do trenó: copas de pinheiro bem perto da câmera passando rápido embaixo da tela
+## (andam mais que o cenário: dá a sensação de velocidade)
+static func _fg_pines(g: Game, VH: Vehicles, T: int) -> void:
+	var f := 1.45
+	var sp := 520.0
+	var vx0: float = g.rcam * f - 300.0
+	var k0: float = floor(vx0 / sp)
+	var bot: float = g.rcam_y + g.H
+	for i in int((g.W + 600.0) / sp) + 2:
+		var k: float = k0 + i
+		var h1: float = hh(k, 4)
+		if h1 < .45:
+			continue
+		var X: float = k * sp + h1 * 200.0
+		var x: float = X - g.rcam * (f - 1.0)
+		# monte de neve bem perto da câmera, às vezes com um pinheirinho em cima
+		var w: float = 320.0 + h1 * 260.0
+		var mh: float = 60.0 + hh(k, 5) * 45.0
+		if hh(k, 8) < .7:
+			# pinheirinho na sombra (mais escuro: está entre a câmera e o sol)
+			var pt: Texture2D = Spr.tex.get("p_pinheiro", null)
+			if pt:
+				var ph: float = 110.0 + h1 * 60.0
+				var pw: float = ph * pt.get_width() / pt.get_height()
+				var pxx: float = x + (hh(k, 9) - .5) * w * .4
+				Spr.ci.draw_texture_rect(pt, Rect2(pxx - pw / 2, bot - mh + 30.0 - ph, pw, ph), false, Color(.66, .74, .9))
+		var pts := PackedVector2Array()
+		var cols := PackedColorArray()
+		for j in 13:
+			var u: float = j / 12.0
+			var yy: float = bot + 10.0 - sin(u * PI) * mh * (1.0 + .12 * sin(u * 9.0 + k))
+			pts.push_back(Vector2(x - w * .5 + u * w, yy))
+			cols.push_back(Color(.8, .86, .97))
+		var rim := pts.duplicate()
+		pts.push_back(Vector2(x + w * .5, bot + 40))
+		cols.push_back(Color(.5, .6, .82))
+		pts.push_back(Vector2(x - w * .5, bot + 40))
+		cols.push_back(Color(.5, .6, .82))
+		Spr.ci.draw_polygon(pts, cols)
+		Spr.line(rim, Color(.95, .98, 1), 4)
+		var sh := PackedVector2Array()
+		for q in rim:
+			sh.push_back(q + Vector2(0, 14))
+		Spr.line(sh, Color(.62, .72, .9, .8), 5)
+	Spr.alpha = 1.0
+
+## no voo: fiapos de nuvem passando bem perto da câmera (por cima e por baixo do avião)
+static func _fg_clouds(g: Game, VH: Vehicles, T: int) -> void:
+	if VH.phase != "fly":
+		return
+	var f := 1.8
+	var sp := 700.0
+	var k0: float = floor((g.rcam * f - 400.0) / sp)
+	for i in int((g.W + 800.0) / sp) + 2:
+		var k: float = k0 + i
+		var h1: float = hh(k, 6)
+		if h1 < .35:
+			continue
+		var X: float = k * sp + h1 * 300.0
+		var x: float = X - g.rcam * (f - 1.0)
+		var top: bool = hh(k, 7) < .5
+		var y: float = g.rcam_y + (g.H * .06 if top else g.H * .97)
+		var w: float = 200.0 + h1 * 220.0
+		for j in 5:
+			var u: float = (j - 2) / 2.0
+			Spr.ellipse(x + u * w * .4, y + sin(j * 1.7 + k) * 10.0, w * (.3 - abs(u) * .08), 26.0 + 10.0 * cos(j + k), Color(1, 1, 1, .22))
+		Spr.ellipse(x, y, w * .45, 18, Color(1, 1, 1, .12))
+
+## riscos de vento passando pela tela: mais e mais compridos quanto mais rápido
+static func _speed_lines(g: Game, VH: Vehicles, sq: String, T: int) -> void:
+	var v := 0.0
+	var vx := 0.0
+	var vy := 0.0
+	var col := Color(1, 1, 1)
+	match sq:
+		"ride":
+			v = g.RD.spd
+			vx = g.RD.hx
+			vy = g.RD.hy - 60.0
+			if g.RD.endT >= 0:
+				return
+		"sled", "cart":
+			if VH.sboard > 0 or VH.sfin > 0:
+				return
+			v = VH.spd * .85
+			vx = VH.hx
+			vy = VH.hy - 30.0
+			# na neve branca os riscos são azulados (brancos sumiam)
+			col = Color(1, .85, .6) if sq == "cart" else Color(.5, .66, .9)
+		"raft":
+			v = VH.spd * .8
+			vx = VH.hx
+			vy = VH.hy - 40.0
+		"plane":
+			if VH.phase != "fly":
+				return
+			v = VH.spd * 1.15
+			vx = VH.hx
+			vy = VH.hy - 30.0
+	var k: float = clamp((v - 4.6) / 2.4, 0.0, 1.0)
+	if k <= 0.0:
+		return
+	var n: int = 6 + int(k * 8)
+	for i in n:
+		var h1: float = hh(i * 7.31, 1)
+		var h2: float = hh(i * 3.17, 2)
+		# cada risco atravessa a tela da direita para a esquerda, na altura do veículo (± meia tela)
+		var span: float = g.W + 400.0
+		var x: float = g.rcam + g.W + 200.0 - fposmod(T * (18.0 + 10.0 * h2) * (.6 + k * .6) + h1 * span, span)
+		var y: float = vy + (h2 - .5) * g.H * .8
+		if abs(x - vx) < 90 and abs(y - vy) < 70:
+			continue
+		var ln: float = (40.0 + 70.0 * h1) * (.5 + k)
+		var a: float = (.10 + .14 * h2) * k
+		Spr.seg(x, y, x + ln, y, Color(col.r, col.g, col.b, a), 1.6 + h1 * 1.4)
+
+static func hh(x: float, k: int = 0) -> float:
+	var v := sin(x * 12.9898 + k * 78.233) * 43758.5453
+	return v - floor(v)
+
+## faixa grande: aparece crescendo ("pulo" elástico), fica e some subindo
+static func _cheer(g: Game, VH: Vehicles, T: int) -> void:
+	var C: Dictionary = VH.CH
+	if int(C.t) <= 0:
+		return
+	var el: float = float(C.t0) - float(C.t)
+	var u_in: float = clamp(el / 14.0, 0.0, 1.0)
+	var u_out: float = clamp(float(C.t) / 16.0, 0.0, 1.0)
+	# entrada com um "pulo" (passa um pouco do tamanho e volta)
+	var s: float = 1.0 + sin(u_in * PI) * .25 if u_in < 1.0 else 1.0
+	s *= lerpf(.3, 1.0, u_in)
+	var a: float = min(u_in * 2.0, u_out)
+	var small: bool = C.small
+	var cx: float = g.rcam + g.W * .5
+	var cy: float = g.rcam_y + g.H * (.36 if small else .34) - (1.0 - u_out) * 30.0
+	var tsz: int = 34 if small else 60
+	Spr.save()
+	Spr.translate(cx, cy)
+	Spr.scale(s, s)
+	var a0: float = Spr.alpha
+	Spr.alpha = a0 * a
+	# fita de pano atrás do título (com as pontas dobradas)
+	var fw: float = (230.0 if small else 380.0) + str(C.title).length() * (6.0 if small else 10.0)
+	var fh: float = 50.0 if small else 82.0
+	for d in [-1.0, 1.0]:
+		Spr.poly(PackedVector2Array([Vector2(d * fw * .5, -fh * .32), Vector2(d * (fw * .5 + 40), -fh * .32), Vector2(d * (fw * .5 + 22), fh * .05), Vector2(d * (fw * .5 + 40), fh * .42), Vector2(d * fw * .5, fh * .42)]), Color("#7a1e16"))
+	Spr.rr(-fw * .5, -fh * .5, fw, fh, 10, Color("#b8322a"))
+	Spr.rr(-fw * .5, -fh * .5, fw, fh * .35, 10, Color(1, 1, 1, .12))
+	Spr.rr(-fw * .5 + 6, fh * .5 - 10, fw - 12, 5, 3, Color(0, 0, 0, .18))
+	var bd := PackedVector2Array([Vector2(-fw * .5 + 5, -fh * .5 + 5), Vector2(fw * .5 - 5, -fh * .5 + 5), Vector2(fw * .5 - 5, fh * .5 - 5), Vector2(-fw * .5 + 5, fh * .5 - 5), Vector2(-fw * .5 + 5, -fh * .5 + 5)])
+	Spr.line(bd, Color(1, .85, .45, .9), 2)
+	Spr.text(str(C.title), 0, tsz * .36, tsz, Color("#ffe9a8"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_title, 7, Color(.25, .05, .02, .9))
+	if str(C.sub) != "":
+		Spr.text(str(C.sub), 0, fh * .5 + (24 if small else 34), 16 if small else 22, Color(1, 1, 1), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 5, Color(.1, .05, .02, .85))
+	Spr.alpha = a0
+	Spr.restore()
+	# brilhinhos dourados em volta na chegada
+	if not small and u_in >= 1.0:
+		for i in 8:
+			var an: float = TAU * i / 8.0 + T * .02
+			var r: float = fw * .55 + sin(T * .1 + i) * 10.0
+			Spr.text("✦", cx + cos(an) * r, cy + sin(an) * r * .35 + 8, 18, Color(1, .9, .5, a * (.5 + .5 * sin(T * .2 + i))), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b)
