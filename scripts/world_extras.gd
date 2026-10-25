@@ -567,8 +567,9 @@ static func bat(e: Dictionary, T: int) -> void:
 		_pc("bat2", 0, 0, 40)
 		return
 	if e.get("st", 0) == 0:
-		# pendurado de cabeça para baixo, dormindo
-		_pc("bat_hang", 0, 18, 24)
+		# pendurado de cabeça para baixo, dormindo (as garras encostam no teto: antes ficava
+		# 8-10 px abaixo dele, pendurado no nada)
+		_pc("bat_hang", 0, 10, 24)
 		return
 	Spr.P_cycle("bat", ["bat0", "bat1", "bat2", "bat1"], T / 4.0, 0, 0, 50, false, Color.WHITE, true)
 
@@ -967,9 +968,12 @@ static func mech(g: Game, T: int) -> void:
 		Spr.PR("crate", c.x - 2, c.y - 2, c.w + 4, c.h + 4)
 		if g.player.get("pushT", 0) > 0 and Game.hit(g.R(g.player.x - 6, g.player.y, g.player.w + 12, g.player.h), c):
 			Spr.text("⇆", c.x + c.w / 2, c.y - 10, 16, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3)
+	var a_crumb: float = Spr.alpha
 	for s in M.CRUMB:
 		if s.x + s.w < c0 or s.x > c1:
 			continue
+		# tábua/telha que voltou: aparece aos poucos em vez de surgir num estalo
+		Spr.alpha = a_crumb * clamp(float(s.get("pop", 1.0)), 0.0, 1.0)
 		var shake: float = (sin(T * 1.7) * 2.0) if (s.ct > 0 and not s.fallen) else 0.0
 		var yy: float = s.y + s.fy
 		if s.fallen and s.fy > 400:
@@ -1049,3 +1053,4 @@ static func mech(g: Game, T: int) -> void:
 			# serragem caindo antes de quebrar
 			g.PARTS.append({"x": s.x + randf() * s.w, "y": yy + 15, "vx": randf_range(-.4, .4), "vy": .5, "life": 22,
 				"col": Color(.85, .7, .45, .9) if not s.get("icy") else Color(.9, .97, 1, .9)})
+	Spr.alpha = a_crumb

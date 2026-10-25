@@ -404,9 +404,12 @@ func post() -> void:
 					s.rt = 10
 					continue
 				s.fallen = false
+				s.pop = 0.0   # volta aparecendo aos poucos (o desenho usa s.pop)
 				s.ct = 0
 				s.fy = 0.0
 			continue
+		if float(s.get("pop", 1.0)) < 1.0:
+			s.pop = min(1.0, float(s.pop) + .06)
 		var stood := false
 		for b in bodies():
 			if b._g == s:
