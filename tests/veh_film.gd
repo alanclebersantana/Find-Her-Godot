@@ -69,7 +69,10 @@ func _initialize() -> void:
 			acts.append({"k": kv[0], "a": int(fr[0]), "b": int(fr[1]) if fr.size() > 1 else int(fr[0])})
 	var shot := 0
 	for f in skip + n * every:
-		var d := {} if manual else _auto()
+		# FILM_STOP=x: piloto automático só até x (para ver o que acontece sem apertar nada dali em diante)
+		var stop_x: float = float(OS.get_environment("FILM_STOP")) if OS.get_environment("FILM_STOP") != "" else 1e9
+		var cur_x: float = g.RD.hx if mode == "ride" else g.VH.hx
+		var d := {} if (manual or cur_x > stop_x) else _auto()
 		for a in acts:
 			if a.k.length() == 2 and a.k.ends_with("p"):
 				if f == a.a:

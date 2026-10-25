@@ -529,7 +529,10 @@ func _sled_step() -> void:
 					g.shake = max(g.shake, 2)
 		if bad:
 			o.hit = true
+			var t1: int = tries
 			_hurt_sled(o)
+			if tries != t1:
+				return
 	_coins(b)
 	if SL.get("vargas") and vg_t0 < 0 and su >= ln - VG_STOP:
 		vg_t0 = g.T
@@ -768,9 +771,13 @@ func _raft_step() -> void:
 		ff_ok = true
 	# queda-d'água logo à frente: se não pulou, a jangada despenca e bate
 	var nxt: float = hx + spd
+	var t0: int = tries
 	for f in RA.get("falls", []):
 		if hx < f and nxt >= f and on_water:
 			_hurt_raft("queda")
+			if tries != t0:
+				# virou na queda: já recomeçou no marco (antes seguia dali, da beirada da queda)
+				return
 	var g0: float = .42 if (vy < 0 and g.kd("J")) else .6
 	vy += g0
 	if not on_water and ff_ok and g.kd("S") and vy > -5.0:
@@ -839,7 +846,10 @@ func _raft_step() -> void:
 				bad = Game.hit(b, g.R(o.x, oy - 96, dw, 53))
 		if bad:
 			o.hit = true
+			var t2: int = tries
 			_hurt_raft(o.k)
+			if tries != t2:
+				return
 	_coins(b)
 	if hx >= float(RA.x1) - 70:
 		_finish_raft()

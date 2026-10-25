@@ -377,7 +377,12 @@ func step() -> void:
 			bad = Game.hit(b, g.R(r.position.x, r.position.y, r.size.x, r.size.y))
 		if bad:
 			o.hit = true
+			var t0: int = tries
 			_hurt(o)
+			if tries != t0:
+				# sem corações: já voltou para o marco (não confere mais nada neste passo)
+				_place_player()
+				return
 	# lápis
 	for c in g.coins_near(hx - 120, hx + 120):
 		if not c.got and abs(c.x - hx) < 70 and Game.hit(b, g.R(c.x - 15, c.y - 15, 30, 30)):
