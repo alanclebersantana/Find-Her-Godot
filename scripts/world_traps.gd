@@ -18,6 +18,9 @@ static func draw(g: Game, T: int) -> void:
 		var ox: float = o.get("bx", o.x)
 		if ox < c0 - 400 or ox > c1 + 400:
 			continue
+		# cogumelo gigante (o desenho mais caro): só quando ele aparece de fato na tela
+		if o.k == "giant" and (ox + o.w * .8 + 40 < g.cam or ox - o.w * .8 - 40 > g.cam + g.W):
+			continue
 		match o.k:
 			"bounce": _bounce(g, TR, o, T)
 			"flower": _flower(g, TR, o, T)
