@@ -552,15 +552,23 @@ static func _valley(a: float, b: float, bottom: float, T: int, v0: float = -1e9,
 		x += 20
 	Spr.line(rv, Color("#9fd0e8"), 5)
 	Spr.line(rv, Color(1, 1, 1, .4), 1.5)
-	# duas fileiras de copas (a de trás mais clara), cada árvore um cacho de bolas
-	for layer in [0, 1]:
-		var step: float = 34.0 if layer == 0 else 42.0
-		var base_y: float = 590.0 if layer == 0 else 628.0
+	# fileiras de copas descendo a encosta do vale (as de trás mais claras e azuladas pela névoa, as
+	# da frente maiores e mais escuras): o fundo do vale é mata fechada, não um bloco verde liso
+	var steps := [34.0, 42.0, 50.0, 58.0, 66.0]
+	var bases := [590.0, 628.0, 668.0, 710.0, 756.0]
+	var scl := [1.0, 1.3, 1.55, 1.8, 2.05]
+	var tcs := [Color(.78, .88, .9), Color(.62, .74, .7), Color(.52, .64, .6), Color(.44, .56, .52), Color(.38, .49, .46)]
+	# chão da mata atrás das fileiras de baixo, escurecendo para o fundo
+	Spr.vgrad(a, 640, b - a, 160, Color("#7f9c78"), Color("#3a5636"))
+	Spr.rect(a, 800, b - a, max(0.0, bottom - 800 + 200), Color("#3a5636"))
+	for layer in range(5):
+		var step: float = steps[layer]
+		var base_y: float = bases[layer]
 		var tx: float = floor(a / step) * step - step
 		while tx < b + step:
 			var h1: float = WorldStatic_hh(tx + layer * 7.0, 1)
 			var cx: float = tx + h1 * 10
-			var r: float = (14 + h1 * 9) * (1.0 if layer == 0 else 1.3)
+			var r: float = (14 + h1 * 9) * scl[layer]
 			# copas só um pouco além das pontas (encostadas no pé do barranco, não por cima dele)
 			if cx - r * .6 < v0 - 6.0 or cx + r * .6 > v1 + 6.0:
 				tx += step
@@ -572,11 +580,9 @@ static func _valley(a: float, b: float, bottom: float, T: int, v0: float = -1e9,
 				pt = Spr.tex["p_pinheiro"]
 			var ph: float = r * 3.4
 			var pw: float = ph * pt.get_width() / pt.get_height()
-			var tc := Color(.78, .88, .9) if layer == 0 else Color(.62, .74, .7)
+			var tc: Color = tcs[layer]
 			Spr.ci.draw_texture_rect(pt, Rect2(cx - pw / 2, base_y + r * .5 - ph, pw, ph), false, tc.lightened(h1 * .06))
 			tx += step
-	Spr.vgrad(a, 640, b - a, 120, Color("#3f6a36"), Color("#2c4a28"))
-	Spr.rect(a, 760, b - a, bottom - 560, Color("#2c4a28"))
 
 static func WorldStatic_hh(x: float, k: int = 0) -> float:
 	var v := sin(x * 12.9898 + k * 78.233) * 43758.5453

@@ -373,19 +373,38 @@ static func _axe(TR: Traps, o: Dictionary, T: int) -> void:
 		trail.push_back(Vector2(o.x + sin(a2) * (o.len + 18), o.y + cos(a2) * (o.len + 18)))
 	for k in range(trail.size() - 1):
 		Spr.seg(trail[k].x, trail[k].y, trail[k + 1].x, trail[k + 1].y, Color(1, 1, 1, .22 * spd * (1.0 - k / 10.0)), 10.0 - k * .8)
-	# forca de madeira pintada (troncos)
+	# forca de troncos (mesmo trato do tronco-pêndulo): poste roliço fincado no chão, trave de tronco
+	# com casca e musgo, mão-francesa e amarrações de corda grossa nas juntas
+	if not o.has("gy"):
+		o.gy = _ground_at(TR.g, float(o.get("frame", o.x)), float(o.y))
+	var gy: float = o.gy
 	if o.has("frame"):
 		var fx: float = o.frame
-		Spr.PR("log", fx - 9, o.y - 18, 18, 520 - o.y, Color(.85, .8, .75), false)
-		_beam_log(fx - 12, o.x + 16, o.y - 16, 16)
-		Spr.seg(fx + 2, o.y + 36, fx + 38, o.y - 8, Color("#4a3220"), 7)
-		Spr.seg(fx + 2, o.y + 36, fx + 38, o.y - 8, Color("#7a5634"), 3)
-		Spr.circle(fx, o.y - 10, 4, STEEL)
-	# haste de ferro e eixo
-	Spr.seg(o.x, o.y, b.x, b.y, Color("#3a3026"), 7)
-	Spr.seg(o.x, o.y, b.x, b.y, Color("#6a5a48"), 3)
-	Spr.circle(o.x, o.y, 9, Color("#2a221c"))
-	Spr.circle(o.x, o.y, 4, STEEL)
+		var by: float = o.y - 14.0
+		_sw_pole(Vector2(fx, gy + 6), Vector2(fx, by - 10), 9.0, .9)
+		Spr.ellipse(fx, gy + 1, 15, 5, Color("#5a3d24"))
+		Spr.ellipse(fx - 3, gy - 1, 9, 2.5, Color("#7a5a36"))
+		Spr.save()
+		Spr.translate(fx - 18, by)
+		_sw_log(o.x - fx + 44, 10.0, .6, T, true, Color(.86, .82, .78))
+		Spr.restore()
+		var kn := Vector2(fx, by + 62)
+		_sw_pole(kn, Vector2(fx + 52, by + 6), 5.0, .82)
+		for bp in [kn, Vector2(fx + 50, by + 8)]:
+			Spr.circle(bp.x, bp.y, 3.0, Color("#3a3632"))
+			Spr.circle(bp.x - .8, bp.y - .8, 1.2, Color("#9a948a"))
+		_sw_wrap(fx, by, 10.0)
+	# o cabo do machado: pau roliço de madeira preso no eixo por uma argola e um laço de corda grossa
+	var hd: Vector2 = (b - Vector2(o.x, o.y)).normalized()
+	_sw_pole(Vector2(o.x, o.y), b - hd * 10.0, 5.0, 1.0)
+	_sw_wrap(o.x, o.y - 14.0, 10.0)
+	Spr.circle(o.x, o.y, 8, OUT)
+	Spr.circle(o.x, o.y, 6.5, Color("#4a4642"))
+	Spr.circle(o.x - 1.5, o.y - 1.5, 2.5, Color("#9a948a"))
+	for k in 2:
+		var lp: Vector2 = Vector2(o.x, o.y) + hd * (30.0 + k * 70.0)
+		Spr.circle(lp.x, lp.y, 4.0, OUT)
+		Spr.circle(lp.x, lp.y, 3.0, SW_ROPE)
 	Spr.save()
 	Spr.translate(b.x, b.y)
 	Spr.rotate(-a)
@@ -408,14 +427,6 @@ static func _axe(TR: Traps, o: Dictionary, T: int) -> void:
 	Spr.line(bl, Color("#2a3038"), 2)
 	Spr.rr(-6, -16, 12, 16, 3, Color("#4a3220"))
 	Spr.rect(-6, -10, 12, 3, STEEL)
-	Spr.restore()
-
-## viga de tronco pintado deitada (de xa até xb, com altura h)
-static func _beam_log(xa: float, xb: float, y: float, h: float) -> void:
-	Spr.save()
-	Spr.translate(xa, y + h)
-	Spr.rotate(-PI / 2)
-	Spr.PR("log", 0, 0, h, xb - xa, Color(.9, .85, .8), false)
 	Spr.restore()
 
 # ---------- galho que quebra ----------
@@ -692,7 +703,18 @@ static func draw_shadows(g: Game, T: int) -> void:
 	if TR == null:
 		return
 	for o in TR.T:
-		if o.k != "swing" or not o.has("gy") or o.x < g.cam - 500 or o.x > g.cam + g.W + 500:
+		if not o.has("gy") or o.x < g.cam - 500 or o.x > g.cam + g.W + 500:
+			continue
+		if o.k == "axe":
+			# machado: sombra da lâmina andando no chão com o balanço e o pé do poste
+			var ab := TR.axe_blade(o)
+			var ah: float = max(0.0, float(o.gy) - ab.y)
+			var aa: float = .45 * clamp(1.0 - ah / 260.0, .25, 1.0)
+			Spr.ellipse(ab.x + ah * .1, float(o.gy) - 1, 26 + ah * .06, 4 + ah * .01, Color(.12, .05, 0, aa))
+			if o.has("frame"):
+				Spr.ellipse(float(o.frame) + 8, float(o.gy) - 1, 22, 4.5, Color(.12, .05, 0, .3))
+			continue
+		if o.k != "swing":
 			continue
 		var e := TR.swing_end(o)
 		var gy: float = o.gy

@@ -1015,6 +1015,29 @@ static func mech(g: Game, T: int) -> void:
 	for gt in M.GATES:
 		if gt.x + gt.w < c0 or gt.x > c1:
 			continue
+		var gg: Dictionary = WSt.gate_geom(g, gt)
+		if gg.big:
+			# portão no muro de pedra (world_static desenha o muro, os batentes e a viga): a porta de tábuas
+			# sobe para dentro do muro; só aparece a parte dela que ainda está no vão. Passa quando abre
+			# mais de 85% (a colisão some aí), então a porta já está toda lá em cima nessa hora
+			var dh: float = gg.dh
+			var gb: float = gg.bot
+			var vl: float = clamp(gt.open / .85, 0.0, 1.0) * (dh - 10.0)
+			var vh: float = dh - vl
+			if vh > 1.0:
+				Spr.PB("gate_wood", gt.x - 6, gb - dh, gt.w + 12, vh, vl / dh, 1.0)
+				# beirada de baixo da porta com ferragem e a sombra dela no chão
+				Spr.rect(gt.x - 6, gb - vl - 4, gt.w + 12, 4, Color("#2a2622"))
+				Spr.ellipse(gt.x + gt.w / 2, gb + 1, gt.w * .9, 3, Color(0, 0, 0, .3 * (1.0 - vl / dh)))
+			if gt.get("dogpass") and gt.open < .3:
+				var fy2: float = gb - vl - 24
+				Spr.rr(gt.x - 3, fy2, gt.w + 6, 24, 4, Color("#3a2414"))
+				Spr.rr(gt.x - 1, fy2 + 3, gt.w + 2, 19, 3, Color("#a8804a"))
+				var px2: float = gt.x + gt.w / 2
+				Spr.circle(px2, fy2 + 15, 3.2, Color(.3, .2, .1))
+				for k in 3:
+					Spr.circle(px2 - 4 + k * 4, fy2 + 9, 1.6, Color(.3, .2, .1))
+			continue
 		var lift: float = gt.open * (gt.h - 18)
 		var y0: float = gt.y - lift
 		var hh: float = gt.h
