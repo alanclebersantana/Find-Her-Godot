@@ -14,6 +14,15 @@ static func h(x: float, k: int = 0) -> float:
 
 # ---------------------------------------------------------------- capim
 static var _gspring := {}
+static var _gcache := {}
+const GRASS_W := [22.0, 30.0, 30.0, 30.0, 28.0]
+## dados fixos de um tufo em x: [tem tufo, nome da peça, largura, espelhado, deslocamento x,
+## tem orvalho, posição do orvalho, tem joaninha]
+static func _tuft(x: float) -> Array:
+	var kind: int = int(h(x, 3) * 5)
+	var tall: bool = h(x, 7) > .88
+	var w: float = GRASS_W[kind] * (.85 + h(x, 4) * .35) * (1.45 if tall else 1.0)
+	return [h(x) > .3, "grass%d" % kind, w, h(x, 6) > .5, (h(x, 5) - .5) * 10, h(x, 8) > .55, h(x, 9) - .5, h(x, 10) > .93]
 static func grass(g: Game, T: int) -> void:
 	## tufos de grama pintados (mesma arte do cenário): balançam com o vento, abrem quando alguém passa
 	## (Tomé, bichos, Pipoca, chefes), deitam com o pouso e o mergulho, e o empurrão corre pelos vizinhos
@@ -21,6 +30,16 @@ static func grass(g: Game, T: int) -> void:
 	var x1: float = g.cam + g.W + 40
 	var wind: float = g.AMB.get("wind", 0.0)
 	var manha: bool = Polish.period() == "manha"
+	var bugs: bool = not Polish.period() in ["noite", "tunel"]
+	# balanço do vento e onda das rajadas: as partes iguais para todos os tufos, contadas uma vez
+	var sw_f: float = .03 + wind * .05
+	var sw_a: float = 1.2 + wind * 4.0
+	var sw_b: float = wind * 3.0
+	var wvw: float = wind + Polish.gust_k() * .8
+	var wv: float = wvw * 7.0 if wvw >= .05 else 0.0
+	var wv_t: float = g.T * .07
+	var has_flat: bool = not Polish.flat_zones.is_empty()
+	var has_cut: bool = not Polish.cut.is_empty()
 	for s in g.SOL:
 		if s.t != "ground" or s.x > x1 or s.x + s.w < x0 or s.get("snow"):
 			continue
@@ -33,52 +52,59 @@ static func grass(g: Game, T: int) -> void:
 		var x: float = xa
 		var by: float = s.y + 4
 		while x < xb:
-			var r := h(x)
-			if r > .3:
+			var gkey: int = int(x)
+			# o que não muda num tufo (tipo, tamanho, lado, deslocamento, orvalho, joaninha) fica guardado:
+			# antes eram ~10 ruídos e uma montagem de nome por tufo a cada quadro
+			var tf = _gcache.get(gkey)
+			if tf == null:
+				tf = _tuft(x)
+				_gcache[gkey] = tf
+			if tf[0]:
 				# o capim abre quando alguém passa e volta balançando como mola; o empurrão passa
 				# para os tufos vizinhos (onda no capim)
 				# (a mola anda uma vez por passo da lógica: em telas de 90/120 Hz não balança mais rápido)
-				var gkey: int = int(x)
 				var gs: Vector2 = _gspring.get(gkey, Vector2.ZERO)
 				if Polish.FRESH:
 					var gt: float = Polish.grass_push(x, s.y, 34.0)
-					var nb: float = 0.0
-					var gl = _gspring.get(gkey - 34)
-					var gr = _gspring.get(gkey + 34)
-					if gl != null:
-						nb += gl.x
-					if gr != null:
-						nb += gr.x
-					gs.y += (gt + nb * .22 - gs.x) * .2
-					gs.y *= .8
-					gs.x += gs.y
-					if abs(gs.x) < .02 and abs(gs.y) < .02 and gt == 0.0:
-						_gspring.erase(gkey)
-					else:
-						_gspring[gkey] = gs
+					# nada empurrando e nenhuma mola andando: o tufo fica parado (sem conta nenhuma)
+					if gt != 0.0 or not _gspring.is_empty():
+						var nb: float = 0.0
+						var gl = _gspring.get(gkey - 34)
+						var gr = _gspring.get(gkey + 34)
+						if gl != null:
+							nb += gl.x
+						if gr != null:
+							nb += gr.x
+						gs.y += (gt + nb * .22 - gs.x) * .2
+						gs.y *= .8
+						gs.x += gs.y
+						if abs(gs.x) < .02 and abs(gs.y) < .02 and gt == 0.0:
+							_gspring.erase(gkey)
+						else:
+							_gspring[gkey] = gs
 				var push: float = gs.x
-				var sway: float = sin(T * (.03 + wind * .05) + x * .03) * (1.2 + wind * 4.0) + wind * 3.0 + Polish.wind_wave(x)
-				var kind: int = int(h(x, 3) * 5)
-				var tall: bool = h(x, 7) > .88
-				var w: float = [22.0, 30.0, 30.0, 30.0, 28.0][kind] * (.85 + h(x, 4) * .35) * (1.45 if tall else 1.0)
-				var fl: float = Polish.flat_at(x, s.y)
-				var gh: float = Polish.grass_h(x)
-				var gxp: float = x + (h(x, 5) - .5) * 10
+				var sway: float = sin(T * sw_f + x * .03) * sw_a + sw_b
+				if wv > 0.0:
+					sway += max(0.0, sin(x * .008 - wv_t)) * wv
+				var w: float = tf[2]
+				var fl: float = Polish.flat_at(x, s.y) if has_flat else 0.0
+				var gh: float = Polish.grass_h(x) if has_cut else 1.0
+				var gxp: float = x + tf[4]
 				if fl > 0.0 or gh < 1.0:
 					# deitado (mergulho) ou cortado (picareta): achata a altura
 					Spr.save()
 					Spr.translate(gxp, by)
 					Spr.scale(1.0, (1.0 - .7 * fl) * gh)
-					Spr.P("grass%d" % kind, 0, 0, w, h(x, 6) > .5, sway * (1.0 - fl) + push + sign(push) * fl * 20.0, tc)
+					Spr.P(tf[1], 0, 0, w, tf[3], sway * (1.0 - fl) + push + sign(push) * fl * 20.0, tc)
 					Spr.restore()
 				else:
-					Spr.P("grass%d" % kind, gxp, by, w, h(x, 6) > .5, sway + push, tc)
+					Spr.P(tf[1], gxp, by, w, tf[3], sway + push, tc)
 				# orvalho de manhã: gotinhas brilhando na ponta de alguns tufos
-				if manha and h(x, 8) > .55:
+				if manha and tf[5]:
 					var tw: float = .5 + .5 * sin(T * .05 + x)
-					Spr.circle(gxp + sway * .6 + push * .6 + (h(x, 9) - .5) * w * .5, by - w * .55, 1.4, Color(1, 1, 1, .55 * tw))
+					Spr.circle(gxp + sway * .6 + push * .6 + tf[6] * w * .5, by - w * .55, 1.4, Color(1, 1, 1, .55 * tw))
 				# joaninha andando numa folha do capim, de vez em quando
-				if h(x, 10) > .93 and not Polish.period() in ["noite", "tunel"]:
+				if tf[7] and bugs:
 					var lb: float = fposmod(T * .2 + x, 40.0) / 40.0
 					var lx: float = gxp + (lb - .5) * w * .5 + push * .3
 					var ly: float = by - w * (.15 + .3 * lb)
@@ -164,7 +190,12 @@ static func crawl(g: Game, T: int) -> void:
 
 # ---------------------------------------------------------------- pegadas
 static func footprints(g: Game) -> void:
+	# só as que estão na tela (a trilha inteira de pegadas ficava sendo desenhada fora dela)
+	var x0: float = g.cam - 20
+	var x1: float = g.cam + g.W + 20
 	for f in g.X.FOOT:
+		if f.x < x0 or f.x > x1:
+			continue
 		var a: float = clamp(1.0 - f.t / 900.0, 0, 1) * .5
 		var fc := Color(.45, .55, .72, a) if f.get("snow") else Color(.12, .08, .05, a)
 		Spr.ellipse(f.x, f.y - (5 if f.get("snow") else 1), 5, 2, fc)
@@ -255,6 +286,7 @@ static func chalk(g: Game, T: int) -> void:
 
 # ---------------------------------------------------------------- peças com estado
 static func solids(g: Game, T: int) -> void:
+	WorldKings.set_view(g)
 	for s in g.SOL:
 		if s.x > g.cam + g.W + 100 or s.x + s.w < g.cam - 100:
 			continue

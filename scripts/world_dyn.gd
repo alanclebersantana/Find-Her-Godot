@@ -297,6 +297,7 @@ func _draw_front_node(n: CanvasItem) -> void:
 		return
 	Spr.begin(n)
 	_front_decor_fade(g)
+	_ride_front(g)
 	if g.VL:
 		g.VL.draw_front(T)
 	var __d_Traps_draw_front := Time.get_ticks_usec()
@@ -1044,7 +1045,9 @@ func _ride_world(g: Game) -> void:
 		return
 	var x0: float = g.cam - 160
 	var x1: float = g.cam + g.W + 160
-	for o in RD.OBS:
+	# longe da trilha da cavalgada: nem olha os obstáculos (o cavalo continua sendo desenhado abaixo)
+	var near_trail: bool = x1 > float(RD.H.get("ride0", -1e9)) - 200.0 and x0 < float(RD.H.get("ride1", 1e9)) + 400.0
+	for o in (RD.OBS if near_trail else []):
 		if o.x > x1 or o.x + 160 < x0:
 			continue
 		# marca de cascos na neve: o melhor ponto para saltar
@@ -1105,7 +1108,8 @@ func _ride_world(g: Game) -> void:
 					Spr.P("peb%d" % sd, ex + dr * 4, 492, 18, sd == 1, 0.0, Color(.8, .85, .95))
 					Spr.ellipse(ex, 465, 18, 6, Color(.97, .98, 1))
 			"branch":
-				# árvore com neve do lado de lá e um galho baixo cheio de neve por cima da trilha
+				# árvore com neve do lado de lá e o toco com o galho baixo (atrás do cavalo); a parte do
+				# galho que atravessa a trilha é desenhada de novo por cima do cavaleiro, em _ride_front
 				WorldNature.prop("arvore_neve", o.x + 130, 504, 300)
 				WorldNature.prop("galho_neve", o.x + 73, 504, 130, true)
 			"rope":
@@ -1117,6 +1121,10 @@ func _ride_world(g: Game) -> void:
 					Spr.poly(PackedVector2Array([Vector2(o.x + 8 + k * 20, 383), Vector2(o.x + 14 + k * 20, 395), Vector2(o.x + 20 + k * 20, 383)]), [Color("#e0463a"), Color("#f0c040"), Color("#3a8ad0"), Color("#5ab04a")][k])
 	var H: Dictionary = RD.H
 	if RD.riding:
+		return
+	# cavalo longe da tela (preso lá na neve, ou indo embora): não desenha
+	var hxv: float = float(H.hx) if H.st == "gone" else float(H.x)
+	if hxv < x0 - 200 or hxv > x1 + 200:
 		return
 	var ft := Spr.opt("horse_free")
 	match H.st:
@@ -1137,6 +1145,31 @@ func _ride_world(g: Game) -> void:
 				Spr.frame(ft, 3, 260, 250, 130, 244, H.hx, 503, RS, true)
 
 var _hpitch := 0.0
+## cavalgada: o galho baixo por cima do Tomé e do cavalo (a árvore fica atrás, em _ride_world)
+func _ride_front(g: Game) -> void:
+	var RD: Ride = g.RD
+	if RD == null or RD.H.is_empty():
+		return
+	var x0: float = g.cam - 160
+	var x1: float = g.cam + g.W + 160
+	if x1 < float(RD.H.get("ride0", -1e9)) - 200.0 or x0 > float(RD.H.get("ride1", 1e9)) + 400.0:
+		return
+	var t: Texture2D = null
+	for o in RD.OBS:
+		if o.k == "branch" and o.x <= x1 and o.x + 160 >= x0:
+			if t == null:
+				WorldNature.prop("galho_neve", -9999, 0, 1)   # garante a textura carregada
+				t = Spr.tex["p_galho_neve"]
+			# só o galho (colunas da direita da pintura, espelhada): o toco continua atrás do cavalo
+			var hh := 130.0
+			var ww: float = hh * t.get_width() / t.get_height()
+			var c0: float = t.get_width() * .5
+			Spr.save()
+			Spr.translate(o.x + 73, 504)
+			Spr.scale(-1, 1)
+			Spr.ci.draw_texture_rect_region(t, Rect2(-ww / 2 + ww * .5, -hh, ww * .5, hh), Rect2(c0, 0, t.get_width() - c0, t.get_height()), Color(1, 1, 1, Spr.alpha))
+			Spr.restore()
+
 func _rider(g: Game) -> void:
 	var RD: Ride = g.RD
 	var p: Dictionary = g.player

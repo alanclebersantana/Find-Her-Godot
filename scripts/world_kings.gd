@@ -261,6 +261,14 @@ static func _hh(x: float, k: int) -> float:
 	var v := sin(x * 12.9898 + k * 78.233) * 43758.5453
 	return v - floor(v)
 
+## faixa de altura visível na tela (quem desenha os muros acerta antes): as fileiras do muro alto
+## do urso que ficam bem acima da tela não são desenhadas (o muro tem 900 px de altura)
+static var vy0 := -1e9
+static var vy1 := 1e9
+static func set_view(g) -> void:
+	vy0 = g.cam_y - 150.0
+	vy1 = g.cam_y + g.H + 150.0
+
 ## muro de pedra pintada que fecha a arena do chefe: sobe do chão fileira por fileira levantando
 ## poeira, com a base enterrada num monte de terra/neve; quando o chefe perde, afunda de novo
 static func gate(s: Dictionary, T: int, sink: float = -1.0) -> void:
@@ -272,31 +280,24 @@ static func gate(s: Dictionary, T: int, sink: float = -1.0) -> void:
 	var cx: float = s.x + s.w * .5
 	var wx: float = s.x - 14
 	var ww: float = s.w + 28
-	var yy: float = bot - 4
-	var row := 0
 	var snow: bool = s.y + s.h <= 520 and s.x > 32000 and s.x < 56000
-	while yy > s.y + 2:
-		var bh: float = 28.0 + _hh(s.x + row, 33) * 16.0
-		var top: float = max(s.y, yy - bh)
-		if top >= vis_top - 2:
-			var u: float = clamp((bot - yy) / max(1.0, s.h), 0, 1)
-			Spr.rr(wx - 3, top - 2, ww + 6, yy - top + 4, 10, Color(.16, .12, .09, .95))
-			var x: float = wx
-			var i := 0
-			while x < wx + ww - 8:
-				var bw: float = (yy - top) * (1.0 + _hh(s.x + row * 13 + i, 34) * .7)
-				if wx + ww - (x + bw) < 14:
-					bw = wx + ww - x
-				var m: float = .95 - u * .12 + (_hh(s.x + row * 3 + i, 36) - .5) * .12
-				var col := Color(m, m * .97, m * .93) if not snow else Color(m * .92, m * .96, m * 1.06)
-				Spr.PR("wb%d" % int(_hh(s.x + row * 5 + i * 11, 37) * 6), x - 3, top - 3, bw + 6, yy - top + 6, col, _hh(s.x + i + row, 38) > .5)
-				x += bw
-				i += 1
-			# neve no alto de cada pedra de cima
-			if snow and top < vis_top + bh:
-				Spr.rr(wx - 2, top - 5, ww + 4, 9, 5, Color(.96, .98, 1))
-		yy -= bh
-		row += 1
+	# as pedras de cada fileira são sempre as mesmas: calculadas uma vez e guardadas no muro
+	# (antes eram ~4 ruídos e um nome montado por pedra a cada quadro; o muro do urso tem 900 px)
+	var rows: Array = s.get("_gc", [])
+	if rows.is_empty():
+		rows = _gate_rows(s, wx, ww, bot, snow)
+		s._gc = rows
+	for r in rows:
+		var top: float = r[0]
+		var yy: float = r[1]
+		if top < vis_top - 2 or yy < vy0 or top > vy1:
+			continue
+		Spr.rr(wx - 3, top - 2, ww + 6, yy - top + 4, 10, Color(.16, .12, .09, .95))
+		for st in r[2]:
+			Spr.PR(st[0], st[1], st[2], st[3], st[4], st[5], st[6])
+		# neve no alto de cada pedra de cima
+		if snow and top < vis_top + r[3]:
+			Spr.rr(wx - 2, top - 5, ww + 4, 9, 5, Color(.96, .98, 1))
 	# poeira subindo enquanto o muro sobe ou afunda
 	if (rise > 0 and rise < 1) and T % 2 == 0:
 		for k in 2:
@@ -308,11 +309,38 @@ static func gate(s: Dictionary, T: int, sink: float = -1.0) -> void:
 	for k in 3:
 		Spr.P("peb%d" % k, cx - ww * .6 + k * ww * .55, bot + 6, 14, k == 1)
 
+## fileiras do muro: [topo, base, pedras [nome, x, y, w, h, cor, espelhada], altura da fileira]
+static func _gate_rows(s: Dictionary, wx: float, ww: float, bot: float, snow: bool) -> Array:
+	var rows: Array = []
+	var yy: float = bot - 4
+	var row := 0
+	while yy > s.y + 2:
+		var bh: float = 28.0 + _hh(s.x + row, 33) * 16.0
+		var top: float = max(s.y, yy - bh)
+		var u: float = clamp((bot - yy) / max(1.0, s.h), 0, 1)
+		var stones: Array = []
+		var x: float = wx
+		var i := 0
+		while x < wx + ww - 8:
+			var bw: float = (yy - top) * (1.0 + _hh(s.x + row * 13 + i, 34) * .7)
+			if wx + ww - (x + bw) < 14:
+				bw = wx + ww - x
+			var m: float = .95 - u * .12 + (_hh(s.x + row * 3 + i, 36) - .5) * .12
+			var col := Color(m, m * .97, m * .93) if not snow else Color(m * .92, m * .96, m * 1.06)
+			stones.append(["wb%d" % int(_hh(s.x + row * 5 + i * 11, 37) * 6), x - 3, top - 3, bw + 6, yy - top + 6, col, _hh(s.x + i + row, 38) > .5])
+			x += bw
+			i += 1
+		rows.append([top, yy, stones, bh])
+		yy -= bh
+		row += 1
+	return rows
+
 ## muros que afundam depois da luta
 static func sinking(g: Game, T: int) -> void:
 	var K = g.K
 	if K == null:
 		return
+	set_view(g)
 	var keep: Array = []
 	for s in K.SINK:
 		var u: float = (T - int(s.st0)) / 40.0
