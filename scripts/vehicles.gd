@@ -120,6 +120,17 @@ func on_respawn() -> void:
 		duck = false
 		vy = 0.0
 		crashT = 0
+	# voltou para uma fogueira de ANTES do passeio (ele terminou o passeio mas não chegou a acender a
+	# fogueira seguinte): o passeio volta a valer. Antes a jangada ficava lá no fim do rio, a margem
+	# de cá ficava sem jangada e o Tomé só morria na correnteza (o mesmo valia para o avião e o trenó)
+	var sx: float = float(g.player.x) + float(g.player.w) / 2.0
+	if raft_done and not RA.is_empty() and sx < float(RA.x0):
+		raft_done = false
+		g.SOL = g.SOL.filter(func(s): return s.get("id") != "raftfence")
+	if plane_done and not PL.is_empty() and sx < float(PL.x) - 40.0:
+		plane_done = false
+	if sled_done and not SL.is_empty() and sx < float(SL.x) - 40.0:
+		sled_done = false
 	if not RA.is_empty():
 		if raft_done:
 			_drop_raft_sol()

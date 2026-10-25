@@ -1167,11 +1167,19 @@ func _follow() -> void:
 	# muito longe (o Tomé entrou num esconderijo, subiu uma escada...): aparece perto dele
 	var off_screen: bool = DOG.x < g.cam - 120 or DOG.x > g.cam + g.W + 120 or DOG.y < g.cam_y - 120 or DOG.y > g.cam_y + g.H + 120
 	if (far > 700 or (off_screen and far > 260)) and g.player.onGround:
+		DOG.erase("jmp")
 		DOG.x = TRAIL[ti].x
 		DOG.y = TRAIL[ti].y
 		DOG.i = ti
 		DOG.hy = 0.0
 		g.burst(DOG.x, DOG.y - 16, 10, Color("#d8c8a0"))
+		return
+	# brejo: o Pipoca não anda no ar por cima de vitória-régia que afundou ou sumiu. Pula de folha em
+	# folha (ou de volta para a margem) e, se não houver nada ao alcance, senta na beirada e espera
+	if DOG.has("jmp"):
+		_dog_hop_step()
+		return
+	if _dog_hop_check(ti, far, off_screen):
 		return
 	if DOG.i >= ti:
 		DOG.st = "sit" if DOG.t % 600 > 30 else "follow"
@@ -1244,6 +1252,102 @@ func _follow() -> void:
 	var moved: float = Vector2(DOG.x, DOG.y).distance_to(from)
 	DOG.moving = moved > .25
 	DOG.anim += moved * .08
+
+## ponto (x, y) em cima da água do brejo (onde só as vitórias-régias e troncos seguram)?
+func _dog_over_swamp(x: float, y: float) -> bool:
+	for s in g.SWAMP:
+		if x > s.x + 2 and x < s.x + s.w - 2 and y > float(s.y) - 40.0 and y < float(s.y) + 40.0:
+			return true
+	return false
+
+## tem onde pisar em (x, y)? Fora do brejo, sempre (o caminho do Tomé é chão); no brejo, só folha
+## boiando de verdade (não a que está afundando ou que sumiu) ou outro sólido na mesma altura
+func _dog_supported(x: float, y: float) -> bool:
+	if not _dog_over_swamp(x, y):
+		return true
+	for lp in g.LILY:
+		if lp.st == 0 and x >= lp.x - 6 and x <= lp.x + lp.w + 6 and abs(float(lp.y) - y) < 10.0:
+			return true
+	for so in g.blockers():
+		if so.get("lily") or so.get("deco"):
+			continue
+		if x >= so.x - 4 and x <= so.x + so.w + 4 and abs(float(so.y) - y) < 8.0:
+			return true
+	return false
+
+## decide o pulo no brejo; true = o passo do Pipoca já foi resolvido aqui
+func _dog_hop_check(ti: int, far: float, off_screen: bool) -> bool:
+	var nx_i: int = min(DOG.i + 1, TRAIL.size() - 1)
+	var near_water: bool = _dog_over_swamp(DOG.x, DOG.y) or (DOG.i < ti and _dog_over_swamp(TRAIL[nx_i].x, TRAIL[nx_i].y))
+	if not near_water:
+		return false
+	var here_ok: bool = _dog_supported(DOG.x, DOG.y)
+	var next_ok: bool = DOG.i >= ti or _dog_supported(TRAIL[nx_i].x, TRAIL[nx_i].y)
+	if here_ok and next_ok:
+		return false
+	# próxima pegada com apoio, ao alcance de um pulo
+	var j := -1
+	for k in range(DOG.i + 1, ti + 1):
+		var q: Vector2 = TRAIL[k]
+		if abs(q.x - DOG.x) > 210.0:
+			break
+		if _dog_supported(q.x, q.y):
+			j = k
+			break
+	if j < 0 and not here_ok:
+		# a folha afundou embaixo dele: volta pulando para a última folha (ou margem) que ainda boia
+		var k2: int = DOG.i
+		while k2 >= 0 and abs(TRAIL[k2].x - DOG.x) <= 210.0:
+			if _dog_supported(TRAIL[k2].x, TRAIL[k2].y) and Vector2(TRAIL[k2]).distance_to(Vector2(DOG.x, DOG.y)) > 6.0:
+				j = k2
+				break
+			k2 -= 1
+	if j >= 0:
+		var a := Vector2(DOG.x, DOG.y)
+		var b: Vector2 = TRAIL[j]
+		var dd: float = max(1.0, a.distance_to(b))
+		DOG.jmp = {"a": a, "b": b, "j": j, "u": 0.0, "du": clamp(5.5 / dd, .045, .2), "hh": clamp(dd * .35, 18.0, 60.0)}
+		DOG.st = "follow"
+		DOG.face = 1 if b.x >= a.x else -1
+		return true
+	if not here_ok:
+		# nada ao alcance (a margem ficou longe): nada até a pegada com apoio mais perto do caminho
+		for k3 in range(TRAIL.size() - 1, -1, -1):
+			if _dog_supported(TRAIL[k3].x, TRAIL[k3].y) and not _dog_over_swamp(TRAIL[k3].x, TRAIL[k3].y):
+				DOG.x = TRAIL[k3].x
+				DOG.y = TRAIL[k3].y
+				DOG.i = k3
+				DOG.hy = 0.0
+				g.burst(DOG.x, DOG.y - 16, 10, Color("#d8c8a0"))
+				return true
+	# espera na beirada (sentado) até a folha voltar a boiar ou o Tomé ir longe (aí ele reaparece perto)
+	DOG.st = "sit"
+	DOG.hy = 0.0
+	DOG.v = 0.0
+	DOG.moving = false
+	return true
+
+## no meio do pulo de folha em folha: arco até a pegada escolhida
+func _dog_hop_step() -> void:
+	var J: Dictionary = DOG.jmp
+	# alguém mexeu nele no meio do pulo (troca de controle, volta à fogueira...): esquece o pulo
+	if J.has("last") and Vector2(DOG.x, DOG.y).distance_to(J.last) > 2.0:
+		DOG.erase("jmp")
+		DOG.hy = 0.0
+		return
+	J.u = min(1.0, float(J.u) + float(J.du))
+	var q: Vector2 = Vector2(J.a).lerp(J.b, J.u)
+	DOG.x = q.x
+	DOG.y = q.y
+	DOG.hy = -float(J.hh) * sin(float(J.u) * PI)
+	DOG.moving = true
+	DOG.anim += 5.5 * .08
+	J.last = Vector2(DOG.x, DOG.y)
+	if J.u >= 1.0:
+		DOG.erase("jmp")
+		DOG.i = clamp(int(J.j), 0, TRAIL.size() - 1)
+		DOG.hy = 0.0
+		ripple(DOG.x, DOG.y + 8, .7)
 
 ## o pedaço do caminho entre as pegadas i e i+1 passa por dentro de algo sólido?
 var _blk_cache := {}

@@ -310,6 +310,7 @@ func _draw_front_node(n: CanvasItem) -> void:
 	var __d_Extras_grass := Time.get_ticks_usec()
 	WorldExtras.grass(g, T)
 	Spr.pt("d_Extras_grass", __d_Extras_grass)
+	WorldTraps.draw_shadows(g, T)
 	Polish.draw_front(g, T)
 	for f in g.FXS:
 		Spr.A(f.n, f.x, f.y, f.sc, false, 1.0 - float(f.t) / f.life)
@@ -602,10 +603,27 @@ func _entrances(g: Game) -> void:
 			Spr.text("↓", e.x + e.w / 2, e.y - 6 + sin(T * .15) * 3, 22, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
 
 func _lily_mud(g: Game) -> void:
+	# vitórias-régias sempre inteiras: afundam e inclinam com o peso do Tomé (mola em game._plat_dips),
+	# descem para baixo da água turva quando afundam de vez e voltam boiando de lá
 	for p in g.LILY:
-		if p.st == 2:
+		var cx: float = p.x + p.w / 2
+		if cx < g.cam - 200 or cx > g.cam + g.W + 200:
 			continue
-		Spr.ABb("sw_lily_sink" if (p.t > 25 or p.st == 1) else "sw_lily", p.x + p.w / 2, p.y + 22, p.w + 16)
+		var by: float = p.y + 22 + float(p.get("dip", 0.0))
+		var al := 1.0
+		if p.st == 2:
+			# lá no fundo, balançando devagar (a água por cima deixa só a sombra dela)
+			by = p.y0 + 22 + 44 + sin(T * .04 + p.x) * 2
+			al = .75
+		elif p.st == 1:
+			al = clamp(1.0 - (p.y - p.y0 - 14.0) / 20.0, .75, 1.0)
+		var piv: float = float(p.get("piv", 0.0))
+		Spr.save()
+		Spr.translate(cx + piv, by - 6)
+		Spr.rotate(float(p.get("tilt", 0.0)) + (sin(T * .03 + p.x) * .02 if p.st == 2 else 0.0))
+		Spr.translate(-piv, 6)
+		Spr.ABb("sw_lily", 0, 0, p.w + 16, al)
+		Spr.restore()
 	for m in g.MUD:
 		Spr.strip_at("sw_mud", m.x, m.x, m.x + m.w, m.y - 8, 22)
 

@@ -31,7 +31,7 @@ static func draw(g: Game, T: int) -> void:
 			"snap": _snap(o, T)
 			"cage": _cage(o, T)
 			"net": _net(o, T)
-			"swing": _swing(TR, o, T)
+			"swing": _swing(g, TR, o, T)
 			"hive": _hive(g, o, T)
 			"sand": _sand_back(o, T)
 			"web": _web(g, o, T)
@@ -67,25 +67,156 @@ static func _bounce(g: Game, TR: Traps, o: Dictionary, T: int) -> void:
 	elif to is Array:
 		tilt = clamp((float(to[0]) - x) / 900.0, -.35, .35)
 	Spr.glow(x, y - 30, 46, Color(1, .75, .55, .25 + sin(T * .08 + x) * .08))
-	Spr.ellipse(x, y + 1, 22, 4, Color(0, 0, 0, .25))
-	# caule
-	Spr.poly(PackedVector2Array([Vector2(x - 8, y), Vector2(x - 6, y - 24 + sq * 6), Vector2(x + 6, y - 24 + sq * 6), Vector2(x + 9, y)]), Color("#efe2c4"))
-	Spr.seg(x - 8, y, x - 6, y - 22 + sq * 6, Color("#c9b48a"), 2)
+	Spr.ellipse(x + 3, y + 1, 24, 4.5, Color(0, 0, 0, .28))
+	# caule com volume (encurta junto com o chapéu quando amassa)
+	var stl: Array = _mstem_lr(x, y - 21 + sq * 6, 13.0, x, y + 1, 18.0, 0.0, 5)
+	_mstem(stl[0], stl[1], Color("#efe2c4"), x)
 	Spr.save()
 	Spr.translate(x, y - 22 + sq * 6)
 	Spr.rotate(tilt)
 	Spr.scale(1 + sq * .35, 1 - sq * .4)
-	var cap := PackedVector2Array()
-	for i in 17:
-		var a := PI + PI * i / 16.0
-		cap.push_back(Vector2(cos(a) * 32, sin(a) * 22))
-	var cc := Color("#e0563a") if o.get("c", "") != "azul" else Color("#4a8fd8")
-	Spr.poly(cap, cc)
-	Spr.ellipse(0, -1, 32, 4, cc.darkened(.35))
-	for d in [[-16, -10, 5], [2, -16, 6], [17, -8, 4.5], [-4, -6, 3]]:
-		Spr.circle(d[0], d[1], d[2], Color("#fbf3dc"))
-	Spr.line(cap, OUT, 2)
+	var cc := Color("#d8452c") if o.get("c", "") != "azul" else Color("#3f84d0")
+	_mcap(0, -24, 66, 24, cc, Color("#fbf3dc"), x, true, Color(0, 0, 0, 0), 5)
 	Spr.restore()
+
+# ---------- cogumelos: chapéu e caule com volume (todos os cogumelos das armadilhas usam) ----------
+const MU_LIGHT := Vector2(-.55, -.84)   # luz de cima, um pouco à esquerda
+
+static func _mh(a: float, b: float) -> float:
+	return fposmod(sin(a * 12.9898 + b * 78.233) * 43758.5453, 1.0)
+
+## chapéu de cogumelo com o topo em (cx, ty), largura w e altura h até a borda: lamelas por baixo,
+## cúpula com luz e sombra própria (leque de cores a partir do ponto de luz), lábio grosso na borda,
+## pintas em relevo (achatadas perto da borda), brilho molhado e, se frill.a > 0, a saia de babados
+static func _mcap(cx: float, ty: float, w: float, h: float, col: Color, spot: Color, seed: float, gills: bool = true, frill: Color = Color(0, 0, 0, 0), nsp: int = 6) -> void:
+	var rx: float = w * .5
+	var rim: float = ty + h
+	if gills:
+		# lado de baixo: lamelas saindo do pé até a borda
+		Spr.ellipse(cx, rim + 2, rx * .9 + 1.5, h * .26 + 2.0, OUT)
+		Spr.ellipse(cx, rim + 2, rx * .9, h * .26, Color("#d2b48c"))
+		Spr.ellipse(cx, rim + 1 + h * .05, rx * .42, h * .1, Color("#a2835c"))
+		for k in 15:
+			var a: float = PI * (k + .5) / 15.0
+			Spr.seg(cx + cos(a) * rx * .25, rim + 2 + sin(a) * h * .06, cx + cos(a) * rx * .86, rim + 2 + sin(a) * h * .24, Color(.4, .28, .16, .55), 1.0)
+	var N := 22
+	var dome := PackedVector2Array()
+	var cols := PackedColorArray()
+	var hi: Color = col.lightened(.3)
+	var lo: Color = col.darkened(.55)
+	for i in N + 1:
+		var a: float = PI + PI * i / float(N)
+		var bul: float = pow(abs(sin(a)), .62)          # cúpula estufada (mais cheia que meia elipse)
+		dome.push_back(Vector2(cx + cos(a) * rx, rim - bul * h))
+		var d: float = Vector2(cos(a), -bul).normalized().dot(MU_LIGHT)
+		cols.push_back(col.lerp(hi, d * .5) if d > 0.0 else col.lerp(lo, -d * .75))
+	var lip := PackedVector2Array()
+	for i in 9:
+		var u: float = i / 8.0
+		lip.push_back(Vector2(cx + rx - 2.0 * rx * u, rim + sin(u * PI) * h * .15))
+	var ol := dome.duplicate()
+	ol.append_array(lip)
+	Spr.poly(ol, OUT)
+	# cúpula: leque do ponto de luz até a borda
+	var hc := Vector2(cx - rx * .26, rim - h * .64)
+	var hcol: Color = col.lightened(.32)
+	for i in N:
+		Spr.ci.draw_polygon(PackedVector2Array([hc, dome[i], dome[i + 1]]), PackedColorArray([Spr.col(hcol), Spr.col(cols[i]), Spr.col(cols[i + 1])]))
+	Spr.ci.draw_polygon(PackedVector2Array([hc, dome[N], dome[0]]), PackedColorArray([Spr.col(hcol), Spr.col(cols[N]), Spr.col(cols[0])]))
+	# lábio da borda (a espessura do chapéu), mais escuro embaixo
+	Spr.poly(lip, col.darkened(.42))
+	Spr.seg(cx - rx * .92, rim + 1, cx + rx * .92, rim + 1, Color(1, 1, 1, .12), 1.2)
+	# pintas em relevo: sombra embaixo, a pinta e um brilho em cima
+	for k in nsp:
+		var u2: float = clamp((k + .5) / float(nsp) + (_mh(seed, k) - .5) * .12, .08, .92)
+		var v2: float = .28 + _mh(seed + 3.1, k) * .5
+		var a2: float = PI + PI * u2
+		var bul2: float = pow(abs(sin(a2)), .62)
+		var px: float = cx + cos(a2) * rx * .9 * (1.0 - v2 * .25)
+		var py: float = rim - bul2 * h * v2 - h * .08
+		var sz: float = w * (.045 + _mh(seed + 7.7, k) * .045)
+		var sx: float = sz * (.45 + .55 * abs(sin(a2)))
+		var sy: float = sz * (.55 + .35 * v2)
+		Spr.ellipse(px + .8, py + 1.4, sx + .6, sy + .4, Color(lo.r, lo.g, lo.b, .55))
+		Spr.ellipse(px, py, sx, sy, spot)
+		Spr.ellipse(px - sx * .3, py - sy * .34, sx * .4, sy * .3, Color(1, 1, 1, .32))
+	# brilho molhado: risco de luz curvo no alto e uma gotinha de reflexo
+	var shp := PackedVector2Array()
+	for i in 7:
+		var a3: float = PI * 1.14 + PI * .3 * i / 6.0
+		shp.push_back(Vector2(cx + cos(a3) * rx * .78, rim - pow(abs(sin(a3)), .62) * h * .84))
+	Spr.line(shp, Color(1, 1, 1, .38), max(1.4, h * .09))
+	Spr.circle(cx - rx * .12, rim - h * .9, max(1.1, h * .05), Color(1, 1, 1, .75))
+	Spr.line(ol, OUT, 2.2)
+	if frill.a > 0.0:
+		# saia de babados na borda (os cogumelos-mola)
+		var nf: int = int(clamp(w / 9.0, 8.0, 20.0))
+		var fr: float = max(3.0, h * .16)
+		for pass_ in 2:
+			for k in nf:
+				var u3: float = k / float(nf - 1)
+				var fx: float = cx - rx * .97 + rx * 1.94 * u3
+				var fy: float = rim + sin(u3 * PI) * h * .15 + 2.0
+				if pass_ == 0:
+					Spr.circle(fx, fy, fr + 1.5, OUT)
+				else:
+					Spr.circle(fx, fy, fr, frill)
+					Spr.circle(fx + fr * .25, fy + fr * .3, fr * .6, frill.darkened(.18))
+					Spr.circle(fx - fr * .3, fy - fr * .35, fr * .35, Color(1, 1, 1, .7))
+
+## caule de cogumelo a partir das bordas esquerda (L) e direita (R): luz na esquerda, sombra na
+## direita, a sombra do chapéu lá em cima, fibras e pintinhas
+static func _mstem(L: PackedVector2Array, R: PackedVector2Array, col: Color, seed: float) -> void:
+	var n: int = min(L.size(), R.size())
+	if n < 2:
+		return
+	var lc: Color = col.lightened(.18)
+	var dc: Color = col.darkened(.38)
+	for i in n - 1:
+		var c0: Vector2 = L[i].lerp(R[i], .38)
+		var c1: Vector2 = L[i + 1].lerp(R[i + 1], .38)
+		Spr.ci.draw_polygon(PackedVector2Array([L[i], c0, c1, L[i + 1]]), PackedColorArray([Spr.col(lc), Spr.col(col), Spr.col(col), Spr.col(lc)]))
+		Spr.ci.draw_polygon(PackedVector2Array([c0, R[i], R[i + 1], c1]), PackedColorArray([Spr.col(col), Spr.col(dc), Spr.col(dc), Spr.col(col)]))
+	# sombra do chapéu no alto do caule
+	var k1: int = max(1, int(n * .3))
+	for i in k1:
+		var a0: float = .45 * (1.0 - i / float(k1))
+		var a1: float = .45 * (1.0 - (i + 1) / float(k1))
+		Spr.ci.draw_polygon(PackedVector2Array([L[i], R[i], R[i + 1], L[i + 1]]), PackedColorArray([Spr.col(Color(0, 0, 0, a0)), Spr.col(Color(0, 0, 0, a0)), Spr.col(Color(0, 0, 0, a1)), Spr.col(Color(0, 0, 0, a1))]))
+	# fibras ao comprido e pintinhas
+	for f in 3:
+		var u: float = .2 + f * .28
+		var pts := PackedVector2Array()
+		for i in n:
+			pts.push_back(L[i].lerp(R[i], u + sin(i * 1.3 + f + seed) * .03))
+		Spr.line(pts, Color(.4, .3, .2, .22), 1.1)
+	for k in 6:
+		var i2: int = int(_mh(seed, k) * (n - 1))
+		var q: Vector2 = L[i2].lerp(R[i2], .15 + _mh(seed + 2.0, k) * .7)
+		Spr.ellipse(q.x, q.y + 2, 1.4, 1.0, Color(.35, .25, .15, .4))
+	Spr.line(L, OUT, 1.8)
+	Spr.line(R, OUT, 1.8)
+
+## arco de elipse (para as voltas da mola)
+static func _arc_e(cx: float, cy: float, rx: float, ry: float, a0: float, a1: float, c: Color, w: float) -> void:
+	var pts := PackedVector2Array()
+	for i in 13:
+		var a: float = lerpf(a0, a1, i / 12.0)
+		pts.push_back(Vector2(cx + cos(a) * rx, cy + sin(a) * ry))
+	Spr.line(pts, c, w)
+
+## bordas de um caule reto (afinando para cima) de (xt, yt) até (xb, yb)
+static func _mstem_lr(xt: float, yt: float, wt: float, xb: float, yb: float, wb: float, bend: float = 0.0, n: int = 6) -> Array:
+	var L := PackedVector2Array()
+	var R := PackedVector2Array()
+	for i in n + 1:
+		var t: float = i / float(n)
+		var cx: float = lerpf(xt, xb, t) + bend * sin(t * PI)
+		var hw: float = lerpf(wt, wb, t * t) * .5
+		var y: float = lerpf(yt, yb, t)
+		L.push_back(Vector2(cx - hw, y))
+		R.push_back(Vector2(cx + hw, y))
+	return [L, R]
 
 # ---------- flor-catapulta ----------
 static func _flower(g: Game, TR: Traps, o: Dictionary, T: int) -> void:
@@ -509,35 +640,247 @@ static func draw_front(g: Game, T: int) -> void:
 		if o.k == "sand" and o.x < g.cam + g.W + 100 and o.x + o.w > g.cam - 100:
 			_sand_front(o, T)
 
+## sombras no chão das armadilhas que balançam (por cima do capim da frente, que cobre a borda do chão)
+static func draw_shadows(g: Game, T: int) -> void:
+	var TR: Traps = g.TR
+	if TR == null:
+		return
+	for o in TR.T:
+		if o.k != "swing" or not o.has("gy") or o.x < g.cam - 500 or o.x > g.cam + g.W + 500:
+			continue
+		var e := TR.swing_end(o)
+		var gy: float = o.gy
+		# sombra da tora: anda junto com o balanço, mais nítida e menor quando ela passa baixinho
+		var hgt: float = max(0.0, gy - (e.y + 13))
+		var sa: float = .5 * clamp(1.0 - hgt / 260.0, .3, 1.0)
+		Spr.ellipse(e.x + hgt * .12, gy - 1, 50 + hgt * .1, 6 + hgt * .012, Color(.12, .05, 0, sa))
+		Spr.ellipse(e.x + hgt * .12, gy - 1, 30 + hgt * .05, 3.5, Color(.12, .05, 0, sa * .6))
+		# pés do cavalete
+		for sd in [-1.0, 1.0]:
+			Spr.ellipse(o.x + sd * 238.0 + 8, gy - 1, 22, 4.5, Color(.12, .05, 0, .3))
+
 # ---------- tronco-pêndulo ----------
-static func _swing(TR: Traps, o: Dictionary, T: int) -> void:
+## tora pesada pendurada por duas cordas grossas num cavalete de troncos: tora redonda com casca,
+## musgo, topo cortado com anéis, luz vindo da esquerda e sombra embaixo; a sombra no chão acompanha
+## o balanço e, no ponto mais rápido, o ar risca atrás dela. (Mesmo tamanho e mesma área de dano.)
+const SW_BARK := Color("#7a5434")
+const SW_ROPE := Color("#c9a46a")
+static func _swing(g: Game, TR: Traps, o: Dictionary, T: int) -> void:
 	var e := TR.swing_end(o)
-	# galho grosso da árvore de onde ele pende (tronco pintado)
-	_beam_log(o.x - 84, o.x + 84, o.y - 14, 22)
-	# rastro em arco do tronco
 	var w: float = TAU / float(o.per)
 	var th: float = w * (T + o.get("ph", 0))
-	var spd: float = abs(cos(th))
-	for k in range(1, 7):
-		var a2: float = o.amp * sin(th - w * k * 2.0)
-		var q := Vector2(o.x + sin(a2) * o.len, o.y + cos(a2) * o.len)
-		Spr.rr(q.x - 44, q.y - 12, 88, 24, 11, Color(1, 1, 1, .07 * spd * (1.0 - k / 7.0)))
-	# cordas trançadas
-	for sx in [-30.0, 30.0]:
-		Spr.seg(o.x + sx, o.y, e.x + sx, e.y - 8, Color("#7a5a32"), 4)
-		Spr.seg(o.x + sx, o.y, e.x + sx, e.y - 8, Color("#d4ae74"), 2)
-		Spr.circle(o.x + sx, o.y, 5, Color("#5a4026"))
-	# o tronco pintado (sempre deitado), com as pontas cortadas
+	var spd: float = abs(cos(th))                  # 1 = passando embaixo, no ponto mais rápido
+	var vdir: float = 1.0 if cos(th) >= 0.0 else -1.0
+	if not o.has("gy"):
+		o.gy = _ground_at(g, float(o.x), float(o.y))
+	var gy: float = o.gy
+	var px: float = o.x
+	var py: float = o.y
+	# o cavalete: pernas inclinadas bem por fora do arco do balanço, com mão-francesa até a trave
+	var lx: float = 176.0
+	for sd in [-1.0, 1.0]:
+		var top := Vector2(px + sd * lx, py + 2)
+		var foot := Vector2(px + sd * (lx + 62), gy + 6)
+		_sw_pole(foot, top, 8.0, .9)
+		var kn: Vector2 = top.lerp(foot, .34)
+		_sw_pole(kn, Vector2(px + sd * (lx - 66), py + 4), 5.0, .82)
+		for bp in [kn, top + Vector2(-sd * 2, 8)]:
+			Spr.circle(bp.x, bp.y, 3.0, Color("#3a3632"))
+			Spr.circle(bp.x - .8, bp.y - .8, 1.2, Color("#9a948a"))
+		# terra amontoada no pé
+		Spr.ellipse(foot.x, gy + 1, 14, 5, Color("#5a3d24"))
+		Spr.ellipse(foot.x - 3, gy - 1, 8, 2.5, Color("#7a5a36"))
+	# a trave de cima: tronco roliço apoiado nas pernas, pontas cortadas
 	Spr.save()
-	Spr.translate(e.x - 46, e.y + 13)
-	Spr.rotate(-PI / 2)
-	Spr.PR("log", 0, 0, 26, 92)
+	Spr.translate(px - lx - 22, py)
+	_sw_log(2.0 * lx + 44, 11.0, 0.0, T, false, Color(.86, .82, .78))
 	Spr.restore()
-	Spr.P("logend0", e.x + 44, e.y + 13, 22)
-	for sx2 in [-26.0, 24.0]:
-		Spr.rect(e.x + sx2, e.y - 14, 5, 28, Color("#b58a52"))
-		Spr.rect(e.x + sx2, e.y - 14, 5, 28, Color(0, 0, 0, .0))
-		Spr.seg(e.x + sx2, e.y - 14, e.x + sx2 + 5, e.y + 14, Color("#7a5a32"), 1.5)
+	var hgt: float = max(0.0, gy - (e.y + 13))
+	# rastro de ar atrás da tora quando ela passa rápido
+	if spd > .35:
+		var ta: float = clamp((spd - .35) / .65, 0.0, 1.0)
+		for dy in [-9.0, 1.0, 10.0]:
+			var tr := PackedVector2Array()
+			for k in 9:
+				var a2: float = o.amp * sin(th - w * k * 1.4)
+				tr.push_back(Vector2(px + sin(a2) * o.len - vdir * 48.0, py + cos(a2) * o.len + dy))
+			for k in range(tr.size() - 1):
+				var f: float = 1.0 - k / 8.0
+				Spr.seg(tr[k].x, tr[k].y, tr[k + 1].x, tr[k + 1].y, Color(1, .97, .9, .32 * ta * f), 2.6 * f + .6)
+		# folhas sopradas pelo vento da tora
+		for k in 3:
+			var a3: float = o.amp * sin(th - w * (3 + k * 2))
+			var lq := Vector2(px + sin(a3) * o.len - vdir * (56 + k * 9), py + cos(a3) * o.len - 14 + k * 11 + sin(T * .3 + k) * 4)
+			Spr.ellipse(lq.x, lq.y, 4.5, 2.2, Color([Color("#e08a2a"), Color("#c9552a"), Color("#e8b440")][k], .85 * ta), T * .25 * vdir + k)
+		# poeira levantada quando ela raspa perto do chão
+		if spd > .9 and hgt < 30.0:
+			for k in 3:
+				var dx: float = -vdir * (30 + k * 16) + sin(T * .5 + k) * 3
+				Spr.circle(e.x + dx, gy - 4 - k * 2, 6 - k * 1.2, Color(.85, .74, .55, .3 * ta))
+	# a tora inclina um tiquinho para trás na hora que passa rápido (o peso puxando), sem mudar o dano
+	var tilt: float = -vdir * spd * .05
+	var att: Array = []
+	for sx in [-30.0, 30.0]:
+		att.append(e + Vector2(sx, -12.0).rotated(tilt))
+	# cordas grossas trançadas: dão a volta na trave e descem até a tora
+	for i in 2:
+		var sx: float = -30.0 if i == 0 else 30.0
+		_sw_rope(Vector2(px + sx, py + 6), att[i], T)
+		_sw_wrap(px + sx, py, 11.0)
+	# a tora
+	Spr.save()
+	Spr.translate(e.x, e.y)
+	Spr.rotate(tilt)
+	Spr.translate(-46, 0)
+	_sw_log(92.0, 13.0, 1.0, T, true, Color.WHITE)
+	# amarração da corda em volta da tora, com o nó em cima e a ponta solta balançando
+	for sx in [16.0, 76.0]:
+		Spr.rr(sx - 3.8, -14.5, 7.6, 29, 3, OUT)
+		Spr.rr(sx - 2.6, -13.5, 5.2, 27, 2.5, SW_ROPE)
+		for k in 5:
+			Spr.seg(sx - 2.6, -10 + k * 5.4, sx + 2.6, -8 + k * 5.4, Color("#8a6a3a"), 1.1)
+		Spr.rect(sx + 1.2, -13, 1.4, 26, Color(0, 0, 0, .22))
+		Spr.circle(sx, -14, 4.2, OUT)
+		Spr.circle(sx, -14, 3.0, SW_ROPE)
+		var sw2: float = sin(T * .2 + sx) * 2.0 - vdir * spd * 4.0
+		Spr.seg(sx + 2, -13, sx + 6 + sw2, -4, OUT, 3.2)
+		Spr.seg(sx + 2, -13, sx + 6 + sw2, -4, SW_ROPE, 1.8)
+	Spr.restore()
+
+## tronco roliço deitado de 0 a len (eixo em y = 0, raio r): contorno, volume com luz de cima à
+## esquerda, casca com sulcos e nós, musgo (moss 0..1) e o topo cortado com anéis na ponta direita
+static func _sw_log(len: float, r: float, moss: float, T: int, ends: bool, tint: Color) -> void:
+	var base := Color(SW_BARK.r * tint.r, SW_BARK.g * tint.g, SW_BARK.b * tint.b)
+	# ponta de trás (esquerda): a casca dobrando, mostra que é redondo
+	Spr.ellipse(1.0, 0, r * .42 + 1.5, r + 1.5, OUT)
+	Spr.ellipse(1.0, 0, r * .42, r, base.darkened(.35))
+	Spr.rr(0, -r - 1.5, len, 2 * r + 3, 2, OUT)
+	# corpo em faixas: brilho em cima, tom médio, sombra própria embaixo
+	var ys := [-r, -r * .55, -r * .1, r * .45, r]
+	var cs := [base.lightened(.12), base.lightened(.3), base, base.darkened(.32), base.darkened(.55)]
+	for i in 4:
+		Spr.ci.draw_polygon(PackedVector2Array([Vector2(1, ys[i]), Vector2(len - 1, ys[i]), Vector2(len - 1, ys[i + 1]), Vector2(1, ys[i + 1])]),
+			PackedColorArray([Spr.col(cs[i]), Spr.col(cs[i]), Spr.col(cs[i + 1]), Spr.col(cs[i + 1])]))
+	# casca: textura do tronco deitada (sulcos ao comprido), clara em cima e escura embaixo
+	var tt: Texture2D = Spr.tex.get("tronco")
+	if tt:
+		# (a textura é de tronco em pé: cada pedaço é desenhado girado de 90°)
+		var seg: float = 2.0 * r * tt.get_height() / (tt.get_width() * .44)
+		var x: float = 1.0
+		while x < len - 1:
+			var sl: float = min(seg, len - 1 - x)
+			Spr.save()
+			Spr.translate(x, r)
+			Spr.rotate(-PI / 2)
+			Spr.ci.draw_texture_rect_region(tt, Rect2(0, -.5, 2 * r, sl + 1), Rect2(tt.get_width() * .28, 0, tt.get_width() * .44, tt.get_height() * sl / seg), Color(1, 1, 1, .45 * Spr.alpha))
+			Spr.restore()
+			x += sl
+	# sulcos fundos da casca com a borda de cima pegando luz
+	for k in 5:
+		var yy: float = -r * .7 + k * r * .36
+		var pts := PackedVector2Array()
+		var x2: float = 4.0 + fposmod(k * 13.0, 9.0)
+		var x3: float = min(len - 4.0, x2 + len * (.5 + fposmod(k * .37, .45)))
+		var xx: float = x2
+		while xx <= x3:
+			pts.push_back(Vector2(xx, yy + sin(xx * .19 + k * 1.7) * 1.4))
+			xx += 6.0
+		if pts.size() >= 2:
+			Spr.line(pts, Color(.12, .07, .03, .5), 1.4)
+			if yy < 0:
+				var hi := PackedVector2Array()
+				for p2 in pts:
+					hi.push_back(p2 + Vector2(0, -1.4))
+				Spr.line(hi, Color(1, .9, .7, .14), 1.0)
+	# nós da madeira
+	for k in 2:
+		var kx: float = len * (.3 + k * .36)
+		var ky: float = r * .25 - k * 3
+		Spr.ellipse(kx, ky, 5.5, 2.6, Color("#4a2e18"))
+		Spr.ellipse(kx + .5, ky + .4, 3.2, 1.3, Color("#24140a"))
+		Spr.ring(kx, ky - .6, 5.0, Color(1, .88, .6, .22), 1.0, PI * 1.1, PI * 1.9)
+	# brilho da luz e sombra mais forte bem embaixo (volume)
+	Spr.rr(len * .08, -r * .78, len * .78, r * .28, r * .14, Color(1, .95, .82, .16))
+	Spr.rect(1, r * .62, len - 2, r * .38, Color(0, 0, 0, .18))
+	# musgo por cima, com tufos claros e fiapos pendurados
+	if moss > 0.0:
+		for k in 5:
+			var mx: float = len * (.1 + k * .2) + sin(k * 2.3) * 4.0
+			var mw: float = 7.0 + fposmod(k * 5.3, 6.0)
+			Spr.ellipse(mx, -r + 1.5, mw + 1.2, 4.2, OUT)
+			Spr.ellipse(mx, -r + 1.5, mw, 3.4, Color("#4d7a2c"))
+			Spr.ellipse(mx - 1.5, -r + .5, mw * .6, 1.8, Color("#86b048"))
+			if k % 2 == 0:
+				var sw: float = sin(T * .08 + k) * 1.2
+				Spr.seg(mx + 3, -r + 4, mx + 4 + sw, -r + 10 + k, Color(.3, .5, .2, .8), 1.2)
+	# topo cortado na ponta direita: anéis da madeira, rachadura e a casca em volta
+	if ends:
+		Spr.ellipse(len, 0, r * .48 + 1.6, r + 1.6, OUT)
+		Spr.ellipse(len, 0, r * .48, r, Color("#5a3a20"))
+		Spr.ellipse(len + .8, 0, r * .4, r * .86, Color("#d9b47a"))
+		for k in 3:
+			var f: float = .7 - k * .2
+			Spr.ellipse(len + .8, 0, r * .4 * f, r * .86 * f, Color("#b98a52") if k % 2 == 0 else Color("#e2c48e"))
+		Spr.circle(len + .8, 0, 1.4, Color("#7a5230"))
+		Spr.seg(len + .8, 0, len + r * .3, -r * .6, Color("#6a4424"), 1.1)
+		Spr.ellipse(len - .6, -r * .3, r * .14, r * .4, Color(1, .95, .8, .25))
+	else:
+		Spr.ellipse(len, 0, r * .42 + 1.5, r + 1.5, OUT)
+		Spr.ellipse(len, 0, r * .42, r, Color("#c9a06a"))
+		Spr.ellipse(len, 0, r * .25, r * .6, Color("#a87c4a"))
+		Spr.circle(len, 0, 1.2, Color("#6a4424"))
+
+## pau roliço (perna do cavalete) de a até b, raio r, com luz de um lado e sombra do outro
+static func _sw_pole(a: Vector2, b: Vector2, r: float, shade: float) -> void:
+	var d: Vector2 = (b - a).normalized()
+	var n := Vector2(-d.y, d.x)
+	if n.x > 0:
+		n = -n          # n aponta para a esquerda (lado da luz)
+	var base := Color(SW_BARK.r * shade, SW_BARK.g * shade, SW_BARK.b * shade)
+	Spr.poly(PackedVector2Array([a + n * (r + 1.5), b + n * (r + 1.5) + d * 1.5, b - n * (r + 1.5) + d * 1.5, a - n * (r + 1.5)]), OUT)
+	var lc: Color = base.lightened(.25)
+	var dc: Color = base.darkened(.45)
+	Spr.ci.draw_polygon(PackedVector2Array([a + n * r, b + n * r, b, a]), PackedColorArray([Spr.col(lc), Spr.col(lc), Spr.col(base), Spr.col(base)]))
+	Spr.ci.draw_polygon(PackedVector2Array([a, b, b - n * r, a - n * r]), PackedColorArray([Spr.col(base), Spr.col(base), Spr.col(dc), Spr.col(dc)]))
+	# sulcos da casca ao comprido
+	var L: float = a.distance_to(b)
+	for k in 3:
+		var off: float = (k - 1) * r * .5
+		var s0: float = fposmod(k * 17.0, 20.0)
+		var s1: float = L - fposmod(k * 23.0, 30.0)
+		Spr.seg((a + d * s0 + n * off).x, (a + d * s0 + n * off).y, (a + d * s1 + n * off).x, (a + d * s1 + n * off).y, Color(.1, .06, .03, .4), 1.2)
+	# topo cortado da perna
+	Spr.ellipse(b.x, b.y, r, r * .45, Color("#c9a06a"), d.angle() + PI / 2)
+
+## corda grossa e trançada de a até b
+static func _sw_rope(a: Vector2, b: Vector2, T: int) -> void:
+	Spr.seg(a.x, a.y, b.x, b.y, OUT, 6.0)
+	Spr.seg(a.x, a.y, b.x, b.y, SW_ROPE, 4.0)
+	var d: Vector2 = b - a
+	var L: float = d.length()
+	if L < 2.0:
+		return
+	var u: Vector2 = d / L
+	var n := Vector2(-u.y, u.x)
+	Spr.seg(a.x - n.x * 1.1, a.y - n.y * 1.1, b.x - n.x * 1.1, b.y - n.y * 1.1, Color(1, .95, .8, .35), 1.0)
+	# fios trançados (riscos em diagonal ao longo da corda)
+	var t: float = 3.0
+	while t < L - 2.0:
+		var c: Vector2 = a + u * t
+		var p0: Vector2 = c - n * 2.0 - u * 1.6
+		var p1: Vector2 = c + n * 2.0 + u * 1.6
+		Spr.seg(p0.x, p0.y, p1.x, p1.y, Color("#7a5a32"), 1.1)
+		t += 5.0
+
+## laço da corda dando a volta na trave (cobre a trave de cima a baixo, com o nó por cima)
+static func _sw_wrap(x: float, y: float, r: float) -> void:
+	for dx in [-3.0, 3.0]:
+		Spr.rr(x + dx - 3, y - r - 1.5, 6, 2 * r + 3, 3, OUT)
+		Spr.rr(x + dx - 2, y - r - .5, 4, 2 * r + 1, 2, SW_ROPE)
+		Spr.rect(x + dx + .8, y - r, 1.2, 2 * r, Color(0, 0, 0, .25))
+	Spr.circle(x, y - r - 1, 4.5, OUT)
+	Spr.circle(x, y - r - 1, 3.2, SW_ROPE)
+	Spr.circle(x - 1, y - r - 2, 1.2, Color(1, .95, .8, .5))
 
 # ---------- colmeia e enxame ----------
 static func _ground_at(g: Game, x: float, y: float) -> float:
@@ -827,16 +1170,14 @@ static func _giant(o: Dictionary, T: int) -> void:
 	var bend: float = gc.bend
 	var L: PackedVector2Array = gc.L
 	var Rr: PackedVector2Array = gc.R
-	Spr.poly(gc.body, Color("#e2d4b8"))
-	# sombra do lado direito e fibras verticais
-	Spr.poly(gc.sh, Color("#bfae8e"))
-	for pts in gc.fib:
-		Spr.line(pts, Color(.45, .36, .25, .22), 1.3)
-	Spr.line(L, Color(.25, .18, .12, .55), 1.6)
-	Spr.line(Rr, Color(.25, .18, .12, .55), 1.6)
-	# anel (saia) logo abaixo do chapéu
-	Spr.ellipse(x + bend * .1, top + 22, sw * .95, 5, Color("#d8c8a6"))
-	Spr.ellipse(x + bend * .1, top + 24, sw * .95, 3, Color(.3, .22, .15, .35))
+	# caule com volume (luz na esquerda, sombra na direita, a sombra do chapéu em cima e fibras)
+	_mstem(L, Rr, Color("#ddcfb2"), x)
+	# anel (saia) logo abaixo do chapéu: babado com volume
+	var ax: float = x + bend * .1
+	Spr.ellipse(ax, top + 23, sw * 1.05 + 1.5, 6.5, OUT)
+	Spr.ellipse(ax, top + 23, sw * 1.05, 5, Color("#e4d6b8"))
+	Spr.ellipse(ax + sw * .25, top + 25, sw * .7, 2.6, Color(.45, .35, .22, .45))
+	Spr.ellipse(ax - sw * .4, top + 21.5, sw * .4, 1.6, Color(1, 1, 1, .45))
 	if deep:
 		# some no fundo escuro do buraco com névoa
 		var fy: float = max(top + 60, 560.0)
@@ -850,13 +1191,8 @@ static func _giant(o: Dictionary, T: int) -> void:
 		for r in [-1.0, -.4, .5, 1.0]:
 			Spr.seg(x + r * sw * .7, base - 4, x + r * sw * 1.6, base + 3, Color("#8a7458"), 2.2)
 		Spr.ellipse(x, base + 1, sw * 1.5, 4, Color(.2, .3, .12, .6))
-	# chapéu
-	var cap: PackedVector2Array = gc.cap
-	Spr.poly(cap, c)
-	Spr.ellipse(x, top + 8, w * .56, 7, c.darkened(.35))
-	for d in [[-.3, -.15, .07], [.05, -.22, .08], [.3, -.1, .06], [-.08, -.06, .05], [.18, -.04, .04]]:
-		Spr.circle(x + d[0] * w, top + 8 + d[1] * w, d[2] * w, Color(1, 1, 1, .55))
-	Spr.line(cap, OUT, 2)
+	# chapéu com volume (mesmo tamanho de antes: borda em top + 8, largura 1,12 w, altura 0,3 w)
+	_mcap(x, top + 8 - w * .3, w * 1.12, w * .3, c, c.lightened(.55), x, true, Color(0, 0, 0, 0), 7)
 
 ## geometria fixa do cogumelo gigante comum (caule curvo, sombra, fibras e chapéu)
 static func _giant_geom(o: Dictionary) -> Dictionary:
@@ -929,16 +1265,29 @@ static func _giant_spring(o: Dictionary, T: int) -> void:
 		Spr.ellipse(x, base + 1, aw * .32, 5, Color(0, 0, 0, .3))
 	# brilho pulsando em volta do chapéu
 	Spr.glow(x, cap + 10, aw * .75, Color(1, .6, .2, .22 + .08 * sin(T * .1 + x)))
-	# amassa quando lança (troca para a pose achatada) e volta esticando
-	if sq > .35 and Spr.has("p_saltador1"):
-		Spr.P("saltador1", x, abot, aw)
-	else:
-		var st: float = 1.0 + sin(T * .12 + x) * .015 - sq * .2
-		Spr.save()
-		Spr.translate(x, abot)
-		Spr.scale(1.0 + sq * .12, st)
-		Spr.P("saltador0", 0, 0, aw)
-		Spr.restore()
+	# mola de arame embaixo do chapéu: amassa quando lança e volta esticando (o chapéu desce junto)
+	var c0: float = atop + ah * .44
+	var capdy: float = sq * (abot - c0) * .5 + sin(T * .12 + x) * 1.2
+	var top_c: float = c0 + capdy
+	var nco := 6
+	var crx: float = aw * .2
+	for pass_ in 2:
+		for k in nco:
+			var cy: float = lerpf(top_c + 4.0, abot - 5.0, k / float(nco - 1))
+			var cry: float = crx * .3
+			if pass_ == 0:
+				# metade de trás de cada volta (mais escura)
+				_arc_e(x, cy, crx, cry, PI, TAU, OUT, 5.0)
+				_arc_e(x, cy, crx, cry, PI, TAU, Color("#8f8a80"), 2.6)
+			else:
+				# metade da frente, com luz em cima
+				_arc_e(x, cy, crx, cry, 0.0, PI, OUT, 6.0)
+				_arc_e(x, cy, crx, cry, 0.0, PI, Color("#e9e4da"), 3.4)
+				_arc_e(x, cy - .8, crx, cry, PI * .18, PI * .55, Color(1, 1, 1, .65), 1.2)
+	# chapéu laranja com pintas amarelas e a saia de babados
+	var cw: float = aw * .96 * (1.0 + sq * .08)
+	var chh: float = ah * .36 * (1.0 - sq * .15)
+	_mcap(x, atop + ah * .44 - chh + capdy, cw, chh, Color("#f2681a"), Color("#ffd23a"), x, false, Color("#f3ece0"), 7)
 	# setinhas subindo em cima do chapéu ("pule aqui!")
 	for k in 2:
 		var u: float = fposmod(T * .02 + k * .5, 1.0)

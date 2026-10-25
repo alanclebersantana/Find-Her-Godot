@@ -1405,7 +1405,9 @@ func dead_tree(s: Dictionary) -> void:
 
 func planks(s: Dictionary, dark: bool) -> void:
 	# tábuas de madeira pintada (com veios), cintas de ferro com rebites
-	var a: float = max(s.y, game.cam_y - 200) if game else s.y
+	# (o cenário fixo é pintado uma vez só: o corte não pode depender de onde a câmera estava nessa hora,
+	# senão a viga baixa pintada com a câmera lá embaixo ficava sem tábua nenhuma)
+	var a: float = max(s.y, -1200.0)
 	var b: float = s.y + s.h
 	var n: int = max(1, int(round(s.w / 18.0)))
 	var bw: float = s.w / n
@@ -1586,9 +1588,22 @@ func hill(s: Dictionary) -> void:
 			var u2 := (t - .5) * 2
 			p = _quad(Vector2(s.x + s.w / 2, s.y + 40), Vector2(s.x + s.w * .85, s.y + 60), Vector2(s.x + s.w + 80, s.y + s.h), u2)
 		pts.push_back(p)
-	Spr.poly(pts, Color("#1e2a1e"))
-	Spr.vgrad(s.x, s.y + 200, s.w, s.h - 200, Color("#1e2a1e"), Color("#2a2018"))
-	Spr.rect(s.x, s.y + s.h, s.w, 120, Color("#0a0806"))
+	# o morro do túnel tem mais de 6000 px e é desenhado por todos os pedaços que ele cruza: cada pedaço
+	# pinta só a sua faixa, sem depender do corte (clip) do pedaço. Sem isso, no celular em que o corte
+	# falha, o fundo preto do túnel pintado pelo pedaço seguinte cobria o carrinho e a viga baixa do
+	# pedaço anterior (o Tomé ficava em pé "no ar" e a passagem baixa não tinha viga)
+	var ca: float = max(s.x - 80.0, x0 - 1.0)
+	var cb: float = min(s.x + s.w + 80.0, x1 + 1.0)
+	if cb <= ca:
+		return
+	var box := PackedVector2Array([Vector2(ca, s.y - 10), Vector2(cb, s.y - 10), Vector2(cb, s.y + s.h + 1), Vector2(ca, s.y + s.h + 1)])
+	for part in Geometry2D.intersect_polygons(pts, box):
+		Spr.poly(part, Color("#1e2a1e"))
+	var ra: float = max(float(s.x), ca)
+	var rb: float = min(float(s.x + s.w), cb)
+	if rb > ra:
+		Spr.vgrad(ra, s.y + 200, rb - ra, s.h - 200, Color("#1e2a1e"), Color("#2a2018"))
+		Spr.rect(ra, s.y + s.h, rb - ra, 120, Color("#0a0806"))
 	var wood := Color("#5a3d22")
 	Spr.rect(s.x - 14, s.y + s.h - 10, 22, 130, wood)
 	Spr.rect(s.x - 24, s.y + s.h - 20, 110, 18, wood)

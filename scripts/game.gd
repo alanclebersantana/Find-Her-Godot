@@ -2265,18 +2265,43 @@ func move_x(dx: float) -> void:
 var DIPS: Array = []
 func _plat_dips() -> void:
 	var gs = player.get("_g")
-	if gs is Dictionary and str(gs.get("t", "")) in ["plat", "branch"] and not gs.get("crumble"):
+	var lily: bool = gs is Dictionary and gs.get("lily", 0) == 1
+	if gs is Dictionary and (lily or str(gs.get("t", "")) in ["plat", "branch"]) and not gs.get("crumble"):
 		if not gs.has("dip"):
 			gs.dip = 0.0
 			gs.dipv = 0.0
 		if not DIPS.has(gs):
 			DIPS.append(gs)
 			gs.dipv += 1.6 + max(0.0, player.get("landV", 0.0)) * .25
+			if lily:
+				# vitória-régia: afunda com o tranco do pouso, respingo e ondinhas em volta
+				var lx: float = player.x + player.w / 2
+				gs.dipv += max(0.0, player.get("landV", 0.0)) * .2
+				X.ripple(lx, gs.y + 8, 1.3)
+				X.ripple(gs.x + gs.w / 2, gs.y + 8, .8)
+				if player.get("landV", 0.0) > 3.0:
+					WV.splash(lx, gs.y + 8, min(5.0, player.landV * .5), false)
+					for k in 6:
+						PARTS.append({"x": lx + randf_range(-gs.w * .5, gs.w * .5), "y": gs.y + 6, "vx": randf_range(-1.6, 1.6), "vy": -randf_range(1.5, 3.4), "life": 22, "col": Color(.78, .92, .82, .9)})
 	var keep: Array = []
 	for d in DIPS:
-		var target: float = (2.5 if str(d.t) == "plat" else 3.5) if d == gs else 0.0
+		var target: float = 0.0
+		if d == gs:
+			target = 3.4 if d.get("lily", 0) == 1 else (2.5 if str(d.t) == "plat" else 3.5)
 		d.dipv = (d.dipv + (target - d.dip) * .18) * .82
 		d.dip += d.dipv
+		if d.get("lily", 0) == 1:
+			# a folha inclina para o lado em que o Tomé está e volta boiando quando ele sai
+			var tt: float = 0.0
+			if d == gs:
+				var off: float = player.x + player.w / 2 - (d.x + d.w / 2)
+				d.piv = clamp(off, -d.w / 2, d.w / 2)
+				tt = clamp(off / (d.w / 2), -1.0, 1.0) * .09
+			d.tiltv = (float(d.get("tiltv", 0.0)) + (tt - float(d.get("tilt", 0.0))) * .16) * .8
+			d.tilt = float(d.get("tilt", 0.0)) + d.tiltv
+			if abs(d.tilt) > .003 or abs(d.tiltv) > .003:
+				keep.append(d)
+				continue
 		if d == gs or abs(d.dip) > .05 or abs(d.dipv) > .05:
 			keep.append(d)
 		else:
@@ -2611,6 +2636,14 @@ func _p1_post(pcx: float, _pcy: float) -> void:
 				p.st = 0
 				p.t = 0
 				p.y = p.y0
+				# volta boiando: sobe lá do fundo com mola (passa um pouco do ponto e assenta)
+				p.dip = 22.0
+				p.dipv = -1.2
+				p.tilt = 0.0
+				p.tiltv = 0.0
+				if not DIPS.has(p):
+					DIPS.append(p)
+				X.ripple(p.x + p.w / 2, p.y0 + 8, 1.0)
 	# brejo
 	for s in SWAMP:
 		if s.get("drain") and s.y < s.y2:
