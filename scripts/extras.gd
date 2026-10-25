@@ -131,8 +131,8 @@ func load_level() -> void:
 
 func weather_text() -> String:
 	match weather:
-		"neblina": return "Neblina no bosque hoje: olhe bem onde pisa."
-		"garoa": return "Uma garoa fina caindo sobre o bosque."
+		"neblina": return "Neblina hoje: olhe bem onde pisa."
+		"garoa": return "Uma garoa fina caindo hoje — o chão fica macio."
 		"vento": return "Ventania: as folhas voam por todo lado."
 	return ""
 
