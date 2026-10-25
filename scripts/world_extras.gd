@@ -691,11 +691,26 @@ static func dog(g: Game, T: int) -> void:
 		return
 	var x: float = d.x
 	var y: float = d.y + d.hy
+	# o jogador está controlando o Pipoca: desenha "entre" dois passos (sem tremer em telas rápidas)
+	# e guarda se ele está no ar (pose de salto) ou acabou de pousar (achata um pouquinho)
+	var cb: Dictionary = g.player if (d.st in ["ctrl", "dig"] and g.M and g.M.ctrl and g.player.get("dog", false)) else {}
+	var dog_air := false
+	if not cb.is_empty():
+		var io: Vector2 = g.ip_off()
+		x += io.x
+		y += io.y
+		dog_air = not cb.onGround and not cb.swim
+		if Polish.FRESH:
+			if d.get("_air", false) and not dog_air:
+				d._land = clamp(float(cb.get("landV", 6.0)) / 12.0, .25, .6)
+			d._land = float(d.get("_land", 0.0)) * .8
+		d._air = dog_air
 	if d.st == "tied":
 		# estaca e corda
 		Spr.rect(d.x0 - 64, d.y - 34, 6, 36, Color("#5a3e24"))
 		Spr.ci.draw_polyline(PackedVector2Array([Vector2(d.x0 - 61, d.y - 24), Vector2((d.x0 - 61 + x) / 2, d.y - 12), Vector2(x - d.face * 6, d.y - 30)]), Color("#c9a26a"), 2.5, true)
-	Polish.shadow(x, d.y + 1, 20, 4, .25)
+	var sh_k: float = clamp(1.0 - abs(float(cb.vy)) / 16.0, .35, 1.0) if dog_air else 1.0
+	Polish.shadow(x, y + 1 - d.hy, 20 * sh_k, 4 * sh_k, .25 * sh_k)
 	var fr := "dog0"
 	if d.moving:
 		fr = "dog%d" % (int(d.anim) % 4)
@@ -733,7 +748,7 @@ static func dog(g: Game, T: int) -> void:
 	Spr.restore()
 	# poses pintadas extras: cavando, farejando, comemorando
 	var ov: Texture2D = null
-	if not drew:
+	if not drew and not dog_air:
 		if d.st == "dig":
 			ov = Spr.opt("dog_dig")
 		elif d.get("joyT", 0) > 0:
@@ -764,8 +779,14 @@ static func dog(g: Game, T: int) -> void:
 				Spr.rotate(-d.face * .08)
 				Spr.translate(0, -abs(sin(T * .9)) * 2.0)
 				wag_k = .05
-		Spr.scale(sc if d.face > 0 else -sc, sc * (1.0 + bob))
-		if d.moving and not Spr.x4("A:dog").is_empty():
+		var ld: float = float(d.get("_land", 0.0)) if not cb.is_empty() else 0.0
+		if dog_air:
+			# no ar: corpo esticado do galope, nariz para cima subindo e para baixo caindo
+			Spr.rotate(d.face * clamp(float(cb.vy) / 12.0, -1, 1) * .3)
+		Spr.scale((sc if d.face > 0 else -sc) * (1.0 + ld * .25), sc * (1.0 + bob) * (1.0 - ld * .3))
+		if dog_air:
+			_dog_frame("dog2" if cb.vy < 3.0 else "dog3", -.3 if cb.vy < 0 else .15)
+		elif d.moving and not Spr.x4("A:dog").is_empty():
 			# correndo: quadros intermediários (x4) com o rabo junto do corpo
 			Spr.A_cycle("dog", ["dog0", "dog1", "dog2", "dog3"], d.anim, 0, 0, 1.0)
 		else:

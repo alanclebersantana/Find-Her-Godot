@@ -78,7 +78,7 @@ func step() -> void:
 						g.SOL.append(o.sol)
 						g.blockers_dirty()
 						g.shake = max(g.shake, 9)
-						Audio.play("crate", -2)
+						Audio.play("stomp", -2, .8)   # (não há som "crate" nem "coin": tocavam mudos; usa a pancada e o lápis)
 						g.burst(float(o.bridge.x) + float(o.bridge.w), float(o.bridge.y), 14, Color("#b08a5a"))
 	for s in SAWS:
 		if s.t > 0:
@@ -95,7 +95,7 @@ func step() -> void:
 				r.hit = true
 				_drop_items(float(s.target[0]), float(s.target[1]), s.get("items", 4), s.get("heart", 1))
 				g.shake = max(g.shake, 4)
-				Audio.play("crate", -8)
+				Audio.play("stomp", -8, .9)
 			if r.y > float(s.y) + 40:
 				s.rock = null
 	for f in FRUIT:
@@ -120,7 +120,7 @@ func step() -> void:
 					g.flash("Uma fruta fresquinha! +1 coração.", 100)
 				else:
 					g.gain_coin(d.x, d.y - 10)
-				Audio.play("coin", -6)
+				Audio.play("pen", -6)
 			else:
 				g.gain_coin(d.x, d.y - 10)
 	# marca de aprender: perto da primeira rachadura, ensina o mergulho uma vez
@@ -155,7 +155,7 @@ func on_slam(cx: float, feet: float) -> void:
 			g.X.break_crack(c, false)
 			g.shake = max(g.shake, 12)
 			g.burst(c.x + c.w / 2, c.y, 24, Color("#a07a4a"))
-			Audio.play("crate")
+			Audio.play("stomp", 0.0, .75)
 			if c.has("msg"):
 				g.flash(c.msg, 200)
 	# 2) estaca: cravou, o portão sobe
@@ -204,7 +204,7 @@ func on_slam(cx: float, feet: float) -> void:
 			f.left = 0
 			for i in n:
 				DROPS.append({"k": "apple", "x": float(f.x) + (i - 1) * 18, "y": float(f.y) - 60 - randf() * 12, "vx": randf_range(-1.0, 1.0), "vy": -2.0, "gy": float(f.y), "land": false, "got": false})
-			Audio.play("crate", -10)
+			Audio.play("stomp", -10, 1.1)
 	# pingentes de gelo do teto por perto se soltam com o tranco
 	if g.TR:
 		for o in g.TR.T:

@@ -153,9 +153,10 @@ static func pose_for(p: Dictionary, T: int) -> Dictionary:
 		ps.lb = .25
 		return ps
 	if p.get("wslide", false):
-		ps.af = -2.6
-		ps.ab = -.6
-		ps.lean = .12
+		# de costas para a parede: o braço de trás estica até ela, o da frente equilibra
+		ps.af = -.9
+		ps.ab = 1.9
+		ps.lean = .1
 		ps.lf = -.6
 		ps.lb = -.2
 		return ps

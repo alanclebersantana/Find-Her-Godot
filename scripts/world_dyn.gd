@@ -1441,6 +1441,9 @@ func _player_draw(g: Game) -> void:
 	var cx: float = p.x + p.w / 2
 	var by: float = p.y + p.h
 	_ppos = Vector2(p.x, p.y)
+	# pose de dor: no tranco e enquanto está no ar; pousou e saiu andando, já volta a passada
+	# (antes a pose parada de dor "patinava" pelo chão até o fim do tempo)
+	var hurt_on: bool = p.get("hitT", 0) > 0 and (not p.onGround or int(p.hitT) > 18 or abs(p.vx) < .5)
 	if p.lastFace != p.face:
 		p.turnT = 6
 		p.lastFace = p.face
@@ -1482,7 +1485,7 @@ func _player_draw(g: Game) -> void:
 		Spr.restore()
 		return
 	# subindo: escada/rede (de costas), corda (de lado) e cipó (pendurado pela mão)
-	if not (p.get("hitT", 0) > 0) and (p.ladder or p.vine):
+	if not hurt_on and (p.ladder or p.vine):
 		var mv := int(p.climbA / 22) % 2
 		if p.vine:
 			var v: Dictionary = p.vine
@@ -1527,7 +1530,7 @@ func _player_draw(g: Game) -> void:
 		_armor(p, cx, by)
 		return
 	# Tomé em peças com "ossos" (se as artes de assets/rig/tome existirem)
-	if not (p.get("hitT", 0) > 0) and Rig.ready("tome"):
+	if not hurt_on and Rig.ready("tome"):
 		var air2: float = clamp(1 - abs(p.vy) / 16.0, .3, 1) if not p.onGround else 1.0
 		Spr.ellipse(cx, by + 1, 17 * air2, 4 * air2, Color(0, 0, 0, .25 * air2))
 		var sqv := Vector2(1 + p.squash * .25, 1 - p.squash * .3)
@@ -1535,7 +1538,7 @@ func _player_draw(g: Game) -> void:
 		_armor(p, cx, by)
 		return
 	# poses novas (atlas 2)
-	if not (p.get("hitT", 0) > 0):
+	if not hurt_on:
 		var n := ""
 		var cyk := ""
 		var cyn: Array = []
@@ -1580,7 +1583,7 @@ func _player_draw(g: Game) -> void:
 			return
 	# nadando: o corpo deita na direção do nado (braçada), sobe e desce devagar; parado, fica de pé
 	# batendo as pernas (sem ficar trocando entre as poses de pulo e queda)
-	if p.swim and not p.crouch and not (p.get("hitT", 0) > 0) and Spr.anim.has("fall"):
+	if p.swim and not p.crouch and not hurt_on and Spr.anim.has("fall"):
 		var sa: Dictionary = Spr.anim["fall"]
 		var ssz: float = sa.s
 		var sk := 78.0 / ssz
@@ -1603,21 +1606,23 @@ func _player_draw(g: Game) -> void:
 		_armor(p, cx, by)
 		return
 	# animações novas (se existirem em assets/sprites/tome/)
-	if not Spr.anim.is_empty() and (p.get("hitT", 0) <= 0 or Spr.anim.has("hurt")) and not p.puff and not p.slam:
+	if not Spr.anim.is_empty() and (not hurt_on or Spr.anim.has("hurt")) and not p.puff and not p.slam:
 		var key := ""
 		var f := 0
 		var fnext := -1      # quadro seguinte (mistura suave entre quadros = animação mais fluida)
 		var fmix := 0.0
-		if not p.onGround:
+		var grounded: bool = p.onGround or (int(p.get("airT", 9)) <= 2 and p.vy >= 0 and p.vy < 2.5 and not p.get("wslide", false))
+		if not grounded:
 			key = "jump" if p.vy < 0 else "fall"
-		elif p.landT > 0:
+		elif p.landT > (4 if abs(p.vx) > 2.0 else 0):
+			# pousou correndo: só a dobradinha dos joelhos (sem deslizar parado no chão) e já volta a passada
 			key = "land"
 		elif abs(p.vx) > .4:
 			key = "run" if p.run and Spr.anim.has("run") else "walk"
 		else:
 			key = _reaction(g, p)
 		# poses pintadas extras: dano, comemoração, empurrando, escorregando no gelo
-		if p.get("hitT", 0) > 0 and Spr.anim.has("hurt"):
+		if hurt_on and Spr.anim.has("hurt"):
 			key = "hurt"
 		elif p.get("cheerT", 0) > 0 and Spr.anim.has("cheer"):
 			key = "cheer"
@@ -1628,6 +1633,11 @@ func _player_draw(g: Game) -> void:
 		if Spr.anim.has(key):
 			var a: Dictionary = Spr.anim[key]
 			var n: int = a.n
+			# deslizando na parede: de costas para ela, braços abertos, a mão de trás apoiada na parede
+			var wsl: bool = key == "fall" and p.get("wslide", false)
+			if FRESH:
+				p.wsk = lerpf(float(p.get("wsk", 0.0)), 1.0 if wsl else 0.0, .35)
+			var wk: float = float(p.get("wsk", 0.0))
 			match key:
 				"shiver":
 					f = (T / 3) % n
@@ -1645,7 +1655,7 @@ func _player_draw(g: Game) -> void:
 				"jump":
 					f = int(clamp((p.vy + 12) / 12.0, 0, .999) * n)
 				"fall":
-					f = int(clamp(p.vy / 10.0, 0, .999) * n)
+					f = 0 if wsl else int(clamp(p.vy / 10.0, 0, .999) * n)
 				"land":
 					f = min(n - 1, int((1 - p.landT / 8.0) * n))
 			var sz: float = a.s
@@ -1676,7 +1686,7 @@ func _player_draw(g: Game) -> void:
 				"jump":
 					fp = clamp((p.vy + 12) / 12.0, 0, 1) * (n - 1)
 				"fall":
-					fp = clamp(p.vy / 10.0, 0, 1) * (n - 1)
+					fp = 0.0 if wsl else clamp(p.vy / 10.0, 0, 1) * (n - 1)
 				"land":
 					fp = clamp(1 - p.landT / 8.0, 0, 1) * (n - 1)
 			if fp >= 0.0:
@@ -1687,7 +1697,10 @@ func _player_draw(g: Game) -> void:
 				src3 = Spr.x4_src(m4, q4[0])
 				src4 = Spr.x4_src(m4, q4[1])
 				k4 = smoothstep(.5, 1.0, q4[2]) * .5 if q4[1] != q4[0] else 0.0
-			_pose(key, tx3, src3, dst3, cx, by, p.lean, sx3, sy3)
+			# na parede: o corpo afasta um palmo (só a mão encosta) e inclina para fora, tremendo com o atrito
+			var cx3: float = cx + p.face * 8.0 * wk
+			var rot3: float = p.lean + (p.face * .1 + sin(T * 1.1) * .012) * wk
+			_pose("wall" if wsl else key, tx3, src3, dst3, cx3, by, rot3, sx3, sy3)
 			# vento forte com ele parado: a ponta do cachecol voa para o lado do vento
 			var wnd: float = g.AMB.get("wind", 0.0)
 			if wnd > .3 and key in ["idle", "look", "lantern", "shiver", "rain"]:
@@ -1708,8 +1721,8 @@ func _player_draw(g: Game) -> void:
 					Spr.ci.draw_texture_rect_region(tx3, dst3, src3, Color(1, 1, 1, Spr.alpha * (.16 - si * .07)))
 					Spr.restore()
 			Spr.save()
-			Spr.translate(cx, by)
-			Spr.rotate(p.lean)
+			Spr.translate(cx3, by)
+			Spr.rotate(rot3)
 			Spr.scale(sx3, sy3)
 			Spr.ci.draw_texture_rect_region(tx3, dst3, src3, Color(1, 1, 1, Spr.alpha))
 			if not m4.is_empty():
@@ -1724,7 +1737,7 @@ func _player_draw(g: Game) -> void:
 	# folhas de sprites antigas (parado, andar, pulo, planar, mergulho)
 	var tex := pai
 	var fr := 0
-	if p.get("hitT", 0) > 0:
+	if hurt_on:
 		tex = pai2
 		fr = 8
 	elif p.puff:
@@ -1744,7 +1757,7 @@ func _player_draw(g: Game) -> void:
 	var osrc := Rect2(fr * 170, 0, 170, 160)
 	var om: Dictionary = {}
 	var ofp := 0.0
-	if p.get("hitT", 0) <= 0:
+	if not hurt_on:
 		if p.puff:
 			om = Spr.x4("pai2:0-1")
 			ofp = T / 14.0

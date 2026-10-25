@@ -1033,6 +1033,8 @@ func step() -> void:
 		return
 	# encostado numa parede no ar (para deslizar e pular de parede em parede)
 	player.wslide = false
+	# encostado de verdade agora (a memória "wall" dura uns quadros a mais, só para o pulo de parede)
+	player.wtouch = false
 	if player.wsl > 0:
 		player.wsl -= 1
 	if player.wlock > 0:
@@ -1047,6 +1049,7 @@ func step() -> void:
 			wd = 1
 		elif touching_wall(-1):
 			wd = -1
+		player.wtouch = wd != 0
 		if wd != 0:
 			player.wall = wd
 			player.wallT = 6
@@ -1114,6 +1117,7 @@ func step() -> void:
 				stand_up()
 				player.y += 4
 				player.onGround = false
+				player.coyote = 0
 			else:
 				player.jbuf = BUF
 		# M7 pulo saindo do deslize: guarda o embalo (pulo comprido)
@@ -1152,6 +1156,10 @@ func step() -> void:
 				Audio.play("jump", -4)
 				fx("fx_dust", player.x + (player.w if player.face < 0 else 0.0), player.y + player.h / 2, 16, .12, -.1)
 				burst(player.x + player.w / 2 - player.face * 12, player.y + player.h / 2, 8, Color("#cdbfa6"))
+			elif player.airJumps > 0 and not player.dog and not player.get("isis") and _ground_near():
+				# apertou PULAR caindo, a um palmo do chão: guarda o toque para o pulo do chão (sai mais alto
+				# um quadro depois, e o pulo duplo continua guardado) em vez de gastar o duplo rente ao chão
+				pass
 			elif player.airJumps > 0 and not player.dog and not player.get("isis"):
 				player.vy = DJUMP
 				Polish.air_ring(player.x + player.w / 2, player.y + player.h)
@@ -1270,11 +1278,14 @@ func step() -> void:
 			# a queda pesa um pouco mais que a subida (pulo com peso)
 			g *= 1.08
 		player.vy = clamp(player.vy + g, -34 if player.get("launchT", 0) > 0 else -20, maxv)
-		if player.wall != 0 and not player.onGround and player.vy > 1.5 and kd("R" if player.wall > 0 else "L") and player.wlock == 0:
+		# deslizar na parede só encostado nela de verdade (a memória de alguns quadros deixava o Tomé
+		# "flutuando" devagar no ar depois que a parede acabava, e marcava deslize já pousado no chão)
+		if player.wall != 0 and player.get("wtouch", false) and not player.onGround and player.vy > 1.5 and kd("R" if player.wall > 0 else "L") and player.wlock == 0:
 			player.vy = min(player.vy, 2.3)
 			player.wslide = true
 			player.wsl = 6
-			player.face = player.wall
+			# de costas para a parede, com a mão de trás apoiada nela (já olhando para onde vai pular)
+			player.face = -player.wall
 			player.slam = false
 			if T % 6 == 0:
 				PARTS.append({"x": player.x + (player.w if player.wall > 0 else 0.0), "y": player.y + 6, "vx": -player.wall * .6, "vy": -.4, "life": 14, "col": Color(.85, .78, .62, .7)})
@@ -1342,6 +1353,9 @@ func step() -> void:
 		player.pant -= 1
 		if abs(player.vx) > .4 or not player.onGround:
 			player.pant = 0
+	# quadros seguidos fora do chão (o desenho só troca para a pose de queda depois de um tiquinho:
+	# descer um degrau ou a beirada de uma tábua não pisca a pose de pulo)
+	player.airT = 0 if player.onGround else int(player.get("airT", 0)) + 1
 	if player.onGround and abs(player.vx) < .3:
 		player.idleT = player.get("idleT", 0) + 1
 	else:
@@ -2190,6 +2204,22 @@ func _auto_safe() -> void:
 	player.spawnX = player.x
 	player.spawnY = player.y
 
+## caindo e com chão firme logo abaixo dos pés (pousa no próximo quadro)?
+func _ground_near() -> bool:
+	if player.vy < 2.0 or player.slam or player.puff:
+		return false
+	var feet: float = player.y + player.h
+	var reach: float = player.vy + GRAV * 1.1 + 1.0
+	var r := R(player.x + 2, feet, player.w - 4, reach)
+	for s in blockers():
+		if s.get("oneway") and (s.y < feet - 1 or player.dropT > 0):
+			continue
+		if s.get("crate") and s.get("t") == "break":
+			continue   # caixa que quebra com o peso: não segura o pouso
+		if hit(r, s):
+			return true
+	return false
+
 ## cabe o Tomé em pé em (x, y)? (para subir numa beirada)
 func _ledge_free(x: float, y: float) -> bool:
 	var r := R(x, y - 2, player.w, player.h)
@@ -2218,6 +2248,11 @@ func _mantle_step() -> void:
 		player.x = player.mx1
 		player.y = player.my1
 		player.vy = 1
+		# já está em cima da beirada: esquece a parede que escalou
+		player.wall = 0
+		player.wallT = 0
+		player.wsl = 0
+		player.squash = .3
 
 func move_y(dy: float) -> void:
 	var prev_feet: float = player.y + player.h
@@ -2251,6 +2286,12 @@ func move_y(dy: float) -> void:
 					player.x = s.x + s.w
 					continue
 			player.y = s.y + s.h
+			# cabeçada no teto: achata um pouquinho, poeira caindo e um "toc" baixinho
+			if player.vy < -3.0 and not player.get("dog"):
+				player.squash = max(player.squash, .28)
+				Audio.play("stomp", -20, 1.4)
+				for k in 4:
+					PARTS.append({"x": player.x + player.w / 2 + (k - 1.5) * 5, "y": player.y + 1, "vx": (k - 1.5) * .5, "vy": .4 + k * .15, "life": 16, "col": Color(.72, .64, .5, .8)})
 			player.vy = 0
 
 ## que chão está debaixo do Tomé (para o som do passo)
@@ -2342,7 +2383,9 @@ func _p1_pre(pcx: float) -> void:
 			player.slideT = 1
 			Audio.play("slide")
 			fx("fx_dust", pcx, player.y + player.h - 4, 16, .14, -.2)
-	elif player.crouch and not wantC and not player.slideT:
+	elif player.crouch and not wantC and (not player.slideT or can_stand()):
+		# soltou ↓ no meio do deslize (e cabe em pé): levanta já, com o embalo (antes o deslize
+		# ia sozinho até quase parar, mais de um segundo sem controle)
 		stand_up()
 	# olhar para cima / para baixo
 	var still: bool = player.onGround and abs(player.vx) < .4 and not kd("L") and not kd("R") and not player.ladder
@@ -2770,7 +2813,7 @@ func _fuel_step() -> void:
 		if not c.got and hit(player, R(c.x - 20, cyy - 22, 40, 44)):
 			c.got = true
 			FUEL = min(1.0, FUEL + .42)
-			Audio.play("coin")
+			Audio.play("pen")
 			burst(c.x, cyy, 16, Color("#ffd27a") if lantern_lit else Color("#c8ff8a"))
 			if not oil_seen:
 				oil_seen = true
@@ -3280,6 +3323,11 @@ func hurt(d: int, from_x: float) -> void:
 		Polish.impact(player.x + player.w / 2, player.y + player.h / 2, Color(1, .7, .6), 6, 20.0)
 		player.vx = (-1 if player.x + player.w / 2 < from_x else 1) * 5
 		player.vy = -6
+		# o tranco tira do chão: sem "pulo do chão" grátis logo depois (coyote/buffer) e sem beirada
+		player.onGround = false
+		player.coyote = 0
+		player.jbuf = 0
+		player.mantleT = 0
 		player.slam = false
 		player.puff = false
 		player.cutOk = false
