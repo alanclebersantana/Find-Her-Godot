@@ -26,6 +26,9 @@ var T: Array = []
 var PICK := {}               # picareta arremessada
 var trapped = null           # jaula que prendeu o Tomé
 var bounce_note := 0
+## armadilhas que continuam andando longe do Tomé (rolando, caindo, desabando) e os estados parados
+const FAR_RUN := {"roll": 1, "boulder": 1, "bridge": 1, "cage": 1, "net": 1}
+const FAR_STILL := {"idle": 1, "done": 1, "used": 1}
 
 func _init(game) -> void:
 	g = game
@@ -38,6 +41,7 @@ func load_level() -> void:
 		var o: Dictionary = d.duplicate(true)
 		o.t = 0
 		o.st = "idle"
+		o._cx = float(o.x) + float(o.get("w", 0)) / 2.0
 		match o.k:
 			"snap":
 				o.sol = {"t": "snapb", "x": o.x, "y": o.y, "w": o.w, "h": 16, "oneway": 1, "snap": 1}
@@ -196,7 +200,8 @@ func post() -> void:
 	var feet: float = p.y + p.h
 	for o in T:
 		# longe do Tomé e sem nada acontecendo: pula (a fase tem muitas armadilhas)
-		if abs(o.x + o.get("w", 0) / 2.0 - pcx) > 1800 and not o.k in ["roll", "boulder", "bridge", "cage", "net"] and not (o.k == "hive" and o.st != "idle"):
+		# (o centro de cada armadilha é guardado na carga; antes cada teste criava listas novas)
+		if abs(float(o._cx) - pcx) > 1800 and (not FAR_RUN.has(o.k) or FAR_STILL.has(o.st) or (o.k == "bridge" and o.st == "gone" and o.t > 300)) and not (o.k == "hive" and o.st != "idle"):
 			continue
 		o.t += 1
 		match o.k:
@@ -847,6 +852,9 @@ func _bridge(o: Dictionary, p: Dictionary) -> void:
 				o.front += o.get("spd", 5.0)
 			if o.front > o.x + o.w + 40:
 				o.st = "gone"
+				o.t = 0
+	if o.st == "idle" or (o.st == "gone" and o.t > 300):
+		return   # parada (ou já toda lá embaixo, fora da tela): nada para mexer nas tábuas
 	for pl in o.planks:
 		if o.st != "idle" and not pl.down and pl.x + 40 < o.front:
 			pl.down = true

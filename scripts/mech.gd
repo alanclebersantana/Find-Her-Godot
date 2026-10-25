@@ -363,10 +363,16 @@ func post() -> void:
 			c.vy = 0.0
 		else:
 			c.y = ny
-	# placas de pressão
+	# placas de pressão (a lista de corpos é montada uma vez por passo: antes era refeita, com um
+	# Dictionary novo por caixa, para cada placa, portão e tábua podre)
+	var bl: Array = bodies()
 	for pl in PLATES:
+		# placa longe da tela e solta: nada pode estar em cima dela (as caixas só andam empurradas)
+		if not pl.on and abs(pl.x - camc) > 2200:
+			pl.d = move_toward(pl.d, 0.0, .2)
+			continue
 		var on := false
-		for b in bodies():
+		for b in bl:
 			var feet: float = b.y + b.h
 			if feet > pl.y - 6 and feet < pl.y + 6 and b.x + b.w > pl.x + 6 and b.x < pl.x + pl.w - 6:
 				on = true
@@ -383,7 +389,7 @@ func post() -> void:
 			if pl.gate == gt.id and pl.on:
 				want = 1.0
 		if want == 0.0 and gt.open > 0.0:
-			for b in bodies():
+			for b in bl:
 				if b.x + b.w > gt.x and b.x < gt.x + gt.w and b.y + b.h > gt.y and b.y < gt.y + gt.h:
 					want = gt.open
 		var was: float = gt.open
@@ -398,7 +404,7 @@ func post() -> void:
 			if s.rt <= 0:
 				# não volta por cima de quem está passando no lugar (prenderia o Tomé dentro da tábua)
 				var busy := false
-				for b in bodies():
+				for b in bl:
 					if b.x + b.w > s.x and b.x < s.x + s.w and b.y + b.h > s.oy - 2 and b.y < s.oy + s.h:
 						busy = true
 				if busy:
@@ -411,10 +417,8 @@ func post() -> void:
 			continue
 		if float(s.get("pop", 1.0)) < 1.0:
 			s.pop = min(1.0, float(s.pop) + .06)
-		var stood := false
-		for b in bodies():
-			if b._g == s:
-				stood = true
+		# só quem anda pisa na tábua (as caixas da lista não têm chão próprio)
+		var stood: bool = g.player.get("_g") == s or (ctrl and tome.get("_g") == s)
 		if stood or s.ct > 0:
 			s.ct += 1
 			if s.ct == 1:
@@ -436,7 +440,7 @@ func bodies() -> Array:
 			out.append({"x": D.x - DOG_W / 2, "y": D.y - DOG_H, "w": DOG_W, "h": DOG_H, "_g": null})
 	for c in PUSH:
 		if not c.dead:
-			out.append({"x": c.x, "y": c.y, "w": c.w, "h": c.h, "_g": null})
+			out.append(c)   # (a própria caixa: só x, y, w, h são lidos; antes criava um Dictionary por caixa)
 	return out
 
 func on_any_plate(b: Dictionary) -> bool:

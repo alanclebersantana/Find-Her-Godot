@@ -134,7 +134,9 @@ func pre() -> void:
 	if gs is Dictionary and str(gs.get("t", "")) == "mplat" and p.onGround:
 		p.x += float(gs.dx)
 		p.y += float(gs.dy)
-	g.blockers_dirty()
+	# (sem tábuas na fase não há o que refazer na lista de colisão)
+	if not MV.is_empty():
+		g.blockers_dirty()
 
 ## o botão USAR aparece em cima (ou perto) do elevador
 func near_use() -> bool:

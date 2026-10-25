@@ -16,7 +16,9 @@ static func draw(g: Game, T: int) -> void:
 	if not PR.TABLE.is_empty() and PR.TABLE.x + 200 > g.cam and PR.TABLE.x - 200 < g.cam + g.W:
 		_table(PR.TABLE)
 	for pp in PR.PAPERS:
-		_paper(pp)
+		# (só os papéis na tela)
+		if pp.x > g.cam - 40 and pp.x < g.cam + g.W + 40:
+			_paper(pp)
 
 static func _boat(b: Dictionary, T: int) -> void:
 	var x: float = b.x

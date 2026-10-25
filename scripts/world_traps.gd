@@ -760,11 +760,21 @@ static func _boulder(g: Game, o: Dictionary, T: int) -> void:
 	Spr.glow(cx - R * .3, cy - R * .45, R * .7, Color(1, .95, .85, .08))
 
 ## caixas, carrinho e barricada do trecho da bola (somem quando ela passa)
+static var _bob_key := ""
+static var _bob_list: Array = []
+static var _bob_L = null
 static func _bobs(g: Game, T: int) -> void:
 	var c0: float = g.cam - 200
 	var c1: float = g.cam + g.W + 200
-	for s in g.SOL:
-		if not s.get("bob") or s.x > c1 or s.x + s.w < c0:
+	# (a lista dos objetos do trecho da bola é refeita só quando g.SOL muda; antes percorria todos
+	# os sólidos da fase a cada quadro)
+	var key := "%d:%d" % [g.level_idx, g.SOL.size()]
+	if key != _bob_key or not is_same(_bob_L, g.L):
+		_bob_key = key
+		_bob_L = g.L
+		_bob_list = g.SOL.filter(func(o): return o.get("bob"))
+	for s in _bob_list:
+		if s.x > c1 or s.x + s.w < c0:
 			continue
 		match s.bob:
 			"crate":
@@ -799,12 +809,60 @@ static func _giant(o: Dictionary, T: int) -> void:
 	var base: float = o.y
 	var top: float = o.cap
 	var w: float = o.w
-	var c: Color = Color(o.get("c", "#6a5acd"))
 	var bouncy: bool = o.has("to")
 	if bouncy and Spr.has("p_saltador0"):
 		_giant_spring(o, T)
 		return
-	if not bouncy:
+	# (o cogumelo gigante não se mexe: o contorno do caule, as fibras e o chapéu são calculados uma
+	# vez só e guardados em o._gc, em vez de refazer as contas a cada quadro)
+	if not o.has("_gc"):
+		o._gc = _giant_geom(o)
+	var gc: Dictionary = o._gc
+	var c: Color = gc.c
+	var sw: float = gc.sw
+	var deep: bool = gc.deep
+	var bend: float = gc.bend
+	var L: PackedVector2Array = gc.L
+	var Rr: PackedVector2Array = gc.R
+	Spr.poly(gc.body, Color("#e2d4b8"))
+	# sombra do lado direito e fibras verticais
+	Spr.poly(gc.sh, Color("#bfae8e"))
+	for pts in gc.fib:
+		Spr.line(pts, Color(.45, .36, .25, .22), 1.3)
+	Spr.line(L, Color(.25, .18, .12, .55), 1.6)
+	Spr.line(Rr, Color(.25, .18, .12, .55), 1.6)
+	# anel (saia) logo abaixo do chapéu
+	Spr.ellipse(x + bend * .1, top + 22, sw * .95, 5, Color("#d8c8a6"))
+	Spr.ellipse(x + bend * .1, top + 24, sw * .95, 3, Color(.3, .22, .15, .35))
+	if deep:
+		# some no fundo escuro do buraco com névoa
+		var fy: float = max(top + 60, 560.0)
+		Spr.vgrad(x - sw * 1.6, fy, sw * 3.2, base - fy + 4, Color(.04, .05, .1, 0), Color(.04, .05, .1, 1))
+		for k in 3:
+			var mx: float = x + sin(T * .01 + k * 2.0 + x) * 18
+			Spr.ellipse(mx, fy + 60 + k * 18, sw * 2.2, 10, Color(.55, .65, .85, .1))
+	else:
+		# bulbo com raízes no chão
+		Spr.ellipse(x, base - 3, sw * 1.3, 7, Color("#cbbd9f"))
+		for r in [-1.0, -.4, .5, 1.0]:
+			Spr.seg(x + r * sw * .7, base - 4, x + r * sw * 1.6, base + 3, Color("#8a7458"), 2.2)
+		Spr.ellipse(x, base + 1, sw * 1.5, 4, Color(.2, .3, .12, .6))
+	# chapéu
+	var cap: PackedVector2Array = gc.cap
+	Spr.poly(cap, c)
+	Spr.ellipse(x, top + 8, w * .56, 7, c.darkened(.35))
+	for d in [[-.3, -.15, .07], [.05, -.22, .08], [.3, -.1, .06], [-.08, -.06, .05], [.18, -.04, .04]]:
+		Spr.circle(x + d[0] * w, top + 8 + d[1] * w, d[2] * w, Color(1, 1, 1, .55))
+	Spr.line(cap, OUT, 2)
+
+## geometria fixa do cogumelo gigante comum (caule curvo, sombra, fibras e chapéu)
+static func _giant_geom(o: Dictionary) -> Dictionary:
+	var x: float = o.x
+	var base: float = o.y
+	var top: float = o.cap
+	var w: float = o.w
+	var c: Color = Color(o.get("c", "#6a5acd"))
+	if not o.has("to"):
 		# os gigantes comuns ficam apagados: só os laranjas com mola chamam atenção
 		c = c.darkened(.35)
 	var sw: float = 16.0 + w * .08
@@ -826,49 +884,22 @@ static func _giant(o: Dictionary, T: int) -> void:
 	var rv := Rr.duplicate()
 	rv.reverse()
 	body.append_array(rv)
-	Spr.poly(body, Color("#e2d4b8"))
-	# sombra do lado direito e fibras verticais
 	var sh := PackedVector2Array()
 	for i in n + 1:
 		sh.push_back(L[i].lerp(Rr[i], .62))
-	var rv2 := Rr.duplicate()
-	rv2.reverse()
-	sh.append_array(rv2)
-	Spr.poly(sh, Color("#bfae8e"))
+	sh.append_array(rv)
+	var fib: Array = []
 	for f in 5:
 		var u: float = .18 + f * .16
 		var pts := PackedVector2Array()
 		for i in n + 1:
 			pts.push_back(L[i].lerp(Rr[i], u + sin(i * 1.3 + f) * .02))
-		Spr.line(pts, Color(.45, .36, .25, .22), 1.3)
-	Spr.line(L, Color(.25, .18, .12, .55), 1.6)
-	Spr.line(Rr, Color(.25, .18, .12, .55), 1.6)
-	# anel (saia) logo abaixo do chapéu
-	Spr.ellipse(x + bend * .1, top + 22, sw * .95, 5, Color("#d8c8a6"))
-	Spr.ellipse(x + bend * .1, top + 24, sw * .95, 3, Color(.3, .22, .15, .35))
-	if deep:
-		# some no fundo escuro do buraco com névoa
-		var fy: float = max(top + 60, 560.0)
-		Spr.vgrad(x - sw * 1.6, fy, sw * 3.2, base - fy + 4, Color(.04, .05, .1, 0), Color(.04, .05, .1, 1))
-		for k in 3:
-			var mx: float = x + sin(T * .01 + k * 2.0 + x) * 18
-			Spr.ellipse(mx, fy + 60 + k * 18, sw * 2.2, 10, Color(.55, .65, .85, .1))
-	else:
-		# bulbo com raízes no chão
-		Spr.ellipse(x, base - 3, sw * 1.3, 7, Color("#cbbd9f"))
-		for r in [-1.0, -.4, .5, 1.0]:
-			Spr.seg(x + r * sw * .7, base - 4, x + r * sw * 1.6, base + 3, Color("#8a7458"), 2.2)
-		Spr.ellipse(x, base + 1, sw * 1.5, 4, Color(.2, .3, .12, .6))
-	# chapéu
+		fib.append(pts)
 	var cap := PackedVector2Array()
 	for i in 21:
 		var a := PI + PI * i / 20.0
 		cap.push_back(Vector2(x + cos(a) * w * .56, top + 8 + sin(a) * w * .3))
-	Spr.poly(cap, c)
-	Spr.ellipse(x, top + 8, w * .56, 7, c.darkened(.35))
-	for d in [[-.3, -.15, .07], [.05, -.22, .08], [.3, -.1, .06], [-.08, -.06, .05], [.18, -.04, .04]]:
-		Spr.circle(x + d[0] * w, top + 8 + d[1] * w, d[2] * w, Color(1, 1, 1, .55))
-	Spr.line(cap, OUT, 2)
+	return {"c": c, "sw": sw, "deep": deep, "bend": bend, "L": L, "R": Rr, "body": body, "sh": sh, "fib": fib, "cap": cap}
 
 ## cogumelo gigante saltador: chapéu laranja com pintas amarelas, mola no caule, brilho, setas
 ## e o arco a lápis mostrando para onde ele lança
@@ -944,13 +975,15 @@ static func giant_arc(o: Dictionary, T: int) -> void:
 
 ## bloco de gelo que levou a patada: brilha e treme um instante
 static func _ice_hits(g: Game, T: int) -> void:
-	for s in g.SOL:
+	# (só os sólidos perto da tela: a lista de colisão já vem filtrada e guardada a cada passo)
+	for s in g.blockers():
 		if s.get("shk", 0) > 0:
 			if Polish.FRESH:
 				s.shk -= 1
 			var d: float = sin(T * 2.3) * s.shk * .25
 			Spr.rr(s.x + d, s.y, s.w, s.h + 4, 5, Color(.85, .95, 1, .55 * s.shk / 18.0))
 
+static var _PROP_OK := {}
 ## teto de rocha com escoras e lampiões apagados ao longo de todo o túnel da mina
 static func _tunnel_ceiling(g: Game, T: int) -> void:
 	var tn: Array = g.L.get("tunnel", [])
@@ -979,12 +1012,17 @@ static func _tunnel_ceiling(g: Game, T: int) -> void:
 	Spr.line(bot, Color("#5a4632"), 3)
 	var bx0: float = floor(ca / 260.0) * 260.0
 	while bx0 < cb:
-		# só escora onde há chão firme embaixo (não em cima de buracos)
-		var ok := false
-		for s in g.SOL:
-			if s.t == "ground" and abs(s.y - 500) < 2 and s.x <= bx0 and s.x + s.w >= bx0 + 12:
-				ok = true
-				break
+		# só escora onde há chão firme embaixo (não em cima de buracos); a resposta de cada escora
+		# fica guardada (o chão do túnel não muda), em vez de percorrer todos os sólidos a cada quadro
+		var key := "%d:%d" % [g.level_idx, int(bx0)]
+		if not _PROP_OK.has(key):
+			var found := false
+			for s in g.SOL:
+				if s.t == "ground" and abs(s.y - 500) < 2 and s.x <= bx0 and s.x + s.w >= bx0 + 12:
+					found = true
+					break
+			_PROP_OK[key] = found
+		var ok: bool = _PROP_OK[key]
 		if ok:
 			Spr.rect(bx0, y0 + 30, 12, 120, Color("#4e331d"))
 			Spr.rect(bx0 - 14, y0 + 26, 40, 10, Color("#6b4626"))

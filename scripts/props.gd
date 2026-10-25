@@ -21,6 +21,7 @@ func _init(game) -> void:
 	g = game
 
 func load_level() -> void:
+	_sup_n = -1
 	BOAT = {}
 	TABLE = {}
 	PAPERS = []
@@ -50,13 +51,30 @@ func load_level() -> void:
 #  BARCO
 # ======================================================================
 ## topo da pedra / chão mais alto embaixo do barco (para encalhar)
+## (os sólidos que podem apoiar ficam guardados em faixas de 512 px; a lista só é refeita quando
+## g.SOL muda de tamanho — antes o barco percorria todos os sólidos da fase a cada passo)
+var _sup_n := -1
+var _sup := {}
+func _support_cells() -> Dictionary:
+	if g.SOL.size() != _sup_n:
+		_sup_n = g.SOL.size()
+		_sup = {}
+		for s in g.SOL:
+			if s.get("boat") or s.get("deco") or not str(s.get("t", "")) in ["stone", "ground", "dirt"]:
+				continue
+			for c in range(int(floor(s.x / 512.0)), int(floor((s.x + s.w) / 512.0)) + 1):
+				if not _sup.has(c):
+					_sup[c] = []
+				_sup[c].append(s)
+	return _sup
+
 func _support_under(x0: float, x1: float, y: float) -> float:
 	var best := INF
-	for s in g.SOL:
-		if s.get("boat") or s.get("deco"):
-			continue
-		if s.t in ["stone", "ground", "dirt"] and s.x < x1 and s.x + s.w > x0 and s.y >= y - 4 and s.y < best:
-			best = s.y
+	var cells := _support_cells()
+	for c in range(int(floor(x0 / 512.0)), int(floor(x1 / 512.0)) + 1):
+		for s in cells.get(c, []):
+			if s.x < x1 and s.x + s.w > x0 and s.y >= y - 4 and s.y < best:
+				best = s.y
 	return best
 
 func _boat_place() -> void:
