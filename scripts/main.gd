@@ -1414,6 +1414,10 @@ class _CtrlEditor extends Control:
 
 func start_level(cont: bool, lvl: int = 0) -> void:
 	Spr.warm()
+	# contorno dos telhados para a neve (lê a arte da placa de vídeo: lento, então faz agora e não no meio do jogo)
+	for rn in ["v_house1", "v_house2"]:
+		if Spr.AR.has(rn):
+			WorldNature._roof_line(rn)
 	game.CLUEGOT.clear()
 	game.SPECGOT.clear()
 	game.DRAWN.clear()

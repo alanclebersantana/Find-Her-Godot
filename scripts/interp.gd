@@ -23,7 +23,9 @@ static func _targets(g) -> Array:
 	var out: Array = []
 	if g.X:
 		out.append(g.X.BOSS)
-		out.append(g.X.DOG)
+		# Pipoca controlado pelo jogador já é desenhado com Game.ip_off (não misturar duas vezes)
+		if not (g.M and g.M.ctrl):
+			out.append(g.X.DOG)
 	if g.K:
 		out.append(g.K.HAWK)
 		out.append(g.K.FISH)
