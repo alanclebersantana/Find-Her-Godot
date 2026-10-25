@@ -1135,7 +1135,8 @@ func _rider(g: Game) -> void:
 		Spr.rotate(sin(T * .6) * .06)
 	# no salto o cavalo empina subindo e abaixa o focinho descendo (gira em volta das patas)
 	var pt: float = clamp(RD.vy * .014, -.12, .1) if RD.hy < 497.0 else 0.0
-	_hpitch = lerp(_hpitch, pt, .2)
+	if FRESH:
+		_hpitch = lerp(_hpitch, pt, .2)
 	Spr.rotate(_hpitch)
 	if RD.hy < 497.0 and jt:
 		var jf: int = 0 if RD.vy < -3.0 else (1 if RD.vy < 3.0 else 2)
@@ -1251,15 +1252,17 @@ func _breath(g: Game) -> void:
 	var cold: bool = g.AMB.get("snow", 0.0) > .2
 	if cold and g.running and not p.swim and p.dyingT == 0 and not (g.VH and g.VH.active()) and not (g.RD and g.RD.riding):
 		var per: int = 46 if (abs(p.vx) > 2.5 or p.get("pant", 0) > 0) else 110
-		if T % per == 0 or T % per == 8:
+		if FRESH and (T % per == 0 or T % per == 8):
 			var off := g.ip_off()
 			puffs.append({"x": p.x + p.w / 2 + p.face * 12 + off.x, "y": p.y + p.h - 44 + off.y, "vx": p.face * .5 + p.vx * .3, "t": 0})
 	var keep: Array = []
 	for f in puffs:
-		f.t += 1
-		f.x += f.vx
-		f.vx *= .96
-		f.y -= .25
+		# a fumacinha anda no ritmo da lógica (a 90/120 Hz desenhava mais de uma vez por passo: nascia em dobro e subia rápido)
+		if FRESH:
+			f.t += 1
+			f.x += f.vx
+			f.vx *= .96
+			f.y -= .25
 		var u: float = f.t / 50.0
 		if u < 1:
 			Spr.circle(f.x, f.y, 3 + u * 9, Color(.95, .97, 1, .45 * (1 - u)))
@@ -1395,8 +1398,9 @@ func _isis_draw(p: Dictionary) -> void:
 	elif fr == 10:
 		rot = float(p.get("bsw", 0.0))
 	var sq: float = p.squash
-	var sx: float = (-s if flip else s) * st.x * (1 + sq * .2)
-	var sy: float = s * st.y * (1 - sq * .25)
+	var dk: float = float(p.get("duck", 1.0))
+	var sx: float = (-s if flip else s) * st.x * (1 + sq * .2) * (1.0 + (1.0 - dk) * .3)
+	var sy: float = s * st.y * (1 - sq * .25) * dk
 	var src := Rect2(fr * 150, 0, 150, 150)
 	var dst := Rect2(-75, -150, 150, 150)
 	# folha de corrida completa (assets/sprites/isis_run.png, quadros 150x150 na mesma escala), se existir
@@ -1464,6 +1468,14 @@ func _warp_pose(p: Dictionary) -> void:
 
 func _player_draw(g: Game) -> void:
 	var p: Dictionary = g.player
+	# teto baixo logo acima: o desenho (bem mais alto que a caixa) se encolhe para o chapéu não entrar
+	# no teto; subindo, já antecipa um pouco. Só o desenho muda (a caixa de colisão é a mesma).
+	var cg: float = float(p.get("ceil", 99.0)) + min(0.0, float(p.vy)) * 1.5
+	var art_h: float = 58.0 if p.get("isis") else 66.0
+	var dk_t: float = 1.0 if p.crouch or p.ladder or p.vine else clamp((p.h + max(cg, 0.0) + 6.0) / art_h, .7, 1.0)
+	if FRESH or not p.has("duck"):
+		var d0: float = float(p.get("duck", 1.0))
+		p.duck = lerpf(d0, dk_t, .75 if dk_t < d0 else .18)
 	if p.iframe > 0 and (T / 4) % 2 == 0 and p.dyingT == 0:
 		return
 	if p.get("isis"):
@@ -1697,8 +1709,9 @@ func _player_draw(g: Game) -> void:
 			var st: Vector2 = _body_flex(p, key, f, n)
 			# virada com peso: espelha de uma vez e achata um instante (sem ficar fino como papel)
 			var tu3: float = p.turnT / 6.0 if p.turnT > 0 else 0.0
-			var sx3: float = p.face * k2 * (1 + sq3 * .2) * st.x * (1.0 + .07 * tu3)
-			var sy3: float = k2 * (1 - sq3 * .25) * st.y * (1.0 - .06 * tu3)
+			var dk3: float = float(p.get("duck", 1.0))
+			var sx3: float = p.face * k2 * (1 + sq3 * .2) * st.x * (1.0 + .07 * tu3) * (1.0 + (1.0 - dk3) * .3)
+			var sy3: float = k2 * (1 - sq3 * .25) * st.y * (1.0 - .06 * tu3) * dk3
 			var src3 := Rect2(f * sz, 0, sz, sz)
 			var dst3 := Rect2(-sz / 2, -sz, sz, sz)
 			# quadros intermediários (x4): posição contínua dentro da animação
@@ -1730,7 +1743,7 @@ func _player_draw(g: Game) -> void:
 				k4 = smoothstep(.5, 1.0, q4[2]) * .5 if q4[1] != q4[0] else 0.0
 			# na parede: o corpo afasta um palmo (só a mão encosta) e inclina para fora, tremendo com o atrito
 			var cx3: float = cx + p.face * 8.0 * wk
-			var rot3: float = p.lean + (p.face * .1 + sin(T * 1.1) * .012) * wk
+			var rot3: float = p.lean + (p.face * .1 + sin(T * 1.1) * .012) * wk + p.face * (1.0 - dk3) * .35
 			_pose("wall" if wsl else key, tx3, src3, dst3, cx3, by, rot3, sx3, sy3)
 			# vento forte com ele parado: a ponta do cachecol voa para o lado do vento
 			var wnd: float = g.AMB.get("wind", 0.0)
@@ -1819,9 +1832,10 @@ func _player_draw(g: Game) -> void:
 	var tu0: float = p.turnT / 6.0 if p.turnT > 0 else 0.0
 	var rim2 := _rim(g, p)
 	_body_flex(p, "old", fr, 4)
-	var rot0: float = p.lean + (p.face * .06 * pant if (pant > 0 and fr == 0 and tex == pai) else 0.0)
-	var sx0: float = p.face * sc * (1 + sq * .25) * (1.0 + .07 * tu0)
-	var sy0: float = sc * (1 - sq * .3 + idle) * (1.0 - .06 * tu0)
+	var rot0: float = p.lean + (p.face * .06 * pant if (pant > 0 and fr == 0 and tex == pai) else 0.0) + p.face * (1.0 - float(p.get("duck", 1.0))) * .35
+	var dk0: float = float(p.get("duck", 1.0))
+	var sx0: float = p.face * sc * (1 + sq * .25) * (1.0 + .07 * tu0) * (1.0 + (1.0 - dk0) * .3)
+	var sy0: float = sc * (1 - sq * .3 + idle) * (1.0 - .06 * tu0) * dk0
 	_pose("old%d_%d" % [tex.get_instance_id(), fr], otex, osrc, Rect2(-85, -156, 170, 160), cx, by, rot0, sx0, sy0)
 	# J10 mergulho: borrão vertical acima do corpo
 	if p.slam and p.vy > 6 and not g.low_fx:

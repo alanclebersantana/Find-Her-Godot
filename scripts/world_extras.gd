@@ -738,10 +738,10 @@ static func dog(g: Game, T: int) -> void:
 	if d.st == "tied" and not d.moving:
 		nf = 13
 	# corpo vivo: inclina para a frente na corrida (suave), respira parado, vira girando
-	# (a inclinação anda no passo da lógica: o mesmo balanço em telas de 60, 90 ou 120 Hz)
-	if Polish.FRESH:
-		var dvx: float = x - float(d.get("_lx", x))
-		d._lx = x
+	# (só no 1º desenho depois de cada passo: a 90/120 Hz a inclinação não muda de ritmo nem treme)
+	if Polish.FRESH or not d.has("_lean"):
+		var dvx: float = d.x - float(d.get("_lx", d.x))
+		d._lx = d.x
 		d._lean = lerp(float(d.get("_lean", 0.0)), clamp(dvx / 5.0, -1, 1) * .07, .15)
 	var ns: float = Spr.turn_face(d, float(d.face))
 	if Spr.turned_now(d) and d.moving:

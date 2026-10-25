@@ -1278,6 +1278,7 @@ func step() -> void:
 			g *= .55
 		elif player.vy > 1.6 and not player.puff and not player.slam and player.wsl == 0 and player.wall == 0 and player.get("launchT", 0) <= 0:
 			# a queda pesa um pouco mais que a subida (pulo com peso)
+			# (cair mais pesado ao soltar PULAR encurtava os pulos nos precipícios da montanha: ficou só no desenho)
 			g *= 1.08
 		player.vy = clamp(player.vy + g, -34 if player.get("launchT", 0) > 0 else -20, maxv)
 		# deslizar na parede só encostado nela de verdade (a memória de alguns quadros deixava o Tomé
@@ -1317,7 +1318,8 @@ func step() -> void:
 		player.landT = 8
 		if prev_vy > 10:
 			Audio.vib(18)
-		burst(player.x + player.w / 2, player.y + player.h, 5, Color("#b7a77f"))
+		# peso no pouso: poeira proporcional à queda
+		burst(player.x + player.w / 2, player.y + player.h, int(clamp(prev_vy * .6, 4, 10)), Color("#b7a77f"))
 		fx("fx_dust", player.x + player.w / 2, player.y + player.h - 6, 16, .08 + prev_vy * .01, -.2)
 	player.squash *= .78
 	if player.landT > 0:
@@ -1358,6 +1360,8 @@ func step() -> void:
 	# quadros seguidos fora do chão (o desenho só troca para a pose de queda depois de um tiquinho:
 	# descer um degrau ou a beirada de uma tábua não pisca a pose de pulo)
 	player.airT = 0 if player.onGround else int(player.get("airT", 0)) + 1
+	# folga até o teto (o desenho do Tomé é bem mais alto que a caixa: perto do teto ele se encolhe no desenho)
+	player.ceil = _ceil_gap()
 	if player.onGround and abs(player.vx) < .3:
 		player.idleT = player.get("idleT", 0) + 1
 	else:
@@ -2219,6 +2223,20 @@ func _auto_safe() -> void:
 		return
 	player.spawnX = player.x
 	player.spawnY = player.y
+
+## distância do alto da caixa até o sólido logo acima (99 = céu livre); só para o desenho
+func _ceil_gap() -> float:
+	var top: float = player.y
+	var best := 99.0
+	for s in blockers():
+		if s.get("oneway"):
+			continue
+		if s.x >= player.x + player.w - 3 or s.x + s.w <= player.x + 3:
+			continue
+		var b: float = s.y + float(s.get("h", 0.0))
+		if b <= top + 1.0 and top - b < best:
+			best = top - b
+	return best
 
 ## caindo e com chão firme logo abaixo dos pés (pousa no próximo quadro)?
 func _ground_near() -> bool:

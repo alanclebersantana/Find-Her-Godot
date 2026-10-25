@@ -28,7 +28,9 @@ static func draw(g: Game, T: int) -> void:
 ## inclinação do trenó/carrinho suavizada (sem estalar quando a rampa muda ou ele sai do chão)
 static var _sang_s := 0.0
 static func _tilt(target: float) -> float:
-	_sang_s = lerpf(_sang_s, target, .22)
+	# só anda no 1º desenho depois de cada passo (a 90/120 Hz suavizava mais rápido e tremia)
+	if Polish.FRESH:
+		_sang_s = lerpf(_sang_s, target, .22)
 	return _sang_s
 
 static func rider(g: Game, T: int) -> void:
