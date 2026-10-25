@@ -1045,7 +1045,8 @@ func cine_step(c: Dictionary) -> void:
 func cine_end(id: String) -> void:
 	match id:
 		"gaviao":
-			g.tip("Fuja da sombra! Se ele errar, acerte com a picareta. O facho (segure ✦) ofusca o gavião.", 220)
+			# (o pergaminho do canto explica a luta: aqui só o essencial)
+			g.tip("Fuja da sombra do Gavião-Rei!", 160)
 		"urso":
 			if not BEAR.is_empty():
 				BEAR.hide = false
@@ -1054,9 +1055,10 @@ func cine_end(id: String) -> void:
 			if not BEAR.is_empty() and BEAR.st in ["intro", "roar"]:
 				BEAR.st = "chase"
 				BEAR.t = 0
-			g.flash_tut("CORRA até a fresta da rocha!", "Fuja! Pule os troncos, abaixe (↓) sob o tronco atravessado, fuja da sombra dos pingentes e entre abaixado na fresta da rocha: o urso não cabe!", 240)
+			# (o pergaminho do lugar explica o caminho: o aviso não repete o mesmo texto)
+			g.flash("CORRA até a fresta da rocha!", 180)
 		"bagre":
-			g.tip("Com o capacete você não perde fôlego. Fuja das investidas e use o arpão (GOLPE) nas escamas brilhantes.", 220)
+			g.tip("Fuja das investidas. Quando ele cansar, arpão (GOLPE) nas escamas que brilham!", 220)
 		"sapo":
 			g.tip("Com o capacete você não perde fôlego. Fuja das investidas e da língua; quando ele cansar, arpão (GOLPE) nas pintas que brilham.", 240)
 		"morcego":

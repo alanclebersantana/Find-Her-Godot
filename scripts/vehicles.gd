@@ -66,8 +66,16 @@ func cheer(title: String, sub: String = "", t: int = 120, small: bool = false) -
 
 ## o tempo da faixa anda com a lógica (chamado pelo passo da cavalgada e dos veículos)
 func tick_cheer() -> void:
+	if g.T == _cheer_T:
+		return
+	_cheer_T = g.T
 	if int(CH.t) > 0:
 		CH.t = int(CH.t) - 1
+		# S6: a sequência acabou (pousou, desceu do trenó, do cavalo): faixa pequena ("MARCO 2",
+		# "QUE SALTO!") sai na hora, não fica pendurada na tela
+		if CH.small and not active() and not (g.RD and g.RD.riding):
+			CH.t = min(int(CH.t), 16)
+var _cheer_T := -1
 
 ## zoom da câmera nas sequências: abre um pouco com a velocidade (vê mais o que vem) e mais ainda
 ## nos saltos grandes; fecha de leve no fim
@@ -283,7 +291,7 @@ func _start_raft() -> void:
 	land_k = 0.0
 	_place_player()
 	Audio.play("splash", -4)
-	g.flash_tut("Segure firme!", "Corredeira! PULAR salta pedras e troncos boiando (e as quedas, na beirada). ↓ abaixa sob galhos, troncos caídos, pontes e redes.", 260)
+	g.flash_tut("Segure firme!", "Corredeira! PULAR salta pedras, troncos e quedas; ↓ abaixa sob galhos, pontes e redes.", 200)
 
 ## TRENÓ: descida comprida num morro de neve (trilha própria, longe do mapa). A velocidade segue a
 ## descida; PULAR salta pedras, troncos e rachaduras; ↓ abaixa sob galhos; ← freia; → inclina e acelera.
@@ -361,9 +369,9 @@ func _sled_go() -> void:
 	g.iris_t = 30
 	Audio.play("slide")
 	if is_cart():
-		g.flash_tut("Carrinho!", "Nos trilhos! PULAR salta pedras e buracos nos trilhos. ↓ abaixa sob as vigas. ← freia, → acelera.", 240)
+		g.flash_tut("Carrinho!", "Nos trilhos! PULAR salta pedras e buracos, ↓ abaixa sob as vigas, ← freia.", 200)
 	else:
-		g.flash_tut("Trenó!", "Descendo o morro! PULAR salta pedras, troncos e rachaduras. ↓ abaixa sob galhos. ← freia, → acelera.", 240)
+		g.flash_tut("Trenó!", "Descendo o morro! PULAR salta pedras e troncos, ↓ abaixa sob galhos, ← freia.", 200)
 
 func _sled_place(u: float, v: float) -> void:
 	su = u
@@ -952,7 +960,7 @@ func _plane_step() -> void:
 				g.fx("fx_dust", hx - 60, hy - 4, 14, .14, -.2)
 			if pb >= PBOARD:
 				phase = "taxi"
-				g.flash_tut("Decolar!", "No ar: ↑ sobe, ↓ desce. Desvie dos pássaros e das nuvens de tempestade.", 220)
+				g.flash_tut("Decolar!", "No ar: ↑ sobe, ↓ desce. Desvie dos pássaros e das nuvens de tempestade.", 200)
 		"taxi":
 			spd = min(spd + .06, float(PL.spd))
 			hx += spd

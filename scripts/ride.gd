@@ -94,7 +94,8 @@ func _start() -> void:
 	hits = 0
 	cp_i = -1
 	_begin(float(H.ride0), 1.0)
-	g.flash_tut("Segure firme!", "Segure firme! PULAR salta (pule nas marcas de cascos na neve). ↓ abaixa sob galhos e cordas. → acelera, ← segura.", 240)
+	# N5: a explicação só nos primeiros segundos; depois o HUD mostra só os ícones dos controles
+	g.flash_tut("Segure firme!", "Segure firme! PULAR salta nas marcas de cascos, ↓ abaixa sob galhos e cordas, → acelera.", 200)
 
 ## marcos da trilha (bandeiras): onde a cavalgada recomeça depois de ficar sem corações
 func cps() -> Array:

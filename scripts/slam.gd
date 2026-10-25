@@ -123,13 +123,22 @@ func step() -> void:
 					g.gain_coin(d.x, d.y - 10)
 			else:
 				g.gain_coin(d.x, d.y - 10)
-	# marca de aprender: perto da primeira rachadura, ensina o mergulho uma vez
-	if not taught:
+	# marca de aprender: perto da primeira rachadura, ensina o mergulho.
+	# G2: a explicação grande sai uma vez só no jogo inteiro (fica gravada); nas partidas seguintes,
+	# no máximo um lembrete curto. Só com o Tomé no chão firme (no ar, em cima do brejo de veneno,
+	# "aperte ↓" levava direto para a água).
+	if not taught and p.onGround and not p.get("swim", false):
 		var px: float = p.x + p.w / 2
 		for m in marks():
 			if abs(px - m.x) < 240 and abs(p.y + p.h - m.y) < 90:
 				taught = true
-				g.flash_tut("Mergulho!", "MERGULHO: pule e, no ar, aperte ↓. Onde aparece esta rachadura dourada, o mergulho faz alguma coisa: quebra o chão, crava estacas, lança a gangorra, derruba frutas e deixa os bichos tontos.", 320)
+				if Game.tutorial_on() and not Save.getv("tut", "slam_big", false):
+					Save.setv("tut", "slam_big", true)
+					g.flash("MERGULHO: pule e, no ar, aperte ↓. Na rachadura dourada ele quebra o chão, crava estacas, lança a gangorra e derruba frutas.", 300)
+				elif Game.tutorial_on():
+					g.flash("Mergulho: pule e aperte ↓ no ar.", 120)
+				else:
+					g.flash("Mergulho!", 100)
 				break
 
 func _drop_items(x: float, y: float, n: int, hearts: int) -> void:

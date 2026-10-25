@@ -578,6 +578,7 @@ func _snap_reset(o: Dictionary) -> void:
 	o.ct = 0
 	o.pop = 0.0
 
+const CAGE_MSG := "Preso na jaula! Troque para o PIPOCA e mande roer a corda do poste (✦)."
 func _cage(o: Dictionary, p: Dictionary, pcx: float) -> void:
 	var w: float = o.get("w", 64)
 	match o.st:
@@ -596,12 +597,12 @@ func _cage(o: Dictionary, p: Dictionary, pcx: float) -> void:
 				g.shake = max(g.shake, 8)
 				Audio.play("stomp")
 				g.burst(o.x + w / 2, o.y - 4, 16, Color("#b7a77f"))
-				# uma solução só: com o Pipoca junto, é ele quem solta (roendo a corda do poste);
-				# sem o Pipoca, a picareta quebra as grades (ver swing_hits)
+				# K1: uma instrução só. A saída é o Pipoca roer a corda do poste (o mesmo texto da dica
+				# do lugar); as picaretadas nas grades são só a reserva de quem está sem o Pipoca
 				if g.X.dog_free():
-					g.flash_tut("Preso numa jaula de caçador!", "Preso na jaula! Use o PIPOCA: roa a corda do poste (✦).", 300)
+					g.flash_tut("Preso na jaula!", CAGE_MSG, 300)
 				else:
-					g.flash("Preso! Bata com a picareta nas grades para quebrar.", 300)
+					g.flash("Preso na jaula! Bata com a picareta nas grades (GOLPE várias vezes).", 300)
 		"shut":
 			var b = g.M.tome if g.M.ctrl else p
 			# o Tomé foi parar longe da jaula (voltou à fogueira, renasceu, foi levado para outro
@@ -975,7 +976,7 @@ func _boulder(o: Dictionary, p: Dictionary, pcx: float) -> void:
 				Audio.play("stomp", -2)
 				g.shake = max(g.shake, 10)
 				g.want_comic("bola")
-				g.flash_tut("Fuja!", "Uma pedra gigante! Fuja para a frente, pule os obstáculos e se abaixe (↓) no buraco do chão lá na frente!", 260)
+				g.flash_tut("Fuja!", "Uma pedra gigante! Corra, pule os obstáculos e se abaixe (↓) no buraco do chão lá na frente!", 240)
 		"drop":
 			o.vy += .9
 			o.by += o.vy

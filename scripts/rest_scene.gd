@@ -1,9 +1,10 @@
 extends Control
 class_name RestScene
-## Grande fogueira no fim de cada período: o Tomé se aquece, olha os desenhos que achou
+## Grande fogueira no fim de cada capítulo: o Tomé se aquece, olha os desenhos que achou
 ## e, no fundo, em tom de sépia, lembra de um momento com a Isis.
 ##   1 desenhando na varanda · 2 pega-pega no quintal · 3 pulando nas poças com a lanterna
-##   4 o boneco de neve ganhando o gorro verde do Tomé
+##   4 barquinhos de papel no riacho · 5 o boneco de neve ganhando o gorro verde do Tomé
+##   6 soltando pipa no morro
 
 var n := 1
 var t := 0.0
@@ -207,38 +208,73 @@ class _Memory extends Control:
 		Spr.frame(Spr.tex.pai, 0, 170, 160, 85, 156, w * .22, h * .86, _dad(h), false)
 		Spr.glow(w * .22 + 160 * _dad(h) * .36, h * .86 - 160 * _dad(h) * .45, 60, Color(1, .85, .5, .5))
 
-	## fim do rio: barquinhos de papel descendo a enxurrada do meio-fio, os dois correndo atrás
+	## o fim do Rio: os dois soltando barquinhos de papel no riacho de casa; o dela vai na frente
+	## e ela corre pela margem acompanhando, o pai agachado põe o dele na água
 	func _boats(w: float, h: float, t: float) -> void:
-		Spr.vgrad(0, 0, w, h * .8, Color("#a9bccb"), Color("#dfe6ea"))
-		# sol saindo depois da chuva
-		Spr.glow(w * .82, h * .16, 60, Color(1, .95, .7, .5))
-		Spr.circle(w * .82, h * .16, 14, Color(1, .96, .78))
-		# calçada, meio-fio e a enxurrada correndo para a direita
-		Spr.rect(0, h * .66, w, h * .14, Color("#9a9a8e"))
-		for i in 8:
-			Spr.seg(i * w / 8.0, h * .66, i * w / 8.0 + 6, h * .8, Color(.5, .5, .46, .6), 1.2)
-		Spr.rect(0, h * .8, w, h * .2, Color("#6f8296"))
+		Spr.vgrad(0, 0, w, h * .6, Color("#a9cfe8"), Color("#e4eef2"))
+		Spr.circle(w * .14, h * .18, 20, Color(1, .96, .78))
+		# morros e a margem do outro lado, com um salgueiro
+		Spr.ellipse(w * .7, h * .6, w * .55, h * .2, Color("#a8bf7e"))
+		Spr.ellipse(w * .15, h * .62, w * .35, h * .14, Color("#98b36e"))
+		# o salgueiro da outra margem: tronco torto, copa e os fios caindo até perto da água
+		var tx0: float = w * .86
+		Spr.poly(PackedVector2Array([Vector2(tx0 - 9, h * .6), Vector2(tx0 - 4, h * .36), Vector2(tx0 - 12, h * .24), Vector2(tx0 + 2, h * .3), Vector2(tx0 + 8, h * .22), Vector2(tx0 + 6, h * .38), Vector2(tx0 + 11, h * .6)]), Color("#6b4a2e"))
+		Spr.ellipse(tx0, h * .22, 70, 36, Color("#7fa356"))
+		Spr.ellipse(tx0 - 18, h * .17, 40, 22, Color("#94b866"))
+		for k in 13:
+			var vx: float = tx0 - 62 + k * 10.0
+			var top: float = h * .24 + abs(k - 6) * 2.0
+			var ln: float = h * (.2 + .06 * sin(k * 1.9))
+			var sw: float = sin(t * .025 + k * .7) * 3.0
+			Spr.seg(vx, top, vx + sw, top + ln, Color("#6f9a4a"), 2.2)
+		# o riacho: faixa de água com reflexos que correm para a direita
+		var wy: float = h * .62
+		var wb: float = h * .8
+		Spr.vgrad(0, wy, w, wb - wy, Color("#86b4cf"), Color("#5f8fb0"))
 		for i in 14:
-			var rx: float = fmod(i * 61.0 + t * 1.6, w + 40) - 20
-			var ry: float = h * (.84 + (i % 4) * .035)
-			Spr.seg(rx, ry, rx + 16 + (i % 3) * 6, ry, Color(.88, .94, 1, .7), 1.4)
-		# dois barquinhos (o dela na frente, sempre)
-		for k in 2:
-			var bx: float = fmod(t * (1.1 - k * .25) + k * w * .35, w + 80) - 40
-			var by: float = h * .86 + sin(t * .09 + k * 2.0) * 2.0
-			var bs: float = h / 110.0 * (1.0 if k == 0 else .85)
-			var bc: Color = Color("#f4eee0") if k == 0 else Color("#e8d8b0")
+			var rx: float = fmod(i * 61.0 + t * .6, w + 40) - 20
+			var ry: float = wy + 4 + fmod(i * 13.0, wb - wy - 8)
+			Spr.seg(rx, ry, rx + 14 + (i % 3) * 6, ry, Color(1, 1, 1, .45), 1.4)
+		# margem de cá, com capim
+		Spr.rect(0, wb, w, h - wb, Color("#9bb36a"))
+		Spr.ellipse(w * .5, wb + 2, w * .55, 7, Color("#86a05a"))
+		for i in 18:
+			var gx: float = fmod(i * 47.0, w)
+			Spr.seg(gx, wb + 3, gx + 2, wb - 6 - (i % 3) * 3, Color("#6f8f45"), 1.6)
+		# a pedra no meio do riacho onde os barquinhos param (a água faz espuma em volta)
+		var sx0: float = w * .8
+		var sy0: float = wy + (wb - wy) * .5
+		Spr.ellipse(sx0, sy0 + 4, 26, 8, Color(1, 1, 1, .35))
+		Spr.ellipse(sx0, sy0, 22, 11, Color("#7c776c"))
+		Spr.ellipse(sx0 - 5, sy0 - 4, 12, 4, Color("#a29c8e"))
+		# os barquinhos descendo o riacho (o dela, vermelho, na frente) até encostar na pedra
+		var arr := false
+		for b in 2:
+			var u: float = clamp((.1 if b == 0 else -.12) + t * .0012, 0.0, 1.0)
+			u = u * u * (3.0 - 2.0 * u) * .3 + u * .7
+			var bx: float = lerpf(w * .1, sx0 - (44.0 if b == 0 else 92.0), u)
+			var by: float = wy + (wb - wy) * (.4 + .14 * b) + sin(t * .06 + b * 2.0) * 1.6
+			var tl: float = sin(t * .05 + b) * (.08 if u < 1.0 else .04)
+			if b == 0 and u >= 1.0:
+				arr = true
 			Spr.save()
 			Spr.translate(bx, by)
-			Spr.rotate(sin(t * .07 + k) * .08)
-			Spr.poly(PackedVector2Array([Vector2(-16 * bs, -4 * bs), Vector2(16 * bs, -4 * bs), Vector2(10 * bs, 3 * bs), Vector2(-10 * bs, 3 * bs)]), bc)
-			Spr.poly(PackedVector2Array([Vector2(-8 * bs, -4 * bs), Vector2(0, -18 * bs), Vector2(8 * bs, -4 * bs)]), bc.darkened(.08))
-			Spr.seg(0, -18 * bs, 0, -4 * bs, Color(.6, .55, .45), 1.0)
+			Spr.rotate(tl)
+			var sc: float = 1.5 if b == 0 else 1.35
+			Spr.poly(PackedVector2Array([Vector2(-16, -6) * sc, Vector2(16, -6) * sc, Vector2(10, 2) * sc, Vector2(-10, 2) * sc]), Color(.97, .95, .9))
+			Spr.poly(PackedVector2Array([Vector2(-2, -6) * sc, Vector2(0, -22) * sc, Vector2(9, -6) * sc]), Color("#e0463a") if b == 0 else Color(.92, .9, .84))
+			Spr.seg(-16 * sc, -6 * sc, 16 * sc, -6 * sc, Color(.55, .5, .42, .8), 1.0)
 			Spr.restore()
-		# a Isis correndo atrás do barquinho, o pai logo atrás
-		var lx: float = w * .5 + sin(t * .02) * w * .08
-		_lia(2 if int(t / 10) % 2 == 0 else 1, lx, h * .8 - abs(sin(t * .18)) * 6, _kid(h))
-		Spr.frame_seq(Spr.tex.pai, [1, 2, 3, 2], t / 9.0, 170, 160, 85, 156, lx - w * .22, h * .8, _dad(h), false)
+			Spr.ellipse(bx, by + 4, 24, 3, Color(1, 1, 1, .35))
+		# a Isis correndo pela margem atrás do barquinho dela (chegou na pedra: pula de alegria)
+		var u0: float = clamp(.1 + t * .0012, 0.0, 1.0)
+		u0 = u0 * u0 * (3.0 - 2.0 * u0) * .3 + u0 * .7
+		var lx: float = clamp(lerpf(w * .1, sx0 - 44.0, u0) - 30.0, w * .3, sx0 - 70.0)
+		var hop: float = abs(sin(t * .12)) * 10.0 if arr else abs(sin(t * .18)) * 5.0
+		_lia(2 if (arr or int(t / 10) % 2 == 0) else 1, lx, h * .96 - hop, _kid(h))
+		Spr.text("ganhei!" if arr else "vai, vai!", lx, h * .44, 14, Color(.4, .25, .2), HORIZONTAL_ALIGNMENT_CENTER)
+		# o pai na margem, olhando os dois
+		Spr.frame(Spr.tex.pai, 0, 170, 160, 85, 156, w * .16, h * .97, _dad(h), false)
 
 	func _snowman(w: float, h: float, t: float) -> void:
 		Spr.vgrad(0, 0, w, h * .8, Color("#c6d6e6"), Color("#eef2f6"))

@@ -16,7 +16,18 @@ var lost_t := 0.0
 var hint_cur := ""
 var hint_show := 0.0
 const HINT_FRAMES := 240.0
+## G4: dica que já foi lida (mais de ~1,5 s na tela) não volta inteira: vira um lembrete curto ou nada
 var hint_seen := {}
+var hint_disp := ""      # o que o pergaminho mostra agora (a dica inteira ou o lembrete curto)
+const HINT_READ := 90.0
+const SHORT_FRAMES := 150.0
+## lembretes curtos das dicas que se repetem pela fase (o começo do texto -> o lembrete)
+const SHORT_HINTS := {"Colmeia!": "Colmeia: abaixe (↓) ou mergulhe!", "Lago de veneno! Não dá para pular nem planar por cima: suba na estaca": "Lago de veneno: MERGULHO na estaca!",
+	"Flor-catapulta": "Flor-catapulta: fique parado em cima.", "Espinhos!": "Espinhos: espere descerem.",
+	"Empurre a caixa": "Caixa na placa: o portão abre.", "Portão alto com portinhola": "Portinhola: troque para o Pipoca (botão do cachorro).",
+	"Cogumelo saltador": "Cogumelo saltador: pule em cima!", "Vitórias-régias": "Vitórias-régias: vá pulando!"}
+var hint_bot := 0.0      # base do pergaminho do canto (lutas): o aviso desce para baixo dele
+var ride_keys_a := 0.0   # tirinha dos controles nas cavalgadas e veículos (aparece devagar)
 var last_hp2 := -1
 var tex_face: Texture2D = preload("res://assets/ui/btn_tome.png")
 var mobile: bool = OS.has_feature("mobile") or DisplayServer.is_touchscreen_available()
@@ -43,8 +54,11 @@ var msg_bot := 0.0  # base da dica / do aviso no alto neste quadro (o nome do lu
 var place_y := -1.0
 var place_ty := 92.0
 const PLACE_DUR := 2.5
-const PLACE_NAMES := {"manha": "Manhã no bosque", "tarde": "Tarde no bosque", "chuva": "O pântano", "rio": "O rio",
-	"neve": "A neve", "ceu": "O céu", "montanha": "A montanha", "noite": "Noite na mina", "perseguicao": "A perseguição", "tunel": "O túnel"}
+## (só para fases sem capítulos marcados; no Episódio 1 o título é o nome do capítulo)
+const PLACE_NAMES := {"manha": "Manhã no bosque", "tarde": "Tarde nas copas", "chuva": "O Pântano", "rio": "O Rio",
+	"neve": "A Neve", "ceu": "A Montanha", "montanha": "A Montanha", "noite": "Noite na mina", "perseguicao": "A perseguição", "tunel": "O túnel"}
+## momentos dentro de um capítulo que ganham título próprio (não trocam o nome do capítulo no HUD)
+const SUB_NAMES := {"perseguicao": "A perseguição"}
 
 func _ready() -> void:
 	var m := {"G": "btn_golpe", "J": "btn_jump", "A": "btn_use", "U": "pad_U", "S": "pad_S", "L": "pad_L", "R": "pad_R", "Q": "btn_dog"}
@@ -80,6 +94,7 @@ func can_replay() -> bool:
 
 func show_hint_again() -> void:
 	hint_show = 0.0
+	hint_disp = hint_cur
 
 ## no celular, as teclas viram o desenho do próprio botão dentro do texto
 ## (o texto das dicas e avisos é o mesmo por muitos quadros: troca de ícones, quebra de linha e
@@ -234,7 +249,8 @@ func _fade_step(d: float) -> void:
 	tint = tint.lerp(tt, clamp(d * 1.5, 0, 1))
 	stats.modulate = Color(tint.r, tint.g, tint.b, stats_a)
 
-## Y6: nome do trecho em letras bonitas no alto, aparecendo e sumindo (~2,5 s)
+## Y6: nome do trecho em letras bonitas no alto, aparecendo e sumindo (~2,5 s).
+## No Episódio 1 é sempre o nome do capítulo (o mesmo do HUD e da cena da fogueira grande).
 func _section_name() -> String:
 	var S: Array = game.L.get("sections", [])
 	if S.is_empty():
@@ -244,17 +260,22 @@ func _section_name() -> String:
 	for s in S:
 		if float(s.x) <= px:
 			sc = s
+	if sc != null and sc.has("name"):
+		return str(sc.name)
+	if not game.chapters_by_section():
+		if sc != null and SUB_NAMES.has(str(sc.get("song", ""))):
+			return SUB_NAMES[str(sc.song)]
+		return game.chapter_name(game.period_index())
 	if sc == null:
 		return ""
-	if sc.has("name"):
-		return str(sc.name)
 	if sc.has("per") and int(sc.per) < game.PERIODS.size():
 		return str(game.PERIODS[int(sc.per)])
 	var k: String = sc.get("map", "neve" if sc.get("bg", "") == "neve" else sc.get("song", "manha"))
 	return PLACE_NAMES.get(k, "")
 
 func _place_step(d: float) -> void:
-	if game.running and game.CINE.is_empty() and game.player.dyingT == 0:
+	var intro: bool = game.boss_intro() or cine_bar > 1.0
+	if game.running and game.CINE.is_empty() and game.player.dyingT == 0 and not intro:
 		var n := _section_name()
 		if n != "" and not place_seen.has(n):
 			place_seen[n] = true
@@ -262,13 +283,19 @@ func _place_step(d: float) -> void:
 			place_wait = 0.0
 	if place_pending != "" and place_t < 0:
 		place_wait += d
-		# espera o aviso e a dica saírem (no máximo uns segundos)
-		if (game.flash_t == 0 and hint_alpha < .05) or place_wait > 8.0:
+		# G1: o título nunca entra por cima de aviso ou dica: espera os dois saírem
+		# (e, se a espera for longa demais, desiste: o capítulo já está escrito no canto)
+		if game.flash_t == 0 and game.flash_q.is_empty() and hint_alpha < .05 and not intro:
 			place_cur = place_pending
 			place_pending = ""
 			place_t = 0.0
+		elif place_wait > 12.0:
+			place_pending = ""
 	if place_t >= 0:
 		place_t += d
+		# chegou um aviso: o título sai depressa (some antes de o aviso descer até ele)
+		if (game.flash_t > 0 or intro) and place_t < PLACE_DUR - .25:
+			place_t = PLACE_DUR - .25
 		place_y = lerpf(place_y, place_ty, 1.0 - exp(-d * 12.0))
 		if place_t >= PLACE_DUR:
 			place_t = -1.0
@@ -282,7 +309,7 @@ func _draw_place(W: float) -> void:
 	# e com o fôlego ou a vida do chefe no alto, ou um aviso aparecendo, desce para baixo deles
 	# (desliza até o lugar novo em vez de pular)
 	var ty: float = max(92.0, bars_y + 34.0)
-	if hint_alpha >= .05:
+	if hint_alpha >= .05 and hint_bot <= 0.0:
 		ty = max(ty, 146.0)
 	if msg_bot > 0.0:
 		ty = max(ty, msg_bot + 44.0)
@@ -435,12 +462,36 @@ func _draw_stats(ci: Control) -> void:
 		_box(8, 54, 228, 30)
 		Spr.text("Controlando o PIPOCA", 20, 75, 15, Color("#ffe9a0"), HORIZONTAL_ALIGNMENT_LEFT, Spr.font_b)
 
+## chefes cuja arena o Tomé está (P10: saiu da arena sem terminar a luta, a barra de vida some;
+## voltando, ela reaparece)
+func _bosses_here() -> Array:
+	var out: Array = []
+	var px: float = game.player.x + game.player.w / 2
+	for b in Polish.bosses():
+		var r: Dictionary = b.ref
+		if r.has("x0") and r.has("x1") and (px < float(r.x0) - 220.0 or px > float(r.x1) + 220.0):
+			continue
+		out.append(b)
+	return out
+
+## G4: lembrete curto de uma dica já lida ("" = não mostra de novo)
+func _short_hint(h: String) -> String:
+	for hd in game.L.get("hints", []):
+		if hd.get("t", "") == h and hd.has("short"):
+			return str(hd.short)
+	for k in SHORT_HINTS:
+		if h.begins_with(k):
+			return SHORT_HINTS[k]
+	return ""
+
 ## fôlego, barra do chefe, dica e avisos (sempre a 100%)
 func _draw_bars_and_hints(W: float, p: Dictionary, X: Extras) -> void:
 	# fôlego (na água); com a vida do chefe no alto, a barra do fôlego desce para baixo dela
 	bars_y = 0.0
 	msg_bot = 0.0
-	var by0: float = 52.0 if Polish.bosses().is_empty() else 98.0
+	hint_bot = 0.0
+	var bl: Array = _bosses_here()
+	var by0: float = 52.0 if bl.is_empty() else 98.0
 	if X and X.breath < Extras.BREATH:
 		bars_y = by0 + 30.0
 		var n: int = int(ceil(X.breath / float(Extras.BREATH) * 8))
@@ -452,7 +503,6 @@ func _draw_bars_and_hints(W: float, p: Dictionary, X: Extras) -> void:
 			if on:
 				Spr.circle(bx - 2, by0 + 10, 2, Color(1, 1, 1, .8))
 	# chefes: barra de vida viva (o pedaço perdido fica branco, treme e escorre devagar)
-	var bl: Array = Polish.bosses()
 	if not bl.is_empty():
 		bars_y = max(bars_y, 94.0)
 		var bb: Dictionary = bl[0]
@@ -484,26 +534,47 @@ func _draw_bars_and_hints(W: float, p: Dictionary, X: Extras) -> void:
 	# dica do lugar: pergaminho com o rostinho do Tomé; aparece, fica uns segundos e some sozinha
 	# (o pergaminho pequeno no alto traz a dica de volta)
 	var h := game.hint_text() if game.running else ""
-	var boss: bool = (X and X.boss_active()) or (game.K and game.K.active())
+	var boss: bool = not bl.is_empty() and ((X and X.boss_active()) or (game.K and game.K.active()))
+	var flash_on: bool = game.flash_t > 0 and game.flash_msg != ""
+	# o que um aviso acabou de dizer não precisa vir de novo no pergaminho
+	if flash_on:
+		hint_seen[game.flash_msg] = true
 	if h != hint_cur:
 		hint_cur = h
-		# dica já vista não volta sozinha (fica no pergaminho pequeno para rever)
-		hint_show = HINT_FRAMES if hint_seen.has(h) else 0.0
-	if h != "":
+		hint_disp = h
+		hint_show = 0.0
+		# dica já lida não volta inteira: um lembrete curto (se tiver) ou nada
+		# (fica no pergaminho pequeno para rever)
+		if hint_seen.has(h):
+			var sh := _short_hint(h)
+			if sh != "" and sh != h:
+				hint_disp = sh
+				hint_show = HINT_FRAMES - SHORT_FRAMES
+			else:
+				hint_show = HINT_FRAMES
+	elif flash_on and h == game.flash_msg:
+		hint_show = max(hint_show, HINT_FRAMES)
+	# G1: o pergaminho espera a vez — aviso no meio da tela, título do capítulo, apresentação de chefe
+	# (nas lutas ele fica no canto, longe do aviso: aí os dois podem aparecer juntos)
+	# (o título do capítulo vai antes da dica que mal começou: abrir o capítulo e depois explicar)
+	var wait: bool = (flash_on and not boss) or place_t >= 0 or (place_pending != "" and (hint_alpha < .05 or hint_show < 30.0)) \
+		or game.boss_intro() or cine_bar > 1.0
+	if h != "" and not wait:
 		hint_show += 1.0
-		if hint_show >= (180.0 if boss else HINT_FRAMES) - 1:
+		if hint_show >= HINT_READ and hint_disp == hint_cur:
 			hint_seen[h] = true
 	# levou dano: a dica sai na hora para não atrapalhar
 	if last_hp2 >= 0 and p.hp < last_hp2:
 		hint_show = max(hint_show, HINT_FRAMES)
 	last_hp2 = p.hp
 	var limit: float = 180.0 if boss else HINT_FRAMES
-	var vis: bool = h != "" and hint_show < limit
+	var vis: bool = h != "" and hint_show < limit and not wait
 	if vis:
-		hint_txt = h
+		hint_txt = hint_disp
 		hint_alpha = min(1, hint_alpha + .1)
 	else:
-		hint_alpha = max(0, hint_alpha - .08)
+		# dando a vez a um aviso: sai depressa (não fica embaixo dele)
+		hint_alpha = max(0, hint_alpha - (.2 if wait else .08))
 	if hint_alpha > 0 and hint_txt != "":
 		var fs: int = 13 if boss else 14
 		var mw: float = 330.0 if boss else min(W - 380, 460)
@@ -528,13 +599,15 @@ func _draw_bars_and_hints(W: float, p: Dictionary, X: Extras) -> void:
 		_plaque(bx2, hy, bw2, bh2, a2)
 		if not boss:
 			msg_bot = max(msg_bot, hy + bh2)
+		elif bx2 + bw2 > W / 2 - 200:
+			hint_bot = hy + bh2
 		Spr.ci.draw_texture_rect(tex_face, Rect2(bx2 + 7, hy + bh2 / 2 - 17, 34, 34), false, Color(1, 1, 1, a2))
 		var yy2: float = hy + 18 + (bh2 - 14 - hl.size() * (fs + 6)) / 2.0
 		for ln in hl:
 			_rdraw(ln, bx2 + 44 + (bw2 - 50) / 2, yy2, fs, Color(.24, .14, .06, a2), Spr.font_i)
 			yy2 += fs + 6
-	# aviso (flash)
-	if game.flash_t > 0 and game.flash_msg != "":
+	# aviso (flash): escondido na apresentação de um chefe (ele espera a cena acabar)
+	if flash_on and not game.boss_intro() and cine_bar <= 1.0:
 		var a: float = clamp(game.flash_t / 40.0, 0, 1)
 		var lines := _rlines(_icons(game.flash_msg), min(W - 80, 760), 17, Spr.font)
 		var bh := 16 + lines.size() * 23
@@ -542,15 +615,61 @@ func _draw_bars_and_hints(W: float, p: Dictionary, X: Extras) -> void:
 		for ln in lines:
 			bw = max(bw, _rwidth(ln, 17, Spr.font))
 		bw += 36
-		# aviso no alto, abaixo da dica: nunca em cima das setas e dos botões de baixo
-		# (e abaixo das barras de fôlego / vida do chefe)
-		var by: float = max(150.0 if hint_alpha > .05 else 104.0, bars_y + 14.0) - (1.0 - clamp(game.flash_t / 10.0, 0, 1)) * 10.0
+		# aviso no alto: nunca em cima das setas e dos botões de baixo
+		# (e abaixo das barras de fôlego / vida do chefe e do pergaminho do canto nas lutas)
+		var by: float = max(104.0, bars_y + 14.0, hint_bot + 10.0) - (1.0 - clamp(game.flash_t / 10.0, 0, 1)) * 10.0
 		Spr.rr(W / 2 - bw / 2, by, bw, bh, 10, Color(.04, .03, .02, .78 * a))
 		msg_bot = max(msg_bot, by + bh)
 		var y := by + 30
 		for ln in lines:
 			_rdraw(ln, W / 2, y, 17, Color(.96, .9, .78, a), Spr.font)
 			y += 23
+	elif not flash_on:
+		_draw_ride_keys(W)
+
+## N5: nas cavalgadas e veículos a explicação grande só aparece no começo; depois fica só uma
+## tirinha pequena com os ícones dos controles daquela sequência
+func _draw_ride_keys(W: float) -> void:
+	if not Game.tutorial_on() or game.VH == null:
+		return
+	var VH = game.VH
+	var sq: String = VH.seq()
+	var it: Array = []
+	match sq:
+		"ride":
+			if game.RD.endT < 0:
+				it = [["J", "salta"], ["S", "abaixa"], ["R", "acelera"]]
+		"raft":
+			it = [["J", "salta"], ["S", "abaixa"]]
+		"sled", "cart":
+			if VH.sboard == 0 and VH.sfin == 0:
+				it = [["J", "salta"], ["S", "abaixa"], ["L", "freia"]]
+		"plane":
+			if VH.phase == "fly":
+				it = [["U", "sobe"], ["S", "desce"]]
+	# (o título do capítulo, quando aparece, usa este lugar: a tirinha espera)
+	if it.is_empty() or place_t >= 0:
+		ride_keys_a = 0.0
+		return
+	ride_keys_a = min(1.0, ride_keys_a + .05)
+	var fs := 13
+	var isz := 22.0
+	var gap := 16.0
+	var tw := 0.0
+	for e in it:
+		tw += isz + 4 + Spr.font_b.get_string_size(e[1], HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + gap
+	tw -= gap
+	var bw: float = tw + 24
+	var x: float = W / 2 - bw / 2
+	var y: float = 62.0
+	var a: float = .82 * ride_keys_a
+	Spr.rr(x, y, bw, 30, 15, Color(.04, .03, .02, .5 * a))
+	var cx: float = x + 12
+	for e in it:
+		Spr.ci.draw_texture_rect(ICON[e[0]], Rect2(cx, y + 4, isz, isz), false, Color(1, 1, 1, a))
+		cx += isz + 4
+		Spr.text(e[1], cx, y + 20, fs, Color(.96, .9, .78, a), HORIZONTAL_ALIGNMENT_LEFT, Spr.font_b)
+		cx += Spr.font_b.get_string_size(e[1], HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + gap
 
 func _lines(t: String, maxw: float, fs: int) -> Array:
 	var out: Array = []

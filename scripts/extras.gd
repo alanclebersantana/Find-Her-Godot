@@ -600,7 +600,8 @@ func cine_end(id: String) -> void:
 				BOSS.y = 500.0
 				BOSS.st = "idle"
 			BOSS.t = 0
-			g.flash_tut("Faça o Javali-Rei bater a cabeça 4 vezes!", "Fique no chão para ele investir. Quando ele correr, pule para um galho: ele bate a cabeça na árvore ou no barranco. 4 batidas!", 260)
+			# (o como fazer fica no pergaminho do canto durante a luta: aqui só o objetivo, sem repetir)
+			g.flash("Faça o Javali-Rei bater a cabeça 4 vezes!", 200)
 		"brutus":
 			# sem o "pouso" do javali (o Brutus não cai do alto: nada de tremor e baque depois da cena)
 			if BOSS.st == "intro":
@@ -612,7 +613,8 @@ func cine_end(id: String) -> void:
 		"vargas":
 			g.tip("Atrás dele! Pule os buracos e abaixe sob as vigas.", 180)
 		"cao":
-			g.flash_tut("O Pipoca agora vai com você!", "O Pipoca agora vai com você! Perto de uma toca, toque ✦ USAR e ele busca o que tiver lá dentro.", 260)
+			# (a toca logo adiante tem a sua própria dica: aqui só a notícia)
+			g.flash("O Pipoca agora vai com você!", 200)
 
 # ======================================================================
 #  CHEFE: O JAVALI-REI

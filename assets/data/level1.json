@@ -6543,7 +6543,7 @@
   {
    "a": 71140,
    "b": 71280,
-   "t": "Preso numa armadilha de caçador! Troque para o PIPOCA e mande roer a corda (✦) no poste.",
+   "t": "Preso na jaula! Troque para o PIPOCA e mande roer a corda do poste (✦).",
    "trap": 10,
    "trapst": "shut"
   },

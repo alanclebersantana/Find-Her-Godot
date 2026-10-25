@@ -1614,15 +1614,24 @@ func _update_cine_bars() -> void:
 	cine_bars.target = want
 	hud.cine_bar = cine_bars.px()
 
-## grande fogueira: fim de um período. Pausa, lembrança da Isis e escolha de seguir ou parar.
+## grande fogueira: fim de um capítulo. Pausa, lembrança da Isis e escolha de seguir ou parar.
+## (pela ordem das fogueiras grandes no mapa; o título vem do nome do capítulo, o mesmo do HUD)
 const REST_INFO := {
-	1: ["FIM DA MANHÃ", "Toda tarde ela desenhava na varanda, esperando eu voltar do trabalho.", "Aguenta firme, filha. Estou chegando."],
-	2: ["FIM DA TARDE", "Pega-pega no quintal... e ela sempre ganhava de mim.", "Aguenta firme, filha. Estou chegando."],
-	3: ["FIM DO PÂNTANO", "Pular nas poças com a lanterna acesa. Ela nunca teve medo da chuva.", "Agora é o rio, filha. Estou chegando."],
-	4: ["FIM DO RIO", "Barquinhos de papel na enxurrada do meio-fio. O dela sempre chegava primeiro.", "Estou chegando, Isis. Não tenha medo do escuro."],
-	5: ["FIM DA NEVE", "O boneco de neve ficou com o meu gorro. Ela riu a tarde inteira.", "Falta pouco, filha. Aguenta firme."],
-	6: ["FIM DA MONTANHA", "Soltar pipa no morro... ela dizia que um dia ia voar de avião.", "Voei por você, filha. Agora falta só a mina."],
+	1: ["Toda tarde ela desenhava na varanda, esperando eu voltar do trabalho.", "Aguenta firme, filha. Estou chegando."],
+	2: ["Pega-pega no quintal... e ela sempre ganhava de mim.", "Aguenta firme, filha. Estou chegando."],
+	3: ["Pular nas poças com a lanterna acesa. Ela nunca teve medo da chuva.", "Estou chegando, Isis. Não tenha medo do escuro."],
+	4: ["Barquinhos de papel no riacho... ela corria pela margem torcendo pelo dela.", "O rio ficou para trás, filha. Estou indo."],
+	5: ["O boneco de neve ficou com o meu gorro. Ela riu a tarde inteira.", "Falta pouco, filha. Aguenta firme."],
+	6: ["Soltar pipa no morro... ela dizia que um dia ia voar de avião.", "Voei por você, filha. Agora falta só a mina."],
 }
+
+## título da cena da fogueira grande: o capítulo que terminou e o que vem a seguir
+func _rest_title(i: int) -> String:
+	var n: int = game.chapter_count()
+	var t := "CAPÍTULO %d DE %d · %s" % [i, n, game.chapter_name(i - 1).to_upper()]
+	if i < n:
+		t += "  ·  a seguir: " + game.chapter_name(i)
+	return t + "  ·  progresso salvo"
 
 func _on_rest(n: int) -> void:
 	state = S.REST
@@ -1639,12 +1648,20 @@ func _on_rest(n: int) -> void:
 		if d.got:
 			found += 1
 	sc.show_dog = game.L.has("dog")
-	sc.setup(n + (10 if game.level_idx == 1 else 0), found)
-	root.add_child(sc)
-	var info: Array = REST_INFO.get(n, REST_INFO[1])
 	var lr: Dictionary = game.L.get("rests", {})
+	var info: Array
 	if lr.has(str(n)):
+		# (o Episódio 2 traz os textos na própria fase)
+		sc.setup(n + (10 if game.level_idx == 1 else 0), found)
 		info = lr[str(n)]
+		info = [info[0] + " · progresso salvo", info[1], info[2]]
+	else:
+		# Episódio 1: pela ordem da fogueira no mapa (1 = fim do primeiro capítulo)
+		var ci: int = game.rest_ordinal(n)
+		sc.setup(ci, found)
+		var ri: Array = REST_INFO.get(ci, REST_INFO[1])
+		info = [_rest_title(ci), ri[0], ri[1]]
+	root.add_child(sc)
 	var vb := VBoxContainer.new()
 	vb.alignment = BoxContainer.ALIGNMENT_END
 	vb.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -1652,7 +1669,7 @@ func _on_rest(n: int) -> void:
 	vb.add_theme_constant_override("separation", 8)
 	vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(vb)
-	var title := _label(info[0] + " · progresso salvo", 15, Color("#cdbfa6"))
+	var title := _label(info[0], 15, Color("#cdbfa6"))
 	var mem := _label(info[1], 17, Color("#e8dcc0"), Spr.font_i, 620)
 	var line := _label("“" + info[2] + "”", 22, GOLD, Spr.font_title, 640)
 	var row := HBoxContainer.new()
@@ -2313,11 +2330,9 @@ func _ep_periods(ep: int) -> Array:
 ## Pântano e a Neve: quem guardou as 6 de antes tem as da Neve em diante empurradas uma casa
 func _conq_stars(ep: int) -> Array:
 	var sk: String = "stars" if ep == 1 else "stars%d" % ep
-	var cs: Array = Save.getv("conq", sk, []).duplicate()
-	if ep == 1 and cs.size() == 6:
-		cs.insert(3, 0)
-		Save.setv("conq", sk, cs)
-	return cs
+	if ep == 1:
+		_migrate_stars()
+	return Save.getv("conq", sk, []).duplicate()
 
 ## nome curto do período ("A fuga da Isis" -> "A fuga", "Manhã no bosque" -> "Manhã")
 func _short_period(s: String) -> String:
@@ -2325,6 +2340,18 @@ func _short_period(s: String) -> String:
 	if w.size() > 1 and w[0].length() <= 2:
 		return w[0] + " " + w[1]
 	return w[0]
+
+## o Episódio 1 passou de 6 para 7 capítulos (O Rio virou capítulo próprio, separado do Pântano):
+## as estrelas guardadas andam uma casa e o Rio começa com as do Pântano (o trecho antigo tinha os dois)
+func _migrate_stars() -> void:
+	if Save.getv("conq", "stars_v7", false):
+		return
+	var a: Array = Save.getv("conq", "stars", [])
+	if a.size() == 6:
+		a = a.duplicate()
+		a.insert(3, a[2])
+		Save.cfg.set_value("conq", "stars", a)
+	Save.setv("conq", "stars_v7", true)
 
 ## desenhos guardados por episódio (antes eram "d0".."d2" para todos: o Ep. 2 abria os do Ep. 1)
 func _migrate_gallery() -> void:
@@ -2362,6 +2389,7 @@ func show_gallery(ep: int = 1) -> void:
 			tabs.add_child(tb)
 		vb.add_child(tabs)
 	# conquistas: o melhor de cada período deste episódio
+	_migrate_stars()
 	var per: Array = _ep_periods(ep)
 	var cs: Array = _conq_stars(ep)
 	var crow := HBoxContainer.new()
@@ -2541,6 +2569,7 @@ func _on_results() -> void:
 	var prow := HBoxContainer.new()
 	prow.add_theme_constant_override("separation", 12)
 	var sk: String = "stars" if game.level_idx == 0 else "stars%d" % (game.level_idx + 1)
+	_migrate_stars()
 	var best: Array = _conq_stars(game.level_idx + 1)
 	while best.size() < ps.size():
 		best.append(0)
