@@ -309,6 +309,9 @@ func _chao2(t: Texture2D, tw: float) -> Texture2D:
 		_c2s[t.get_rid().get_id()] = _c2
 	return _c2
 func ground(s: Dictionary) -> void:
+	if s.get("rock"):
+		rock_ground(s)
+		return
 	var x_a: float = max(s.x, x0 - 4)
 	var x_b: float = min(s.x + s.w, x1 + 4)
 	if x_b <= x_a:
@@ -1269,7 +1272,7 @@ func _wrap(x: float, y: float, w: float, h: float, rad: float, chain: bool) -> v
 
 ## paredão de pedras (rocha ou gelo): cada fileira termina onde a última pedra termina, com as
 ## pontas arredondadas e desencontradas — a borda segue o contorno das pedras, nada de corte reto
-func _masonry(s: Dictionary, c_hi: Color, c_lo: Color, mortar: Color, y0: float) -> void:
+func _masonry(s: Dictionary, c_hi: Color, c_lo: Color, mortar: Color, y0: float, kind: String = "wb", wmul: float = 1.0, frost: bool = false, veil: Color = Color(0, 0, 0, 0)) -> void:
 	# só as pedras que caem na faixa deste pedaço (o resto é cortado pelo clip de qualquer jeito), e em
 	# três passadas para o Godot juntar os desenhos: argamassa, pedras pintadas, luz/sombra/rachaduras
 	var cx0: float = x0 - 16
@@ -1297,7 +1300,7 @@ func _masonry(s: Dictionary, c_hi: Color, c_lo: Color, mortar: Color, y0: float)
 		var i := 0
 		while x < ro - 10:
 			# pedra pintada (textura de rocha com rachaduras e musgo), larga no máximo ~1,8x a altura
-			var bw: float = hb * (1.05 + hh(seed_x + row * 13 + i, 34) * .8)
+			var bw: float = hb * (1.05 + hh(seed_x + row * 13 + i, 34) * .8) * wmul
 			if ro - (x + bw) < hb * .7:
 				bw = ro - x
 			var bx: float = x + 1
@@ -1309,7 +1312,7 @@ func _masonry(s: Dictionary, c_hi: Color, c_lo: Color, mortar: Color, y0: float)
 				var byy: float = yy + max(jy, 0.0)
 				var bhh: float = hb - 1 - abs(jy)
 				if bww > 8 and bhh > 6:
-					var pick: int = int(hh(seed_x + row * 5 + i * 11, 37) * 6)
+					var pick: int = int(hh(seed_x + row * 5 + i * 11, 37) * (6 if kind == "wb" else 3))
 					stones.append([pick, bx, byy, bww, bhh, Color(m * c_hi.r, m * c_hi.g, m * c_hi.b), hh(seed_x + i, 38) > .5])
 					# volume: luz no topo da pedra, sombra embaixo e uma rachadura de vez em quando
 					hi.push_back(Vector2(bx + 4, byy + 2))
@@ -1325,12 +1328,52 @@ func _masonry(s: Dictionary, c_hi: Color, c_lo: Color, mortar: Color, y0: float)
 		row += 1
 	# um pouco maior que a vaga: os contornos se encostam e o muro fica fechado
 	for st in stones:
-		Spr.PR("wb%d" % st[0], st[1] - 4, st[2] - 4, st[3] + 8, st[4] + 7, st[5], st[6])
+		Spr.PR(kind + "%d" % st[0], st[1] - 4, st[2] - 4, st[3] + 8, st[4] + 7, st[5], st[6])
+	if veil.a > 0:
+		# véu de uma cor só por cima (a silhueta da própria pedra): apaga o musgo e unifica a rocha
+		Spr.sil_c = veil
+		for st in stones:
+			Spr.PR(kind + "%d" % st[0], st[1] - 4, st[2] - 4, st[3] + 8, st[4] + 7, Color.WHITE, st[6])
+		Spr.sil_c = Color(0, 0, 0, 0)
 	if hi.size() >= 2:
 		Spr.ci.draw_multiline(hi, Spr.col(Color(1, .98, .9, .18)), 2.0)
 		Spr.ci.draw_multiline(lo_, Spr.col(Color(0, 0, 0, .16)), 3.0)
 	if cr.size() >= 2:
 		Spr.ci.draw_multiline(cr, Spr.col(Color(0, 0, 0, .2)), 1.0)
+	if frost:
+		_frost(stones, s)
+
+## geada nas pedras do frio: neve assentada em cima de algumas pedras, gelo nas frestas (veio azul
+## com brilho) e pinguinhos de gelo pendurados nas juntas
+func _frost(stones: Array, s: Dictionary) -> void:
+	var ice := PackedVector2Array()
+	var shine := PackedVector2Array()
+	for st in stones:
+		var bx: float = st[1]
+		var by: float = st[2]
+		var bw: float = st[3]
+		var bh: float = st[4]
+		var depth: float = clamp((by - float(s.y)) / 420.0, 0.0, 1.0)
+		if hh(bx + by, 41) > .55 - depth * .3 and depth < .9:
+			# neve em cima da pedra (a borda que sobressai)
+			var sw: float = bw * (.25 + hh(bx, 43) * .2)
+			var sx: float = bx + bw * (.2 + hh(by, 44) * .5)
+			Spr.ellipse(sx, by + 1, sw + 2, 4.5, Color(.62, .72, .9, .55))
+			Spr.ellipse(sx, by - 1, sw, 4, Color(.96, .98, 1))
+		if hh(bx * 1.3 + by, 42) > .62:
+			var vx: float = bx + 6 + hh(by, 45) * bw * .3
+			var vl: float = bw * (.3 + hh(bx, 46) * .35)
+			ice.push_back(Vector2(vx, by + bh + 1))
+			ice.push_back(Vector2(vx + vl, by + bh + 2.5))
+			shine.push_back(Vector2(vx + 3, by + bh))
+			shine.push_back(Vector2(vx + vl * .6, by + bh + 1))
+			if hh(bx, 47) > .45:
+				var ix: float = vx + vl * .5
+				var il: float = 6.0 + hh(by, 48) * 10.0
+				Spr.poly(PackedVector2Array([Vector2(ix - 3, by + bh + 1), Vector2(ix + 3, by + bh + 1), Vector2(ix, by + bh + 1 + il)]), Color(.8, .93, 1, .92))
+	if ice.size() >= 2:
+		Spr.ci.draw_multiline(ice, Spr.col(Color(.62, .84, 1, .9)), 3.5)
+		Spr.ci.draw_multiline(shine, Spr.col(Color(1, 1, 1, .8)), 1.2)
 
 ## faixa de chão (grama e terra) no topo de um paredão, com as pontas arredondadas como o chão
 func _cap(s: Dictionary) -> void:
@@ -1341,8 +1384,12 @@ func _cap(s: Dictionary) -> void:
 	ground(fake)
 
 func snow_cliff(s: Dictionary) -> void:
-	_masonry(s, Color(.86, .93, 1.06), Color(.42, .5, .66), Color(.24, .28, .38, .95), s.y + 10)
+	# cada paredão com o seu tom (um mais azulado, outro mais pardo), geada e gelo nas frestas
+	var v: float = hh(s.x, 49)
+	var hi := Color(.86, .93, 1.06).lerp(Color(.95, .92, .9), v * .7)
+	_masonry(s, hi, Color(.42, .5, .66), Color(.24, .28, .38, .95), s.y + 10, "wb", 1.0, true)
 	_snow_cap(s.x, s.x + s.w, s.y)
+	_snow_drips(s.x, s.x + s.w, s.y, s.h)
 	if s.get("overhang"):
 		# beirada de neve fofa embaixo, com pingentes de gelo
 		var by: float = s.y + s.h
@@ -1355,6 +1402,53 @@ func snow_cliff(s: Dictionary) -> void:
 			_icicle_reg(ix, by + L2)
 			ix += 22
 			n += 1
+
+## neve escorrendo pela borda de cima (línguas de neve sobre a pedra), descendo pelos cantos, e
+## pingentes de gelo pendurados aqui e ali
+func _snow_drips(xa: float, xb: float, y: float, h: float) -> void:
+	var x: float = xa + 10 + hh(xa, 50) * 20
+	while x < xb - 10:
+		if x > x0 - 30 and x < x1 + 30:
+			var ln: float = 6.0 + hh(x, 51) * 16.0
+			var w: float = 8.0 + hh(x, 52) * 8.0
+			Spr.poly(PackedVector2Array([Vector2(x - w, y + 8), Vector2(x + w, y + 8), Vector2(x + w * .45, y + 8 + ln * .8), Vector2(x, y + 8 + ln), Vector2(x - w * .45, y + 8 + ln * .8)]), Color(.95, .97, 1))
+			Spr.seg(x - w * .4, y + 9 + ln * .7, x + w * .3, y + 9 + ln * .75, Color(.62, .72, .9, .6), 2)
+			if hh(x, 53) > .5:
+				var il: float = 10.0 + hh(x, 54) * 18.0
+				var ix: float = x + w * .6
+				Spr.poly(PackedVector2Array([Vector2(ix - 4, y + 10), Vector2(ix + 4, y + 10), Vector2(ix, y + 10 + il)]), Color(.82, .94, 1, .95))
+				Spr.seg(ix - 1.5, y + 12, ix - .5, y + 6 + il, Color(1, 1, 1, .8), 1)
+				_icicle_reg(ix, y + 10 + il)
+		x += 30 + hh(x, 55) * 26
+	# neve descendo pelos cantos
+	for side in [0, 1]:
+		var ex: float = xa if side == 0 else xb
+		if ex < x0 - 40 or ex > x1 + 40:
+			continue
+		var d: float = 1.0 if side == 0 else -1.0
+		var ln2: float = min(h * .5, 40.0 + hh(ex, 56) * 50.0)
+		Spr.poly(PackedVector2Array([Vector2(ex - d * 6, y + 2), Vector2(ex + d * 16, y + 6), Vector2(ex + d * 8, y + ln2 * .6), Vector2(ex + d * 2, y + ln2), Vector2(ex - d * 5, y + ln2 * .5)]), Color(.94, .96, 1))
+
+## degrau da subida da montanha: rocha em camadas (lajes empilhadas, mais escuras para baixo), geada e
+## gelo nas frestas, neve escorrendo pelas bordas e pingentes (no lugar do bloco de terra liso)
+func rock_ground(s: Dictionary) -> void:
+	var x_a: float = max(s.x, x0 - 4)
+	var x_b: float = min(s.x + s.w, x1 + 4)
+	if x_b <= x_a:
+		return
+	var bot: float = min(float(s.y) + float(s.h), float(game.L.bottom) + 40.0)
+	# fundo da rocha (as juntas entre as lajes), azul-acinzentado escurecendo para baixo
+	Spr.vgrad(x_a, s.y + 6, x_b - x_a, bot - s.y - 6, Color(.27, .31, .4), Color(.08, .1, .15))
+	var v: float = hh(s.x, 57)
+	var hi := Color(.82, .88, .99).lerp(Color(.9, .87, .84), v * .6)
+	var fake := {"x": s.x + 4, "y": s.y, "w": s.w - 8, "h": bot - s.y}
+	_masonry(fake, hi, Color(.4, .46, .6), Color(.16, .19, .27, .96), s.y + 12, "slab", 1.75, true, Color(.58, .64, .76, .42))
+	# a rocha some no frio lá embaixo (neblina azulada)
+	Spr.vgrad(x_a, s.y + 220, x_b - x_a, 320, Color(.55, .64, .8, 0), Color(.55, .64, .8, .55))
+	if bot > s.y + 540:
+		Spr.rect(x_a, s.y + 540, x_b - x_a, bot - s.y - 540, Color(.55, .64, .8, .55))
+	_snow_cap(s.x, s.x + s.w, s.y)
+	_snow_drips(s.x, s.x + s.w, s.y, s.h)
 
 ## neve por cima de um bloco, com as pontas fofas e arredondadas (sem corte reto)
 func _snow_cap(xa: float, xb: float, y: float) -> void:

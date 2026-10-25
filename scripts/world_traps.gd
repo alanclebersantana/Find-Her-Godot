@@ -600,6 +600,9 @@ static func _icicle(g: Game, o: Dictionary, T: int) -> void:
 	var ln: float = o.get("len", 46)
 	var fl: float = o.get("floor", o.y + 300)
 	var w: float = ln * .55
+	if o.get("step"):
+		_big_icicle(g, o, T, ln, fl, w)
+		return
 	# base de gelo presa no teto (fica mesmo quando o pingente cai, e de onde ele volta a crescer)
 	Spr.ellipse(o.x, o.y + 2, w * .75, 7, Color("#9cc4e4"))
 	Spr.ellipse(o.x, o.y, w * .7, 5, Color("#d8eeff"))
@@ -630,6 +633,47 @@ static func _icicle(g: Game, o: Dictionary, T: int) -> void:
 			Spr.seg(o.x + 2, y + 6, o.x + w * .4, y + 2, Color(1, 1, 1, .8), 1.5)
 		if Polish.FRESH and T % 6 == 0:
 			g.PARTS.append({"x": o.x + randf_range(-w * .4, w * .4), "y": y + 6, "vx": randf_range(-.4, .4), "vy": 1.5, "life": 24, "col": Color(.85, .95, 1, .9)})
+
+## pingente gigante pendurado na cornija de neve da beirada do paredão: treme, despenca e finca na
+## neve de ponta para baixo — a base larga fica em cima e vira degrau
+static func _big_icicle(g: Game, o: Dictionary, T: int, ln: float, fl: float, w: float) -> void:
+	var y: float = o.y + o.fy
+	# cornija de neve na beirada do paredão (de onde ele pende); depois da queda fica só um toco
+	Spr.ellipse(o.x + 14, o.y - 4, 42, 13, Color(.78, .86, .97))
+	Spr.ellipse(o.x + 12, o.y - 8, 40, 11, Color(.97, .98, 1))
+	Spr.ellipse(o.x - 6, o.y - 2, 18, 7, Color(.97, .98, 1))
+	if o.st == "planted":
+		# fincado: sombra, o gelo com a ponta enterrada e um monte de neve em volta da base
+		Spr.ellipse(o.x, fl + 2, w * .7, 6, Color(0, .05, .15, .25))
+		# a ponta ficou enterrada: só aparece o gelo acima da neve
+		Spr.PR("icicle", o.x - w * .5, y, w, fl - y + 6)
+		# neve assentada em cima da base (é o degrau)
+		Spr.ellipse(o.x, y + 3, w * .5, 6, Color(.97, .98, 1))
+		Spr.ellipse(o.x - w * .18, y + 1, w * .22, 4, Color(1, 1, 1))
+		# brilho frio no gelo e o monte de neve que a pancada levantou
+		Spr.seg(o.x - w * .22, y + 12, o.x - w * .08, fl - 30, Color(1, 1, 1, .35), 3)
+		Spr.ellipse(o.x, fl - 4, w * .62, 14, Color(.86, .92, 1))
+		Spr.ellipse(o.x - 6, fl - 8, w * .44, 10, Color(.97, .98, 1))
+		return
+	var sx: float = sin(T * 1.9) * 2.5 if o.st == "shake" else 0.0
+	if o.st in ["shake", "fall"]:
+		var sk: float = clamp(o.t / 60.0, 0, 1) if o.st == "shake" else 1.0
+		var pul: float = .8 + .2 * sin(T * .5)
+		Spr.ellipse(o.x, fl + 1, (16 + 26 * sk) * pul, 6, Color(0, .05, .15, .25 + .3 * sk))
+		Spr.ring(o.x, fl - 1, (16 + 24 * sk) * pul, Color(1, .3, .2, .4 + .4 * sk), 2.5, PI, TAU)
+	Spr.glow(o.x, y + ln * .45, 46, Color(.6, .85, 1, .16 + (.2 if o.st == "shake" else 0.0)))
+	if o.st == "fall":
+		for k in 4:
+			Spr.seg(o.x - 6 + k * 4, y - 8 - k * 10, o.x - 6 + k * 4, y - 34 - k * 14, Color(.85, .95, 1, .35 - k * .07), 2)
+	Spr.PR("icicle", o.x - w * .5 + sx, y, w, ln)
+	# reflexo e veios no gelo (volume)
+	Spr.seg(o.x - w * .2 + sx, y + 10, o.x - w * .04 + sx, y + ln * .7, Color(1, 1, 1, .3), 3)
+	if o.st == "shake":
+		if (T / 4) % 2 == 0:
+			Spr.seg(o.x - w * .4, y + 4, o.x - 2, y + 9, Color(1, 1, 1, .85), 2)
+			Spr.seg(o.x + 2, y + 8, o.x + w * .4, y + 3, Color(1, 1, 1, .85), 2)
+		if Polish.FRESH and T % 5 == 0:
+			g.PARTS.append({"x": o.x + randf_range(-30, 30), "y": o.y - 4, "vx": randf_range(-.4, .4), "vy": 1.2, "life": 30, "col": Color(.95, .98, 1, .9)})
 
 ## por cima do Tomé: a superfície da areia movediça (esconde as pernas que afundaram)
 static func draw_front(g: Game, T: int) -> void:
@@ -1022,19 +1066,68 @@ static func _web(g: Game, o: Dictionary, T: int) -> void:
 	WorldExtras._pc("spider_hang", x + w - 14, sy + 8, 16)
 
 # ---------- rajadas de vento ----------
+## a rajada se anuncia antes: a biruta no poste enche e aponta para trás, o pinheirinho enverga, a neve
+## do chão começa a levantar e os riscos de vento aparecem; na rajada, tudo voa forte para a esquerda
 static func _gust(TR: Traps, o: Dictionary, T: int) -> void:
 	var st: int = TR.gust_state(o)
-	if st == 0:
+	var k: float = TR.gust_k(o)
+	var gy: float = float(o.y) + float(o.h)
+	var fl: float = sin(T * (.35 + k * .5) + o.x) * (.04 + k * .1)
+	# pinheirinho na beira do caminho: enverga com o vento (a base fica plantada)
+	var px: float = float(o.x) + float(o.w) * .62
+	Spr.ellipse(px, gy + 1, 30, 5, Color(.95, .97, 1))
+	Spr.save()
+	Spr.translate(px, gy + 4)
+	Spr.rotate(-k * .32 + fl * .6 + sin(T * .03 + o.x) * .02)
+	Spr.scale(1.0 - k * .06, 1.0)
+	WorldNature.prop("pinheiro", 0, 0, 150)
+	Spr.restore()
+	# biruta no poste, no começo do trecho (o vento vem da direita)
+	var bx: float = float(o.x) + float(o.w) - 18.0
+	Spr.PR("stake", bx - 5, gy - 96, 10, 100, Color(.85, .8, .75))
+	Spr.ellipse(bx, gy - 96, 6, 3, Color(.97, .98, 1))
+	Spr.save()
+	Spr.translate(bx - 2, gy - 90)
+	# murcha (pendurada) no calmo, vai enchendo no aviso e fica esticada para trás na rajada
+	var ang: float = lerpf(PI * .5 - .25, PI * .97, clamp(k * 1.4, 0, 1)) + fl * 2.0
+	Spr.rotate(ang)
+	var fill: float = .45 + .55 * clamp(k * 1.6, 0, 1)
+	var L := 50.0
+	var pts := PackedVector2Array()
+	for t in 6:
+		var u: float = t / 5.0
+		var wv: float = sin(T * .5 - u * 5.0) * 3.0 * k * u
+		pts.push_back(Vector2(u * L, -lerpf(8.0, 5.0 * fill, u) + wv))
+	for t in range(5, -1, -1):
+		var u: float = t / 5.0
+		var wv: float = sin(T * .5 - u * 5.0) * 3.0 * k * u
+		pts.push_back(Vector2(u * L, lerpf(8.0, 5.0 * fill, u) + wv))
+	Spr.poly(pts, Color("#e8702a"))
+	for q in [.28, .64]:
+		var hw: float = lerpf(8.0, 5.0 * fill, q)
+		Spr.poly(PackedVector2Array([Vector2(q * L, -hw), Vector2(q * L + 9, -hw * .95), Vector2(q * L + 9, hw * .95), Vector2(q * L, hw)]), Color(.98, .96, .92))
+	pts.push_back(pts[0])
+	Spr.line(pts, OUT, 1.5)
+	Spr.restore()
+	if k < .03:
 		return
-	var a: float = .2 if st == 1 else .55
-	var n: int = 6 if st == 1 else 16
-	for k in n:
-		var sp: float = 9.0 if st == 2 else 5.0
-		var lx: float = o.x + o.w - fmod(T * sp + k * 97.0, o.w + 120)
-		var ly: float = o.y + fmod(k * 53.0, o.h)
-		Spr.seg(lx, ly, lx + 40 + (k % 3) * 18, ly + 1, Color(1, 1, 1, a), 2)
-		if k % 3 == 0:
-			Spr.circle(lx - 6, ly + sin(T * .3 + k) * 4, 2.5, Color(1, 1, 1, a + .2))
+	# riscos de vento: poucos e fracos no aviso, muitos e fortes na rajada
+	var a: float = .12 + .5 * k
+	var n: int = 4 + int(k * 14)
+	for i in n:
+		var sp: float = 5.0 + 6.0 * k
+		var lx: float = o.x + o.w - fmod(T * sp + i * 97.0, o.w + 160)
+		var ly: float = o.y + fmod(i * 53.0, o.h - 20) + sin(T * .05 + i) * 6
+		var ln: float = 30 + (i % 3) * 18 + k * 30
+		Spr.seg(lx, ly, lx + ln, ly + 1, Color(1, 1, 1, a), 2)
+		if i % 3 == 0:
+			Spr.circle(lx - 6, ly + sin(T * .3 + i) * 4, 2.5, Color(1, 1, 1, a + .2))
+	# neve do chão levantando e voando para trás (só no quadro novo da lógica)
+	if Polish.FRESH and randf() < .25 + k:
+		var sx: float = o.x + randf() * o.w
+		Polish.part("snow", sx, gy - 2, -1.5 - k * 6.0, -randf_range(.5, 2.0 + k * 2.0), 40, Color(.97, .98, 1, .9), {"gy": gy, "size": randf_range(1.6, 3.0)})
+	if Polish.FRESH and st == 2 and randf() < .5:
+		Polish.part("snow", o.x + o.w + 40, o.y + randf() * o.h, -7.0 - randf() * 3.0, randf_range(-.5, .5), 60, Color(1, 1, 1, .85), {"size": randf_range(1.4, 2.4)})
 
 # ---------- ponte de cordas ----------
 static func _bridge(o: Dictionary, T: int) -> void:

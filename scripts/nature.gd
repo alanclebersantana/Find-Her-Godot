@@ -22,6 +22,9 @@ var harp_cd := 0
 var bar_cd := 0
 var skip_bar = null        # a corda de onde o Tomé acabou de pular (não agarra de novo até pisar no chão)
 var told := {}
+var PINES: Array = []
+var pine_i := 0
+var pine_cd := {}
 
 func _init(game) -> void:
 	g = game
@@ -64,6 +67,14 @@ func load_level() -> void:
 			c.oh = c.h
 			SNOWB.append(c)
 	HARP = []
+	# pinheiros do cenário (só a posição): o Tomé passando embaixo derruba neve dos galhos
+	PINES = []
+	for d in L.get("decor", []):
+		if d.get("k", "") in ["pine", "snowtree"]:
+			PINES.append(d)
+	PINES.sort_custom(func(a, b): return float(a.x) < float(b.x))
+	pine_i = 0
+	pine_cd = {}
 	helmet = false
 	harpoon = false
 	harp_cd = 0
@@ -268,6 +279,33 @@ func post() -> void:
 				break
 	HARP = HARP.filter(func(h): return not h.dead)
 	_snowballs()
+	_pine_snow()
+
+## passou embaixo de um pinheiro (ou batendo nele): a neve dos galhos escorrega e cai em punhados
+func _pine_snow() -> void:
+	if PINES.is_empty():
+		return
+	var p: Dictionary = g.player
+	var pcx: float = p.x + p.w / 2
+	# índice andando junto com o Tomé (sem percorrer a lista toda a cada quadro)
+	while pine_i > 0 and float(PINES[pine_i - 1].x) > pcx - 60:
+		pine_i -= 1
+	while pine_i < PINES.size() - 1 and float(PINES[pine_i].x) < pcx - 60:
+		pine_i += 1
+	for i in range(pine_i, min(pine_i + 2, PINES.size())):
+		var d: Dictionary = PINES[i]
+		var sc: float = float(d.get("s", 1.0))
+		if abs(pcx - float(d.x)) > 30 or abs(p.y + p.h - float(d.y)) > 70 or abs(p.vx) < .6:
+			continue
+		var key: int = int(d.x)
+		if g.T - int(pine_cd.get(key, -9999)) < 600:
+			continue
+		pine_cd[key] = g.T
+		var top: float = float(d.y) - 330.0 * sc
+		for k in 16:
+			var u: float = randf_range(.25, .8)
+			Polish.part("snow", float(d.x) + randf_range(-70, 70) * sc * (1.0 - u * .6), top + u * 330.0 * sc * .8, randf_range(-.6, .6) + p.vx * .1, randf_range(-.4, .8), 60 + int(randf() * 30), Color(.97, .98, 1, .95), {"gy": float(d.y), "size": randf_range(1.8, 3.4)})
+		Audio.step("snow", -16)
 
 # ---------- mergulho do meio: correnteza, alavanca e baú ----------
 ## força da correnteza num ponto (0 fora; sobe e desce suave nas pontas e no meio da faixa é mais forte)

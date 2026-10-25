@@ -44,7 +44,7 @@ var place_y := -1.0
 var place_ty := 92.0
 const PLACE_DUR := 2.5
 const PLACE_NAMES := {"manha": "Manhã no bosque", "tarde": "Tarde no bosque", "chuva": "O pântano", "rio": "O rio",
-	"neve": "A neve", "ceu": "O céu", "noite": "Noite na mina", "perseguicao": "A perseguição", "tunel": "O túnel"}
+	"neve": "A neve", "ceu": "O céu", "montanha": "A montanha", "noite": "Noite na mina", "perseguicao": "A perseguição", "tunel": "O túnel"}
 
 func _ready() -> void:
 	var m := {"G": "btn_golpe", "J": "btn_jump", "A": "btn_use", "U": "pad_U", "S": "pad_S", "L": "pad_L", "R": "pad_R", "Q": "btn_dog"}

@@ -509,14 +509,21 @@ func _bear() -> void:
 					return
 				b.seen = true
 				Audio.play("roar", -4)
-				g.start_cine("urso", (float(b.den) + pcx) / 2.0 + 40, gy - 140, 230,
-					[[130, 225, "TOMÉ", "Acordei o urso! Grande demais para enfrentar... CORRE! Lá na frente, a fresta da rocha: ele não cabe!", "tome"]],
-					[50, 130, "URSO-PARDO-REI", "o guardião da neve"])
+				# a câmera enquadra a boca da toca e o Tomé, um pouco mais baixa: o urso sai da toca
+				# inteiro na tela, acima da caixa da fala
+				b.x = float(b.den) - 10.0
+				b.hide = true
+				g.start_cine("urso", float(b.den) + 160.0, gy - 85, 250,
+					[[150, 245, "TOMÉ", "Acordei o urso! Grande demais para enfrentar... CORRE! Lá na frente, a fresta da rocha: ele não cabe!", "tome"]],
+					[70, 150, "URSO-PARDO-REI", "o guardião da neve"])
 			return
 		"intro":
 			# (a cena terminou sem passar pelo cine_end, como nos testes): já sai correndo
 			b.st = "chase"
 			b.t = 0
+			b.hide = false
+			b.dim = 0.0
+			b.x = max(float(b.x), float(b.den) + 70.0)
 		"chase":
 			b.t += 1
 			if abs(dx) > 40:
@@ -993,19 +1000,38 @@ func cine_step(c: Dictionary) -> void:
 			f.dir = -1
 			f.x = lerpf(f.x, f.x1 - 170.0, .035)
 		"urso":
-			# o urso sai da toca, se ergue e ruge; a câmera mostra a toca e o Tomé
+			# o urso sai da toca: primeiro só os olhos no escuro e a neve caindo da pedra, depois ele
+			# sai devagar (escuro ainda, clareando), se ergue e ruge; a câmera mostra a toca e o Tomé
 			var b: Dictionary = BEAR
 			if b.is_empty():
 				return
 			b.dir = 1
-			if c.t < 60:
-				b.x = lerpf(b.x, float(b.den) + 70.0, .05)
-				b.anim += .06
+			var den: float = float(b.den)
+			if c.t < 34:
+				b.hide = true
 				b.st = "intro"
-			elif c.t < 110:
+				b.x = den - 10.0
+				if c.t == 4:
+					Audio.play("roar", -14, .7)
+				if c.t == 16:
+					g.shake = max(g.shake, 4)
+					for k in 14:
+						g.PARTS.append({"x": den - 140 + randf() * 200, "y": b.gy - 190 + randf() * 30, "vx": randf_range(-.5, .5), "vy": randf_range(.5, 2.0), "life": 50, "col": Color(.95, .97, 1, .9)})
+			elif c.t < 100:
+				b.hide = false
+				b.st = "intro"
+				var u: float = clamp((c.t - 34) / 60.0, 0.0, 1.0)
+				b.x = lerpf(den - 10.0, den + 70.0, u * (2.0 - u))
+				b.dim = 1.0 - u
+				b.anim += .05
+				if c.t % 14 == 0:
+					Audio.play("stomp", -16, .7)
+					g.shake = max(g.shake, 1.5)
+			elif c.t < 150:
+				b.dim = 0.0
 				b.st = "roar"
-				b.t = c.t - 60
-				if c.t == 68:
+				b.t = c.t - 100
+				if c.t == 106:
 					Audio.play("roar", 0)
 					Polish.roar(b.x + 80, b.gy - 170)
 					g.shake = max(g.shake, 10)
@@ -1021,6 +1047,10 @@ func cine_end(id: String) -> void:
 		"gaviao":
 			g.tip("Fuja da sombra! Se ele errar, acerte com a picareta. O facho (segure ✦) ofusca o gavião.", 220)
 		"urso":
+			if not BEAR.is_empty():
+				BEAR.hide = false
+				BEAR.dim = 0.0
+				BEAR.x = max(float(BEAR.x), float(BEAR.den) + 70.0)
 			if not BEAR.is_empty() and BEAR.st in ["intro", "roar"]:
 				BEAR.st = "chase"
 				BEAR.t = 0
@@ -1067,6 +1097,8 @@ func reset_on_respawn() -> void:
 		BEAR.rt = -1
 		BEAR.won = false
 		BEAR.x = float(BEAR.den)
+		BEAR.hide = false
+		BEAR.dim = 0.0
 		_zero(BEAR)
 		_bear_obs_reset()
 	# rei vencido que não chegou a soltar a coroa (o Tomé caiu no meio da cena): ela fica no lugar

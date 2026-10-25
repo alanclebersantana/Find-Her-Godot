@@ -28,7 +28,7 @@ var trapped = null           # jaula que prendeu o Tomé
 var bounce_note := 0
 ## armadilhas que continuam andando longe do Tomé (rolando, caindo, desabando) e os estados parados
 const FAR_RUN := {"roll": 1, "boulder": 1, "bridge": 1, "cage": 1, "net": 1}
-const FAR_STILL := {"idle": 1, "done": 1, "used": 1}
+const FAR_STILL := {"idle": 1, "done": 1, "used": 1, "planted": 1}
 
 func _init(game) -> void:
 	g = game
@@ -474,7 +474,12 @@ func _icicle(o: Dictionary, p: Dictionary, pcx: float) -> void:
 			o.vy = min(o.vy + .7, 14.0)
 			o.fy += o.vy
 			var tip: float = o.y + o.fy + ln
-			if p.dyingT == 0 and abs(pcx - o.x) < 16 and tip > p.y + 4 and o.y + o.fy < p.y + p.h:
+			if o.get("step") and (tip >= o.get("floor", o.y + 300) or (p.dyingT == 0 and abs(pcx - o.x) < 30 and tip > p.y + 4 and o.y + o.fy < p.y + p.h)):
+				# pingente gigante: finca na neve e vira degrau (se acertou o Tomé, machuca e empurra)
+				if abs(pcx - o.x) < 30 and tip > p.y + 4:
+					g.hurt(1, o.x + 40)
+				_plant(o)
+			elif p.dyingT == 0 and abs(pcx - o.x) < 16 and tip > p.y + 4 and o.y + o.fy < p.y + p.h:
 				g.hurt(1, o.x)
 				_shatter(o)
 			elif tip >= o.get("floor", o.y + 300):
@@ -491,6 +496,34 @@ func _icicle(o: Dictionary, p: Dictionary, pcx: float) -> void:
 				o.st = "idle"
 				o.grow = 0.0
 				o.fy = 0.0
+
+## pingente gigante fincado na neve: a ponta afunda e a base larga fica em cima, firme como um degrau
+func step_box(o: Dictionary) -> Dictionary:
+	var fl: float = o.get("floor", o.y + 300)
+	var top: float = fl - float(o.get("len", 46)) + 34.0
+	return {"t": "icestep", "x": float(o.x) - 32.0, "y": top, "w": 64.0, "h": fl - top, "id": "icestep"}
+
+func _plant(o: Dictionary, quiet: bool = false) -> void:
+	o.st = "planted"
+	o.t = 0
+	var fl: float = o.get("floor", o.y + 300)
+	o.fy = fl - float(o.get("len", 46)) + 34.0 - float(o.y)
+	o.sol = step_box(o)
+	g.SOL.append(o.sol)
+	g.blockers_dirty()
+	if quiet:
+		return
+	var p: Dictionary = g.player
+	if Game.hit(p, o.sol):
+		# o Tomé estava embaixo: sai para o lado de cá do degrau
+		p.x = float(o.sol.x) - p.w - 1.0
+	g.shake = max(g.shake, 9)
+	g.shake_dir = Vector2(0, 1) * 4.0
+	g.burst(o.x, fl - 4, 30, Color(.92, .96, 1))
+	g.fx("fx_pieces", o.x, fl - 10, 16, .3, -.4)
+	Audio.play("stomp", -2, .8)
+	Audio.play("splash", -10, .7)
+	g.flash("O pingente fincou na neve: virou degrau!", 160)
 
 func _shatter(o: Dictionary) -> void:
 	o.st = "broken"
@@ -642,7 +675,7 @@ func save_data() -> Dictionary:
 	var d := {}
 	for i in T.size():
 		var o: Dictionary = T[i]
-		if (o.k == "net" and o.st == "down") or (o.k == "cage" and o.st == "used") or (o.k in ["roll", "boulder"] and o.st == "done") or (o.k == "web" and o.cut):
+		if (o.k == "net" and o.st == "down") or (o.k == "cage" and o.st == "used") or (o.k in ["roll", "boulder"] and o.st == "done") or (o.k == "web" and o.cut) or (o.k == "icicle" and o.st == "planted"):
 			d[str(i)] = o.st
 	return d
 
@@ -660,6 +693,8 @@ func restore(d: Dictionary) -> void:
 			if o.k == "web":
 				o.cut = true
 				o.st = "idle"
+			if o.k == "icicle" and o.st == "planted" and not g.SOL.has(o.get("sol")):
+				_plant(o, true)
 			if o.k == "boulder":
 				for sb in g.SOL.duplicate():
 					if sb.get("bob") and o.smash.has(sb.get("id", "")):
@@ -801,15 +836,30 @@ func _sand(o: Dictionary, p: Dictionary, pcx: float, feet: float) -> void:
 
 # ---------- rajadas de vento ----------
 ## 0 = calmo, 1 = aviso (folhas e neve começam a voar), 2 = rajada
+const GUST_WARN := 45
+## o desenho anuncia antes ainda (a biruta enche, o pinheiro enverga, a neve começa a voar)
+const GUST_LOOK := 100
 func gust_state(o: Dictionary) -> int:
 	var per: int = o.get("per", 260)
 	var on: int = o.get("on", 110)
 	var u: int = (g.T + int(o.get("ph", 0))) % per
 	if u >= per - on:
 		return 2
-	if u >= per - on - 45:
+	if u >= per - on - GUST_WARN:
 		return 1
 	return 0
+
+## força da rajada para o desenho (0 calmo .. 1 rajada cheia): sobe durante o aviso e cai no fim
+func gust_k(o: Dictionary) -> float:
+	var per: int = o.get("per", 260)
+	var on: int = o.get("on", 110)
+	var u: float = float((g.T + int(o.get("ph", 0))) % per)
+	var w0: float = float(per - on - GUST_LOOK)
+	if u < w0:
+		return 0.0
+	if u < per - on:
+		return .45 * smoothstep(w0, float(per - on), u)
+	return .45 + .55 * (1.0 - smoothstep(float(per) - 14.0, float(per), u))
 
 func _gust(o: Dictionary, p: Dictionary, pcx: float) -> void:
 	if gust_state(o) != 2 or p.dyingT > 0 or p.get("dog"):

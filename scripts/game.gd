@@ -885,7 +885,7 @@ func use_available() -> bool:
 	return X.near_use() or X.beam_useful()
 
 ## nome do período do dia em que o Tomé está (a fase é uma só, dividida pelas fogueiras grandes)
-const PERIODS1 := ["Manhã no bosque", "Tarde", "Pântano", "O Rio", "Neve", "Céu", "Noite na mina"]
+const PERIODS1 := ["Manhã no bosque", "Tarde", "Pântano", "O Rio", "Neve", "Montanha", "Noite na mina"]
 var PERIODS: Array = PERIODS1
 ## pistas da fase (Episódio 1: 1..6; Episódio 2: 7..12)
 func clue_ids() -> Array:
@@ -899,7 +899,7 @@ func period_index() -> int:
 	return n
 
 ## o nome no topo acompanha o cenário (a fogueira grande marca o fim de cada período)
-const PERIOD_OF := {"manha": 0, "tarde": 1, "chuva": 2, "rio": 3, "neve": 4, "ceu": 5, "noite": 6, "perseguicao": 6, "tunel": 6}
+const PERIOD_OF := {"manha": 0, "tarde": 1, "chuva": 2, "rio": 3, "neve": 4, "ceu": 5, "montanha": 5, "noite": 6, "perseguicao": 6, "tunel": 6}
 func period_label() -> String:
 	var px: float = amb_x()
 	var i: int = period_index()

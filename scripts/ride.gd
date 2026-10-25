@@ -474,7 +474,7 @@ func _finish() -> void:
 		g.X.DOG.st = "door"
 		g.X.DOG.x = hx - 30
 		g.X.DOG.y = 500.0
-	g.flash("O cavalo voltou para a vila. A trilha da mina começa aqui.", 200)
+	g.flash("O cavalo voltou para a vila. Daqui eu sigo a pé.", 200)
 
 ## o cavalo indo embora depois da cavalgada
 func post() -> void:

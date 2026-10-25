@@ -612,7 +612,15 @@ static func _bear(g: Game, K: Kings, T: int) -> void:
 	if float(rk.x) + 400 < cx0 or float(b.den) - 300 > cx1:
 		return
 	_bear_obs(g, K, T)
-	if not (b.done or b.st == "wait"):
+	if b.get("hide", false) and not b.done:
+		# ainda lá dentro da toca: só os olhos brilhando no escuro (piscando)
+		if (T / 6) % 14 != 0:
+			var ex: float = float(b.den) + 2.0
+			var ey: float = float(b.gy) - 100.0
+			for sd in [-1.0, 1.0]:
+				Spr.glow(ex + sd * 11, ey, 10, Color(1, .75, .3, .45))
+				Spr.ellipse(ex + sd * 11, ey, 4, 2.6, Color(1, .86, .45))
+	elif not (b.done or b.st == "wait"):
 		_bear_body(g, K, T)
 	_bear_rock(g, K, T)
 
@@ -761,6 +769,10 @@ static func _bear_body(g: Game, K: Kings, T: int) -> void:
 		"intro", "chase", "recover", "flee":
 			walk = true
 	var tint := Color(1, .55, .5) if b.red > 0 and (T / 3) % 2 == 0 else Color(1, 1, 1)
+	# saindo da toca: começa escuro (na sombra da caverna) e vai clareando
+	var dim: float = float(b.get("dim", 0.0))
+	if dim > 0.0:
+		tint = tint.lerp(Color(.16, .17, .24), dim * .85)
 	var k: float = .35 + .25 * sin(T * .5)
 	# avisos no chão: a mancha da patada, a seta da investida
 	if b.st == "rear":

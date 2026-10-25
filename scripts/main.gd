@@ -1609,7 +1609,7 @@ const REST_INFO := {
 	3: ["FIM DO PÂNTANO", "Pular nas poças com a lanterna acesa. Ela nunca teve medo da chuva.", "Agora é o rio, filha. Estou chegando."],
 	4: ["FIM DO RIO", "Barquinhos de papel na enxurrada do meio-fio. O dela sempre chegava primeiro.", "Estou chegando, Isis. Não tenha medo do escuro."],
 	5: ["FIM DA NEVE", "O boneco de neve ficou com o meu gorro. Ela riu a tarde inteira.", "Falta pouco, filha. Aguenta firme."],
-	6: ["FIM DO CÉU", "Soltar pipa no morro... ela dizia que um dia ia voar de avião.", "Voei por você, filha. Agora falta só a mina."],
+	6: ["FIM DA MONTANHA", "Soltar pipa no morro... ela dizia que um dia ia voar de avião.", "Voei por você, filha. Agora falta só a mina."],
 }
 
 func _on_rest(n: int) -> void:

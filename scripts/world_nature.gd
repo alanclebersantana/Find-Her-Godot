@@ -14,7 +14,9 @@ static func decor(d: Dictionary) -> void:
 	var s: float = d.get("s", 1.0)
 	match d.k:
 		"pine":
-			pine(d.x, d.y, s)
+			pine(d.x, d.y, s, float(d.get("lean", 0.0)), d.get("fl", 0) == 1, int(d.get("v", 0)))
+		"lookout":
+			lookout(d.x, d.y)
 		"house1", "house2":
 			var n: String = "v_house1" if d.k == "house1" else "v_house2"
 			var w: float = 210 * s
@@ -83,7 +85,12 @@ static func decor(d: Dictionary) -> void:
 					var t: Texture2D = Spr.atlas_tex(r)
 					var su: float = (va - left) / w
 					var sv: float = (vb - left) / w
-					Spr.ci.draw_texture_rect_region(t, Rect2(va, d.y + 8 - hgt, vb - va, hgt), Rect2(r[0] + r[2] * su, r[1], r[2] * (sv - su), r[3]), Color(.82, .85, .92, Spr.alpha))
+					var dst := Rect2(va, d.y + 8 - hgt, vb - va, hgt)
+					var src := Rect2(r[0] + r[2] * su, r[1], r[2] * (sv - su), r[3])
+					# mais escura e com um véu frio por cima (menos detalhe e contraste): a pintura da toca
+					# fica no mesmo peso do resto do cenário, como uma encosta um pouco atrás do caminho
+					Spr.ci.draw_texture_rect_region(t, dst, src, Color(.66, .7, .8, Spr.alpha))
+					Spr.ci.draw_texture_rect_region(Spr.sil(t), dst, src, Color(.5, .57, .72, .3 * Spr.alpha))
 			else:
 				Spr.ellipse(d.x, d.y, 360 * s, 190 * s, Color("#5d6878"))
 				Spr.ellipse(d.x, d.y - 150 * s, 300 * s, 60 * s, Color(.93, .95, 1))
@@ -154,9 +161,49 @@ static func front_decor(g: Game) -> void:
 		if is_front(g.L, d):
 			decor(d)
 
-static func pine(x: float, y: float, s: float) -> void:
-	prop("pinheiro", x, y + 4, 330 * s)
+## pinheiro do cenário. Para não repetir o mesmo: inclinado (lean), espelhado (fl) e variações —
+## v=1 com um galho quebrado caído na neve e o toco no tronco, v=2 mais fino e alto
+static func pine(x: float, y: float, s: float, lean: float = 0.0, fl: bool = false, v: int = 0) -> void:
+	if lean == 0.0 and not fl and v == 0:
+		prop("pinheiro", x, y + 4, 330 * s)
+		_roots(x, y, s)
+		return
+	Spr.save()
+	Spr.translate(x, y + 4)
+	Spr.rotate(lean)
+	Spr.scale((-1.0 if fl else 1.0) * (.8 if v == 2 else 1.0), 1.1 if v == 2 else 1.0)
+	prop("pinheiro", 0, 0, 330 * s)
+	if v == 1:
+		# toco do galho que quebrou (lasca clara) no meio do tronco
+		var ty: float = -330 * s * .42
+		Spr.poly(PackedVector2Array([Vector2(4 * s, ty - 5 * s), Vector2(26 * s, ty - 9 * s), Vector2(24 * s, ty + 1 * s), Vector2(4 * s, ty + 6 * s)]), Color("#5a3a20"))
+		Spr.poly(PackedVector2Array([Vector2(24 * s, ty - 9 * s), Vector2(30 * s, ty - 4 * s), Vector2(24 * s, ty + 1 * s)]), Color("#d9b27a"))
+	Spr.restore()
 	_roots(x, y, s)
+	if v == 1:
+		# o galho quebrado caído na neve, ao lado
+		Spr.P("galhoneve2", x + (-1.0 if fl else 1.0) * 70 * s, y + 6, 110 * s, fl, .1)
+
+## mirante no alto da subida: cerquinha de madeira com neve e uma luneta num tripé
+static func lookout(x: float, y: float) -> void:
+	Spr.ellipse(x, y + 2, 90, 6, Color(0, 0, 0, .15))
+	for px in [x - 64.0, x - 4.0, x + 56.0]:
+		Spr.PR("stake", px - 5, y - 58, 11, 62, Color(.85, .8, .75))
+		Spr.ellipse(px + .5, y - 58, 7, 3, Color(.97, .98, 1))
+	WorldVehicles._hlog(x - 70, x + 64, y - 50, 8)
+	WorldVehicles._hlog(x - 70, x + 64, y - 28, 7)
+	Spr.ellipse(x - 3, y - 51, 66, 3.5, Color(.97, .98, 1))
+	# luneta de latão no tripé, apontando para o vale
+	var tx: float = x + 98
+	for dx in [-14.0, 0.0, 14.0]:
+		Spr.seg(tx, y - 40, tx + dx, y, Color("#4e331d"), 3)
+	Spr.save()
+	Spr.translate(tx, y - 42)
+	Spr.rotate(-.22)
+	Spr.rr(-14, -5, 34, 10, 4, Color("#b8893a"))
+	Spr.rr(18, -6.5, 10, 13, 3, Color("#8a6224"))
+	Spr.rect(-10, -4, 26, 2, Color(1, .9, .6, .6))
+	Spr.restore()
 
 ## raízes e um montinho de neve na base: a árvore fica plantada no chão (sem parecer flutuar)
 static func _roots(x: float, y: float, s: float) -> void:
