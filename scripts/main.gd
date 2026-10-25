@@ -1694,7 +1694,14 @@ func _pause_menu() -> void:
 	vb.add_child(sb)
 	vb.add_child(_button("VOLTAR À ÚLTIMA FOGUEIRA", func():
 		close_panel()
-		game.keys["Bp"] = true))
+		if game.RD and game.RD.riding:
+			# na cavalgada o ponto de volta é o começo da trilha (antes o pedido ficava guardado e,
+			# no fim da cavalgada, mandava o Tomé de volta para a fogueira de repente)
+			game.RD.restart()
+		elif game.VH and game.VH.active():
+			game._back_to_fire()
+		else:
+			game.keys["Bp"] = true))
 	vb.add_child(_button("MAPA DA FASE", func(): show_map(true)))
 	vb.add_child(_button("OPÇÕES", func(): show_options(true)))
 	# sair para o menu perde o que foi feito desde a última fogueira: pergunta antes

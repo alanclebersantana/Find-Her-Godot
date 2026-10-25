@@ -277,6 +277,14 @@ func _hurt(o: Dictionary) -> void:
 		g.flash("O cavalo empacou! Vamos de novo — PULAR para saltar, ↓ para abaixar.", 220)
 		_start()
 
+## recomeçar a cavalgada do início da trilha (pausa → voltar à fogueira)
+func restart() -> void:
+	if not riding:
+		return
+	g.iris_t = 30
+	endT = -1
+	_start()
+
 func _finish() -> void:
 	var p: Dictionary = g.player
 	riding = false

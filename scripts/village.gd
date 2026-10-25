@@ -118,10 +118,15 @@ func post() -> void:
 		if w.get("bribed") and not told.has("bribed") and abs(float(w.x) - pc.x) < 700:
 			told.bribed = 1
 			g.tip("Um vigia da vila aqui embaixo, com uma bolsinha de ouro no cinto: o Vargas subornou os vigias para guardar o esconderijo!", 300)
+		if int(w.get("turnT", 0)) > 0:
+			w.turnT -= 1
 		if w.wait > 0:
 			w.wait -= 1
 			if w.wait == 0:
 				w.dir = -w.dir
+				# acabou de virar: o facho vai se abrindo aos poucos (antes virava e já pegava quem
+				# estava logo atrás, sem dar tempo de reagir)
+				w.turnT = TURN_T
 		else:
 			w.x += w.dir * float(w.get("spd", 1.1))
 			if w.x > float(w.x1) or w.x < float(w.x0):
@@ -227,10 +232,15 @@ static func lamp_pos(w: Dictionary) -> Vector2:
 		return Vector2(float(w.x) + float(w.dir) * 34.0, 466.0)
 	return Vector2(float(w.x) + float(w.dir) * 40.0, 458.0)
 
+## facho logo depois de virar: cresce de 15% até o tamanho todo em TURN_T quadros
+const TURN_T := 24
+static func cone_k(w: Dictionary) -> float:
+	return 1.0 - .85 * float(w.get("turnT", 0)) / TURN_T
+
 func in_cone(w: Dictionary, pc: Vector2) -> bool:
 	var lp := lamp_pos(w)
 	var v: Vector2 = pc - lp
-	if v.length() > CONE_LEN or v.x * float(w.dir) < 0:
+	if v.length() > CONE_LEN * cone_k(w) or v.x * float(w.dir) < 0:
 		return false
 	return abs(v.angle_to(Vector2(float(w.dir), .12))) < CONE_ANG
 
@@ -284,6 +294,9 @@ func _caught(w: Dictionary) -> void:
 	g.iris_t = 30
 	# volta para a última fogueira (não para o último lugar seguro, que pode estar na frente do lampião)
 	var k: int = int(g.cur_chk)
+	# na fuga da Isis a fogueira de antes (do Tomé) fica do outro lado da porta de ferro: não vale
+	if k >= 0 and k < g.CHK.size() and p.get("isis") and g.L.has("isisPart") and float(g.CHK[k].x) < float(g.L.isisPart.x0):
+		k = -1
 	if k >= 0 and k < g.CHK.size():
 		p.x = float(g.CHK[k].x) - p.w / 2
 		p.y = float(g.CHK[k].y) - p.h
@@ -298,6 +311,7 @@ func _caught(w: Dictionary) -> void:
 	p.h = g.body_h()
 	p.iframe = 60
 	w.wait = 90
+	g.snap_camera()
 	if p.get("isis"):
 		g.flash("Um vigia subornado pelo Vargas viu a Isis! Ela voltou correndo para trás. Abaixe-se atrás dos caixotes quando a luz vier.", 260)
 	else:
@@ -417,9 +431,10 @@ func draw_glow(T: int) -> void:
 		var dirv := Vector2(float(w.dir), .12).normalized()
 		var pts := PackedVector2Array([lp])
 		var cols := PackedColorArray([Color(1, .85, .45, .38)])
+		var ck: float = cone_k(w)
 		for k in 9:
 			var a: float = -CONE_ANG + 2.0 * CONE_ANG * k / 8.0
-			pts.push_back(lp + dirv.rotated(a) * CONE_LEN)
+			pts.push_back(lp + dirv.rotated(a) * CONE_LEN * ck)
 			cols.push_back(Color(1, .85, .45, .0))
 		Spr.ci.draw_polygon(pts, cols)
 		Spr.glow(lp.x, lp.y, 46, Color(1, .8, .4, .5))

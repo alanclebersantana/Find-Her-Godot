@@ -114,7 +114,21 @@ func pre() -> void:
 							Audio.play("door", -8, .7)
 							g.flash("O elevador está vindo...", 90)
 				var span: float = max(1.0, abs(float(o.y1) - float(o.y0)))
-				o.pos = move_toward(float(o.pos), float(o.goal), LIFT_SPD / span)
+				# arranca e freia com suavidade (antes saía e parava de estalo, com o Tomé em cima)
+				var left_px: float = abs(float(o.goal) - float(o.pos)) * span
+				var vmax: float = min(LIFT_SPD, sqrt(2.0 * .06 * left_px) + .15)
+				var was_moving: bool = left_px > .01
+				o.lv = move_toward(float(o.get("lv", 0.0)), vmax if was_moving else 0.0, .06)
+				o.pos = move_toward(float(o.pos), float(o.goal), float(o.lv) / span)
+				if was_moving and abs(float(o.goal) - float(o.pos)) * span <= .01:
+					# chegou: baque leve da gaiola parando
+					o.lv = 0.0
+					Audio.play("stomp", -16, .8)
+					if on_plat(o):
+						Audio.vib(20)
+					g.shake = max(g.shake, 1.5)
+				elif was_moving and int(o.t) % 26 == 0:
+					Audio.play("climb", -20, .7)
 		_place(o)
 	# quem estava em cima anda junto com a tábua
 	if gs is Dictionary and str(gs.get("t", "")) == "mplat" and p.onGround:

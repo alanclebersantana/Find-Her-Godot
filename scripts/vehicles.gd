@@ -651,6 +651,8 @@ func _hurt_raft(_k: String) -> void:
 		g.iris_t = 30
 		g.flash("A jangada virou! De novo — PULAR para saltar, ↓ para abaixar.", 220)
 		_start_raft()
+		# a câmera volta junto (antes atravessava o rio inteiro deslizando até o começo)
+		g.snap_camera()
 
 func _drop_raft_sol() -> void:
 	if not RAFT_SOL.is_empty():
