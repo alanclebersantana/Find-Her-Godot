@@ -93,7 +93,7 @@ func manha() -> void:
 
 func flor() -> void:
 	kill_enemies()
-	put(3855, 440)
+	put(3950, 440)
 	await run(110, func(i): return {})
 
 func javali() -> void:
@@ -803,9 +803,9 @@ func a_inicio() -> void:
 
 func a_estaca() -> void:
 	kill_enemies()
-	put(2075, 500)
+	put(6600, 500)
 	await hold({}, 10)
-	await stake_cross(2040)
+	await stake_cross(6680)
 	await hold({}, 10)
 
 func a_escada() -> void:
@@ -846,14 +846,14 @@ func a_galho() -> void:
 
 func a_chao() -> void:
 	kill_enemies()
-	put(4500, 500)
+	put(6440, 500)
 	await hold({}, 6)
-	await walk_to(4685)
+	await walk_to(6496)
 	await hold({}, 10)
 	await slam_here()
-	await walk_to(4690)
+	await walk_to(6496)
 	await climb("S", func(): return g.player.onGround and g.player.y > 800, 500)
-	await walk_to(4900)
+	await walk_to(6250)
 
 func a_planar() -> void:
 	kill_enemies()

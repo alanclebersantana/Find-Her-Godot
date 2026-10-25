@@ -88,18 +88,34 @@ func _initialize() -> void:
 		S("parado afunda", g.lives == 8)
 		g.lives = 9
 	if all or args.has("tronco"):
-		put(4685, 500)
+		# (o esconderijo do chão rachado fica depois da 1ª fogueira grande)
+		put(6496, 500)
 		use()
 		S("picareta não quebra (é do mergulho)", not g.X.broken.has("chao1"))
 		slam_here()
 		S("quebrou o chão", g.X.broken.has("chao1"))
-		walk_to(4690)
+		walk_to(6496)
 		S("desceu", climb_to("S", func(): return P.onGround and P.y > 800, 500))
 		# solto lá embaixo (e com ↓ ainda apertado) ele não sobe sozinho
 		hold({"S": true}, 40)
 		hold({}, 120)
 		S("continua no esconderijo", g.player.y > 800)
 		S("sobe com ↑", climb_to("U", func(): return P.ladder == null and P.onGround and P.y < 500, 500))
+	if all or args.has("penhasco"):
+		# segredo no alto do penhasco da manhã: pedra rachada atrás da moita, com uma lembrança da Isis
+		var rl: Dictionary = {}
+		for r in g.X.RELICS:
+			if r.id == "r4":
+				rl = r
+		S("lembrança no alto do penhasco", not rl.is_empty())
+		if not rl.is_empty():
+			put(float(rl.x) - 50, float(rl.y))
+			S("em pé no alto do penhasco", P.onGround and abs(P.y + P.h - float(rl.y)) < 3)
+			P.face = 1
+			press("G")
+			hold({}, 26)
+			S("a picareta quebra a pedra", rl.broken)
+			S("pega a lembrança", walk_to(float(rl.x)) and until({}, func(): return rl.got, 60) and g.X.found.has("r4"))
 	if all or args.has("raft"):
 		put(25450, 500)
 		walk_to(25490)
@@ -340,7 +356,8 @@ func _initialize() -> void:
 		S("barricada quebrada", walk_to(77500))
 	if all or args.has("lagos"):
 		# lagos de veneno com ponte de estaca: só passa baixando a ponte
-		for sx in [2040.0, 6480.0]:
+		# (o poço tóxico da manhã virou poço raso de lama; o lago da tarde andou para depois do esconderijo)
+		for sx in [6680.0]:
 			var crossed := false
 			var died := 0
 			for mode in ["pulo", "duplo", "planar", "nadar", "alto"]:
@@ -354,7 +371,7 @@ func _initialize() -> void:
 					if abs(float(o.x) - sx) < 5:
 						st = o
 				var far: float = float(st.bridge.x) + float(st.bridge.w)
-				if mode == "alto" and sx == 6480.0:
+				if mode == "alto" and sx == 6680.0:
 					put(6300.0, 100)   # do alto do platô, correndo e planando
 				elif mode == "alto":
 					continue
@@ -591,15 +608,15 @@ func _initialize() -> void:
 		S("passa o portão", walk_to(71870))
 	if all or args.has("mergulho"):
 		# estaca: subir nela e mergulhar baixa a ponte do riacho
-		put(2040, 456)
-		var stk: Dictionary = g.SL.STAKES.filter(func(o): return abs(float(o.x) - 2040.0) < 5)[0]
+		put(6680, 456)
+		var stk: Dictionary = g.SL.STAKES.filter(func(o): return abs(float(o.x) - 6680.0) < 5)[0]
 		S("ponte em pé", not g.SOL.has(stk.sol))
 		S("em cima da estaca", P.onGround and P.y + P.h < 470)
 		slam_here()
 		S("estaca cravada", stk.done)
 		hold({}, 120)
 		S("ponte deitou", g.SOL.has(stk.sol))
-		S("atravessa a ponte", walk_to(2460))
+		S("atravessa a ponte", walk_to(7120))
 		S("seco (não caiu na água)", not P.swim)
 		# gangorra: mergulho na ponta de cá lança a pedra e caem lápis e uma fruta
 		put(63925, 456)

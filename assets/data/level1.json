@@ -113,9 +113,9 @@
  ],
  "caves": [
   {
-   "x": 4530,
+   "x": 5990,
    "y": 760,
-   "w": 520,
+   "w": 526,
    "h": 200
   },
   {
@@ -131,7 +131,7 @@
    "h": 130
   },
   {
-   "x": 4330,
+   "x": 5790,
    "y": 860,
    "w": 180,
    "h": 100
@@ -167,7 +167,7 @@
    "h": 260
   },
   {
-   "x": 7070,
+   "x": 7230,
    "y": 470,
    "w": 140,
    "h": 30
@@ -207,7 +207,7 @@
    "wet": 1
   },
   {
-   "x": 4670,
+   "x": 6476,
    "y": 500,
    "w": 40,
    "h": 260
@@ -266,16 +266,16 @@
   },
   {
    "t": "trunk",
-   "x": 3780,
-   "y": 330,
+   "x": 4150,
+   "y": 230,
    "w": 50,
-   "h": 170
+   "h": 270
   },
   {
    "t": "branch",
-   "x": 3690,
-   "y": 330,
-   "w": 240
+   "x": 4000,
+   "y": 360,
+   "w": 150
   },
   {
    "t": "branch",
@@ -291,28 +291,21 @@
   },
   {
    "t": "dirt",
-   "x": 4510,
+   "x": 5970,
    "y": 960,
-   "w": 560,
+   "w": 566,
    "h": 60
   },
   {
    "t": "dirt",
-   "x": 4510,
+   "x": 5970,
    "y": 740,
    "w": 20,
    "h": 140
   },
   {
-   "t": "dirt",
-   "x": 5050,
-   "y": 740,
-   "w": 20,
-   "h": 240
-  },
-  {
    "t": "plat",
-   "x": 4945,
+   "x": 6110,
    "y": 850,
    "w": 100
   },
@@ -327,7 +320,7 @@
    "t": "ground",
    "x": 5630,
    "y": 500,
-   "w": 890,
+   "w": 846,
    "h": 140
   },
   {
@@ -695,7 +688,7 @@
   },
   {
    "t": "fakewall",
-   "x": 4510,
+   "x": 5970,
    "y": 880,
    "w": 20,
    "h": 80,
@@ -703,21 +696,21 @@
   },
   {
    "t": "dirt",
-   "x": 4310,
+   "x": 5770,
    "y": 960,
    "w": 200,
    "h": 60
   },
   {
    "t": "dirt",
-   "x": 4310,
+   "x": 5770,
    "y": 840,
    "w": 20,
    "h": 180
   },
   {
    "t": "dirt",
-   "x": 4310,
+   "x": 5770,
    "y": 840,
    "w": 200,
    "h": 20
@@ -826,21 +819,21 @@
   },
   {
    "t": "ground",
-   "x": 3600,
+   "x": 3830,
    "y": 500,
-   "w": 830,
+   "w": 600,
    "h": 140
   },
   {
    "t": "dirt",
-   "x": 3530,
+   "x": 3760,
    "y": 520,
    "w": 70,
    "h": 120
   },
   {
    "t": "pgate",
-   "x": 3635,
+   "x": 3870,
    "y": -700,
    "w": 22,
    "h": 1200,
@@ -905,21 +898,21 @@
   },
   {
    "t": "cliff",
-   "x": 7070,
+   "x": 7230,
    "y": -20,
    "w": 140,
    "h": 496
   },
   {
    "t": "cliff",
-   "x": 7330,
+   "x": 7490,
    "y": -20,
-   "w": 1020,
+   "w": 860,
    "h": 520
   },
   {
    "t": "trunk",
-   "x": 7410,
+   "x": 7570,
    "y": -300,
    "w": 50,
    "h": 280,
@@ -935,7 +928,7 @@
   },
   {
    "t": "branch",
-   "x": 7560,
+   "x": 7720,
    "y": -125,
    "w": 140
   },
@@ -1281,35 +1274,39 @@
   },
   {
    "t": "trunk",
-   "x": 8470,
-   "y": -320,
-   "w": 60,
-   "h": 1060,
-   "deco": 1
+   "x": 8471,
+   "y": -1000,
+   "w": 58,
+   "h": 1740,
+   "deco": 1,
+   "copa": 1
   },
   {
    "t": "trunk",
-   "x": 8940,
-   "y": -320,
-   "w": 60,
-   "h": 1060,
-   "deco": 1
+   "x": 8932,
+   "y": -1000,
+   "w": 74,
+   "h": 1740,
+   "deco": 1,
+   "copa": 1
   },
   {
    "t": "trunk",
-   "x": 9380,
-   "y": -320,
-   "w": 60,
-   "h": 1060,
-   "deco": 1
+   "x": 9378,
+   "y": -1000,
+   "w": 64,
+   "h": 1740,
+   "deco": 1,
+   "copa": 1
   },
   {
    "t": "trunk",
-   "x": 9800,
-   "y": -320,
-   "w": 60,
-   "h": 1060,
-   "deco": 1
+   "x": 9796,
+   "y": -1000,
+   "w": 68,
+   "h": 1740,
+   "deco": 1,
+   "copa": 1
   },
   {
    "t": "branch",
@@ -1324,10 +1321,10 @@
    "w": 120
   },
   {
-   "t": "branch",
-   "x": 8980,
+   "t": "plat",
+   "x": 8960,
    "y": -90,
-   "w": 140
+   "w": 200
   },
   {
    "t": "branch",
@@ -1364,7 +1361,7 @@
    "t": "ground",
    "x": 2610,
    "y": 500,
-   "w": 920,
+   "w": 1150,
    "h": 140
   },
   {
@@ -1418,12 +1415,12 @@
    "id": "g3"
   },
   {
-   "t": "dirt",
+   "t": "ground",
    "x": 2080,
-   "y": 560,
+   "y": 524,
    "w": 360,
-   "h": 580,
-   "deco": 1
+   "h": 116,
+   "mudpool": 1
   },
   {
    "t": "ground",
@@ -1678,12 +1675,12 @@
    "t": "ground",
    "x": 10340,
    "y": 500,
-   "w": 1450,
+   "w": 1220,
    "h": 140
   },
   {
    "t": "pgate",
-   "x": 10770,
+   "x": 10850,
    "y": -420,
    "w": 22,
    "h": 920,
@@ -2005,40 +2002,40 @@
    "t": "ground",
    "x": 4430,
    "y": 500,
-   "w": 240,
+   "w": 1200,
    "h": 140
   },
   {
    "t": "ground",
-   "x": 4710,
+   "x": 6516,
    "y": 500,
-   "w": 920,
+   "w": 204,
    "h": 140
   },
   {
    "t": "dirt",
-   "x": 4510,
+   "x": 5970,
    "y": 740,
-   "w": 160,
+   "w": 506,
    "h": 20
   },
   {
    "t": "dirt",
-   "x": 4710,
+   "x": 6516,
    "y": 740,
-   "w": 360,
-   "h": 20
+   "w": 20,
+   "h": 240
   },
   {
    "t": "crack",
-   "x": 4660,
+   "x": 6466,
    "y": 500,
    "w": 60,
    "h": 22,
    "id": "chao1",
    "kind": "slam",
    "ladder": [
-    4675,
+    6481,
     500,
     460
    ],
@@ -2126,14 +2123,14 @@
   },
   {
    "t": "ground",
-   "x": 6880,
+   "x": 7080,
    "y": 500,
-   "w": 1500,
+   "w": 1300,
    "h": 140
   },
   {
    "t": "dirt",
-   "x": 6520,
+   "x": 6720,
    "y": 560,
    "w": 360,
    "h": 580,
@@ -2169,6 +2166,27 @@
    "w": 60,
    "h": 60,
    "ice": 1
+  },
+  {
+   "t": "cliff",
+   "x": 3600,
+   "y": 262,
+   "w": 160,
+   "h": 238
+  },
+  {
+   "t": "dirt",
+   "x": 11560,
+   "y": 520,
+   "w": 70,
+   "h": 120
+  },
+  {
+   "t": "ground",
+   "x": 11630,
+   "y": 500,
+   "w": 160,
+   "h": 140
   }
  ],
  "swamp": [
@@ -2270,15 +2288,7 @@
    "pit": 1
   },
   {
-   "x": 6520,
-   "y": 530,
-   "w": 360,
-   "h": 110,
-   "fumes": 1,
-   "pit": 1
-  },
-  {
-   "x": 2080,
+   "x": 6720,
    "y": 530,
    "w": 360,
    "h": 110,
@@ -2341,6 +2351,12 @@
    "x": 13350,
    "y": 500,
    "w": 150
+  },
+  {
+   "x": 2084,
+   "y": 524,
+   "w": 352,
+   "pool": 1
   }
  ],
  "climb": [
@@ -2427,6 +2443,13 @@
    "w": 30,
    "h": 440,
    "kind": "ladder"
+  },
+  {
+   "x": 3762,
+   "y": 262,
+   "w": 30,
+   "h": 258,
+   "kind": "ladder"
   }
  ],
  "entrances": [],
@@ -2445,8 +2468,8 @@
    "id": "corda"
   },
   {
-   "x": 4920,
-   "y": 932,
+   "x": 4528,
+   "y": -34,
    "id": "gancho"
   },
   {
@@ -2484,7 +2507,7 @@
    ],
    "where": {
     "corda": "no chão da casa da árvore (suba a escada perto da casa)",
-    "gancho": "no esconderijo dentro do tronco oco caído, logo depois do cipó (pare em cima da entrada e aperte ↓)"
+    "gancho": "no galho alto depois do cipó, junto do desenho da Isis (balance no cipó e solte lá em cima)"
    },
    "pre": "Alto demais para pular.",
    "place": "Vá até o barranco alto, chegue perto da argola na pedra e toque em ✦ USAR.",
@@ -2549,8 +2572,8 @@
  ],
  "clues": [
   {
-   "x": 330,
-   "y": 470,
+   "x": 2765,
+   "y": 200,
    "id": 1
   },
   {
@@ -2587,7 +2610,7 @@
    "c": "laranja"
   },
   {
-   "x": 4995,
+   "x": 6160,
    "y": 820,
    "c": "vermelho"
   },
@@ -2712,14 +2735,14 @@
   },
   {
    "t": "break",
-   "x": 4332,
+   "x": 5792,
    "y": 922,
    "item": "heart"
   },
   {
    "t": "push",
-   "x": 3330,
-   "y": 430,
+   "x": 3672,
+   "y": 192,
    "w": 70,
    "h": 70
   },
@@ -2756,7 +2779,14 @@
   },
   {
    "t": "push",
-   "x": 11490,
+   "x": 11420,
+   "y": 430,
+   "w": 70,
+   "h": 70
+  },
+  {
+   "t": "push",
+   "x": 11692,
    "y": 430,
    "w": 70,
    "h": 70
@@ -2823,12 +2853,12 @@
   },
   {
    "k": "spider",
-   "x": 4870,
+   "x": 6290,
    "y": 960,
    "top": 760,
    "r": [
-    4870,
-    4870
+    6290,
+    6290
    ]
   },
   {
@@ -2899,12 +2929,12 @@
   },
   {
    "k": "crow",
-   "x": 8980,
+   "x": 8760,
    "y": -230,
    "cy": -230,
    "r": [
-    8630,
-    9280
+    8560,
+    8900
    ]
   },
   {
@@ -3083,40 +3113,40 @@
    10
   ],
   [
-   3330,
-   400
+   3532,
+   430
   ],
   [
    3350,
    30
   ],
   [
-   3430,
-   400
+   3532,
+   360
   ],
   [
-   3530,
-   400
+   3532,
+   290
   ],
   [
-   3600,
-   400
+   3532,
+   220
   ],
   [
-   3720,
-   300
+   4030,
+   330
   ],
   [
-   3783,
-   300
+   4065,
+   330
   ],
   [
-   3847,
-   300
+   4100,
+   330
   ],
   [
-   3910,
-   300
+   4135,
+   330
   ],
   [
    3988,
@@ -3163,7 +3193,7 @@
    150
   ],
   [
-   4385,
+   5845,
    935
   ],
   [
@@ -3171,31 +3201,31 @@
    80
   ],
   [
-   4415,
+   5875,
    935
   ],
   [
-   4445,
+   5905,
    935
   ],
   [
-   4475,
+   5935,
    935
   ],
   [
-   4570,
+   6450,
    930
   ],
   [
-   4630,
+   6390,
    930
   ],
   [
-   4690,
+   6330,
    930
   ],
   [
-   4750,
+   6250,
    930
   ],
   [
@@ -3203,7 +3233,7 @@
    470
   ],
   [
-   4810,
+   6200,
    930
   ],
   [
@@ -3223,7 +3253,7 @@
    180
   ],
   [
-   4870,
+   6060,
    930
   ],
   [
@@ -3291,35 +3321,35 @@
    470
   ],
   [
-   7240,
+   7400,
    140
   ],
   [
-   7240,
+   7400,
    380
   ],
   [
-   7300,
+   7460,
    20
   ],
   [
-   7300,
+   7460,
    260
   ],
   [
-   7570,
+   7730,
    -165
   ],
   [
-   7610,
+   7770,
    -165
   ],
   [
-   7650,
+   7810,
    -165
   ],
   [
-   7690,
+   7850,
    -165
   ],
   [
@@ -3367,11 +3397,11 @@
    -100
   ],
   [
-   8990,
+   9010,
    -130
   ],
   [
-   9050,
+   9120,
    -130
   ],
   [
@@ -3431,7 +3461,7 @@
    470
   ],
   [
-   10865,
+   10910,
    470
   ],
   [
@@ -5963,51 +5993,183 @@
    452
   ],
   [
-   6550,
+   6750,
    470
   ],
   [
-   6610,
+   6810,
    470
   ],
   [
-   6670,
+   6870,
    470
   ],
   [
-   6730,
+   6930,
    470
   ],
   [
-   6790,
+   6990,
    470
   ],
   [
-   6850,
+   7050,
    470
   ],
   [
    2110,
-   470
+   492
   ],
   [
    2170,
-   470
+   492
   ],
   [
    2230,
-   470
+   492
   ],
   [
    2290,
-   470
+   492
   ],
   [
    2350,
-   470
+   492
   ],
   [
    2410,
+   492
+  ],
+  [
+   1060,
+   370
+  ],
+  [
+   1170,
+   270
+  ],
+  [
+   1300,
+   130
+  ],
+  [
+   1345,
+   105
+  ],
+  [
+   1390,
+   95
+  ],
+  [
+   1435,
+   105
+  ],
+  [
+   1480,
+   130
+  ],
+  [
+   3260,
+   470
+  ],
+  [
+   3300,
+   470
+  ],
+  [
+   3340,
+   470
+  ],
+  [
+   3380,
+   470
+  ],
+  [
+   4600,
+   470
+  ],
+  [
+   4660,
+   470
+  ],
+  [
+   4720,
+   470
+  ],
+  [
+   6560,
+   470
+  ],
+  [
+   6600,
+   470
+  ],
+  [
+   6640,
+   470
+  ],
+  [
+   7700,
+   -50
+  ],
+  [
+   7760,
+   -50
+  ],
+  [
+   7820,
+   -50
+  ],
+  [
+   7880,
+   -50
+  ],
+  [
+   9960,
+   470
+  ],
+  [
+   10020,
+   470
+  ],
+  [
+   10180,
+   470
+  ],
+  [
+   10300,
+   470
+  ],
+  [
+   11900,
+   470
+  ],
+  [
+   12000,
+   470
+  ],
+  [
+   12060,
+   470
+  ],
+  [
+   12120,
+   470
+  ],
+  [
+   12180,
+   470
+  ],
+  [
+   14700,
+   470
+  ],
+  [
+   14820,
+   470
+  ],
+  [
+   14940,
    470
   ]
  ],
@@ -6018,7 +6180,7 @@
  },
  "checks": [
   [
-   3130,
+   2468,
    500
   ],
   [
@@ -6032,15 +6194,19 @@
    1
   ],
   [
-   7342,
+   7502,
    -20
+  ],
+  [
+   9070,
+   -90
   ],
   [
    10240,
    500
   ],
   [
-   13350,
+   12320,
    500
   ],
   [
@@ -6177,18 +6343,24 @@
   {
    "a": 1600,
    "b": 1880,
-   "t": "Outro portão com placa: empurre a caixa até o buraco da placa.",
+   "t": "O portão só abre com peso na placa. Empurre a caixa grande até cair no buraco da placa.",
    "yl": 520
   },
   {
-   "a": 2550,
+   "a": 2500,
+   "b": 2600,
+   "t": "Flor-catapulta: fique parado em cima — ela encolhe e te arremessa lá no alto.",
+   "yl": 480
+  },
+  {
+   "a": 2600,
    "b": 2730,
    "t": "Espinhos! Espere eles descerem e passe rápido."
   },
   {
    "a": 2630,
    "b": 3030,
-   "t": "Escada: ↑ sobe, ↓ desce. Lá em cima tem algo útil.",
+   "t": "Escada: ↑ sobe, ↓ desce. Lá em cima, na casa da árvore, tem algo útil.",
    "yg": 200
   },
   {
@@ -6203,14 +6375,21 @@
    "t": "GOLPE (botão da picareta / tecla G): derruba bichos e quebra caixas e rochas. Segure o botão para se defender com a lanterna."
   },
   {
-   "a": 3270,
-   "b": 3635,
-   "t": "O portão só abre com peso na placa. Empurre a caixa grande até cair no buraco da placa."
+   "a": 3440,
+   "b": 3600,
+   "t": "Vento subindo! Pule, dê o pulo duplo e SEGURE PULAR para planar: o vento leva você lá para cima.",
+   "yl": 520
   },
   {
-   "a": 3780,
-   "b": 3900,
-   "t": "Flor-catapulta: fique parado em cima — ela encolhe e te arremessa lá no alto.",
+   "a": 3600,
+   "b": 3790,
+   "yl": 270,
+   "t": "Empurre a caixa da beirada: ela cai bem no buraco da placa lá embaixo."
+  },
+  {
+   "a": 3890,
+   "b": 3990,
+   "t": "Outra flor-catapulta: fique parado nela.",
    "yl": 480
   },
   {
@@ -6226,22 +6405,23 @@
    "yg": 420
   },
   {
-   "a": 4510,
-   "b": 5070,
+   "a": 5970,
+   "b": 6536,
    "yg": 800,
    "t": "Esconderijo! Para sair, volte até a escada e aperte ↑."
   },
   {
-   "a": 4520,
-   "b": 4630,
+   "a": 5980,
+   "b": 6090,
    "yg": 860,
    "t": "A Isis desenhou uma seta apontando para a parede... será que dá para passar?"
   },
   {
-   "a": 4580,
-   "b": 4780,
+   "a": 6420,
+   "b": 6560,
    "t": "Chão rachado! Pule e, no ar, aperte ↓ para dar um MERGULHO e quebrar. Depois desça pela escada (↓).",
-   "yg": 400
+   "yg": 400,
+   "crack": "chao1"
   },
   {
    "a": 4720,
@@ -6288,8 +6468,8 @@
    "t": "Uma toca pequena demais para o Tomé. Com o Pipoca junto, toque ✦ USAR aqui."
   },
   {
-   "a": 6990,
-   "b": 7330,
+   "a": 7150,
+   "b": 7490,
    "t": "Fenda estreita: encoste numa parede no ar e aperte PULAR para saltar para a outra. Repita até o topo!",
    "yl": 480
   },
@@ -6311,10 +6491,16 @@
    "t": "Tronco balançando! Passe por baixo quando ele estiver lá no alto."
   },
   {
-   "a": 10490,
-   "b": 10640,
-   "t": "Portão alto com portinhola: troque para o Pipoca (botão do cachorro) e leve ele até a placa.",
+   "a": 10600,
+   "b": 10800,
+   "t": "Placa do lado de cá: troque para o Pipoca, leve ele até a placa e troque de volta. Ele fica sentado segurando o portão!",
    "yl": 520
+  },
+  {
+   "a": 10880,
+   "b": 10990,
+   "yl": 520,
+   "t": "Pode seguir: o Pipoca vem atrás pela portinhola."
   },
   {
    "a": 10940,
@@ -6323,15 +6509,15 @@
    "yl": 520
   },
   {
-   "a": 11440,
-   "b": 11790,
-   "t": "Empurre a caixa até o buraco da placa para abrir o portão.",
+   "a": 11400,
+   "b": 11800,
+   "t": "Este portão tem DUAS placas e as duas precisam de peso: uma caixa em cada buraco!",
    "yl": 520
   },
   {
    "a": 12310,
    "b": 12640,
-   "t": "Pântano! A água funda puxa você para baixo. As vitórias-régias afundam se você ficar parado."
+   "t": "Brejo! A água funda puxa você para baixo. As vitórias-régias afundam se você ficar parado."
   },
   {
    "a": 13290,
@@ -6605,14 +6791,14 @@
    "t": "Lago de veneno! Pule e agarre a corda esticada: ← → anda pendurado, ↓ solta do outro lado."
   },
   {
-   "a": 6220,
-   "b": 6520,
+   "a": 6600,
+   "b": 6720,
    "t": "Lago de veneno! Não dá para pular nem planar por cima: suba na estaca e dê um MERGULHO (pule e aperte ↓) para baixar a ponte."
   },
   {
-   "a": 1780,
-   "b": 2080,
-   "t": "Lago de veneno! Não dá para pular nem planar por cima: suba na estaca e dê um MERGULHO (pule e aperte ↓) para baixar a ponte."
+   "a": 2050,
+   "b": 2240,
+   "t": "Lama! Ela gruda nas botas: o Tomé anda devagar e pula mais baixo."
   },
   {
    "a": 39080,
@@ -6732,7 +6918,7 @@
  "secrets": [
   {
    "id": "s1",
-   "x": 4330,
+   "x": 5790,
    "y": 860,
    "w": 180,
    "h": 100
@@ -6760,14 +6946,14 @@
    "d": 1
   },
   {
-   "x": 4570,
+   "x": 6030,
    "y": 905,
    "k": "seta",
    "d": -1,
    "q": 1
   },
   {
-   "x": 4420,
+   "x": 5880,
    "y": 895,
    "k": "papai"
   },
@@ -6839,7 +7025,7 @@
  ],
  "plates": [
   {
-   "x": 3530,
+   "x": 3760,
    "y": 520,
    "w": 70,
    "gate": "g1"
@@ -6857,13 +7043,19 @@
    "gate": "g3"
   },
   {
-   "x": 10880,
+   "x": 10690,
    "y": 500,
    "w": 60,
    "gate": "g4"
   },
   {
    "x": 11790,
+   "y": 520,
+   "w": 70,
+   "gate": "g5"
+  },
+  {
+   "x": 11560,
    "y": 520,
    "w": 70,
    "gate": "g5"
@@ -6905,15 +7097,15 @@
   },
   {
    "k": "wind",
-   "x": 3382,
-   "y": -60,
+   "x": 3500,
+   "y": 110,
    "w": 64,
-   "h": 560,
+   "h": 390,
    "pow": 0.95
   },
   {
    "k": "flower",
-   "x": 3855,
+   "x": 3950,
    "y": 500,
    "to": [
     4090,
@@ -8076,6 +8268,12 @@
    "x": 63840,
    "y": 500,
    "txt": "Uma foto nossa soltando pipa no morro. A Isis guardou no bolso."
+  },
+  {
+   "id": "r4",
+   "x": 1540,
+   "y": 220,
+   "txt": "Uma coroa de trevos que a Isis trançou no verão! Ela escondeu aqui no alto do penhasco."
   }
  ],
  "flood": {
@@ -8253,19 +8451,10 @@
  "slam": {
   "stakes": [
    {
-    "x": 6480,
+    "x": 6680,
     "y": 500,
     "bridge": {
-     "x": 6520,
-     "y": 500,
-     "w": 360
-    }
-   },
-   {
-    "x": 2040,
-    "y": 500,
-    "bridge": {
-     "x": 2080,
+     "x": 6720,
      "y": 500,
      "w": 360
     }
@@ -8412,5 +8601,11 @@
    72420,
    75060
   ]
- }
+ },
+ "canopy": [
+  {
+   "x0": 8380,
+   "x1": 9880
+  }
+ ]
 }

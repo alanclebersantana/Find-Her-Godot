@@ -35,6 +35,9 @@ func load_level() -> void:
 		o.on = false
 		o.d = 0.0
 		PLATES.append(o)
+	# placas do mesmo portão: cada uma sabe quantas são (o desenho mostra as luzinhas "1 de 2")
+	for o in PLATES:
+		o.sib = PLATES.filter(func(q): return q.gate == o.gate).size()
 	GATES = []
 	CRUMB = []
 	for s in g.SOL:
@@ -387,10 +390,16 @@ func post() -> void:
 	for gt in GATES:
 		if gt.get("crank"):
 			continue   # portas de manivela: quem mexe é a manivela (game.crank_tap)
-		var want := 0.0
+		# portão com mais de uma placa: só abre com peso em TODAS (gt.pn = quantas estão apertadas)
+		var n_on := 0
+		var n_all := 0
 		for pl in PLATES:
-			if pl.gate == gt.id and pl.on:
-				want = 1.0
+			if pl.gate == gt.id:
+				n_all += 1
+				if pl.on:
+					n_on += 1
+		gt.pn = n_on
+		var want := 1.0 if n_all > 0 and n_on == n_all else 0.0
 		if want == 0.0 and gt.open > 0.0:
 			for b in bl:
 				if b.x + b.w > gt.x and b.x < gt.x + gt.w and b.y + b.h > gt.y and b.y < gt.y + gt.h:
@@ -457,6 +466,9 @@ func on_any_plate(b: Dictionary) -> bool:
 func try_push(c: Dictionary, dx: float) -> bool:
 	var p: Dictionary = g.player
 	if c.t != "push" or p._g == null or p.crouch or p.get("dog") or p.get("guard"):
+		return false
+	# caixa já caindo (passou da beirada): não se empurra no ar — senão ela passava do buraco da placa
+	if float(c.get("vy", 0.0)) > 0.0:
 		return false
 	var amt: float = clamp(dx * .92, -3.9, 3.9)
 	# a caixa nunca volta para trás do lugar onde começou: assim não fica presa num paredão

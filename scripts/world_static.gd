@@ -116,6 +116,9 @@ func _draw_raw() -> void:
 		WorldNature.decor(d)
 		WorldNature.clip_x0 = -1e9
 		WorldNature.clip_x1 = 1e9
+	# copas sobre o barranco: o fundo (árvores ao longe, troncos caídos, cipós) vem antes dos troncos
+	for cn in L.get("canopy", []):
+		_canopy_back(cn)
 	for s in L.solids:
 		var pad := 140.0 + float(s.get("tun", 0))
 		if s.x + s.get("w", 0) + pad < x0 or s.x - pad > x1:
@@ -203,6 +206,9 @@ func _draw_raw() -> void:
 					bt_ellipse(fx2, s.y + 1.5 * sin(fx2 * .05) + 1, 1.3, 1.3, Color(1, 1, 1, .8), 0.0, 6)
 					fx2 += 9 + hh(fx2, 137) * 8
 				bt_flush()
+	# ...e a neblina do barranco passa na frente do pé dos troncos
+	for cn in L.get("canopy", []):
+		_canopy_front(cn)
 
 # ---------- peças ----------
 func tile_h(t: Texture2D, x0_: float, x1_: float, y: float, src: Rect2 = Rect2()) -> void:
@@ -377,8 +383,40 @@ func ground(s: Dictionary) -> void:
 		_ground_end(s, t, tw, true, lo_r)
 	if s.get("snow"):
 		_snow_top(x_a + (8.0 if ol and x_a <= s.x else 0.0), x_b - (8.0 if orr and x_b >= s.x + s.w else 0.0), s.y)
+	if s.get("mudpool"):
+		_mud_pool(s)
+		return
 	_ground_vary(s, x_a, x_b)
 	_ground_deco(s)
+
+## poço raso de lama: sem grama nem flores por cima; a lama respingou nas paredes de terra das duas
+## pontas e tem graveto e pedrinha meio afundados (a superfície molhada e as bolhas são da camada que se mexe)
+func _mud_pool(s: Dictionary) -> void:
+	# a faixa de grama da textura do chão some: por baixo da lama é terra molhada
+	_dirt_fill(s.x, s.x + s.w, s.y - 6, s.y + 34, s.x, .85)
+	Spr.vgrad(max(s.x, x0 - 2), s.y - 6, min(s.x + s.w, x1 + 2) - max(s.x, x0 - 2), 40, Color(.16, .1, .05, .55), Color(.16, .1, .05, 0))
+	for e in [s.x, s.x + s.w]:
+		if e < x0 - 40 or e > x1 + 40:
+			continue
+		var dir: float = 1.0 if e == s.x else -1.0
+		for k in 6:
+			var sy: float = s.y - 4 - hh(e + k, 190) * 22.0
+			var sx: float = e + dir * (2.0 + hh(e - k, 191) * 10.0)
+			var r: float = 2.0 + hh(sy, 192) * 3.5
+			bt_ellipse(sx, sy, r, r * .8, Color(.24, .15, .08, .85))
+			bt_ellipse(sx - .6, sy - .8, r * .4, r * .3, Color(.7, .55, .4, .35))
+	var gx: float = s.x + 40
+	while gx < s.x + s.w - 30:
+		if gx >= x0 - 40 and gx < x1 + 40:
+			if hh(gx, 193) > .5:
+				var a: float = (hh(gx, 194) - .5) * .5
+				bt_seg(Vector2(gx - 14, s.y - 2 + a * 10), Vector2(gx + 14, s.y - 2 - a * 10), Color("#3e2714"), 3.0)
+				bt_seg(Vector2(gx + 4, s.y - 3), Vector2(gx + 10, s.y - 10), Color("#3e2714"), 2.0)
+			else:
+				bt_ellipse(gx, s.y - 2, 5, 3, Color(.42, .38, .34))
+				bt_ellipse(gx - 1.5, s.y - 3.5, 2, 1, Color(1, 1, 1, .25))
+		gx += 70 + hh(gx, 195) * 50
+	bt_flush()
 
 ## terra por baixo do chão: a parte de terra da textura do chão repetida para baixo (uma cópia
 ## sim, outra espelhada, para não aparecer emenda), cada vez mais escura com a profundidade
@@ -784,7 +822,7 @@ static func flowers_of(g: Game, s: Dictionary) -> Array:
 	if s.has("_fl"):
 		return s._fl
 	var out: Array = []
-	if s.w >= 120 and not s.get("snow") and s.get("t", "") == "ground":
+	if s.w >= 120 and not s.get("snow") and not s.get("mudpool") and s.get("t", "") == "ground":
 		var y: float = s.y
 		var under: bool = g.L.has("under") and y > g.L.under
 		var gx: float = s.x + 40 + fposmod(-(s.x + 40), 58.0)
@@ -1179,6 +1217,259 @@ func trunk(s: Dictionary) -> void:
 	Spr.img(Spr.tex.tronco, s.x - s.w * .75, s.y - 10, s.w * 2.5, s.h + 28)
 	_root_mound(s.x + s.w / 2, s.y + s.h, s.w)
 	_bark(s)
+	if s.get("copa"):
+		_copa_trunk(s)
+
+# ---------------------------------------------------------------- copas sobre o barranco
+## cor da neblina do barranco no trecho
+func _canopy_fog(th: String) -> Color:
+	match th:
+		"tarde":
+			return Color(1, .83, .66)
+		"chuva":
+			return Color(.62, .7, .66)
+		"neve":
+			return Color(.88, .92, 1)
+	return Color(.86, .92, .84)
+
+## os troncos e galhos das copas (troncos com "copa" na fase), em ordem de x
+func _canopy_parts(cn: Dictionary) -> Dictionary:
+	if cn.has("_parts"):
+		return cn._parts
+	var a: float = float(cn.x0)
+	var b: float = float(cn.x1)
+	var tr: Array = []
+	var br: Array = []
+	for s in game.L.solids:
+		if s.get("copa"):
+			tr.append(s)
+		elif str(s.t) in ["branch", "plat"] and s.x + s.w > a - 80 and s.x < b + 220:
+			br.append({"x": float(s.x), "y": float(s.y), "w": float(s.w), "deck": str(s.t) == "plat"})
+	for o in game.L.get("traps", []):
+		if str(o.get("k", "")) == "snap" and float(o.x) > a - 80 and float(o.x) < b + 220:
+			br.append({"x": float(o.x), "y": float(o.y), "w": float(o.w)})
+	tr.sort_custom(func(p, q): return p.x < q.x)
+	cn._parts = {"tr": tr, "br": br}
+	return cn._parts
+
+## fundo do barranco embaixo das copas: troncos mortos caídos atravessados lá embaixo, cipós em arco
+## entre as árvores e galhos grossos que ligam cada galho de pisar ao tronco mais perto (antes os galhos
+## flutuavam soltos entre troncos iguais); o deque de descanso ganha mãos-francesas presas no tronco
+func _canopy_back(cn: Dictionary) -> void:
+	var a: float = float(cn.x0)
+	var b: float = float(cn.x1)
+	if b + 260 < x0 or a - 260 > x1:
+		return
+	var parts: Dictionary = _canopy_parts(cn)
+	var th := _theme_at((a + b) * .5)
+	var fog: Color = _canopy_fog(th)
+	var tr: Array = parts.tr
+	# entre cada par de troncos: um tronco morto caído, preso atravessado lá embaixo, e um cipó em arco
+	for i in range(tr.size() - 1):
+		var t1: Dictionary = tr[i]
+		var t2: Dictionary = tr[i + 1]
+		var c1: float = t1.x + t1.w * .5
+		var c2: float = t2.x + t2.w * .5
+		if c2 + 60 < x0 or c1 - 60 > x1:
+			continue
+		# tronco morto caído, encostado num dos troncos e descendo para dentro da neblina do barranco
+		var left: bool = hh(c1, 147) > .5
+		var ta: Dictionary = t1 if left else t2
+		var ca: float = c1 if left else c2
+		var sd: float = 1.0 if left else -1.0
+		var p0 := Vector2(ca + sd * ta.w * .45, 220.0 + hh(c1, 148) * 70.0)
+		var p1 := Vector2(lerpf(c1, c2, .62 if left else .38), 470.0 + hh(c2, 149) * 30.0)
+		var lc: Color = Color(.2, .12, .07).lerp(fog, .22)
+		var r0: float = 12.0 + hh(c2, 150) * 4.0
+		var dv: Vector2 = (p1 - p0).normalized()
+		var nv := Vector2(-dv.y, dv.x)
+		if nv.y > 0:
+			nv = -nv
+		bt_quad(p0 + nv * r0, p1 + nv * r0 * .9, p1 - nv * r0 * .9, p0 - nv * r0, lc)
+		# fio de luz por cima e sombra por baixo (tora redonda), anéis da ponta quebrada
+		bt_quad(p0 + nv * r0 * .7, p1 + nv * r0 * .6, p1 + nv * r0 * .3, p0 + nv * r0 * .35, lc.lightened(.14))
+		bt_quad(p0 - nv * r0 * .45, p1 - nv * r0 * .4, p1 - nv * r0 * .9, p0 - nv * r0, lc.darkened(.35))
+		bt_ellipse(p0.x, p0.y, r0 * .55, r0, lc.lightened(.22), atan2(dv.y, dv.x))
+		bt_ellipse(p0.x, p0.y, r0 * .3, r0 * .6, lc.darkened(.2), atan2(dv.y, dv.x))
+		for k in 3:
+			var u: float = .25 + k * .25
+			var q: Vector2 = p0.lerp(p1, u) + nv * r0 * .85
+			var mc: Color = (Color(.75, .4, .15) if th == "tarde" else Color(.34, .48, .2)).lerp(fog, .25)
+			bt_ellipse(q.x, q.y, 9 + hh(q.x, 151) * 5, 3.2, mc, atan2(dv.y, dv.x))
+		# galho seco espetado na tora
+		var gq: Vector2 = p0.lerp(p1, .4) + nv * r0
+		bt_seg(gq, gq + nv * 22 + dv * 10, lc, 3.0)
+		# cipó em arco de tronco a tronco (bem mais acima, perto dos galhos)
+		var ly: float = 40.0 + hh(c2, 151) * 90.0
+		var sag: float = 60.0 + hh(c1, 152) * 50.0
+		var pts := PackedVector2Array()
+		for k in 13:
+			var u2: float = k / 12.0
+			pts.push_back(Vector2(lerpf(c1, c2, u2), ly + sin(u2 * PI) * sag + (hh(c1, 153) - .5) * 20.0 * u2))
+		Spr.line(pts, Color(.22, .3, .12).lerp(fog, .25), 3.0)
+		for k in range(1, 12, 2):
+			var lq: Vector2 = pts[k]
+			var lf: Color = (Color(.85, .42, .14) if th == "tarde" else Color(.3, .52, .2)).lerp(fog, .2)
+			bt_ellipse(lq.x + 3, lq.y + 4, 5, 2.4, lf, .7)
+			bt_ellipse(lq.x - 3, lq.y + 7, 4.5, 2.2, lf.darkened(.15), -.6)
+	bt_flush()
+	# galho grosso do tronco até cada galho de pisar que estava solto no ar
+	for o in parts.br:
+		var ox: float = o.x
+		var ow: float = o.w
+		if ox + ow + 220 < x0 or ox - 220 > x1:
+			continue
+		var best = null
+		var bd := 1e9
+		var on_trunk := false
+		for t in tr:
+			if ox < t.x + t.w + 6 and ox + ow > t.x - 6:
+				on_trunk = true
+			var dl: float = abs(t.x + t.w * .5 - ox)
+			var dr: float = abs(t.x + t.w * .5 - (ox + ow))
+			if min(dl, dr) < bd:
+				bd = min(dl, dr)
+				best = t
+		if o.get("deck") and best != null:
+			# deque de tábuas preso no tronco: duas mãos-francesas de tora e a corda que segura a ponta
+			var tcx: float = best.x + best.w * .5
+			var sd: float = 1.0 if ox + ow * .5 > tcx else -1.0
+			var tx2: float = tcx + sd * best.w * .45
+			var far_x: float = (ox + ow - 18) if sd > 0 else ox + 18
+			var mid_x: float = lerpf(tx2, far_x, .45)
+			for pr in [[Vector2(tx2, o.y + 96), Vector2(mid_x, o.y + 14)], [Vector2(tx2, o.y + 150), Vector2(far_x, o.y + 14)]]:
+				var a0: Vector2 = pr[0]
+				var a1: Vector2 = pr[1]
+				var dv2: Vector2 = (a1 - a0).normalized()
+				var nv2 := Vector2(-dv2.y, dv2.x)
+				bt_quad(a0 + nv2 * 6, a1 + nv2 * 6, a1 - nv2 * 6, a0 - nv2 * 6, Color("#3a2414"))
+				bt_quad(a0 + nv2 * 4, a1 + nv2 * 4, a1 - nv2 * 1, a0 - nv2 * 1, Color("#7a5232"))
+				bt_ellipse(a0.x, a0.y, 6, 4, Color("#2a1a0e"))
+			bt_seg(Vector2(far_x, o.y + 4), Vector2(tcx + sd * 6, o.y - 150), Color(.42, .33, .2), 2.0)
+			continue
+		if on_trunk or best == null or bd > 260:
+			continue
+		var tc: float = best.x + best.w * .5
+		var right: bool = tc > ox + ow * .5
+		var ex: float = ox + ow - 6 if right else ox + 6
+		var ey: float = o.y + 12
+		var sx: float = tc
+		var sy: float = ey - 34 - hh(ox, 154) * 30
+		_limb(Vector2(sx, sy), Vector2(ex, ey), 11.0, 6.0, th)
+	bt_flush()
+
+## galho grosso pintado à mão: tora afinando, casca escura, fio de luz em cima, nó e tufo de folhas
+func _limb(p0: Vector2, p1: Vector2, r0: float, r1: float, th: String) -> void:
+	var dv: Vector2 = (p1 - p0).normalized()
+	var nv := Vector2(dv.y, -dv.x)
+	if nv.y > 0:
+		nv = -nv
+	var mid: Vector2 = p0.lerp(p1, .5) + nv * 8.0
+	var prev := p0
+	var prv_r := r0
+	for k in range(1, 9):
+		var u: float = k / 8.0
+		var q: Vector2 = p0.lerp(mid, u).lerp(mid.lerp(p1, u), u)
+		var rr: float = lerpf(r0, r1, u)
+		bt_quad(prev + nv * prv_r, q + nv * rr, q - nv * rr, prev - nv * prv_r, Color("#3a2414"))
+		bt_quad(prev + nv * prv_r * .8, q + nv * rr * .8, q - nv * rr * .5, prev - nv * prv_r * .5, Color("#6a4426"))
+		bt_quad(prev + nv * prv_r * .75, q + nv * rr * .75, q + nv * rr * .35, prev + nv * prv_r * .35, Color(.62, .44, .28))
+		prev = q
+		prv_r = rr
+	# nó no meio e tufo de folhas da cor do trecho junto da ponta
+	var kn: Vector2 = p0.lerp(p1, .45)
+	bt_ellipse(kn.x, kn.y, 4.5, 3.2, Color("#2a1a0e"))
+	var lc: Color = Color(.88, .46, .15) if th == "tarde" else (Color(.32, .45, .2) if th == "chuva" else Color(.4, .62, .24))
+	var lf: Vector2 = p0.lerp(p1, .7) + nv * 10.0
+	for j in 5:
+		var la: float = -2.4 + j * .6
+		bt_ellipse(lf.x + cos(la) * 9, lf.y + sin(la) * 6 - 4, 5.5, 2.6, lc.darkened(j * .05), la)
+
+## enfeites de cada tronco das copas: nenhum fica igual ao outro (galho seco com folhas, orelhas-de-pau,
+## oco com olhos de coruja, musgo grosso, cipós pendurados)
+func _copa_trunk(s: Dictionary) -> void:
+	var cx: float = s.x + s.w * .5
+	var hw: float = s.w * .5
+	var th := _theme_at(cx)
+	var v: int = int(hh(s.x, 160) * 4.0)
+	var lc: Color = Color(.88, .46, .15) if th == "tarde" else Color(.36, .55, .22)
+	# musgo do lado da sombra: tufinhos miúdos agrupados (não manchas lisas), subindo pelo tronco
+	for i in 6:
+		var my: float = -420.0 + i * 140.0 + hh(s.x + i, 161) * 70.0
+		var side: float = -1.0 if (i + v) % 3 != 0 else 1.0
+		for j in 6:
+			var jy: float = my + (hh(my + j, 162) - .5) * 36.0
+			var jx: float = cx + side * hw * (.55 + hh(my - j, 163) * .35)
+			var r: float = 2.2 + hh(jy, 164) * 2.6
+			bt_ellipse(jx, jy + 1, r + .8, r * .8 + .6, Color(.14, .2, .08, .55))
+			bt_ellipse(jx, jy, r, r * .8, Color(.34, .48, .2, .8))
+			bt_ellipse(jx - r * .3, jy - r * .3, r * .4, r * .3, Color(.6, .74, .36, .6))
+	# galho seco bem alto (com tufo de folhas na ponta), para um lado ou outro
+	var sd: float = 1.0 if v % 2 == 0 else -1.0
+	var gy: float = -560.0 + hh(s.x, 164) * 80.0
+	_limb(Vector2(cx + sd * hw * .4, gy), Vector2(cx + sd * (hw + 90), gy - 50), 9.0, 3.0, th)
+	match v:
+		0:
+			# orelhas-de-pau (cogumelos de prateleira) em escadinha
+			for k in 3:
+				var fy: float = 60.0 + k * 34.0
+				var fx: float = cx + hw * (.75 if k % 2 == 0 else -.75)
+				var fs: float = 1.0 if k % 2 == 0 else -1.0
+				bt_ellipse(fx + fs * 9, fy + 2, 15, 5, Color(.32, .18, .08))
+				bt_ellipse(fx + fs * 9, fy, 14, 4.5, Color(.86, .56, .24))
+				bt_ellipse(fx + fs * 7, fy - 1.5, 9, 2, Color(1, .82, .5, .8))
+		1:
+			# oco escuro com dois olhinhos de coruja
+			var hy: float = -170.0 + hh(s.x, 165) * 40.0
+			bt_ellipse(cx, hy, hw * .5, hw * .72, Color(.18, .1, .05))
+			bt_ellipse(cx, hy + 2, hw * .4, hw * .62, Color(.04, .03, .02))
+			bt_ellipse(cx - 5, hy - 2, 2.6, 2.6, Color(1, .82, .3))
+			bt_ellipse(cx + 5, hy - 2, 2.6, 2.6, Color(1, .82, .3))
+			bt_ellipse(cx - 5, hy - 2, 1.1, 1.6, Color(0, 0, 0))
+			bt_ellipse(cx + 5, hy - 2, 1.1, 1.6, Color(0, 0, 0))
+		2:
+			# casca soltando em lascas e um toco de galho quebrado
+			for k in 4:
+				var ly: float = -80.0 + k * 70.0
+				bt_quad(Vector2(cx - hw * .2, ly), Vector2(cx + hw * .3, ly + 6), Vector2(cx + hw * .25, ly + 40), Vector2(cx - hw * .25, ly + 34), Color(.5, .36, .24, .6))
+			bt_seg(Vector2(cx - sd * hw * .6, 120), Vector2(cx - sd * (hw + 26), 104), Color("#3e2714"), 8.0)
+			bt_ellipse(cx - sd * (hw + 26), 104, 4, 5, Color("#b08a5a"))
+		_:
+			# furos de pica-pau em fila e hera avermelhada subindo
+			for k in 4:
+				bt_ellipse(cx + hw * .2, -40.0 + k * 22.0, 3.2, 3.8, Color(.06, .04, .02))
+			for k in 10:
+				var iy: float = 200.0 - k * 26.0
+				var ix: float = cx + sin(iy * .05 + s.x) * hw * .6
+				bt_ellipse(ix + (5 if k % 2 == 0 else -5), iy, 5, 2.6, lc.darkened(.1), .6 if k % 2 == 0 else -.6)
+	bt_flush()
+	# cipós pendurados (pintados) caindo de um galho alto para o barranco
+	for k in 2:
+		var vx: float = cx + (hw + 14 + k * 26) * (sd if k == 0 else -sd)
+		var vy: float = -380.0 + hh(s.x + k, 166) * 120.0
+		Spr.PV("vine", vx - 6, vy, 12, 260 + hh(s.x - k, 167) * 180, Color(1, .92, .85) if th == "tarde" else Color.WHITE)
+
+## neblina do barranco: sobe do fundo e cobre o pé dos troncos
+func _canopy_front(cn: Dictionary) -> void:
+	# (só a faixa deste pedaço, sem folga: a neblina é translúcida e a emenda dobraria a cor)
+	var a: float = max(float(cn.x0), x0)
+	var b: float = min(float(cn.x1), x1)
+	if b <= a:
+		return
+	var fog: Color = _canopy_fog(_theme_at((float(cn.x0) + float(cn.x1)) * .5))
+	# nas duas pontas do barranco a neblina vai sumindo (faixas finas), sem quina reta no ar
+	var edge := 140.0
+	var xs: float = a
+	while xs < b:
+		var de: float = min(xs - float(cn.x0), float(cn.x1) - xs)
+		var stp: float = 14.0 if de < edge else min(b - xs, max(14.0, float(cn.x1) - edge - xs))
+		stp = min(stp, b - xs)
+		var k: float = clamp((de + stp * .5) / edge, 0.0, 1.0)
+		k = k * k * (3.0 - 2.0 * k)
+		Spr.vgrad(xs, 40, stp, 300, Color(fog.r, fog.g, fog.b, 0), Color(fog.r, fog.g, fog.b, .32 * k))
+		Spr.vgrad(xs, 340, stp, 150, Color(fog.r, fog.g, fog.b, .32 * k), Color(fog.r, fog.g, fog.b, .5 * k))
+		Spr.vgrad(xs, 490, stp, 180, Color(fog.r, fog.g, fog.b, .5 * k), Color(fog.r, fog.g, fog.b, 0))
+		xs += stp
 
 func _root_mound(cx: float, gy: float, w: float) -> void:
 	# base da árvore: sombra macia e tufos de grama pintados enraizados no musgo (nada solto no ar)

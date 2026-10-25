@@ -236,7 +236,11 @@ func post() -> void:
 				_flower(o, p, pcx, feet)
 			"wind":
 				if pcx > o.x and pcx < o.x + o.w and p.y + p.h > o.y and p.y < o.y + o.h and not p.vine and not p.ladder:
-					if p.puff:
+					# planando o vento levanta. Antes só valia p.puff, que desliga quando o Tomé começa a
+					# subir: segurando PULAR (o jeito do celular) ele só ficava parado no ar. Agora conta
+					# quem segura PULAR/planar depois do pulo duplo
+					var glide: bool = p.puff or (not p.onGround and int(p.airJumps) == 0 and (g.kd("J") or g.kd("P")) and not p.slam and not p.get("dog") and not p.get("isis"))
+					if glide:
 						p.vy = max(p.vy - o.pow, -6.5)
 					elif not p.onGround:
 						p.vy -= o.pow * .3

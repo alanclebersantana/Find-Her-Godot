@@ -264,22 +264,53 @@ static func _wind(o: Dictionary, T: int) -> void:
 			var r: float = 10 + u * 26
 			Spr.circle(sx, sy, r, Color(.72, .72, .78, .32 * (1.0 - u)))
 		return
-	Spr.vgrad(x, y, w, h, Color(.85, .95, 1, 0), Color(.85, .95, 1, .1))
-	for k in 7:
-		var lx: float = x + w * (k + .5) / 7.0
-		var ph: float = fmod(T * 2.4 + k * 53.0, h)
+	# corrente de vento subindo de uma fenda no chão: coluna de ar clara, fitas de vento torcendo,
+	# poeira e folhas da cor do trecho subindo em espiral (dá para ver de longe onde ela está)
+	var cxw: float = x + w / 2
+	Spr.vgrad(x - 6, y, w + 12, h, Color(.95, .98, 1, 0), Color(.95, .98, 1, .16))
+	Spr.vgrad(x - 6, y + h - 60, w + 12, 60, Color(.95, .9, .8, 0), Color(.95, .9, .8, .14))
+	for k in 6:
+		var ph: float = fmod(T * 3.2 + k * 71.0, h + 60.0)
 		var yy: float = y + h - ph
+		var side: float = 1.0 if k % 2 == 0 else -1.0
 		var pts := PackedVector2Array()
-		for j in 6:
-			pts.push_back(Vector2(lx + sin(yy * .05 + j * .7 + k) * 8, yy - j * 9))
-		Spr.line(pts, Color(1, 1, 1, .32 * (ph / h)), 2)
-	# folhinhas subindo
-	for k in 4:
-		var fx: float = x + fmod(k * 37.0 + T * .3, w)
-		var fy: float = y + h - fmod(T * 3.0 + k * 90.0, h)
-		Spr.ellipse(fx + sin(T * .1 + k) * 6, fy, 5, 2, Color("#9ec46a"), T * .1 + k)
-	# a fenda de onde sai o vento
-	Spr.ellipse(x + w / 2, y + h + 2, w * .45, 5, Color(.1, .08, .06, .7))
+		for j in 9:
+			var yj: float = yy - j * 10.0
+			if yj < y - 30:
+				break
+			pts.push_back(Vector2(cxw + side * sin(yj * .045 + k * 1.3 + T * .05) * (w * .42) + side * j * .6, yj))
+		if pts.size() >= 2:
+			var al: float = clamp(ph / 80.0, 0.0, 1.0) * clamp((h + 60.0 - ph) / 120.0, 0.0, 1.0)
+			Spr.line(pts, Color(1, 1, 1, .5 * al), 2.6)
+			Spr.line(pts, Color(.75, .88, 1, .28 * al), 5.0)
+	# poeirinha subindo
+	for k in 10:
+		var u: float = fposmod(T * .011 + k * .1, 1.0)
+		var dx: float = sin(u * 13.0 + k * 2.1) * w * .45
+		Spr.circle(cxw + dx, y + h - u * h, 1.4, Color(1, .96, .85, .55 * (1.0 - u)))
+	# folhas secas e verdes subindo em espiral
+	var cols: Array = [Color("#e8862a"), Color("#c8402a"), Color("#f0b040"), Color("#9ec46a")]
+	for k in 6:
+		var u2: float = fposmod(T * .006 + k / 6.0, 1.0)
+		var fy: float = y + h - u2 * (h + 40)
+		var ang: float = T * .07 + k * 1.7
+		var fx: float = cxw + cos(ang) * w * (.25 + .25 * sin(k + u2 * 4.0))
+		var lc: Color = cols[k % 4]
+		Spr.ellipse(fx, fy, 5.5, 2.4, Color(lc.r * .55, lc.g * .55, lc.b * .55, .9 * (1.0 - u2 * .6)), ang * 1.3)
+		Spr.ellipse(fx, fy - .6, 4.5, 1.8, Color(lc.r, lc.g, lc.b, 1.0 - u2 * .6), ang * 1.3)
+	# a fenda de onde sai o vento: rachadura escura com pedras na beira e ar tremendo em cima
+	var gy: float = y + h
+	Spr.ellipse(cxw, gy + 1, w * .62, 6, Color(.08, .06, .05, .85))
+	Spr.ellipse(cxw, gy - 1, w * .48, 3, Color(.02, .02, .02, .9))
+	for k in 5:
+		var sx: float = x - 4 + k * (w + 8) / 4.0
+		var rr: float = 4.0 + fmod(sx * 1.37, 4.0)
+		Spr.ellipse(sx, gy + 2, rr + 1, rr * .6 + 1, Color(.15, .12, .1))
+		Spr.ellipse(sx, gy + 1, rr, rr * .6, Color(.52, .48, .43))
+		Spr.ellipse(sx - rr * .3, gy - rr * .2, rr * .4, rr * .2, Color(1, 1, 1, .2))
+	for k in 3:
+		var hy: float = gy - 8 - k * 9 - fmod(T * .8, 9.0)
+		Spr.seg(cxw - 14 + sin(T * .2 + k) * 3, hy, cxw + 14 + sin(T * .2 + k + 1) * 3, hy - 2, Color(1, 1, 1, .18), 1.2)
 
 # ---------- espinhos ----------
 static func _spikes(TR: Traps, o: Dictionary, T: int) -> void:

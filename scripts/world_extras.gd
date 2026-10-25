@@ -41,8 +41,8 @@ static func grass(g: Game, T: int) -> void:
 	var has_flat: bool = not Polish.flat_zones.is_empty()
 	var has_cut: bool = not Polish.cut.is_empty()
 	for s in g.SOL:
-		if s.t != "ground" or s.x > x1 or s.x + s.w < x0 or s.get("snow"):
-			continue
+		if s.t != "ground" or s.x > x1 or s.x + s.w < x0 or s.get("snow") or s.get("mudpool"):
+			continue   # (no poço de lama não cresce capim)
 		if WSt.gt_at(g, s.x + s.w / 2) != "":
 			continue   # chão de pedra (mina, rua da vila): sem capim
 		# posições presas ao mundo (grade de 34 px): o tufo não muda de lugar quando a câmera anda
@@ -1012,6 +1012,28 @@ static func mech(g: Game, T: int) -> void:
 		Spr.PR("plate", pl.x - 2, pl.y - 11 + dd, pl.w + 4, 15, Color(1, 1, 1) if not pl.on else Color(1.25, 1.1, .7))
 		if pl.on:
 			Spr.glow(pl.x + pl.w / 2, pl.y - 4, 30, Color(1, .85, .4, .35))
+		# portão de duas placas: luzinhas entalhadas na moldura contam quantas já têm peso ("1 de 2")
+		if int(pl.get("sib", 1)) > 1:
+			var pn := 0
+			for gt in M.GATES:
+				if gt.get("id") == pl.gate:
+					pn = int(gt.get("pn", 0))
+			var ns: int = int(pl.sib)
+			# marco de pedra do lado de lá do buraco (a caixa não passa por cima dele)
+			var mx: float = pl.x + pl.w + 12
+			var gy: float = pl.y - 20
+			var mh: float = 12.0 + ns * 13.0
+			Spr.ellipse(mx, gy + 1, 12, 3, Color(0, 0, 0, .3))
+			Spr.rr(mx - 9, gy - mh, 18, mh + 2, 5, Color(.2, .17, .14))
+			Spr.rr(mx - 7, gy - mh + 2, 14, mh - 2, 4, Color(.52, .48, .42))
+			Spr.rr(mx - 6, gy - mh + 2, 5, mh - 4, 3, Color(1, 1, 1, .12))
+			for k in ns:
+				var ly: float = gy - 10 - k * 13
+				var lit: bool = k < pn
+				Spr.circle(mx, ly, 4.4, Color(.12, .1, .08))
+				Spr.circle(mx, ly, 3.2, Color(1, .82, .35) if lit else Color(.34, .3, .26))
+				if lit:
+					Spr.glow(mx, ly, 13, Color(1, .8, .3, .5))
 	for gt in M.GATES:
 		if gt.x + gt.w < c0 or gt.x > c1:
 			continue

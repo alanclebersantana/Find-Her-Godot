@@ -48,7 +48,7 @@ func _initialize() -> void:
 	say("cogumelos levam ao galho alto", landed, " ".join(path))
 
 	# 2) flor-catapulta
-	put(3855, 440)
+	put(3950, 440)
 	landed = false
 	path = []
 	for i in 400:

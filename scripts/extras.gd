@@ -1090,8 +1090,10 @@ func _dog() -> void:
 				DOG.y = feet
 				_resync()
 		"stay":
+			# segurando uma placa: quando o Tomé já foi embora (passou o portão e seguiu), levanta e vai
+			# atrás dele (pela portinhola, se houver); antes só levantava a 1400 px e parecia esquecido
 			DOG.moving = false
-			if dog_dist() > 1400:
+			if dog_dist() > 600:
 				DOG.st = "follow"
 				_resync()
 		"tied":
