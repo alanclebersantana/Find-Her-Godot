@@ -740,9 +740,7 @@ static func dog(g: Game, T: int) -> void:
 	var cb: Dictionary = g.player if (d.st in ["ctrl", "dig"] and g.M and g.M.ctrl and g.player.get("dog", false)) else {}
 	var dog_air := false
 	if not cb.is_empty():
-		var io: Vector2 = g.ip_off()
-		x += io.x
-		y += io.y
+		# (o deslocamento "entre passos" já vem do world_dyn: Spr.translate(g.ip_off()) em volta desta função)
 		dog_air = not cb.onGround and not cb.swim
 		if Polish.FRESH:
 			if d.get("_air", false) and not dog_air:

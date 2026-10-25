@@ -17,6 +17,7 @@ static var _snap: Array = []      # [dicionário, valores verdadeiros] enquanto 
 static var _sol_n := -1
 static var _sol_mov: Array = []
 static var _sol_t := 0
+static var _sol_src: Array = []
 
 ## lista de quem anda (só o que pode aparecer na tela; barato)
 static func _targets(g) -> Array:
@@ -37,9 +38,12 @@ static func _targets(g) -> Array:
 		out.append_array(g.VL.WATCH)
 	if g.PR:
 		out.append(g.PR.TABLE)
+	# caixotes de empurrar
+	out.append_array(g.CR)
 	# plataformas e corpos que se mexem dentro de SOL (refeita quando SOL muda ou a cada segundo)
-	if g.SOL.size() != _sol_n or g.T - _sol_t > 60:
+	if g.SOL.size() != _sol_n or not is_same(g.SOL, _sol_src) or g.T < _sol_t or g.T - _sol_t > 60:
 		_sol_n = g.SOL.size()
+		_sol_src = g.SOL
 		_sol_t = g.T
 		_sol_mov = []
 		for s in g.SOL:
@@ -86,7 +90,9 @@ static func apply(f: float) -> void:
 
 ## o desenho terminou: devolve as posições verdadeiras
 static func restore() -> void:
-	for s in _snap:
+	# de trás para frente: se um dicionário entrou duas vezes, volta à posição verdadeira
+	for i in range(_snap.size() - 1, -1, -1):
+		var s: Array = _snap[i]
 		var d: Dictionary = s[0]
 		for kv in s[1]:
 			d[kv[0]] = kv[1]

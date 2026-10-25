@@ -3312,7 +3312,8 @@ func floor_under(x: float, y: float) -> float:
 		return _floor_cache[key]
 	var best := 99999.0
 	for s in L.solids:
-		if s.get("deco") or s.get("oneway"):
+		# tábuas, galhos e ilhas são de mão única (em L.solids ainda não têm "oneway")
+		if s.get("deco") or s.get("oneway") or s.get("t", "") in ["plat", "branch", "island"]:
 			continue
 		if x >= s.x and x <= s.x + s.w and s.y > y and s.y < best:
 			best = s.y

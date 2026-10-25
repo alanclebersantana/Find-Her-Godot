@@ -134,9 +134,9 @@ func pre() -> void:
 	if gs is Dictionary and str(gs.get("t", "")) == "mplat" and p.onGround:
 		p.x += float(gs.dx)
 		p.y += float(gs.dy)
-	# (sem tábuas na fase não há o que refazer na lista de colisão)
-	if not MV.is_empty():
-		g.blockers_dirty()
+	# lista de colisão refeita a cada passo: pedras quebradas, muros de chefe e portas também mudam
+	# o cenário sem avisar (guardar entre passos deixava pedra quebrada sólida e o Pipoca atravessando muro)
+	g.blockers_dirty()
 
 ## o botão USAR aparece em cima (ou perto) do elevador
 func near_use() -> bool:

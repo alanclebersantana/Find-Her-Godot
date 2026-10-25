@@ -41,6 +41,7 @@ func _load_safe() -> void:
 var _mx := Mutex.new()
 var _pending := ""
 var _busy := false
+var _task := -1
 
 func flush() -> void:
 	var txt := cfg.encode_to_text()
@@ -50,7 +51,10 @@ func flush() -> void:
 	_busy = true
 	_mx.unlock()
 	if start:
-		WorkerThreadPool.add_task(_writer)
+		# a tarefa anterior já terminou (_busy estava falso): recolhe antes de abrir outra
+		if _task >= 0:
+			WorkerThreadPool.wait_for_task_completion(_task)
+		_task = WorkerThreadPool.add_task(_writer)
 
 func _writer() -> void:
 	while true:
@@ -72,9 +76,12 @@ func wait_written() -> void:
 		var b := _busy
 		_mx.unlock()
 		if not b:
-			return
+			break
 		OS.delay_msec(1)
 		n += 1
+	if _task >= 0:
+		WorkerThreadPool.wait_for_task_completion(_task)
+		_task = -1
 
 func _write_text(txt: String) -> void:
 	var f := FileAccess.open(TMP, FileAccess.WRITE)

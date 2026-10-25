@@ -829,16 +829,29 @@ func _put_sil(base: String, r: Texture2D) -> void:
 	if bt and not _sil.has(bt.get_instance_id()):
 		_sil[bt.get_instance_id()] = r
 
-## chamado ao começar a fase: espera o que ainda falta (normalmente já terminou na tela de título)
+## recolhe o que já terminou de carregar, sem esperar (chamado a cada quadro e ao começar a fase).
+## Se o jogador entrar na fase antes de tudo terminar, o resto continua carregando por trás — nada de
+## tela parada esperando.
 func warm() -> void:
-	if warmed:
+	if _warm_req.is_empty():
+		warmed = true
 		return
-	warmed = true
 	# bases primeiro (as silhuetas procuram a textura base pelo caminho)
 	var paths: Array = _warm_req.keys()
 	paths.sort_custom(func(a, b): return int(a.ends_with("_sil.png")) < int(b.ends_with("_sil.png")))
+	var n := 0
 	for pth in paths:
-		var r = ResourceLoader.load_threaded_get(pth)
+		var stt := ResourceLoader.load_threaded_get_status(pth)
+		if stt == ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+			continue
+		if pth.ends_with("_sil.png") and _warm_req.has(pth.trim_suffix("_sil.png") + ".png"):
+			continue   # a base ainda não foi recolhida
+		var r = ResourceLoader.load_threaded_get(pth) if stt == ResourceLoader.THREAD_LOAD_LOADED else null
 		if r != null:
 			_warm_req[pth].call(r)
-	_warm_req.clear()
+		_warm_req.erase(pth)
+		n += 1
+		if n >= 12:
+			break   # poucos por quadro
+	if _warm_req.is_empty():
+		warmed = true

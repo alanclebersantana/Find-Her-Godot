@@ -282,6 +282,8 @@ func _update_lights() -> void:
 
 var _slow_t := 0.0
 func _process(_d: float) -> void:
+	if not Spr.warmed:
+		Spr.warm()
 	_joy_ring_update()
 	# chuva, tambores e sons do cenário só tocam com o jogo rodando (somem nos menus e voltam depois)
 	Audio.set_world(state == S.PLAY and game.running)
