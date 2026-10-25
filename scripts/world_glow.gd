@@ -153,7 +153,35 @@ func __draw_raw() -> void:
 		_water(g, a, b5, s.y, depth, Color(.42, .86, .16, .9), Color(.08, .26, .04, .97), T, false, 0.0, "s%d" % g.SWAMP.find(s), s.x, s.x + s.w)
 		if not s.get("fumes"):
 			_shade_under(s.y + depth, Color(.02, .03, .08, g.AMB.dark * .45))
-		if s.get("fumes"):
+		var deep: bool = depth >= 100.0
+		if deep:
+			# brejo fundo visto de lado: a água turva escurece para baixo (nada de bloco verde chapado),
+			# com uns fiapos de lodo boiando no meio
+			var my: float = s.y + 40.0
+			var by1: float = s.y0 + s.h
+			# algas do fundo, escuras, balançando devagar (o lodo de baixo escurece as pontas de baixo)
+			var ak: float = floor(a / 90.0) * 90.0 - 90.0
+			while ak < b5 + 90.0:
+				var ax: float = ak + WorldExtras.h(ak, 21) * 50.0
+				var ah: float = min(depth - 60.0, 60.0 + WorldExtras.h(ak, 22) * 90.0)
+				if ax > s.x + 24 and ax < s.x + s.w - 24 and ah > 40.0:
+					var aw: float = ah * .32
+					var sw2: float = sin(T * .025 + ax * .05) * 6.0
+					for k in 5:
+						var v0: float = k / 5.0
+						var v1: float = (k + 1) / 5.0
+						Spr.PB("alga%d" % int(WorldExtras.h(ak, 23) * 6), ax - aw / 2 + sw2 * pow(v0, 1.5), by1 - 8 - ah * v1, aw, ah / 5.0 + 1.5, 1.0 - v1, 1.0 - v0, Color(.35, .5, .22, .7))
+				ak += 90.0
+			Spr.vgrad(a, my, b5 - a, 24.0, Color(.13, .2, .09, 0), Color(.13, .2, .09, .42))
+			Spr.vgrad(a, my + 24.0, b5 - a, max(0.0, by1 - my - 24.0), Color(.13, .2, .09, .42), Color(.02, .07, .03, .85))
+			var lk: float = floor(a / 70.0) * 70.0
+			while lk < b5:
+				var lx2: float = lk + WorldExtras.h(lk, 11) * 40.0
+				if lx2 > a + 8 and lx2 < b5 - 8 and lx2 > s.x + 20 and lx2 < s.x + s.w - 20:
+					var ly2: float = s.y + 70.0 + WorldExtras.h(lk, 12) * max(10.0, depth - 120.0) + sin(T * .02 + lk) * 4.0
+					Spr.ellipse(lx2, ly2, 9 + WorldExtras.h(lk, 13) * 8, 2.2, Color(.3, .5, .16, .22))
+				lk += 70.0
+		if s.get("fumes") or deep:
 			# fundo do lago: leito de lama irregular com pedrinhas (nada de linha reta)
 			var bed := PackedVector2Array()
 			var bx2: float = a
@@ -171,6 +199,7 @@ func __draw_raw() -> void:
 				if pk > s.x + 12 and pk < s.x + s.w - 12 and WorldExtras.h(pk, 7) > .55:
 					Spr.P("peb%d" % (int(pk) % 3), pk, by0 - 6 - sin(clamp((pk - s.x) / float(s.w), 0, 1) * PI) * 18, 16, false, 0.0, Color(.55, .65, .4))
 				pk += 46
+		if s.get("fumes"):
 			# vapor de veneno subindo (não deixa planar por cima)
 			for k in 7:
 				var fx: float = s.x + fposmod(k * 53.0 + T * .3, max(20.0, s.w - 20)) + 10

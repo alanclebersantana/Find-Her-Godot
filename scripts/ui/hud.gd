@@ -38,6 +38,10 @@ var place_pending := ""
 var place_wait := 0.0
 var place_cur := ""
 var place_t := -1.0
+var bars_y := 0.0   # base das barras do alto (fôlego, vida do chefe) neste quadro
+var msg_bot := 0.0  # base da dica / do aviso no alto neste quadro (o nome do lugar fica embaixo deles)
+var place_y := -1.0
+var place_ty := 92.0
 const PLACE_DUR := 2.5
 const PLACE_NAMES := {"manha": "Manhã no bosque", "tarde": "Tarde no bosque", "chuva": "O pântano", "rio": "O rio",
 	"neve": "A neve", "ceu": "O céu", "noite": "Noite na mina", "perseguicao": "A perseguição", "tunel": "O túnel"}
@@ -95,13 +99,18 @@ func _icons(t: String) -> String:
 	return r.replace(" ,", ",").replace(" .", ".").replace(" !", "!").strip_edges()
 
 ## quebra de linha com ícones: cada linha é uma lista de palavras ("[G]" vira um ícone)
-func _rlines(t: String, maxw: float, fs: int) -> Array:
+## (as larguras são medidas com a MESMA fonte do desenho; medir com a itálica e desenhar com a
+## normal, mais larga, grudava as palavras: "sobreo bosque", "escuro...Sem")
+func _rlines(t: String, maxw: float, fs: int, f: Font = null) -> Array:
+	var ff: Font = f if f else Spr.font_i
 	var out: Array = []
 	var cur: Array = []
 	var cw := 0.0
-	var sp: float = Spr.font_i.get_string_size(" ", HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var sp: float = ff.get_string_size(" ", HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 	for wd in t.split(" "):
-		var ww: float = _wwidth(wd, fs)
+		if wd == "":
+			continue
+		var ww: float = _wwidth(wd, fs, ff)
 		if cw + ww > maxw and not cur.is_empty():
 			out.append(cur)
 			cur = []
@@ -115,23 +124,25 @@ func _rlines(t: String, maxw: float, fs: int) -> Array:
 func _is_icon(wd: String) -> bool:
 	return wd.length() >= 3 and wd[0] == "[" and wd[2] == "]" and ICON.has(wd[1])
 
-func _wwidth(wd: String, fs: int) -> float:
+func _wwidth(wd: String, fs: int, f: Font = null) -> float:
+	var ff: Font = f if f else Spr.font_i
 	if _is_icon(wd):
-		return fs * 1.7 + Spr.font_i.get_string_size(wd.substr(3), HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-	return Spr.font_i.get_string_size(wd, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		return fs * 1.7 + ff.get_string_size(wd.substr(3), HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	return ff.get_string_size(wd, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 
-func _rwidth(ln: Array, fs: int) -> float:
-	var sp: float = Spr.font_i.get_string_size(" ", HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+func _rwidth(ln: Array, fs: int, f: Font = null) -> float:
+	var ff: Font = f if f else Spr.font_i
+	var sp: float = ff.get_string_size(" ", HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 	var w := 0.0
 	for wd in ln:
-		w += _wwidth(wd, fs) + sp
+		w += _wwidth(wd, fs, ff) + sp
 	return w - sp
 
 func _rdraw(ln: Array, cx: float, y: float, fs: int, c: Color, f: Font) -> void:
 	var sp: float = f.get_string_size(" ", HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-	var x: float = cx - _rwidth(ln, fs) / 2
+	var x: float = cx - _rwidth(ln, fs, f) / 2
 	for wd in ln:
-		var ww: float = _wwidth(wd, fs)
+		var ww: float = _wwidth(wd, fs, f)
 		if _is_icon(wd):
 			var isz: float = fs * 1.6
 			Spr.ci.draw_texture_rect(ICON[wd[1]], Rect2(x, y - fs * 1.15, isz, isz), false, Color(1, 1, 1, c.a))
@@ -222,6 +233,7 @@ func _place_step(d: float) -> void:
 			place_t = 0.0
 	if place_t >= 0:
 		place_t += d
+		place_y = lerpf(place_y, place_ty, 1.0 - exp(-d * 12.0))
 		if place_t >= PLACE_DUR:
 			place_t = -1.0
 
@@ -231,7 +243,17 @@ func _draw_place(W: float) -> void:
 	var a: float = clamp(min(place_t / .5, (PLACE_DUR - place_t) / .5), 0.0, 1.0)
 	a = a * a * (3.0 - 2.0 * a)
 	# com a dica do lugar na tela, o nome desce para baixo dela
-	var y: float = (92.0 if hint_alpha < .05 else 146.0) - (1.0 - a) * 6.0
+	# e com o fôlego ou a vida do chefe no alto, ou um aviso aparecendo, desce para baixo deles
+	# (desliza até o lugar novo em vez de pular)
+	var ty: float = max(92.0, bars_y + 34.0)
+	if hint_alpha >= .05:
+		ty = max(ty, 146.0)
+	if msg_bot > 0.0:
+		ty = max(ty, msg_bot + 38.0)
+	place_ty = ty
+	if place_y < 0.0 or place_t < .05:
+		place_y = ty
+	var y: float = place_y - (1.0 - a) * 6.0
 	var fs := 30
 	var tw: float = Spr.font_title.get_string_size(place_cur, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 	var gold := Color(1, .88, .62, a)
@@ -379,19 +401,24 @@ func _draw_stats(ci: Control) -> void:
 
 ## fôlego, barra do chefe, dica e avisos (sempre a 100%)
 func _draw_bars_and_hints(W: float, p: Dictionary, X: Extras) -> void:
-	# fôlego (na água)
+	# fôlego (na água); com a vida do chefe no alto, a barra do fôlego desce para baixo dela
+	bars_y = 0.0
+	msg_bot = 0.0
+	var by0: float = 52.0 if Polish.bosses().is_empty() else 98.0
 	if X and X.breath < Extras.BREATH:
+		bars_y = by0 + 30.0
 		var n: int = int(ceil(X.breath / float(Extras.BREATH) * 8))
-		_box(W / 2 - 92, 50, 184, 28)
+		_box(W / 2 - 92, by0 - 2, 184, 28)
 		for i in 8:
 			var on := i < n
 			var bx: float = W / 2 - 74 + i * 21
-			Spr.circle(bx, 64, 7, Color(.6, .85, 1, .85) if on else Color(.3, .35, .4, .4))
+			Spr.circle(bx, by0 + 12, 7, Color(.6, .85, 1, .85) if on else Color(.3, .35, .4, .4))
 			if on:
-				Spr.circle(bx - 2, 62, 2, Color(1, 1, 1, .8))
+				Spr.circle(bx - 2, by0 + 10, 2, Color(1, 1, 1, .8))
 	# chefes: barra de vida viva (o pedaço perdido fica branco, treme e escorre devagar)
 	var bl: Array = Polish.bosses()
 	if not bl.is_empty():
+		bars_y = max(bars_y, 94.0)
 		var bb: Dictionary = bl[0]
 		var bw := 300.0
 		var fr: float = clamp(float(bb.hp) / float(max(1, bb.max)), 0, 1)
@@ -444,6 +471,9 @@ func _draw_bars_and_hints(W: float, p: Dictionary, X: Extras) -> void:
 	if hint_alpha > 0 and hint_txt != "":
 		var fs: int = 13 if boss else 14
 		var mw: float = 330.0 if boss else min(W - 380, 460)
+		# na luta a dica fica no canto: não pode entrar embaixo da barra de vida do chefe
+		if boss and not bl.is_empty():
+			mw = clamp(W / 2 - 160 - 8 - 8 - 70 - 6, 200.0, 330.0)
 		var hl := _rlines(_icons(hint_txt), mw, fs)
 		var hw := 0.0
 		for ln in hl:
@@ -460,6 +490,8 @@ func _draw_bars_and_hints(W: float, p: Dictionary, X: Extras) -> void:
 		if ps.x > bx2 - 30 and ps.x < bx2 + bw2 + 30 and ps.y < hy + bh2 + 60:
 			a2 *= .25
 		_plaque(bx2, hy, bw2, bh2, a2)
+		if not boss:
+			msg_bot = max(msg_bot, hy + bh2)
 		Spr.ci.draw_texture_rect(tex_face, Rect2(bx2 + 7, hy + bh2 / 2 - 17, 34, 34), false, Color(1, 1, 1, a2))
 		var yy2: float = hy + 18 + (bh2 - 14 - hl.size() * (fs + 6)) / 2.0
 		for ln in hl:
@@ -468,15 +500,17 @@ func _draw_bars_and_hints(W: float, p: Dictionary, X: Extras) -> void:
 	# aviso (flash)
 	if game.flash_t > 0 and game.flash_msg != "":
 		var a: float = clamp(game.flash_t / 40.0, 0, 1)
-		var lines := _rlines(_icons(game.flash_msg), min(W - 80, 760), 17)
+		var lines := _rlines(_icons(game.flash_msg), min(W - 80, 760), 17, Spr.font)
 		var bh := 16 + lines.size() * 23
 		var bw := 0.0
 		for ln in lines:
-			bw = max(bw, _rwidth(ln, 17))
+			bw = max(bw, _rwidth(ln, 17, Spr.font))
 		bw += 36
 		# aviso no alto, abaixo da dica: nunca em cima das setas e dos botões de baixo
-		var by: float = (150.0 if hint_alpha > .05 else 104.0) - (1.0 - clamp(game.flash_t / 10.0, 0, 1)) * 10.0
+		# (e abaixo das barras de fôlego / vida do chefe)
+		var by: float = max(150.0 if hint_alpha > .05 else 104.0, bars_y + 14.0) - (1.0 - clamp(game.flash_t / 10.0, 0, 1)) * 10.0
 		Spr.rr(W / 2 - bw / 2, by, bw, bh, 10, Color(.04, .03, .02, .78 * a))
+		msg_bot = max(msg_bot, by + bh)
 		var y := by + 30
 		for ln in lines:
 			_rdraw(ln, W / 2, y, 17, Color(.96, .9, .78, a), Spr.font)

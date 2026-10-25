@@ -26,6 +26,19 @@ func _draw_raw() -> void:
 	Spr.begin(self)
 	if L.has("under"):
 		_dirt_fill(x0, x1, L.under, L.bottom + 200, 0.0, .5)
+		# chão alto (morro do moinho, fundo do lago) que termina um pouco acima da terra de baixo:
+		# completa com terra até ela, senão aparece uma faixa do fundo (o trigal) embaixo do chão.
+		# Vem antes das grutas e fossos, que continuam desenhados por cima.
+		for s in L.solids:
+			if s.get("deco") or not str(s.t) in ["ground", "dirt"]:
+				continue
+			var sb: float = float(s.y) + float(s.get("h", 0))
+			if float(s.get("h", 0)) < 50.0 or sb < 490.0 or sb >= float(L.under):
+				continue
+			var fa: float = max(float(s.x), x0)
+			var fb: float = min(float(s.x) + float(s.w), x1)
+			if fb > fa:
+				_dirt_fill(fa, fb, sb - 6, float(L.under) + 4, 0.0, .34)
 	# fossos e cavernas: cada pedaço do cenário desenha só a sua faixa [x0, x1]; senão o fundo da
 	# caverna do pedaço seguinte cobre as pedras e plataformas desenhadas pelo anterior
 	for pit in L.get("pits", []):
@@ -316,6 +329,10 @@ func ground(s: Dictionary) -> void:
 	# nada passa do fundo do bloco (senão a terra cobre a caverna que fica embaixo)
 	var th: float = min(float(t.get_height()), s.h + 32.0)
 	var mixed: bool = _mix_span(x_a, x_b)
+	# ponta aberta só em cima: o vizinho é um pouco mais baixo (degrau, buraco da placa) — dali para
+	# baixo a terra continua inteira, sem a faixa lisa da beira descendo pelo bloco todo
+	var lo_l: float = _end_lo(s, false) if ol else INF
+	var lo_r: float = _end_lo(s, true) if orr else INF
 	if mixed:
 		# divisa entre dois chãos (vila → mina): as duas texturas se misturam aos poucos
 		_ground_mixed(s, max(x_a, cut_a), min(x_b, cut_b))
@@ -326,16 +343,25 @@ func ground(s: Dictionary) -> void:
 			# o chão muda de cor aos poucos entre os trechos (grama amarelando, lama, frio)
 			var tc := _ground_tint((xa2 + xb2) * .5)
 			Spr.ci.draw_texture_rect_region(t, Rect2(xa2, s.y - 32, xb2 - xa2, th), Rect2(xa2 - x, 0, xb2 - xa2, th), tc)
+		for side in [0, 1]:
+			var lo: float = lo_l if side == 0 else lo_r
+			if lo == INF:
+				continue
+			var sa: float = max(x, s.x if side == 0 else cut_b)
+			var sb2: float = min(x + tw + 1, cut_a if side == 0 else s.x + s.w)
+			var ya3: float = lo + 6.0 - (s.y - 32.0)
+			if sb2 > sa and ya3 < th:
+				Spr.ci.draw_texture_rect_region(t, Rect2(sa, s.y - 32 + ya3, sb2 - sa, th - ya3), Rect2(sa - x, ya3, sb2 - sa, th - ya3), _ground_tint((sa + sb2) * .5))
 		x += tw
 	var fy: float = s.y - 34 + t.get_height()
 	if s.y + s.h > fy:
 		# a terra continua para baixo com a mesma textura (raízes, pedras), escurecendo aos poucos
-		_dirt_fill(max(x_a, cut_a), min(x_b, cut_b), fy - 2, s.y + s.h, ox)
+		_dirt_fill(max(x_a, cut_a if lo_l == INF else s.x), min(x_b, cut_b if lo_r == INF else s.x + s.w), fy - 2, s.y + s.h, ox)
 		_earth_detail(cut_a + 6, cut_b - 6, fy + 4, s.y + min(s.h, 700.0), Color("#34200f"))
 	if ol and s.x >= x0 - ROUND and s.x < x1:
-		_ground_end(s, t, tw, false)
+		_ground_end(s, t, tw, false, lo_l)
 	if orr and s.x + s.w > x0 and s.x + s.w <= x1 + ROUND:
-		_ground_end(s, t, tw, true)
+		_ground_end(s, t, tw, true, lo_r)
 	if s.get("snow"):
 		_snow_top(x_a + (8.0 if ol and x_a <= s.x else 0.0), x_b - (8.0 if orr and x_b >= s.x + s.w else 0.0), s.y)
 	_ground_vary(s, x_a, x_b)
@@ -545,14 +571,20 @@ func dirt(s: Dictionary) -> void:
 	var xb: float = min(s.x + s.w, x1 + 2)
 	if xb <= xa:
 		return
+	var lf: float = _lake_floor(s)
+	if lf > 0.0:
+		_lake_ledge(s, lf)
+		return
 	var ol0: bool = _open_end(s, false)
 	var or0: bool = _open_end(s, true)
 	var ol: bool = ol0 and s.x >= x0 - 16 and s.x <= x1 + 2
 	var orr: bool = or0 and s.x + s.w <= x1 + 16 and s.x + s.w >= x0 - 2
 	var ia: float = max(xa, s.x + 10.0) if ol else xa
 	var ib: float = min(xb, s.x + s.w - 10.0) if orr else xb
-	# terra com textura (raízes, pedras) em vez de um bloco escuro liso
-	_dirt_fill(ia, ib, s.y, s.y + s.h, s.x, .8)
+	# terra com textura (raízes, pedras) em vez de um bloco escuro liso; o buraco estreito da placa,
+	# entre dois chãos, fica no mesmo tom da terra do chão (nada de coluna escura embaixo da placa)
+	var hole: bool = not ol0 and not or0 and float(s.w) <= 90.0 and float(s.h) <= 140.0
+	_dirt_fill(ia, ib, s.y, s.y + s.h, s.x, 1.08 if hole else .8)
 	for side in [0, 1]:
 		if (side == 0 and not ol) or (side == 1 and not orr):
 			continue
@@ -569,6 +601,44 @@ func dirt(s: Dictionary) -> void:
 		pts.push_back(Vector2(inner, s.y + s.h))
 		Spr.poly(pts, EARTH)
 	_earth_detail(s.x + (10.0 if ol0 else 0.0), s.x + s.w - (10.0 if or0 else 0.0), s.y + 6, s.y + s.h, EARTH)
+
+## laje fina dentro de um lago (onde ficam o capacete e o arpão): devolve o fundo do lago embaixo
+## dela, ou -1 se não for uma laje de lago
+func _lake_floor(s: Dictionary) -> float:
+	if float(s.get("h", 0)) > 24.0:
+		return -1.0
+	for c in game.L.get("caves", []):
+		if c.get("wet") and float(s.x) >= float(c.x) and float(s.x) + float(s.w) <= float(c.x) + float(c.w) \
+				and float(s.y) > float(c.y) and float(s.y) + float(s.h) < float(c.y) + float(c.h):
+			# o fundo é o chão firme logo abaixo (ou o fundo da gruta)
+			var fl: float = float(c.y) + float(c.h)
+			for o in game.L.solids:
+				if str(o.get("t", "")) in ["dirt", "ground"] and o != s and float(o.y) > float(s.y) + 4 and float(o.y) < fl \
+						and float(o.x) < float(s.x) + float(s.w) * .5 and float(o.x) + float(o.get("w", 0)) > float(s.x) + float(s.w) * .5:
+					fl = float(o.y)
+			return fl
+	return -1.0
+
+## laje de pedra de verdade no lago: placa de rocha com musgo em cima de um pilar de pedras que vem
+## do fundo (um pouco atrás e mais escuro), em vez de uma faixa de terra boiando na água
+func _lake_ledge(s: Dictionary, floor_y: float) -> void:
+	var cx: float = s.x + s.w / 2
+	var gy: float = s.y + s.h
+	var pw: float = min(76.0, s.w * .42)
+	if floor_y - gy > 16:
+		var pil := {"x": cx - pw / 2, "y": gy - 4, "w": pw, "h": floor_y - gy + 10}
+		_masonry(pil, Color(.5, .52, .5), Color(.24, .22, .2), Color(.08, .07, .06, .97), gy - 4)
+		Spr.rect(cx - pw / 2, gy - 4, pw, floor_y - gy + 10, Color(.05, .12, .16, .3))
+		# pedras do pé do pilar, meio enterradas no fundo
+		for k in [-1, 1]:
+			Spr.PR("mossrock_s", cx + k * (pw / 2 + 4) - 17, floor_y - 18, 34, 24, Color(.72, .8, .82), k > 0)
+	Spr.ellipse(cx, gy + 4, s.w * .42, 5, Color(0, 0, 0, .22))
+	Spr.PR("slab%d" % (absi(hash(int(s.x))) % 3), s.x - 10, s.y - 8, s.w + 20, s.h + 16, Color(.86, .93, .95))
+	# alguns fiapos de alga pendurados na beira da laje
+	for k in 4:
+		var ax: float = s.x + 14 + k * (s.w - 28) / 3.0
+		var al: float = 10 + hh(ax, 61) * 14
+		Spr.seg(ax, gy + 2, ax + 2 + hh(ax, 62) * 3, gy + 2 + al, Color(.3, .55, .3, .55), 2.0)
 
 const TINTS := {"manha": Color(1, 1, 1), "tarde": Color(1.04, .93, .74), "chuva": Color(.84, .91, .84), "neve": Color(.93, .97, 1.04),
 	"tema": Color(.93, .97, 1.04), "noite": Color(.8, .84, .96), "perseguicao": Color(.8, .84, .96)}
@@ -782,14 +852,37 @@ func _root_curl(x: float, y: float) -> void:
 	Spr.line(pts, Color(.24, .15, .08), 3.2)
 	Spr.line(pts, Color(.45, .3, .16), 1.4)
 
+## até onde a ponta aberta fica à mostra: o topo do vizinho mais baixo encostado nela (degrau,
+## buraco da placa), se ele descer até o fundo do bloco; INF se a ponta é um barranco inteiro
+func _end_lo(s: Dictionary, right: bool) -> float:
+	var key := "_lr" if right else "_ll"
+	if s.has(key):
+		return s[key]
+	var ex: float = s.x + s.w if right else s.x
+	var lo := INF
+	for o in game.L.solids:
+		if o == s or not str(o.get("t", "")) in ["ground", "dirt", "cliff"]:
+			continue
+		var oy: float = float(o.y)
+		var ob: float = oy + float(o.get("h", 0))
+		var touch: bool = ex >= float(o.x) - 1 and ex <= float(o.x) + float(o.get("w", 0)) + 1
+		if touch and oy > s.y + 2 and oy <= s.y + 60.0 and ob >= s.y + s.h - 4:
+			lo = min(lo, oy)
+	s[key] = lo
+	return lo
+
 ## a ponta: a textura do chão num polígono com a quina de cima arredondada, a parede um pouco
 ## irregular, sombra na borda e um tufo de grama caindo por cima
-func _ground_end(s: Dictionary, t: Texture2D, tw: float, right: bool) -> void:
+func _ground_end(s: Dictionary, t: Texture2D, tw: float, right: bool, lo: float = INF) -> void:
 	var e: float = s.x + s.w if right else s.x
 	var inner: float = e - ROUND if right else e + ROUND
 	var top: float = s.y - 10
 	var fy: float = s.y - 34 + t.get_height()
 	var bot: float = s.y + min(s.h, 900.0)
+	# vizinho um pouco mais baixo: a beira só vai até o chão dele (o resto é terra inteira)
+	var short: bool = lo < bot - 12.0
+	if short:
+		bot = lo + 12.0
 	var tile_x: float = s.x + floor((min(inner, e) - s.x) / tw) * tw
 	var t2: Texture2D = _chao2(t, tw)
 	var seed_v: float = e * .013
@@ -801,7 +894,7 @@ func _ground_end(s: Dictionary, t: Texture2D, tw: float, right: bool) -> void:
 			c = r - sqrt(max(0.0, r * r - dy * dy))
 		var wob: float = 2.5 * sin(y * .09 + seed_v) + 1.5 * sin(y * .23 + seed_v * 3.0)
 		var bc: float = 0.0
-		if s.h < 300 and y > bot - r:
+		if s.h < 300 and not short and y > bot - r:
 			var dy2: float = y - (bot - r)
 			bc = r - sqrt(max(0.0, r * r - dy2 * dy2))
 		return clamp(c + 2.0 + wob + bc, 0.0, ROUND - 1)
