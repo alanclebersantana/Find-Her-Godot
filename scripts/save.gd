@@ -16,7 +16,13 @@ var run_secs := 0.0
 func _ready() -> void:
 	_load_safe()
 
+func _notification(what: int) -> void:
+	# saindo ou indo para o fundo: termina de gravar antes
+	if what in [NOTIFICATION_WM_CLOSE_REQUEST, NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_PREDELETE, NOTIFICATION_WM_GO_BACK_REQUEST]:
+		wait_written()
+
 func _load_safe() -> void:
+	wait_written()
 	for p in [PATH, TMP, BAK]:
 		if not FileAccess.file_exists(p):
 			continue
@@ -29,11 +35,57 @@ func _load_safe() -> void:
 			return
 	cfg = ConfigFile.new()
 
-## grava no disco sem risco de perder tudo se o celular desligar no meio
+## grava no disco sem risco de perder tudo se o celular desligar no meio.
+## A gravação vai para uma linha separada (gravar no meio do jogo — pegar um desenho, chegar na fogueira —
+## dava uma travadinha no celular); várias gravações seguidas viram uma só.
+var _mx := Mutex.new()
+var _pending := ""
+var _busy := false
+
 func flush() -> void:
-	if cfg.save(TMP) != OK:
-		cfg.save(PATH)
+	var txt := cfg.encode_to_text()
+	_mx.lock()
+	_pending = txt
+	var start := not _busy
+	_busy = true
+	_mx.unlock()
+	if start:
+		WorkerThreadPool.add_task(_writer)
+
+func _writer() -> void:
+	while true:
+		_mx.lock()
+		var t := _pending
+		_pending = ""
+		if t == "":
+			_busy = false
+			_mx.unlock()
+			return
+		_mx.unlock()
+		_write_text(t)
+
+## espera a gravação em andamento terminar (ao sair do jogo / ir para o fundo)
+func wait_written() -> void:
+	var n := 0
+	while n < 3000:
+		_mx.lock()
+		var b := _busy
+		_mx.unlock()
+		if not b:
+			return
+		OS.delay_msec(1)
+		n += 1
+
+func _write_text(txt: String) -> void:
+	var f := FileAccess.open(TMP, FileAccess.WRITE)
+	if f == null:
+		var f2 := FileAccess.open(PATH, FileAccess.WRITE)
+		if f2:
+			f2.store_string(txt)
+			f2.close()
 		return
+	f.store_string(txt)
+	f.close()
 	var chk := ConfigFile.new()
 	if chk.load(TMP) != OK:
 		return
@@ -45,7 +97,10 @@ func flush() -> void:
 		DirAccess.rename_absolute(gp, gb)
 	if DirAccess.rename_absolute(gt, gp) != OK:
 		# sem troca de nome (sistema de arquivos estranho): grava direto
-		cfg.save(PATH)
+		var f3 := FileAccess.open(PATH, FileAccess.WRITE)
+		if f3:
+			f3.store_string(txt)
+			f3.close()
 
 func getv(sec: String, key: String, def = null):
 	return cfg.get_value(sec, key, def)

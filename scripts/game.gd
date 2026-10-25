@@ -903,22 +903,29 @@ func _save_prev() -> void:
 	for e in EN:
 		e.ppx = e.x
 		e.ppy = e.y
+	Interp.save(self)
 
 ## deslocamento para desenhar o Tomé na posição "entre" dois passos
 func ip_off() -> Vector2:
-	var f := Engine.get_physics_interpolation_fraction()
+	var f := ifrac()
 	if abs(player.x - prev_px) > 60 or abs(player.y - prev_py) > 60:
 		return Vector2.ZERO
 	return Vector2((prev_px - player.x) * (1 - f), (prev_py - player.y) * (1 - f))
 
 func e_off(e: Dictionary) -> Vector2:
-	var f := Engine.get_physics_interpolation_fraction()
+	var f := ifrac()
 	if not e.has("ppx") or abs(e.x - e.ppx) > 60 or abs(e.y - e.ppy) > 60:
 		return Vector2.ZERO
 	return Vector2((e.ppx - e.x) * (1 - f), (e.ppy - e.y) * (1 - f))
 
+## fração do caminho entre o passo anterior e o atual (na câmera lenta a mistura dura dois passos)
+var ip_div := 1
+var ip_phase := 0
+func ifrac() -> float:
+	return clamp((ip_phase + Engine.get_physics_interpolation_fraction()) / float(ip_div), 0.0, 1.0)
+
 func update_render_cam() -> void:
-	var f := Engine.get_physics_interpolation_fraction()
+	var f := ifrac()
 	if abs(cam - prev_cam) > 80 or abs(cam_y - prev_cam_y) > 80:
 		rcam = cam
 		rcam_y = cam_y

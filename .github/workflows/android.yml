@@ -61,6 +61,11 @@ jobs:
           fi
           ls ~/.local/share/godot/keystores || true
 
+      - name: Silhuetas das folhas novas (calcular no celular trava o jogo)
+        run: |
+          python3 -c "import PIL" 2>/dev/null || pip3 install --quiet pillow || true
+          python3 tools/make_sil.py || true
+
       - name: Importar recursos
         run: ~/godot/godot --headless --path . --import || true
 

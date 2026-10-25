@@ -42,7 +42,9 @@ func _ready() -> void:
 	var d: Dictionary = DATA.get(id, DATA.cipo)
 	for n in d.img:
 		var p := "res://assets/comic/%s.jpg" % n
-		if ResourceLoader.exists(p):
+		if Spr.tex.get("comic_" + n) != null:
+			texs.append(Spr.tex["comic_" + n])   # já carregado na abertura (sem travada)
+		elif ResourceLoader.exists(p):
 			texs.append(load(p))
 	dur = 5.0 if d.img.size() > 1 else 3.0
 	Save.setv("comic", id, true)

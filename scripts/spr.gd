@@ -73,6 +73,7 @@ func _ready() -> void:
 		if ResourceLoader.exists(gp):
 			tex["chao_" + k] = load(gp)
 	tex["pad_S"] = load("res://assets/ui/pad_S.png")
+	_warm_start.call_deferred()
 	tex["btn_use"] = load("res://assets/ui/btn_use.png")
 	AR["it_picareta"] = [17, 12, 102, 110, 51, 55, 2]
 	# artes novas opcionais (assets/sprites/novos/<nome>.png, quadros quadrados lado a lado)
@@ -280,6 +281,8 @@ func sil(t: Texture2D) -> Texture2D:
 		if sp != "" and ResourceLoader.exists(sp):
 			_sil[id] = load(sp)
 			return _sil[id]
+		var _t0 := Time.get_ticks_msec()
+		push_warning("silhueta calculada no aparelho (falta %s_sil.png): %s" % [t.resource_path.get_basename(), t.resource_path])
 		var im: Image = t.get_image()
 		if im.is_compressed():
 			im.decompress()
@@ -292,6 +295,7 @@ func sil(t: Texture2D) -> Texture2D:
 			data[i + 1] = 255
 			data[i + 2] = 255
 		_sil[id] = ImageTexture.create_from_image(Image.create_from_data(w, h, false, Image.FORMAT_RGBA8, data))
+		print("SILSLOW ", t.resource_path, " ", w, "x", h, " ", Time.get_ticks_msec() - _t0, "ms")
 	return _sil[id]
 
 ## a peça n em silhueta de uma cor só (para o rim light)
@@ -701,3 +705,87 @@ func sheet_cycle(name: String, fpos: float, n: int, base: int, cw: float, ch: fl
 	var k: float = smoothstep(.55, 1.0, fr) * .7
 	if k > .02:
 		sheet(name, b, cw, ch, x, by, hgt, flip, Color(mod.r, mod.g, mod.b, mod.a * k))
+
+
+# ================================================================ pré-carregamento (sem travadas)
+## Tudo o que antes carregava na primeira vez que aparecia (poses novas, folhas x4, objetos pintados,
+## silhuetas do contorno) começa a carregar numa linha separada logo na abertura do jogo e fica pronto
+## antes da fase; carregar no meio do jogo dava as "travadinhas" no celular.
+const WARM_OPT := ["boar_ko", "boar_wind", "boss_charge", "crow_dive", "crow_ko", "dog_dig", "dog_joy", "dog_sniff",
+	"dragonfly", "fish_bite", "frog_ko", "frog_tongue", "horse_free", "isis_run", "leaves", "morcego_rei", "ride_dis",
+	"ride_gallop", "ride_jump", "sapo_rei", "sled_tome", "urso", "esquilo", "cavalo",
+	"isis_climb", "isis_joy", "isis_scared"]
+## folhas que saem em silhueta (clarão do golpe, contorno vermelho dos inimigos, contorno de luz do Tomé)
+const WARM_SIL := ["atlas1", "atlas2", "extra", "en_boar", "en_frog2", "en_crow2", "javali", "pai", "pai2", "isis2",
+	"pai_climb", "pai_rope_a", "pai_rope_b", "pai_vine_a", "pai_vine_b", "cao", "esquilo", "gaviao", "bagre", "urso",
+	"boar_ko", "boar_wind", "crow_dive", "crow_ko", "frog_ko", "frog_tongue", "dog_dig", "dog_joy", "dog_sniff",
+	"isis_climb", "isis_joy", "isis_scared", "isis_run", "morcego_rei", "sapo_rei"]
+var _warm_req := {}      # caminho -> função que guarda o recurso pronto
+var warmed := false
+
+func _req(pth: String, put: Callable) -> void:
+	if _warm_req.has(pth) or not ResourceLoader.exists(pth):
+		return
+	if ResourceLoader.load_threaded_request(pth, "", false) == OK:
+		_warm_req[pth] = put
+
+func _warm_start() -> void:
+	for n in WARM_OPT:
+		if tex.get(n) == null:
+			_req("res://assets/sprites/%s.png" % n, func(r): tex[n] = r)
+	for key in X4M:
+		var m: Dictionary = X4M[key]
+		var pth: String = "res://assets/sprites/" + str(m.get("file", ""))
+		_req(pth, func(r): _put_x4(pth, r))
+	var sil_names: Array = WARM_SIL.duplicate()
+	for k in ANIM_NAMES:
+		sil_names.append("tome/" + k)
+	for k in tex:
+		if str(k).begins_with("paint") and not str(k).ends_with("_sil"):
+			sil_names.append(k)
+	for n in sil_names:
+		var base := "res://assets/sprites/%s.png" % n
+		var sp := "res://assets/sprites/%s_sil.png" % n
+		_req(base, func(r): if tex.get(n) == null and not "/" in n: tex[n] = r)
+		_req(sp, func(r): _put_sil(base, r))
+	# quadrinhos (aparecem de repente no meio da fase)
+	var dc := DirAccess.open("res://assets/comic")
+	if dc:
+		for f in dc.get_files():
+			f = f.trim_suffix(".import").trim_suffix(".remap")
+			if f.ends_with(".jpg"):
+				var ck := "comic_" + f.get_basename()
+				_req("res://assets/comic/" + f, func(r): tex[ck] = r)
+	var d := DirAccess.open("res://assets/sprites")
+	if d:
+		for f in d.get_files():
+			f = f.trim_suffix(".import").trim_suffix(".remap")
+			if f.begins_with("p_") and f.ends_with(".png") and not f.ends_with("_sil.png"):
+				var k := f.get_basename()
+				_req("res://assets/sprites/" + f, func(r): if not tex.has(k): tex[k] = r)
+
+func _put_x4(pth: String, r: Texture2D) -> void:
+	for key in X4M:
+		var m: Dictionary = X4M[key]
+		if "res://assets/sprites/" + str(m.get("file", "")) == pth and not m.has("tex"):
+			m.tex = r
+
+func _put_sil(base: String, r: Texture2D) -> void:
+	# o ResourceLoader devolve a MESMA textura base que o resto do jogo usa (mesmo id)
+	var bt: Texture2D = load(base)
+	if bt and not _sil.has(bt.get_instance_id()):
+		_sil[bt.get_instance_id()] = r
+
+## chamado ao começar a fase: espera o que ainda falta (normalmente já terminou na tela de título)
+func warm() -> void:
+	if warmed:
+		return
+	warmed = true
+	# bases primeiro (as silhuetas procuram a textura base pelo caminho)
+	var paths: Array = _warm_req.keys()
+	paths.sort_custom(func(a, b): return int(a.ends_with("_sil.png")) < int(b.ends_with("_sil.png")))
+	for pth in paths:
+		var r = ResourceLoader.load_threaded_get(pth)
+		if r != null:
+			_warm_req[pth].call(r)
+	_warm_req.clear()

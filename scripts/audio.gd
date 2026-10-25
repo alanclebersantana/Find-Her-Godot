@@ -51,6 +51,10 @@ func _ready() -> void:
 	vol_sfx = float(Save.getv("opt", "vol_sfx", 1.0))
 	for n in NAMES:
 		sfx[n] = load("res://assets/audio/%s.wav" % n)
+	# músicas e sons de ambiente já carregados (sem travada ao mudar de trecho)
+	for b in ["mus_manha", "mus_tarde", "mus_noite", "mus_chuva", "mus_perseguicao", "mus_tunel", "mus_tema", "mus_vitoria",
+			"amb_caverna", "amb_grilos", "amb_passaros", "amb_sapos", "amb_vento"]:
+		_stream(b)
 	# latido do Pipoca: só uma vez, quando ele acha algo escondido
 	# o latido do Pipoca foi retirado (ficava repetitivo): "bark" não toca nada
 	for k in STEPS:
@@ -162,8 +166,17 @@ func step(kind: String, vol_db: float = -19.0) -> void:
 	_alt = not _alt
 	play("step_%s_%s" % [kind, "a" if _alt else "b"], vol_db, randf_range(.9, 1.12))
 
+var _st_cache := {}
 func _stream(base: String) -> AudioStream:
 	## procura .ogg (instrumentos reais) e, se não houver, .wav (sintetizado); devolve em loop
+	## (fica guardada: carregar a música na troca de trecho dava uma travadinha)
+	if _st_cache.has(base):
+		return _st_cache[base]
+	var r := _stream_load(base)
+	_st_cache[base] = r
+	return r
+
+func _stream_load(base: String) -> AudioStream:
 	for ext in ["ogg", "wav"]:
 		var path := "res://assets/audio/%s.%s" % [base, ext]
 		if ResourceLoader.exists(path):

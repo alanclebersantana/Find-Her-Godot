@@ -51,6 +51,9 @@ var cine_bars: Control
 
 func _ready() -> void:
 	RenderingServer.set_default_clear_color(Color("#0b0906"))
+	# posições "de desenho" (Interp) voltam às verdadeiras assim que o desenho do quadro termina
+	RenderingServer.frame_pre_draw.connect(Interp.restore)
+	add_child(_FontWarm.new())
 	# o "voltar" do Android nunca fecha o jogo direto: abre a pausa ou volta ao menu anterior
 	get_tree().quit_on_go_back = false
 	Save.before_save_run = _before_save_run
@@ -381,6 +384,9 @@ func _process(_d: float) -> void:
 				b.visible = not in_cine and not (b.get_meta("k") == "G" and game.player.get("isis"))
 			if in_cine:
 				stick._release()
+	# desenho liso entre passos: chefes, Pipoca, plataformas... (volta ao normal no frame_pre_draw)
+	if state == S.PLAY and game.L and game.running:
+		Interp.apply(game.ifrac())
 
 ## quanto perigo há por perto (para a camada de tambores da música)
 func _danger_level() -> float:
@@ -430,6 +436,7 @@ func _zoom_target() -> float:
 	return 1.0
 
 func _physics_process(_d: float) -> void:
+	Interp.restore()
 	if state == S.PLAY and game.comic_req != "":
 		_show_comic(game.comic_req)
 		game.comic_req = ""
@@ -440,10 +447,15 @@ func _physics_process(_d: float) -> void:
 		# grandes e ao cair) e divide pelo ritmo escolhido (44/52/60 passos por segundo)
 		if game.running:
 			Save.run_secs += 1.0 / float(Engine.physics_ticks_per_second)
-		# câmera lenta: só um de cada dois passos roda
+		# câmera lenta: só um de cada dois passos roda (o desenho continua liso: a mistura entre passos
+		# passa a durar dois passos)
+		game.ip_div = 1
+		game.ip_phase = 0
 		if game.slowmo > 0:
 			game.slowmo -= 1
+			game.ip_div = 2
 			if game.slowmo % 2 == 1:
+				game.ip_phase = 1
 				return
 		game.step()
 		Spr.pt("step", __t)
@@ -1401,6 +1413,7 @@ class _CtrlEditor extends Control:
 			main._layout()
 
 func start_level(cont: bool, lvl: int = 0) -> void:
+	Spr.warm()
 	game.CLUEGOT.clear()
 	game.SPECGOT.clear()
 	game.DRAWN.clear()
@@ -2325,3 +2338,18 @@ func _on_over() -> void:
 		panel.queue_free()
 		panel = null
 		show_title()))
+
+
+## Prepara as letras das fontes logo na abertura (fora da tela): sem isso cada letra nova desenhada pela
+## primeira vez (aviso, fala, placar) era gerada na hora e dava uma travadinha.
+class _FontWarm extends Node2D:
+	func _draw() -> void:
+		var s := ""
+		for c in range(32, 127):
+			s += char(c)
+		s += "áàâãäéèêëíìîïóòôõöúùûüçñÁÀÂÃÉÊÍÓÔÕÚÇ▸◂▾▴✔✓…—–“”‘’•×←→↑↓°ºª¡¿·"
+		for f in [Spr.font, Spr.font_i, Spr.font_b, Spr.font_title]:
+			if f:
+				draw_string(f, Vector2(-9000, -9000), s, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(1, 1, 1, .01))
+				draw_string_outline(f, Vector2(-9000, -9000), s, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, 4, Color(0, 0, 0, .01))
+		queue_free.call_deferred()
