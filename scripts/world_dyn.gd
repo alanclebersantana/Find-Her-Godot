@@ -269,16 +269,19 @@ func _draw_player_node(n: CanvasItem) -> void:
 	if g.L.has("under") and p.y > g.L.under:
 		dark = 1.0
 	var face: float = 1.0 if p.face > 0 else -1.0
+	var lk: float = _light_k if int(p.get("turnT", 0)) > 0 else face
 	if dark > .3:
 		mat.set_shader_parameter("light_uv", Vector2(1.0, -.35).normalized())
 		mat.set_shader_parameter("rim_col", Color(1, .78, .45))
 		mat.set_shader_parameter("rim_amt", .4 * clamp((dark - .3) * 3.0, 0, 1))
 	else:
 		var tw: float = g.section_weights().get("tarde", 0.0)
-		mat.set_shader_parameter("light_uv", Vector2(-.7 * face, -.75).normalized())
+		# a luz do sol vem de cima/trás; na meia-volta ela passa pelo meio do corpo (gira junto, sem pular de lado)
+		mat.set_shader_parameter("light_uv", Vector2(-.7 * lk, -.75).normalized())
 		mat.set_shader_parameter("rim_col", Color(1, .95, .8).lerp(Color(1, .74, .42), tw))
 		mat.set_shader_parameter("rim_amt", .34)
-	mat.set_shader_parameter("shade_amt", .55 if p.swim else .32)
+	# na meia-volta o corpo fica de lado para a luz: sombra um pouco mais forte (volume)
+	mat.set_shader_parameter("shade_amt", (.55 if p.swim else .32) + .14 * (1.0 - abs(lk)))
 	var env := _env(g)
 	# levou golpe: clarão branco curto (some em 10 quadros)
 	var hf: int = int(p.get("hitFx", 0))
@@ -1369,15 +1372,10 @@ func _player(g: Game) -> void:
 		_warp_pose(p)
 	else:
 		_player_draw(g)
-		# com o capacete de mergulho: dentro d'água o Tomé fica com ele na cabeça
-		if g.NT and g.NT.helmet and p.swim and not p.get("dog") and p.dyingT == 0 and not (p.iframe > 0 and (T / 4) % 2 == 0):
-			var hx: float = p.x + p.w / 2 + p.face * 3
-			var hb: float = p.y + p.h - 34
-			if p.crouch:
-				# deitado (rastejando no fundo): a cabeça fica na frente, perto do chão
-				hx = p.x + p.w / 2 + p.face * 20
-				hb = p.y + p.h - 2
-			WorldNature.prop("capacete", hx, hb, 46, p.face < 0)
+		# com o capacete de mergulho: nadando, ele é desenhado junto do corpo (_player_draw, preso na cabeça);
+		# aqui só deitado no fundo (rastejando): a cabeça fica na frente, perto do chão
+		if g.NT and g.NT.helmet and p.swim and p.crouch and not p.get("dog") and p.dyingT == 0 and not (p.iframe > 0 and (T / 4) % 2 == 0):
+			WorldNature.prop("capacete", p.x + p.w / 2 + p.face * 20, p.y + p.h - 2, 46, p.face < 0)
 		WorldExtras.tool_fx(g, T)
 	Spr.alpha = a0
 	Spr.restore()
@@ -1555,10 +1553,24 @@ func _player_draw(g: Game) -> void:
 	# (antes a pose parada de dor "patinava" pelo chão até o fim do tempo)
 	var hurt_on: bool = p.get("hitT", 0) > 0 and (not p.onGround or int(p.hitT) > 18 or abs(p.vx) < .5)
 	if p.lastFace != p.face:
-		p.turnT = 6
+		# meia-volta: o desenho gira até o outro lado em TURN_N passos (a física já virou na hora)
 		p.lastFace = p.face
-	if p.turnT > 0 and FRESH:
+		if p.turnT > 0 and _mg_face == (1.0 if p.face > 0 else -1.0):
+			# voltou antes de o desenho passar da metade: fica como estava
+			p.turnT = 0
+		else:
+			p.tfrom = -1.0 if p.face > 0 else 1.0
+			p.turnT = TURN_N
+	if p.turnT > 0 and int(p.get("_tt", -1)) != T:
+		p._tt = T
 		p.turnT -= 1
+	var tst: Array = _turn_state(g, p)
+	_mg_flip(tst[0])
+	if g.player == p:
+		_light_k = float(tst[0]) * (float(tst[1]) - .45) / .55
+	if float(tst[2]) < 1.0:
+		# na meia-volta a pose antiga não fica "fantasma" por baixo (ela olhava para o outro lado)
+		_ghostT = 0
 	var pai: Texture2D = Spr.tex.pai
 	var pai2: Texture2D = Spr.tex.pai2
 	# subindo na beirada: braço erguido segurando, corpo inclinado sobre a quina
@@ -1693,25 +1705,57 @@ func _player_draw(g: Game) -> void:
 			return
 	# nadando: o corpo deita na direção do nado (braçada), sobe e desce devagar; parado, fica de pé
 	# batendo as pernas (sem ficar trocando entre as poses de pulo e queda)
-	if p.swim and not p.crouch and not hurt_on and Spr.anim.has("fall"):
+	# com o capacete de mergulho (lago do Bagre-Rei) ele nada EM PÉ, batendo as pernas embaixo, e o capacete
+	# vai preso na cabeça (desenhado junto do corpo: acompanha subir, descer, parado e o tiro do arpão)
+	var helm: bool = g.NT != null and g.NT.helmet and p.swim and not p.get("dog")
+	if p.swim and not p.crouch and (not hurt_on or helm) and Spr.anim.has("fall"):
 		var sa: Dictionary = Spr.anim["fall"]
 		var ssz: float = sa.s
 		var sk := 78.0 / ssz
 		var spd: float = Vector2(p.vx, p.vy).length()
 		var mvk: float = clamp(spd / 3.0, 0, 1)
 		var tgt: float = 0.0
-		if abs(p.vx) > .3:
+		if helm:
+			# em pé: só uma inclinação pequena para o lado do nado (a cabeça fica dentro do capacete)
+			tgt = clamp(p.vx * .03, -.12, .12)
+			if p.get("act", "") == "harpoon" and p.actT > 0:
+				# coice do arpão: o corpo vai um tiquinho para trás
+				tgt -= p.face * .1 * p.actT / 12.0
+		elif abs(p.vx) > .3:
 			tgt = sign(p.vx) * mvk * .95 + p.vy * .05 * sign(p.vx)
 		if FRESH:
-			p.swr = lerp(float(p.get("swr", 0.0)), tgt, .1)
+			p.swr = lerp(float(p.get("swr", 0.0)), tgt, .1 if not helm else .18)
 		var stroke: float = sin(T * (.12 + mvk * .1))
 		var sbob: float = sin(T * .06) * 2.0 * (1.0 - mvk)
 		_ppos = Vector2(p.x, p.y)
+		var sx_s: float = sk * (1 + stroke * .03 * mvk)
+		var sy_s: float = sk * (1 - stroke * .04)
+		var dst_s := Rect2(-ssz / 2, -ssz + 30 / sk, ssz, ssz)
 		Spr.save()
 		Spr.translate(cx, by - 30 + sbob)
 		Spr.rotate(p.swr)
-		Spr.scale(p.face * sk * (1 + stroke * .03 * mvk), sk * (1 - stroke * .04))
-		Spr.ci.draw_texture_rect_region(sa.tex, Rect2(-ssz / 2, -ssz + 30 / sk, ssz, ssz), Rect2(0, 0, ssz, ssz), Color(1, 1, 1, Spr.alpha))
+		if helm:
+			# subindo: estica e bate as pernas forte; descendo: encolhe um pouco e bate devagar
+			var up: float = clamp(-p.vy / 3.0, -1.0, 1.0)
+			sy_s *= 1.0 + .04 * max(up, 0.0) - .03 * max(-up, 0.0)
+			sx_s *= 1.0 - .02 * max(up, 0.0)
+			_mg_springs(g, p, 0.0)
+			_mg_setup(ssz, ssz, _mg_anchor("fall", 0.0), 0.0, 70.0)
+			_turn_mg(p, tst)
+			# a ponta do gorro com o pompom fica guardada dentro do capacete
+			MG.pd = Vector2(24.0, 14.0) * ssz / 256.0
+			MG.kick = (7.0 + 9.0 * mvk + 5.0 * max(up, 0.0)) * ssz / 256.0
+			MG.kph = T * (.2 + .16 * mvk + .1 * max(up, 0.0))
+			Spr.scale(float(tst[0]) * sx_s * float(tst[1]), sy_s)
+			_mg_prep(dst_s)
+			_mg_layer(sa.tex, Rect2(0, 0, ssz, ssz), Spr.alpha)
+			if p.dyingT == 0:
+				# o capacete na cabeça, no mesmo espaço do desenho (gira e estica junto)
+				var hk: float = ssz / 256.0
+				WorldNature.prop("capacete", (3.0 + MG.tl * .6) * hk, dst_s.position.y + 150.0 * hk, 160.0 * hk)
+		else:
+			Spr.scale(p.face * sx_s, sy_s)
+			Spr.ci.draw_texture_rect_region(sa.tex, dst_s, Rect2(0, 0, ssz, ssz), Color(1, 1, 1, Spr.alpha))
 		Spr.restore()
 		_armor(p, cx, by)
 		return
@@ -1771,14 +1815,14 @@ func _player_draw(g: Game) -> void:
 			var sz: float = a.s
 			var k2 := 78.0 / sz
 			var air3: float = clamp(1 - abs(p.vy) / 16.0, .35, 1) if not p.onGround else 1.0
-			Polish.shadow(cx, by + 1, 16 * air3, 4 * air3, .25 * air3)
 			var sq3: float = p.squash
 			var st: Vector2 = _body_flex(p, key, f, n)
-			# virada com peso: espelha de uma vez e achata um instante (sem ficar fino como papel)
-			var tu3: float = p.turnT / 6.0 if p.turnT > 0 else 0.0
+			# meia-volta com volume: o corpo gira em torno do eixo (estreita e abre do outro lado), com um
+			# passinho de apoio no meio (desce um tiquinho)
 			var dk3: float = float(p.get("duck", 1.0))
-			var sx3: float = p.face * k2 * (1 + sq3 * .2) * st.x * (1.0 + .07 * tu3) * (1.0 + (1.0 - dk3) * .3)
-			var sy3: float = k2 * (1 - sq3 * .25) * st.y * (1.0 - .06 * tu3) * dk3
+			var tdip: float = .05 * sin(PI * float(tst[2]))
+			var sx3: float = float(tst[0]) * k2 * (1 + sq3 * .2) * st.x * float(tst[1]) * (1.0 + (1.0 - dk3) * .3)
+			var sy3: float = k2 * (1 - sq3 * .25) * st.y * (1.0 - tdip) * dk3
 			var src3 := Rect2(f * sz, 0, sz, sz)
 			var dst3 := Rect2(-sz / 2, -sz, sz, sz)
 			# quadros intermediários (x4): posição contínua dentro da animação
@@ -1808,6 +1852,14 @@ func _player_draw(g: Game) -> void:
 				src3 = Spr.x4_src(m4, q4[0])
 				src4 = Spr.x4_src(m4, q4[1])
 				k4 = smoothstep(.5, 1.0, q4[2]) * .5 if q4[1] != q4[0] else 0.0
+			# peso: sobe-e-desce da passada (baixo no apoio), lanterna e pompom nas molas, meia-volta na grade
+			var bob3: float = _gait_bob(p, key, fp) if p.onGround else 0.0
+			_mg_springs(g, p, bob3)
+			_mg_setup(sz, sz, _mg_anchor(key, fp) if fp >= 0.0 else [], bob3, 82.0)
+			_turn_mg(p, tst)
+			# a sombra respira com o passo: mais larga e escura no apoio
+			var bn: float = bob3 / 8.0
+			Polish.shadow(cx, by + 1, 16 * air3 * (1.0 + .07 * bn), 4 * air3, .25 * air3 * (1.0 + .15 * bn))
 			# na parede: o corpo afasta um palmo (só a mão encosta) e inclina para fora, tremendo com o atrito
 			var cx3: float = cx + p.face * 8.0 * wk
 			var rot3: float = p.lean + (p.face * .1 + sin(T * 1.1) * .012) * wk + p.face * (1.0 - dk3) * .35
@@ -1835,14 +1887,16 @@ func _player_draw(g: Game) -> void:
 			Spr.translate(cx3, by)
 			Spr.rotate(rot3)
 			Spr.scale(sx3, sy3)
-			Spr.ci.draw_texture_rect_region(tx3, dst3, src3, Color(1, 1, 1, Spr.alpha))
+			_mg_prep(dst3)
+			_mg_layer(tx3, src3, Spr.alpha)
 			if not m4.is_empty():
 				if k4 > .02:
-					Spr.ci.draw_texture_rect_region(tx3, dst3, src4, Color(1, 1, 1, Spr.alpha * k4))
+					_mg_layer(tx3, src4, Spr.alpha * k4)
 			elif fnext >= 0 and fmix > .2:
 				# mistura com o próximo quadro: o passo fica contínuo (sem "pulos" entre quadros)
-				Spr.ci.draw_texture_rect_region(a.tex, dst3, Rect2(fnext * sz, 0, sz, sz), Color(1, 1, 1, Spr.alpha * smoothstep(.2, 1.0, fmix) * .55))
+				_mg_layer(a.tex, Rect2(fnext * sz, 0, sz, sz), Spr.alpha * smoothstep(.2, 1.0, fmix) * .55)
 			Spr.restore()
+			_turn_other(p, tst, tx3, src3, dst3, cx3, by, rot3, sx3, sy3)
 			_armor(p, cx, by)
 			return
 	# folhas de sprites antigas (parado, andar, pulo, planar, mergulho)
@@ -1896,13 +1950,17 @@ func _player_draw(g: Game) -> void:
 	var pant: float = p.get("pant", 0) / 150.0
 	if pant > 0 and fr == 0 and tex == pai:
 		idle = sin(T * .32) * .05 * pant - .02 * pant
-	var tu0: float = p.turnT / 6.0 if p.turnT > 0 else 0.0
 	var rim2 := _rim(g, p)
 	_body_flex(p, "old", fr, 4)
 	var rot0: float = p.lean + (p.face * .06 * pant if (pant > 0 and fr == 0 and tex == pai) else 0.0) + p.face * (1.0 - float(p.get("duck", 1.0))) * .35
 	var dk0: float = float(p.get("duck", 1.0))
-	var sx0: float = p.face * sc * (1 + sq * .25) * (1.0 + .07 * tu0) * (1.0 + (1.0 - dk0) * .3)
-	var sy0: float = sc * (1 - sq * .3 + idle) * (1.0 - .06 * tu0) * dk0
+	# meia-volta com volume (como nas animações novas): estreita girando e abre do outro lado
+	var sx0: float = float(tst[0]) * sc * (1 + sq * .25) * float(tst[1]) * (1.0 + (1.0 - dk0) * .3)
+	var sy0: float = sc * (1 - sq * .3 + idle) * (1.0 - .05 * sin(PI * float(tst[2]))) * dk0
+	# parado: lanterna e pompom continuam nas molas (balançam depois de parar ou virar)
+	_mg_springs(g, p, 0.0)
+	_mg_setup(170.0, 160.0, _mg_anchor("pai", 0.0) if (tex == pai and fr == 0 and om.is_empty()) else [], 0.0, 52.0)
+	_turn_mg(p, tst)
 	_pose("old%d_%d" % [tex.get_instance_id(), fr], otex, osrc, Rect2(-85, -156, 170, 160), cx, by, rot0, sx0, sy0)
 	# J10 mergulho: borrão vertical acima do corpo
 	if p.slam and p.vy > 6 and not g.low_fx:
@@ -1924,13 +1982,343 @@ func _player_draw(g: Game) -> void:
 		else:
 			if tex == pai and (abs(p.vx) > 2.2 or not p.onGround):
 				_scarf(p)
-			Spr.ci.draw_texture_rect_region(otex, Rect2(-85, -156, 170, 160), osrc, Color(1, 1, 1, Spr.alpha))
-			if tex == pai and fr == 0:
+			_mg_prep(Rect2(-85, -156, 170, 160))
+			_mg_layer(otex, osrc, Spr.alpha)
+			if tex == pai and fr == 0 and float(tst[2]) >= 1.0:
 				_blink(p)
 		Spr.restore()
+	_turn_other(p, tst, otex, osrc, Rect2(-85, -156, 170, 160), cx, by, rot0, sx0, sy0)
 	_armor(p, cx, by)
 	if not p.onGround and not p.vine and not p.ladder and p.airJumps > 0:
 		Spr.ring(cx, by + 7, 4, Color(.92, .88, .76, .55), 1.5)
+
+# ---------- o Tomé de "borracha": o quadro pintado desenhado numa grade que dobra ----------
+## Em vez de só esticar o quadro inteiro (cara de boneco de papel), o desenho vai numa grade de triângulos
+## e cada ponto pode andar um pouco: a lanterna balança presa na mão, o pompom do gorro sacode com atraso,
+## o corpo desce no apoio do passo sem tirar o pé do chão, na meia-volta o alto do corpo atrasa e os pés
+## adiantam, as pernas batem no nado; e o lado que gira para longe escurece (sombra da rotação).
+const MG_C := 16
+const MG_R := 16
+const TURN_N := 7      # passos da meia-volta (rápida: a física vira na hora, só o desenho gira)
+## pontos de cada quadro (em pixels do quadro pintado): mão que segura a lanterna (x, y), centro da lanterna (x, y)
+## e o pompom do gorro (x, y) — medidos nas folhas assets/sprites/tome/*.png e pai.png (quadro 0)
+const MG_PTS := {
+	"walk": [[201, 110, 201, 150, 73, 56], [200, 110, 200, 150, 75, 56], [197, 108, 197, 148, 77, 56], [200, 112, 200, 152, 75, 56], [199, 106, 199, 146, 75, 56], [187, 118, 187, 158, 85, 52], [188, 105, 188, 145, 83, 55], [198, 108, 198, 148, 78, 56]],
+	"run": [[200, 114, 200, 154, 75, 62], [200, 114, 200, 154, 76, 62], [200, 120, 200, 160, 76, 62], [198, 116, 198, 156, 75, 62], [197, 109, 197, 149, 76, 62], [183, 113, 183, 153, 90, 57], [188, 110, 188, 150, 84, 61], [196, 110, 196, 150, 80, 61]],
+	"jump": [[204, 92, 204, 132, 68, 52], [194, 114, 194, 154, 64, 49], [197, 84, 197, 124, 68, 42]],
+	"fall": [[197, 84, 197, 124, 68, 42], [185, 86, 185, 126, 85, 14]],
+	"land": [[188, 123, 188, 163, 75, 63], [196, 119, 196, 159, 68, 64], [189, 100, 189, 140, 66, 60]],
+	"pai": [[138, 64, 138, 90, 54, 30]],
+}
+var _mg_idx := PackedInt32Array()
+var _mg_fr := PackedVector2Array()      # posição de cada ponto da grade (0..1 no quadro)
+var _mg_pts := PackedVector2Array()
+var _mg_csh: Array[Color] = []          # cor de cada coluna (sombra da rotação)
+var _mg_shade := false
+var _mg_flat := true
+var _mg_dst := Rect2()
+var _mg_uvc := {}                         # coordenadas de textura já calculadas, por quadro
+var _mg_col := PackedColorArray()
+## deformação do desenho atual (preenchida antes de desenhar; em pixels do quadro pintado)
+var MG := {}
+## molas (no espaço do desenho virado para a frente): lanterna (ângulo) e pompom (deslocamento)
+var _lan_a := 0.0
+var _lan_v := 0.0
+var _pom := Vector2.ZERO
+var _pom_v := Vector2.ZERO
+var _sp_vx := 0.0
+var _sp_vy := 0.0
+var _sp_bob := 0.0
+var _sp_bobv := 0.0
+var _sp_tick := -1
+var _mg_face := 1.0     # para que lado o desenho está virado (troca no meio da meia-volta)
+var _light_k := 1.0     # lado da luz no corpo: 1/-1 virado, perto de 0 no meio da meia-volta
+
+func _mg_init() -> void:
+	if not _mg_idx.is_empty():
+		return
+	for j in MG_R + 1:
+		for i in MG_C + 1:
+			_mg_fr.push_back(Vector2(float(i) / MG_C, float(j) / MG_R))
+	for j in MG_R:
+		for i in MG_C:
+			var a: int = j * (MG_C + 1) + i
+			_mg_idx.append_array([a, a + 1, a + MG_C + 2, a, a + MG_C + 2, a + MG_C + 1])
+	var nv: int = (MG_C + 1) * (MG_R + 1)
+	_mg_pts.resize(nv)
+	_mg_csh.resize(MG_C + 1)
+	_mg_col.resize(nv)
+
+## pontos de lanterna/pompom no quadro (mistura entre dois quadros pintados para os intermediários)
+func _mg_anchor(key: String, fpos: float) -> Array:
+	var tb: Array = MG_PTS.get(key, [])
+	if tb.is_empty():
+		return []
+	var n: int = tb.size()
+	var cyc: bool = key == "walk" or key == "run"
+	var f0: int = posmod(int(floor(fpos)), n) if cyc else clampi(int(floor(fpos)), 0, n - 1)
+	var f1: int = (f0 + 1) % n if cyc else mini(f0 + 1, n - 1)
+	var u: float = fpos - floor(fpos)
+	var a: Array = tb[f0]
+	var b: Array = tb[f1]
+	var out: Array = []
+	for k in 6:
+		out.append(lerpf(float(a[k]), float(b[k]), u))
+	return out
+
+## prepara a deformação para um quadro de fw x fh pixels
+func _mg_setup(fw: float, fh: float, anc: Array, bob: float, hip: float) -> void:
+	MG = {"fw": fw, "fh": fh, "bob": bob, "hip": hip, "tl": 0.0, "tf": 0.0, "sh": 0.0, "kick": 0.0, "kph": 0.0, "la": 0.0, "pd": Vector2.ZERO}
+	var k: float = fw / 256.0
+	if anc.size() == 6:
+		MG.lpx = anc[0]
+		MG.lpy = anc[1]
+		MG.lcx = anc[2]
+		MG.lcy = anc[3]
+		MG.lrx = 21.0 * k
+		MG.lry = 36.0 * k
+		MG.la = _lan_a
+		MG.pmx = anc[4]
+		MG.pmy = anc[5]
+		MG.pd = _pom * k
+
+## calcula a grade deformada no retângulo dst (uma vez por desenho; as camadas reaproveitam).
+## Feito para ser barato no celular: o que depende só da altura (passo, meia-volta, pernas no nado) é
+## calculado uma vez por linha; lanterna e pompom só mexem nos pontos dentro da caixinha deles.
+func _mg_prep(dst: Rect2) -> void:
+	_mg_init()
+	var fw: float = MG.fw
+	var fh: float = MG.fh
+	var kx: float = dst.size.x / fw
+	var ky: float = dst.size.y / fh
+	var ox: float = dst.position.x
+	var oy: float = dst.position.y
+	var bob: float = MG.bob
+	var hip: float = MG.hip
+	var tl: float = MG.tl
+	var tf: float = MG.tf
+	var kick: float = MG.kick
+	var kph: float = MG.kph
+	var hy: float = fh - hip
+	var c1: int = MG_C + 1
+	var cw: float = fw / MG_C
+	var rh: float = fh / MG_R
+	var flat := true
+	for j in MG_R + 1:
+		var y: float = j * rh
+		var hgt: float = fh - y
+		var dx := 0.0
+		var dy := 0.0
+		# passo: o corpo desce no apoio e sobe na passagem, com o pé preso no chão (as pernas dobram)
+		if bob != 0.0:
+			dy += bob * smoothstep(fh * .03, hip, hgt)
+		# meia-volta: o alto (gorro, barba, lanterna) atrasa, os pés dão o passinho para o lado novo
+		if tl != 0.0 or tf != 0.0:
+			var u: float = clamp(hgt / fh, 0.0, 1.0)
+			var lo: float = 1.0 - u
+			dx += tl * u * u + tf * lo * lo * lo
+		# nado: as pernas batem (uma onda descendo da cintura até os pés)
+		if kick != 0.0 and y > hy:
+			dx += kick * smoothstep(hy, hy + hip * .6, y) * sin(kph - (y - hy) * .07)
+		if dx != 0.0 or dy != 0.0:
+			flat = false
+		var py: float = oy + (y + dy) * ky
+		var b: int = j * c1
+		for i in c1:
+			_mg_pts[b + i] = Vector2(ox + (i * cw + dx) * kx, py)
+	# lanterna: gira presa na mão (só os pontos em volta dela)
+	var la: float = MG.la
+	if abs(la) > .002:
+		flat = false
+		var lcx: float = MG.lcx
+		var lcy: float = MG.lcy
+		var lrx: float = MG.lrx
+		var lry: float = MG.lry
+		var lpx: float = MG.lpx
+		var lpy: float = MG.lpy
+		var c: float = cos(la)
+		var s: float = sin(la)
+		var i0: int = maxi(0, int(floor((lcx - lrx * 1.5) / cw)))
+		var i1: int = mini(MG_C, int(ceil((lcx + lrx * 1.5) / cw)))
+		var j0: int = maxi(0, int(floor(max(lcy - lry * 1.5, lpy - 6.0) / rh)))
+		var j1: int = mini(MG_R, int(ceil((lcy + lry * 1.5) / rh)))
+		for j in range(j0, j1 + 1):
+			var y: float = j * rh
+			var wy: float = smoothstep(lpy - 6.0, lpy + 8.0, y)
+			if wy <= 0.0:
+				continue
+			var ly: float = (y - lcy) / lry
+			var ry: float = y - lpy
+			for i in range(i0, i1 + 1):
+				var x: float = i * cw
+				var lx: float = (x - lcx) / lrx
+				var r: float = sqrt(lx * lx + ly * ly)
+				if r >= 1.5:
+					continue
+				var w: float = (1.0 - smoothstep(1.0, 1.5, r)) * wy
+				var rx: float = x - lpx
+				_mg_pts[j * c1 + i] += Vector2((rx * c - ry * s - rx) * w * kx, (rx * s + ry * c - ry) * w * ky)
+	# pompom: sacode com atraso (a ponta do gorro estica junto)
+	var pd: Vector2 = MG.pd
+	if pd.length_squared() > .01:
+		flat = false
+		var k2: float = fw / 256.0
+		var pmx: float = MG.pmx
+		var pmy: float = MG.pmy
+		var rr: float = 30.0 * k2
+		var i0: int = maxi(0, int(floor((pmx - rr) / cw)))
+		var i1: int = mini(MG_C, int(ceil((pmx + rr) / cw)))
+		var j0: int = maxi(0, int(floor((pmy - rr) / rh)))
+		var j1: int = mini(MG_R, int(ceil((pmy + rr) / rh)))
+		var pk := Vector2(pd.x * kx, pd.y * ky)
+		for j in range(j0, j1 + 1):
+			for i in range(i0, i1 + 1):
+				var pr: float = Vector2(i * cw - pmx, j * rh - pmy).length()
+				if pr < rr:
+					_mg_pts[j * c1 + i] += pk * (1.0 - smoothstep(7.0 * k2, rr, pr))
+	# sombra da rotação: o lado de trás (que está indo para longe) escurece, mais na borda (por coluna)
+	var sh: float = MG.sh
+	_mg_shade = sh > .01
+	if _mg_shade:
+		flat = false
+		for i in c1:
+			var v: float = sh * clamp((fw * .52 - i * cw) / (fw * .34), 0.0, 1.0)
+			_mg_csh[i] = Color(1.0 - .42 * v, 1.0 - .4 * v, 1.0 - .28 * v, 1.0)
+	_mg_flat = flat
+	_mg_dst = dst
+
+## desenha uma camada (quadro src da textura) na grade preparada
+func _mg_layer(tex: Texture2D, src: Rect2, a: float) -> void:
+	if _mg_flat:
+		# nada dobrando agora (parado, molas em repouso): desenho simples
+		Spr.ci.draw_texture_rect_region(tex, _mg_dst, src, Color(1, 1, 1, a))
+		return
+	# coordenadas de textura de cada quadro guardadas (os ciclos repetem os mesmos quadros)
+	var key := Vector4(src.position.x, src.position.y, src.size.x, float(tex.get_instance_id() % 1000003))
+	var uv: PackedVector2Array = _mg_uvc.get(key, PackedVector2Array())
+	if uv.is_empty():
+		if _mg_uvc.size() > 600:
+			_mg_uvc.clear()
+		var ts: Vector2 = tex.get_size()
+		uv.resize(_mg_fr.size())
+		for i in _mg_fr.size():
+			var q: Vector2 = _mg_fr[i]
+			uv[i] = Vector2((src.position.x + q.x * src.size.x) / ts.x, (src.position.y + q.y * src.size.y) / ts.y)
+		_mg_uvc[key] = uv
+	if _mg_shade:
+		var c1: int = MG_C + 1
+		for j in MG_R + 1:
+			var b: int = j * c1
+			for i in c1:
+				var cc: Color = _mg_csh[i]
+				cc.a = a
+				_mg_col[b + i] = cc
+	else:
+		_mg_col.fill(Color(1, 1, 1, a))
+	RenderingServer.canvas_item_add_triangle_array(Spr.ci.get_canvas_item(), _mg_idx, _mg_pts, _mg_col, uv, PackedInt32Array(), PackedFloat32Array(), tex.get_rid())
+
+## molas da lanterna, do pompom e do sobe-e-desce (uma vez por passo da lógica)
+func _mg_springs(g: Game, p: Dictionary, bob: float) -> void:
+	if _sp_tick == T:
+		return
+	# passos da lógica desde a última vez (a tela pode desenhar só a cada 2 passos)
+	var steps: int = T - _sp_tick
+	_sp_tick = T
+	var ax: float = p.vx - _sp_vx
+	var ay: float = p.vy - _sp_vy
+	_sp_vx = p.vx
+	_sp_vy = p.vy
+	var bv: float = bob - _sp_bob
+	_sp_bob = bob
+	if steps <= 0 or steps > 4 or abs(ax) > 4.0 * steps or abs(ay) > 14.0 * steps:
+		# voltou de pausa/teleporte: sem solavanco
+		_sp_bobv = 0.0
+		return
+	ax /= steps
+	ay /= steps
+	bv /= steps
+	var ba: float = bv - _sp_bobv
+	_sp_bobv = bv
+	var axl: float = ax * _mg_face
+	var gait: float = float(p.get("gait", 0.0))
+	var drive: float = 0.0
+	if p.onGround and abs(p.vx) > .5:
+		drive = sin(gait * PI) * .006 * clamp(abs(p.vx) / 4.3, 0.0, 1.4)
+	var acc := Vector2(axl * 2.6, ay * 1.6 + ba * 1.0)
+	for i in steps:
+		# lanterna: pêndulo (fica para trás na arrancada, vai para a frente na freada); o passo dá um embalo
+		_lan_v += -.034 * _lan_a - .085 * _lan_v + axl * .032 + drive - ba * .002
+		if p.swim:
+			_lan_v *= .9
+		_lan_a = clamp(_lan_a + _lan_v, -.75, .75)
+		# pompom: mola em duas direções (para trás na arrancada, para baixo ao pousar e no apoio do passo)
+		_pom_v += -_pom * .11 - _pom_v * .16 - acc * .5
+		_pom = (_pom + _pom_v).limit_length(16.0)
+
+## a meia-volta: [lado desenhado, largura (1 = normal), progresso 0..1 (1 = sem virada)]
+func _turn_state(g: Game, p: Dictionary) -> Array:
+	var tt: int = int(p.get("turnT", 0))
+	if tt <= 0:
+		return [1.0 if p.face > 0 else -1.0, 1.0, 1.0]
+	var u: float = clamp((TURN_N - tt - 1 + g.ifrac()) / float(TURN_N - 1), 0.0, 1.0)
+	var fr: float = float(p.get("tfrom", -p.face))
+	var df: float = fr if u < .5 else (1.0 if p.face > 0 else -1.0)
+	# gira em torno do eixo do corpo: estreita até a metade (sem ficar fino como papel: o corpo tem
+	# grossura) e abre do outro lado
+	var wf: float = .45 + .55 * abs(cos(PI * u))
+	return [df, wf, u]
+
+## no meio da meia-volta o outro lado aparece por cima, sumindo (o corpo de frente, sem "estalo" ao espelhar)
+func _turn_cross(ts: Array) -> float:
+	var u: float = ts[2]
+	if u >= 1.0:
+		return 0.0
+	return .6 * (1.0 - smoothstep(0.0, .14, abs(u - .5)))
+
+## liga a meia-volta na deformação (alto atrasa, pés adiantam, lado de trás escurece)
+func _turn_mg(p: Dictionary, ts: Array) -> void:
+	var u: float = ts[2]
+	if u >= 1.0:
+		return
+	var s: float = sin(PI * u)
+	var fr: float = float(p.get("tfrom", -p.face))
+	var df: float = ts[0]
+	var nf: float = 1.0 if p.face > 0 else -1.0
+	var k: float = MG.fw / 256.0
+	MG.tl = fr * df * 20.0 * k * s
+	MG.tf = nf * df * 12.0 * k * s
+	MG.sh = s * .75
+
+## o outro lado por cima no meio da meia-volta (mesma grade, espelhada)
+func _turn_other(p: Dictionary, ts: Array, tex: Texture2D, src: Rect2, dst: Rect2, x: float, y: float, rot: float, sx: float, sy: float) -> void:
+	var a: float = _turn_cross(ts)
+	if a <= .02:
+		return
+	_turn_mg(p, [-float(ts[0]), ts[1], ts[2]])
+	_mg_prep(dst)
+	Spr.save()
+	Spr.translate(x, y)
+	Spr.rotate(rot)
+	Spr.scale(-sx, sy)
+	_mg_layer(tex, src, Spr.alpha * a)
+	Spr.restore()
+
+## troca do lado desenhado: as molas são espelhadas (a lanterna continua para onde ia) e ganham o embalo da volta
+func _mg_flip(df: float) -> void:
+	if df == _mg_face:
+		return
+	_mg_face = df
+	_lan_a = -_lan_a
+	_lan_v = -_lan_v + .07
+	_pom = Vector2(-_pom.x, _pom.y)
+	_pom_v = Vector2(-_pom_v.x + 1.6, _pom_v.y - .6)
+
+## sobe-e-desce da passada (em pixels do quadro de 256; + = para baixo): baixo no apoio, alto na passagem
+func _gait_bob(p: Dictionary, key: String, fp: float) -> float:
+	if key != "walk" and key != "run":
+		return 0.0
+	var amp: float = (8.0 if key == "run" else 5.5) * clamp(abs(p.vx) / 4.3, 0.0, 1.0)
+	return amp * cos(TAU * (fp - .1) / 4.0)
 
 ## corpo vivo: inclinação suave (acompanha a velocidade, sem tranco), esticar no pulo,
 ## sobe-e-desce do passo (sem tirar o pé do chão: estica/encolhe a partir da sola)
@@ -1944,26 +2332,35 @@ func _body_flex(p: Dictionary, key: String, f: int, n: int) -> Vector2:
 			lt = p.vx / 6.6 * .2
 	else:
 		lt = p.vx / 6.6 * .07 + clamp(p.vy / 13.0, -1, 1) * .025 * sign(p.vx)
-	# N3 arrancada: inclina mais enquanto acelera; N7 planando: balança devagar no ar
-	if p.onGround and abs(p.vx) > .5 and abs(p.vx) < 3.0 and (game.kd("L") or game.kd("R")):
-		lt += sign(p.vx) * .035
+	# N7 planando: balança devagar no ar
 	if p.puff:
 		lt += sin(T * .07) * .07 + float(game.AMB.get("wind", 0.0)) * .04
 	# N10 empurrando: corpo jogado para a frente, tremendo de força
 	if p.get("pushT", 0) > 0 and p.onGround:
 		lt += p.face * .1 + sin(T * 1.3) * .012
 	if FRESH:
-		p.lean = lerp(float(p.get("lean", 0.0)), lt, .16)
+		# inclinação com peso (mola): na arrancada o corpo vai para a frente na medida da aceleração;
+		# na freada o corpo continua para a frente (inércia) e volta, passando um tiquinho para trás
+		var acc: float = p.vx - float(p.get("lvx", p.vx))
+		p.lvx = p.vx
+		if abs(acc) > 2.5:
+			acc = 0.0
+		var force: float = 0.0
+		if p.onGround and abs(acc) > .02 and not p.swim:
+			if abs(p.vx) > .3 and sign(acc) == sign(p.vx):
+				force = acc * .016
+			else:
+				force = -acc * .02
+		var lv: float = float(p.get("leanv", 0.0)) * .78 + (lt - float(p.get("lean", 0.0))) * .12 + force
+		p.leanv = lv
+		p.lean = clamp(float(p.get("lean", 0.0)) + lv, -.3, .3)
 	var sy: float = 1.0
 	if not p.onGround and not p.vine and not p.ladder:
 		if p.vy < 0:
 			sy = 1 + clamp(-p.vy / 12.0, 0, 1) * .07
 		else:
 			sy = 1 + clamp((p.vy - 5) / 8.0, 0, 1) * .05
-	elif (key == "walk" or key == "run") and n == 8:
-		# quadros 1-2 e 5-6: perna de apoio esticada (corpo mais alto); 0, 3, 4, 7: pés abertos (mais baixo)
-		var amp: float = clamp(abs(p.vx) / 4.3, 0, 1) * (.022 if key == "run" else .016)
-		sy = 1 + amp * [-1.0, .8, 1.0, -.4, -1.0, .8, 1.0, -.4][f % 8]
+	# (andar/correr: o sobe-e-desce do passo agora é feito na grade do desenho, ver _gait_bob)
 	var st: float = lerp(float(p.get("flex", 1.0)), sy, .35) if FRESH else float(p.get("flex", 1.0))
 	p.flex = st
 	return Vector2(1 - (st - 1) * .8, st)
