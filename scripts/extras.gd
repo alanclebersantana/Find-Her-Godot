@@ -1174,8 +1174,8 @@ func _follow() -> void:
 		DOG.hy = 0.0
 		g.burst(DOG.x, DOG.y - 16, 10, Color("#d8c8a0"))
 		return
-	# brejo: o Pipoca não anda no ar por cima de vitória-régia que afundou ou sumiu. Pula de folha em
-	# folha (ou de volta para a margem) e, se não houver nada ao alcance, senta na beirada e espera
+	# o Pipoca não anda no ar por cima do que já sumiu (vitória-régia que afundou, tábua que caiu): pula
+	# de apoio em apoio (ou volta para a margem) e, se não houver nada ao alcance, senta na beirada e espera
 	if DOG.has("jmp"):
 		_dog_hop_step()
 		return
@@ -1260,28 +1260,26 @@ func _dog_over_swamp(x: float, y: float) -> bool:
 			return true
 	return false
 
-## tem onde pisar em (x, y)? Fora do brejo, sempre (o caminho do Tomé é chão); no brejo, só folha
-## boiando de verdade (não a que está afundando ou que sumiu) ou outro sólido na mesma altura
+## tem onde pisar em (x, y)? O caminho do Tomé só tem pegadas onde ele pisou, mas o que estava lá
+## pode ter sumido depois: vitória-régia que afundou, tábua podre que caiu, galho que quebrou
 func _dog_supported(x: float, y: float) -> bool:
-	if not _dog_over_swamp(x, y):
-		return true
 	for lp in g.LILY:
 		if lp.st == 0 and x >= lp.x - 6 and x <= lp.x + lp.w + 6 and abs(float(lp.y) - y) < 10.0:
 			return true
 	for so in g.blockers():
 		if so.get("lily") or so.get("deco"):
 			continue
-		if x >= so.x - 4 and x <= so.x + so.w + 4 and abs(float(so.y) - y) < 8.0:
+		if x >= so.x - 6 and x <= so.x + so.w + 6 and float(so.y) - y > -4.0 and float(so.y) - y < 10.0:
 			return true
 	return false
 
-## decide o pulo no brejo; true = o passo do Pipoca já foi resolvido aqui
+## decide o pulo quando o caminho passa por onde não tem mais chão; true = o passo já foi resolvido
 func _dog_hop_check(ti: int, far: float, off_screen: bool) -> bool:
 	var nx_i: int = min(DOG.i + 1, TRAIL.size() - 1)
-	var near_water: bool = _dog_over_swamp(DOG.x, DOG.y) or (DOG.i < ti and _dog_over_swamp(TRAIL[nx_i].x, TRAIL[nx_i].y))
-	if not near_water:
-		return false
-	var here_ok: bool = _dog_supported(DOG.x, DOG.y)
+	# (no meio de um trecho, andando ou no arco de um pulo, ele não está em cima de pegada nenhuma:
+	# só confere o chão embaixo quando está parado numa pegada)
+	var at_pt: bool = Vector2(DOG.x, DOG.y).distance_to(TRAIL[DOG.i]) < 1.0
+	var here_ok: bool = not at_pt or _dog_supported(DOG.x, DOG.y)
 	var next_ok: bool = DOG.i >= ti or _dog_supported(TRAIL[nx_i].x, TRAIL[nx_i].y)
 	if here_ok and next_ok:
 		return false
@@ -1295,7 +1293,7 @@ func _dog_hop_check(ti: int, far: float, off_screen: bool) -> bool:
 			j = k
 			break
 	if j < 0 and not here_ok:
-		# a folha afundou embaixo dele: volta pulando para a última folha (ou margem) que ainda boia
+		# o apoio sumiu embaixo dele: volta pulando para a última pegada (folha, margem) que ainda segura
 		var k2: int = DOG.i
 		while k2 >= 0 and abs(TRAIL[k2].x - DOG.x) <= 210.0:
 			if _dog_supported(TRAIL[k2].x, TRAIL[k2].y) and Vector2(TRAIL[k2]).distance_to(Vector2(DOG.x, DOG.y)) > 6.0:
@@ -1311,7 +1309,7 @@ func _dog_hop_check(ti: int, far: float, off_screen: bool) -> bool:
 		DOG.face = 1 if b.x >= a.x else -1
 		return true
 	if not here_ok:
-		# nada ao alcance (a margem ficou longe): nada até a pegada com apoio mais perto do caminho
+		# nada ao alcance: sai da água (nadando) ou do vão e aparece na pegada firme mais perto do Tomé
 		for k3 in range(TRAIL.size() - 1, -1, -1):
 			if _dog_supported(TRAIL[k3].x, TRAIL[k3].y) and not _dog_over_swamp(TRAIL[k3].x, TRAIL[k3].y):
 				DOG.x = TRAIL[k3].x
