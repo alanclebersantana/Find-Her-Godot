@@ -105,8 +105,9 @@ func __draw_raw() -> void:
 				Spr.seg(gx - 8 * gk, gy, gx + 8 * gk, gy, Color(1, 1, .9, .9 * gk), 1.6)
 				Spr.seg(gx, gy - 8 * gk, gx, gy + 8 * gk, Color(1, 1, .9, .9 * gk), 1.6)
 				Spr.glow(gx, gy, 9, Color(1, 1, .8, .6 * gk))
+	# (objetos fora da tela não são desenhados: antes todos os da fase passavam por aqui a cada quadro)
 	for c in g.CLK:
-		if not c.got:
+		if not c.got and c.x > x0 - 60 and c.x < x1 + 60:
 			if c.ry > 0:
 				Spr.glow(c.x, c.ry - 18, 26, Color(.75, .88, 1, .35 + sin(T * .08) * .15))
 				Spr.ellipse(c.x, c.ry - 1, 12, 3, Color(0, 0, 0, .28))
@@ -114,10 +115,10 @@ func __draw_raw() -> void:
 			else:
 				Spr.A("hourglass", c.x, c.y + 16 + sin(T * .08 + c.x) * 3, .48)
 	for c in g.OIL:
-		if not c.got:
+		if not c.got and c.x > x0 - 60 and c.x < x1 + 60:
 			_oil(c, T, g.lantern_lit)
 	for d in g.DRWS:
-		if not d.got and not d.get("hidden"):
+		if not d.got and not d.get("hidden") and d.x > x0 - 60 and d.x < x1 + 60:
 			Spr.glow(d.x, d.y, 34, Color(1, .94, .78, .45))
 			Spr.save()
 			Spr.translate(d.x, d.y + sin(T * .06) * 3)
@@ -125,17 +126,17 @@ func __draw_raw() -> void:
 			Spr.A("drawing", 0, 0, .6)
 			Spr.restore()
 	for it in g.ITEMS:
-		if it.got:
+		if it.got or it.x < x0 - 60 or it.x > x1 + 60:
 			continue
 		_ground_obj("it_" + it.id, it, .6, Color(1, .94, .74, .5), false)
 	for c in g.CLUES:
-		if c.got:
+		if c.got or c.x < x0 - 60 or c.x > x1 + 60:
 			continue
 		var flat: bool = int(c.id) in [2, 3, 4, 6]
 		var cy: float = _ground_obj("cl_%d" % int(c.id), c, .55, Color(.67, .86, 1, .6), flat)
 		Spr.text("?", c.x + 17, cy - 18 + sin(T * .12) * 2, 15, Color("#e8f4ff"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3)
 	for s in g.SPECS:
-		if s.got:
+		if s.got or s.x < x0 - 60 or s.x > x1 + 60:
 			continue
 		var b4 := sin(T * .09 + s.x) * 4
 		var sy: float = s.y + b4 if s.ry < 0 else s.ry - 22 + b4 * .5
@@ -345,6 +346,8 @@ func __draw_raw() -> void:
 	# moitas (escondem passagens)
 	var p: Dictionary = g.player
 	for bsh in g.BUSH:
+		if bsh.x > x1 + 60 or bsh.x + bsh.w < x0 - 60:
+			continue
 		var near: bool = abs(p.x + p.w / 2 - (bsh.x + bsh.w / 2)) < bsh.w / 2 + 10 and abs(p.y + p.h - (bsh.y + bsh.h)) < bsh.h
 		# a moita treme quando o Tomé passa por dentro e solta folhinhas
 		var wob: float = sin(T * .5) * .04 if (near and abs(p.vx) > .5) else 0.0
@@ -449,7 +452,7 @@ func _extras(g: Game, T: int) -> void:
 		Spr.ci.draw_polyline(pl, Color(1, .97, .8, .95), 3, true)
 		Spr.glow(X.BEAM[X.BEAM.size() - 1].x, X.BEAM[X.BEAM.size() - 1].y, 22, Color(1, .95, .7, .7))
 	for c in X.CRYSTALS:
-		if c.on or c.charge > 0:
+		if (c.on or c.charge > 0) and c.x > g.cam - 120 and c.x < g.cam + g.W + 120:
 			Spr.glow(c.x, c.y, 30 + c.charge * .5, Color(.6, .85, 1, .25 + c.charge / 120.0))
 	# mariposas em volta da lanterna
 	if g.lantern_lit and dark > .35 and not g.player.get("isis"):
@@ -478,7 +481,7 @@ func _extras(g: Game, T: int) -> void:
 	# salas secretas ainda tampadas
 	var mod := Color(1, 1, 1).lerp(Color(.035, .05, .1), clamp(dark, 0, 1) * .97)
 	for sc in X.SECRETS:
-		if sc.a > 0:
+		if sc.a > 0 and sc.x < g.cam + g.W + 20 and sc.x + sc.w > g.cam - 20:
 			Spr.rect(sc.x - 2, sc.y - 2, sc.w + 4, sc.h + 4, Color(.165 * mod.r, .102 * mod.g, .055 * mod.b, sc.a))
 
 ## Carvão em brasa (Vargas) e torrões de terra (toupeira): grandes, brilhando, com sombra no chão.

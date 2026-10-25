@@ -172,6 +172,11 @@ func __draw_raw() -> void:
 
 ## inimigos num nó próprio: ganham o mesmo volume (luz na borda) e a cor do ambiente do Tomé
 func _draw_enemy_node(n: CanvasItem) -> void:
+	var __t := Time.get_ticks_usec()
+	_draw_enemy_node_raw(n)
+	Spr.pt("en", __t)
+
+func _draw_enemy_node_raw(n: CanvasItem) -> void:
 	var g := game
 	if g == null or not g.L:
 		return
@@ -210,11 +215,21 @@ func _draw_enemy_node(n: CanvasItem) -> void:
 			var oa: float = (.35 + .5 * dn) * (.55 + .45 * pul)
 			Spr.glow(e.x, e.y - 14, 46 + 10 * dn, Color(1, .15, .08, .10 + .12 * dn * pul))
 			Spr.sil_c = Color(1, .12, .06, oa)
-			for d in OUT8:
-				Spr.save()
-				Spr.translate(d.x * 2.6, d.y * 2.6)
+			if not e.k in OUT_SHAPES:
+				# o desenho do bicho roda uma vez só, gravando as silhuetas, e a gravação é repetida nos
+				# 8 deslocamentos (antes o desenho inteiro, com toda a sua conta, rodava 8 vezes)
+				Spr.rec = []
 				_enemy(e)
-				Spr.restore()
+				var rr: Array = Spr.rec
+				Spr.rec = null
+				for d in OUT8:
+					Spr.replay(rr, d * 2.6)
+			else:
+				for d in OUT8:
+					Spr.save()
+					Spr.translate(d.x * 2.6, d.y * 2.6)
+					_enemy(e)
+					Spr.restore()
 			Spr.sil_c = Color(0, 0, 0, 0)
 		_enemy(e)
 		if not e.dead:
@@ -361,6 +376,9 @@ var _cat := {}   # juncos: (ângulo, velocidade) da mola de cada um
 
 # ---------- cenário com estado ----------
 var cabins: Array = []
+var _bars: Array = []
+var _bar_n := -1
+var _bar_L = null
 func _deco(g: Game) -> void:
 	var cam := g.cam
 	# fumaça da chaminé da cabana
@@ -413,9 +431,14 @@ func _deco(g: Game) -> void:
 		var xa: float = max(rx0, floor((cam - 10) / 18) * 18)
 		var xb: float = min(rx1, cam + g.W + 10)
 		var x := xa
+		# só os buracos que caem na tela (antes cada dormente olhava todos os buracos da fase)
+		var vpits: Array = []
+		for pit in g.L.get("pits", []):
+			if pit[1] > xa and pit[0] < xb:
+				vpits.append(pit)
 		while x < xb:
 			var over_pit := false
-			for pit in g.L.get("pits", []):
+			for pit in vpits:
 				if x > pit[0] and x < pit[1]:
 					over_pit = true
 			if over_pit:
@@ -470,9 +493,16 @@ func _deco(g: Game) -> void:
 				Spr.AB("mi_door_open", gx, 500 - 221, 230, 221)
 			else:
 				Spr.AB("mi_door_closed", gx + 11, 500 - 207, 210, 207)
-	# portão da comporta e parede escura do túnel
-	for s in g.SOL:
-		if s.t == "barrier":
+	# portão da comporta e parede escura do túnel (lista guardada; refeita quando os sólidos mudam)
+	if _bar_n != g.SOL.size() or not is_same(_bar_L, g.L):
+		_bar_n = g.SOL.size()
+		_bar_L = g.L
+		_bars = []
+		for s in g.SOL:
+			if s.t == "barrier":
+				_bars.append(s)
+	for s in _bars:
+		if s.x < g.cam + g.W + 80 and s.x + 30 > g.cam - 80:
 			Spr.hgrad(s.x - 30, s.y - 20, 50, s.h + 20, Color(0, 0, 0, 0), Color(0, 0, 0, .95))
 
 func _climb(g: Game) -> void:
@@ -492,6 +522,8 @@ func _climb(g: Game) -> void:
 
 func _locks(g: Game) -> void:
 	for l in g.LOCKS:
+		if float(l.x) + float(l.w) < g.cam - 300 or float(l.x) > g.cam + g.W + 300:
+			continue   # fora da tela
 		if l.kind == "hook":
 			Spr.ellipse(l.ring[0] - 15, l.ring[1] + 41, 34, 6, Color(0, 0, 0, .28))
 			Spr.P("rock_ring", l.ring[0] - 15, l.ring[1] + 43, 72)
@@ -712,6 +744,8 @@ func _enemy_fx_under(g: Game, e: Dictionary, eo: Vector2) -> void:
 			e.seen = true
 			e.startT = g.T
 
+## bichos desenhados (em parte) com formas em vez de peças: o contorno deles continua do jeito antigo
+const OUT_SHAPES := {"spider": 1, "mole": 1, "plant": 1}
 const OUT8 := [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1), Vector2(.7, .7), Vector2(-.7, .7), Vector2(.7, -.7), Vector2(-.7, -.7)]
 ## estados em que o bicho começa um ataque (aparece o "!" vermelho antes)
 const ATK := {"crow": [5], "squirrel": [1], "spider": [1], "bat": [1], "owl": [1], "mole": [2]}

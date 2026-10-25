@@ -480,6 +480,11 @@ var _blk: Array = []
 var _blk_key := ""
 var _blk_a := 0.0
 var _blk_b := 0.0
+var _cand: Array = []
+var _cand_a := 0.0
+var _cand_b := 0.0
+var _cand_n := -1
+var _cand_T := -999
 func blockers() -> Array:
 	var px: float = player.get("x", 0.0)
 	var dog: bool = player.get("dog", false)
@@ -491,8 +496,19 @@ func blockers() -> Array:
 	_blk_a = a
 	_blk_b = b0
 	_blk_key = key
+	# candidatos pela posição (janela maior, refeita só quando a tela sai dela, a lista de sólidos muda
+	# ou a cada segundo, por causa do que anda): o filtro de cada passo olha dezenas em vez de centenas
+	if SOL.size() != _cand_n or a < _cand_a or b0 > _cand_b or T - _cand_T > 60 or T < _cand_T:
+		_cand_n = SOL.size()
+		_cand_T = T
+		_cand_a = a - 800.0
+		_cand_b = b0 + 800.0
+		_cand = []
+		for s in SOL:
+			if s.x <= _cand_b and s.x + s.w >= _cand_a:
+				_cand.append(s)
 	var b: Array = []
-	for s in SOL:
+	for s in _cand:
 		if s.x > b0 or s.x + s.w < a:
 			continue
 		if s.get("ghost") and not s.on:
@@ -513,6 +529,28 @@ func blockers() -> Array:
 	_blk = b
 	return b
 
+## só os sólidos em volta do Tomé (uns 300 px): colisão, parede, teto e beirada olham esta lista
+## pequena em vez de todos os sólidos perto da tela, várias vezes por passo
+var _nb: Array = []
+var _nb_src: Array = []
+var _nb_x := 0.0
+var _nb_y := 0.0
+func near_blockers() -> Array:
+	var bl := blockers()
+	var px: float = player.x + player.w * .5
+	var py: float = player.y + player.h * .5
+	if is_same(bl, _nb_src) and abs(px - _nb_x) < 150.0 and abs(py - _nb_y) < 150.0:
+		return _nb
+	_nb_src = bl
+	_nb_x = px
+	_nb_y = py
+	var out: Array = []
+	for s in bl:
+		if s.x < px + 300.0 and s.x + s.w > px - 300.0 and s.y < py + 300.0 and s.y + float(s.get("h", 0.0)) > py - 300.0:
+			out.append(s)
+	_nb = out
+	return out
+
 ## esquece a lista de sólidos (depois de abrir/fechar algo no meio do passo)
 ## lápis entre x0 e x1 (pela grade)
 func coins_near(x0: float, x1: float) -> Array:
@@ -524,6 +562,7 @@ func coins_near(x0: float, x1: float) -> Array:
 
 func blockers_dirty() -> void:
 	_blk_key = ""
+	_cand_n = -1
 	if X:
 		X._blk_cache.clear()
 
@@ -597,7 +636,18 @@ func item_msg(id: String) -> String:
 			return "Ainda falta achar: " + item_name(o).to_lower() + "."
 	return ""
 
+## (o HUD pergunta a cada quadro: guarda a resposta do passo atual)
+var _ht := ""
+var _ht_k := Vector3(-1, 0, 0)
 func hint_text() -> String:
+	var hk := Vector3(T, player.x, player.y)
+	if hk == _ht_k:
+		return _ht
+	_ht = _hint_text()
+	_ht_k = hk
+	return _ht
+
+func _hint_text() -> String:
 	if not tutorial_on():
 		return ""
 	var px: float = player.x + player.w / 2
@@ -638,7 +688,7 @@ func hint_text() -> String:
 
 func touching_wall(dir: int) -> bool:
 	var probe := R(player.x + (player.w if dir > 0 else -3.0), player.y + 6, 3, player.h - 14)
-	for s in blockers():
+	for s in near_blockers():
 		if s.get("oneway") or s.get("crate") or s.get("lily"):
 			continue
 		if hit(probe, s):
@@ -653,7 +703,7 @@ func crouch_h() -> float:
 
 func can_stand() -> bool:
 	var dh: float = body_h() - crouch_h()
-	for s in blockers():
+	for s in near_blockers():
 		if not s.get("oneway") and hit(R(player.x + 1, player.y - dh, player.w - 2, body_h()), s):
 			return false
 	return true
@@ -874,11 +924,25 @@ func sec_param(k: String, def = null):
 			v = sc.get(k, def)
 	return v
 
+const SEC_BG := {"manha": "bosque", "tarde": "tarde", "chuva": "pantano", "noite": "noite", "tunel": "noite", "perseguicao": "noite"}
+var _sw: Dictionary = {}
+var _sw_px := -1e18
+var _sw_L = null
 func section_weights() -> Dictionary:
 	## peso de cada cenário de fundo conforme a posição (para o fundo trocar suavemente)
-	var S: Array = L.get("sections", [])
-	var map := {"manha": "bosque", "tarde": "tarde", "chuva": "pantano", "noite": "noite", "tunel": "noite", "perseguicao": "noite"}
+	## (pedido várias vezes por quadro pelo desenho: guarda o último resultado para a mesma posição;
+	## quem usa só lê o dicionário)
 	var px: float = amb_x()
+	if px == _sw_px and is_same(_sw_L, L):
+		return _sw
+	_sw_px = px
+	_sw_L = L
+	_sw = _section_weights(px)
+	return _sw
+
+func _section_weights(px: float) -> Dictionary:
+	var S: Array = L.get("sections", [])
+	var map: Dictionary = SEC_BG
 	var out := {}
 	if S.is_empty():
 		return {"bosque": 1.0}
@@ -1441,7 +1505,7 @@ func step() -> void:
 	_p1_post(pcx, pcy)
 	Spr.pt("s_post", __m); __m = Time.get_ticks_usec()
 	for d in DRWS:
-		if not d.got and not d.get("hidden") and hit(player, R(d.x - 22, d.y - 22, 44, 44)):
+		if not d.got and not d.get("hidden") and abs(d.x - pcx) < 80 and hit(player, R(d.x - 22, d.y - 22, 44, 44)):
 			d.got = true
 			DRAWN["%d:%d" % [level_idx, d.i]] = 1
 			Save.setv("gallery", "d%d" % int(d.i), true)
@@ -1540,17 +1604,26 @@ func step() -> void:
 		save_checkpoint(k)
 	Spr.pt("s_items", __m); __m = Time.get_ticks_usec()
 	# inimigos
+	var camc: float = cam + W * .5
 	for e in EN:
 		if e.dead:
-			e.dead += 1
-			if e.get("dk") == "flip":
-				e.ddy += e.dvy
-				e.dvy += .45
-				# X1 voa girando para longe do golpe
-				e.ddx = float(e.get("ddx", 0.0)) + float(e.get("dvx", 0.0))
+			# (depois de sumir de vez não precisa mais contar nem cair)
+			if e.dead < 400:
+				e.dead += 1
+				if e.get("dk") == "flip":
+					e.ddy += e.dvy
+					e.dvy += .45
+					# X1 voa girando para longe do golpe
+					e.ddx = float(e.get("ddx", 0.0)) + float(e.get("dvx", 0.0))
+			continue
+		# bem longe da tela e do Tomé: espera parado (não aparece; a fase tem muitos bichos)
+		if abs(e.x - camc) > 1700.0 and abs(e.x - pcm.x) > 1700.0:
 			continue
 		update_enemy(e)
 		if e.dead:
+			continue
+		# longe do Tomé: nem monta a caixa de colisão (as maiores alcançam uns 120 px)
+		if abs(e.x - pcm.x) > 260 or abs(e.y - pcm.y) > 360:
 			continue
 		var b := ebox(e)
 		if hit(player, b):
@@ -2142,7 +2215,7 @@ func _warp_end() -> void:
 # ======================================================================
 func move_x(dx: float) -> void:
 	player.x += dx
-	for s in blockers():
+	for s in near_blockers():
 		if s.get("oneway") or not hit(player, s):
 			continue
 		if s.get("crate") and dx != 0 and M.try_push(s, dx):
@@ -2243,7 +2316,7 @@ func _auto_safe() -> void:
 func _ceil_gap() -> float:
 	var top: float = player.y
 	var best := 99.0
-	for s in blockers():
+	for s in near_blockers():
 		if s.get("oneway"):
 			continue
 		if s.x >= player.x + player.w - 3 or s.x + s.w <= player.x + 3:
@@ -2260,7 +2333,7 @@ func _ground_near() -> bool:
 	var feet: float = player.y + player.h
 	var reach: float = player.vy + GRAV * 1.1 + 1.0
 	var r := R(player.x + 2, feet, player.w - 4, reach)
-	for s in blockers():
+	for s in near_blockers():
 		if s.get("oneway") and (s.y < feet - 1 or player.dropT > 0):
 			continue
 		if s.get("crate") and s.get("t") == "break":
@@ -2272,7 +2345,7 @@ func _ground_near() -> bool:
 ## cabe o Tomé em pé em (x, y)? (para subir numa beirada)
 func _ledge_free(x: float, y: float) -> bool:
 	var r := R(x, y - 2, player.w, player.h)
-	for o in blockers():
+	for o in near_blockers():
 		if o.get("oneway"):
 			continue
 		if hit(r, o):
@@ -2307,7 +2380,7 @@ func move_y(dy: float) -> void:
 	var prev_feet: float = player.y + player.h
 	player.y += dy
 	player._g = null
-	for s in blockers():
+	for s in near_blockers():
 		if not hit(player, s):
 			continue
 		if s.get("oneway"):
@@ -2547,12 +2620,12 @@ func _p1_post(pcx: float, _pcy: float) -> void:
 			return
 	# itens, pistas, lápis especiais
 	for it in ITEMS:
-		if not it.got and hit(player, R(it.x - 20, it.y - 20, 40, 40)):
+		if not it.got and abs(it.x - pcx) < 80 and hit(player, R(it.x - 20, it.y - 20, 40, 40)):
 			it.got = true
 			give_item(it.id)
 			burst(it.x, it.y, 18, Color("#ffe9a0"))
 	for c in CLUES:
-		if not c.got and hit(player, R(c.x - 20, c.y - 20, 40, 40)):
+		if not c.got and abs(c.x - pcx) < 80 and hit(player, R(c.x - 20, c.y - 20, 40, 40)):
 			c.got = true
 			CLUEGOT[int(c.id)] = 1
 			Save.setv("gallery", "c%d" % int(c.id), true)
@@ -2561,7 +2634,7 @@ func _p1_post(pcx: float, _pcy: float) -> void:
 			clue_opened.emit(int(c.id))
 			Polish.celebrate(player.x + player.w / 2, player.y + 10)
 	for s in SPECS:
-		if not s.got and hit(player, R(s.x - 20, s.y - 22, 40, 44)):
+		if not s.got and abs(s.x - pcx) < 80 and hit(player, R(s.x - 20, s.y - 22, 40, 44)):
 			s.got = true
 			SPECGOT[s.c] = 1
 			Audio.play("special")
@@ -2762,9 +2835,14 @@ func near_crank():
 
 ## a porta (sólido) ligada a uma manivela
 func crank_gate(c: Dictionary):
+	# guarda a porta achada (procurar nos centenas de sólidos a cada passo pesava)
+	var cg = c.get("_gate")
+	if cg != null and (T % 120 != 0 or SOL.has(cg)):
+		return cg
 	var gid: String = c.get("gate", "")
 	for s in SOL:
 		if s.get("id", "") == gid:
+			c._gate = s
 			return s
 	return null
 
@@ -2860,9 +2938,12 @@ func chase_on() -> bool:
 	return player.x > float(L.villain.trig) - 200.0 and not VIL.get("gone", false)
 
 func _fuel_step() -> void:
+	var pcx0: float = player.x + player.w / 2
 	for c in OIL:
+		if c.got or abs(c.x - pcx0) > 60:
+			continue
 		var cyy: float = c.ry - 16 if c.ry > 0 else c.y
-		if not c.got and hit(player, R(c.x - 20, cyy - 22, 40, 44)):
+		if hit(player, R(c.x - 20, cyy - 22, 40, 44)):
 			c.got = true
 			FUEL = min(1.0, FUEL + .42)
 			Audio.play("pen")

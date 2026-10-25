@@ -15,6 +15,35 @@ var stack: Array[Transform2D] = []
 var alpha := 1.0
 ## quando tem alfa, as peças (A, frame, novo) saem em silhueta dessa cor (clarão branco do golpe)
 var sil_c := Color(0, 0, 0, 0)
+## gravação das silhuetas (contorno dos inimigos): com rec = [], os desenhos em silhueta são guardados
+## em vez de desenhados; replay() repete a lista deslocada (a lógica do desenho roda 1 vez, não 8)
+var rec = null
+
+## silhueta de um retângulo de textura: desenha já ou grava
+func _sdr(t: Texture2D, dst: Rect2, src: Rect2, c: Color) -> void:
+	if rec != null:
+		rec.append([M, t, dst, src, c])
+	else:
+		ci.draw_texture_rect_region(t, dst, src, c)
+
+## silhueta de um polígono com textura: desenha já ou grava
+func _spoly(pts: PackedVector2Array, c: Color, uvs: PackedVector2Array, t: Texture2D) -> void:
+	if rec != null:
+		rec.append([M, t, pts, uvs, c])
+	else:
+		ci.draw_polygon(pts, PackedColorArray([c, c, c, c]), uvs, t)
+
+## desenha de novo o que foi gravado, deslocado de off (no espaço da tela de quem chamou)
+func replay(r: Array, off: Vector2) -> void:
+	var tr := Transform2D(0.0, off)
+	for op in r:
+		ci.draw_set_transform_matrix(tr * op[0])
+		if op[2] is Rect2:
+			ci.draw_texture_rect_region(op[1], op[2], op[3], op[4])
+		else:
+			var c: Color = op[4]
+			ci.draw_polygon(op[2], PackedColorArray([c, c, c, c]), op[3], op[1])
+	ci.draw_set_transform_matrix(M)
 var astack: Array[float] = []
 var glow_tex: Texture2D
 var font: Font
@@ -164,6 +193,9 @@ func P(n: String, cx: float, by: float, w: float, flip: bool = false, lean: floa
 		col = Color(sil_c.r, sil_c.g, sil_c.b, sil_c.a * alpha * c.a)
 	var pts := PackedVector2Array([Vector2(cx - w / 2 + lean, by - h), Vector2(cx + w / 2 + lean, by - h), Vector2(cx + w / 2, by), Vector2(cx - w / 2, by)])
 	var uvs := PackedVector2Array([Vector2(u0, v0), Vector2(u1, v0), Vector2(u1, v1), Vector2(u0, v1)])
+	if sil_c.a > 0:
+		_spoly(pts, col, uvs, t)
+		return
 	ci.draw_polygon(pts, PackedColorArray([col, col, col, col]), uvs, t)
 
 ## peça pintada esticada num retângulo (x, y, w, h)
@@ -183,8 +215,14 @@ func PR(n: String, x: float, y: float, w: float, h: float, c: Color = Color.WHIT
 		var u1: float = (r[0] + r[2]) / ts.x
 		var v0: float = r[1] / ts.y
 		var v1: float = (r[1] + r[3]) / ts.y
-		ci.draw_polygon(PackedVector2Array([Vector2(x, y), Vector2(x + w, y), Vector2(x + w, y + h), Vector2(x, y + h)]),
-			PackedColorArray([col, col, col, col]), PackedVector2Array([Vector2(u1, v0), Vector2(u0, v0), Vector2(u0, v1), Vector2(u1, v1)]), t)
+		var fpts := PackedVector2Array([Vector2(x, y), Vector2(x + w, y), Vector2(x + w, y + h), Vector2(x, y + h)])
+		var fuvs := PackedVector2Array([Vector2(u1, v0), Vector2(u0, v0), Vector2(u0, v1), Vector2(u1, v1)])
+		if sil_c.a > 0:
+			_spoly(fpts, col, fuvs, t)
+		else:
+			ci.draw_polygon(fpts, PackedColorArray([col, col, col, col]), fuvs, t)
+	elif sil_c.a > 0:
+		_sdr(st, Rect2(x, y, w, h), Rect2(r[0], r[1], r[2], r[3]), col)
 	else:
 		ci.draw_texture_rect_region(st, Rect2(x, y, w, h), Rect2(r[0], r[1], r[2], r[3]), col)
 
@@ -266,7 +304,7 @@ func A(n: String, x: float, y: float, sc: float = 1.0, flip: bool = false, al: f
 	translate(x, y)
 	scale(-sc if flip else sc, sc)
 	if sil_c.a > 0:
-		ci.draw_texture_rect_region(sil(atlas_tex(r)), Rect2(-r[4], -r[5], r[2], r[3]), Rect2(r[0], r[1], r[2], r[3]), Color(sil_c.r, sil_c.g, sil_c.b, sil_c.a * alpha * al))
+		_sdr(sil(atlas_tex(r)), Rect2(-r[4], -r[5], r[2], r[3]), Rect2(r[0], r[1], r[2], r[3]), Color(sil_c.r, sil_c.g, sil_c.b, sil_c.a * alpha * al))
 	else:
 		ci.draw_texture_rect_region(atlas_tex(r), Rect2(-r[4], -r[5], r[2], r[3]), Rect2(r[0], r[1], r[2], r[3]), Color(1, 1, 1, alpha * al))
 	restore()
@@ -366,7 +404,7 @@ func img(t: Texture2D, x: float, y: float, w: float, h: float, src: Rect2 = Rect
 ## textura inteira num retângulo (respeita a silhueta de contorno sil_c)
 func trect(t: Texture2D, r: Rect2) -> void:
 	if sil_c.a > 0:
-		ci.draw_texture_rect(sil(t), r, false, Color(sil_c.r, sil_c.g, sil_c.b, sil_c.a * alpha))
+		_sdr(sil(t), r, Rect2(Vector2.ZERO, t.get_size()), Color(sil_c.r, sil_c.g, sil_c.b, sil_c.a * alpha))
 	else:
 		ci.draw_texture_rect(t, r, false, Color(1, 1, 1, alpha))
 
@@ -375,7 +413,7 @@ func frame(t: Texture2D, fr: int, cw: float, ch: float, ax: float, ay: float, x:
 	translate(x, y)
 	scale(-sc if flip else sc, sc)
 	if sil_c.a > 0:
-		ci.draw_texture_rect_region(sil(t), Rect2(-ax, -ay, cw, ch), Rect2(fr * cw, 0, cw, ch), Color(sil_c.r, sil_c.g, sil_c.b, sil_c.a * alpha * al))
+		_sdr(sil(t), Rect2(-ax, -ay, cw, ch), Rect2(fr * cw, 0, cw, ch), Color(sil_c.r, sil_c.g, sil_c.b, sil_c.a * alpha * al))
 	else:
 		ci.draw_texture_rect_region(t, Rect2(-ax, -ay, cw, ch), Rect2(fr * cw, 0, cw, ch), Color(1, 1, 1, alpha * al))
 	restore()
@@ -473,6 +511,8 @@ func x4_draw(m: Dictionary, dst: Rect2, fpos: float, mod: Color = Color(1, 1, 1)
 	if sil_c.a > 0:
 		t = sil(t)
 		c = Color(sil_c.r, sil_c.g, sil_c.b, sil_c.a * alpha * mod.a)
+		_sdr(t, dst, x4_src(m, q[0]), c)
+		return
 	ci.draw_texture_rect_region(t, dst, x4_src(m, q[0]), c)
 	var k: float = smoothstep(.5, 1.0, q[2]) * .5
 	# no contorno (silhueta) só o quadro principal: a silhueta do quadro seguinte aparecia por baixo
@@ -526,6 +566,7 @@ func circle(x: float, y: float, r: float, c: Color) -> void:
 func ring(x: float, y: float, r: float, c: Color, w: float = 2.0, a0: float = 0.0, a1: float = TAU) -> void:
 	ci.draw_arc(Vector2(x, y), r, a0, a1, 24, col(c), w, true)
 
+var _UC := PackedVector2Array()
 func ellipse(x: float, y: float, rx: float, ry: float, c: Color, rot: float = 0.0) -> void:
 	# elipse muito pequena vira círculo (polígono minúsculo não triangula)
 	if rx < 3.5 or ry < 2.0:
@@ -536,11 +577,21 @@ func ellipse(x: float, y: float, rx: float, ry: float, c: Color, rot: float = 0.
 		else:
 			ci.draw_circle(Vector2(x, y), max(.5, (rx + ry) * .5), col(c))
 		return
+	# (círculo de 20 pontos já pronto: sem 40 senos e cossenos a cada elipse, e são centenas por quadro)
+	if _UC.is_empty():
+		for i in 20:
+			var a0 := TAU * i / 20.0
+			_UC.push_back(Vector2(cos(a0), sin(a0)))
 	var pts := PackedVector2Array()
-	for i in 20:
-		var a := TAU * i / 20.0
-		var p := Vector2(cos(a) * rx, sin(a) * ry).rotated(rot)
-		pts.push_back(Vector2(x, y) + p)
+	pts.resize(20)
+	var o := Vector2(x, y)
+	var r := Vector2(rx, ry)
+	if rot == 0.0:
+		for i in 20:
+			pts[i] = o + _UC[i] * r
+	else:
+		for i in 20:
+			pts[i] = o + (_UC[i] * r).rotated(rot)
 	ci.draw_colored_polygon(pts, col(c))
 
 func poly(pts: PackedVector2Array, c: Color) -> void:

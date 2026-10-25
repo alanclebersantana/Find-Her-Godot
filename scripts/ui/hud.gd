@@ -82,9 +82,23 @@ func show_hint_again() -> void:
 	hint_show = 0.0
 
 ## no celular, as teclas viram o desenho do próprio botão dentro do texto
+## (o texto das dicas e avisos é o mesmo por muitos quadros: troca de ícones, quebra de linha e
+## larguras ficam guardadas em vez de refeitas a cada quadro)
+var _ic_cache := {}
+var _rl_cache := {}
+var _ww_cache := {}
 func _icons(t: String) -> String:
 	if not mobile:
 		return t
+	if _ic_cache.has(t):
+		return _ic_cache[t]
+	if _ic_cache.size() > 200:
+		_ic_cache.clear()
+	var r0 := _icons_raw(t)
+	_ic_cache[t] = r0
+	return r0
+
+func _icons_raw(t: String) -> String:
 	var r := t
 	for pair in [["GOLPE (botão da picareta / tecla G)", "GOLPE [G]"], ["(botão da picareta / tecla G)", "[G]"], ["(botão da picareta)", "[G]"],
 			["(tecla G)", "[G]"], ["PULAR (Z/espaço)", "PULAR [J]"], ["(botão do cachorro / tecla Q)", "[Q]"], ["(botão do cachorro / Q)", "[Q]"],
@@ -103,6 +117,16 @@ func _icons(t: String) -> String:
 ## normal, mais larga, grudava as palavras: "sobreo bosque", "escuro...Sem")
 func _rlines(t: String, maxw: float, fs: int, f: Font = null) -> Array:
 	var ff: Font = f if f else Spr.font_i
+	var key := "%s|%d|%d|%d" % [t, int(maxw), fs, ff.get_instance_id()]
+	if _rl_cache.has(key):
+		return _rl_cache[key]
+	if _rl_cache.size() > 200:
+		_rl_cache.clear()
+	var res := _rlines_raw(t, maxw, fs, ff)
+	_rl_cache[key] = res
+	return res
+
+func _rlines_raw(t: String, maxw: float, fs: int, ff: Font) -> Array:
 	var out: Array = []
 	var cur: Array = []
 	var cw := 0.0
@@ -126,6 +150,17 @@ func _is_icon(wd: String) -> bool:
 
 func _wwidth(wd: String, fs: int, f: Font = null) -> float:
 	var ff: Font = f if f else Spr.font_i
+	var key := "%s|%d|%d" % [wd, fs, ff.get_instance_id()]
+	var cw = _ww_cache.get(key)
+	if cw != null:
+		return cw
+	if _ww_cache.size() > 2000:
+		_ww_cache.clear()
+	var w := _wwidth_raw(wd, fs, ff)
+	_ww_cache[key] = w
+	return w
+
+func _wwidth_raw(wd: String, fs: int, ff: Font) -> float:
 	if _is_icon(wd):
 		return fs * 1.7 + ff.get_string_size(wd.substr(3), HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 	return ff.get_string_size(wd, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
