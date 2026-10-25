@@ -73,6 +73,11 @@ func _unhandled_input(e: InputEvent) -> void:
 		leaving = 0.0
 		get_viewport().set_input_as_handled()
 
+## Voltar do celular / B do controle: fecha o quadrinho (com o mesmo esmaecer do toque)
+func skip() -> void:
+	if leaving < 0:
+		leaving = 0.0
+
 func _end() -> void:
 	if is_queued_for_deletion():
 		return
@@ -137,13 +142,32 @@ func _draw() -> void:
 	if ca > 0:
 		var txt: String = d.txt
 		var fs := 19
-		var tw: float = Spr.font_i.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		# texto comprido quebra em linhas (antes passava da caixa em tela estreita)
+		var lines: Array = _wrap(txt, fs, W - 80)
+		var tw := 0.0
+		for ln in lines:
+			tw = max(tw, Spr.font_i.get_string_size(ln, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x)
 		var bw: float = min(W - 40, tw + 40)
-		var by: float = min(cap_y, H - 54)
-		Spr.rr(W / 2 - bw / 2 + 4, by + 4, bw, 40, 6, Color(0, 0, 0, .4 * ca))
-		Spr.rr(W / 2 - bw / 2, by, bw, 40, 6, Color(1, .95, .78, ca))
-		draw_rect(Rect2(W / 2 - bw / 2, by, bw, 40), Color(.1, .07, .04, ca), false, 2.5)
-		Spr.text(txt, W / 2, by + 27, fs, Color(.16, .1, .05, ca), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_i)
+		var bh: float = 16.0 + 24.0 * lines.size()
+		var by: float = min(cap_y, H - 30 - bh)
+		Spr.rr(W / 2 - bw / 2 + 4, by + 4, bw, bh, 6, Color(0, 0, 0, .4 * ca))
+		Spr.rr(W / 2 - bw / 2, by, bw, bh, 6, Color(1, .95, .78, ca))
+		draw_rect(Rect2(W / 2 - bw / 2, by, bw, bh), Color(.1, .07, .04, ca), false, 2.5)
+		for i in lines.size():
+			Spr.text(lines[i], W / 2, by + 27 + i * 24, fs, Color(.16, .1, .05, ca), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_i)
 	if t > .8 and leaving < 0:
 		Spr.text(("aperte um botão ▸" if Save.getv("opt", "stick", "") == "gamepad" else "toque para continuar ▸"), W - 20, H - 16, 14, Color(1, .9, .7, .55 + .3 * sin(t * 4)), HORIZONTAL_ALIGNMENT_RIGHT, Spr.font_b)
 	Spr.alpha = 1.0
+
+func _wrap(s: String, fs: int, maxw: float) -> Array:
+	var out: Array = []
+	var cur := ""
+	for word in s.split(" "):
+		var tryv := word if cur == "" else cur + " " + word
+		if Spr.font_i.get_string_size(tryv, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > maxw and cur != "":
+			out.append(cur)
+			cur = word
+		else:
+			cur = tryv
+	out.append(cur)
+	return out

@@ -23,6 +23,7 @@ func _draw() -> void:
 		return Vector2(x * sx, 26 + (y - top) * sy)
 	var secs: Array = L.sections
 	var shown := {}
+	var lab_end := -999.0     # fim do último nome escrito (trechos curtos: o nome seguinte não encavala)
 	for i in secs.size():
 		var x0: float = secs[i].x
 		var x1: float = secs[i + 1].x if i + 1 < secs.size() else L.spanX
@@ -30,7 +31,12 @@ func _draw() -> void:
 		draw_rect(Rect2(x0 * sx, 26, (x1 - x0) * sx, h), BANDS.get(song, Color(.2, .2, .2)))
 		if not shown.has(song):
 			shown[song] = 1
-			draw_string(Spr.font_b, Vector2(x0 * sx + 6, 18), NAMES.get(song, ""), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("#e8dcc0"))
+			var nm: String = NAMES.get(song, "")
+			var lx: float = max(x0 * sx + 6, lab_end + 10)
+			var lw: float = Spr.font_b.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
+			lx = min(lx, w - lw)
+			draw_string(Spr.font_b, Vector2(lx, 18), nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("#e8dcc0"))
+			lab_end = lx + lw
 	var visited: float = game.max_x
 	draw_rect(Rect2(visited * sx, 26, w - visited * sx, h), Color(0, 0, 0, .45))
 	for s in game.SOL:
@@ -92,8 +98,14 @@ func _draw() -> void:
 	for d2 in game.DRWS:
 		if d2.got:
 			nd += 1
-	var txt := "Pistas %d/6  ·  Lápis especiais %d/6  ·  Desenhos %d/%d  ·  Segredos %d/%d  ·  ● você  ● fogueira" % [nc, ns, nd, game.DRWS.size(), game.X.found.size(), game.X.SECRETS.size()]
+	var txt := "Pistas %d/6  ·  Lápis especiais %d/6  ·  Desenhos %d/%d  ·  Segredos %d/%d  ·  " % [nc, ns, nd, game.DRWS.size(), game.X.found.size(), game.X.SECRETS.size()]
 	draw_string(Spr.font, Vector2(0, h + 50), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("#e8dcc0"))
+	# legenda com as cores de verdade (antes os dois "●" saíam da cor do texto)
+	var lx2: float = Spr.font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x + 6
+	for it in [[Color("#e0463a"), "você"], [Color("#ff9a3a"), "fogueira"]]:
+		draw_circle(Vector2(lx2, h + 45), 5, it[0])
+		draw_string(Spr.font, Vector2(lx2 + 9, h + 50), it[1], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("#e8dcc0"))
+		lx2 += 18 + Spr.font.get_string_size(it[1], HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
 
 func _icon(n: String, c: Vector2, hgt: float) -> void:
 	var r = Spr.AR.get(n)

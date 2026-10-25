@@ -25,7 +25,10 @@ func _process(d: float) -> void:
 	var vs := get_viewport_rect().size
 	var sz := Vector2(300, 190)
 	var center := vs / 2 - sz / 2
-	var dest := Vector2(vs.x - 120, 58) - sz * .08
+	# voa até o papelzinho do contador de desenhos (HUD: placa da direita, ícone em W - 180, 24).
+	# A escala é em volta do centro (pivot), então o centro do desenho vai parar em cima do ícone
+	# (antes terminava fora da tela, à direita e abaixo do contador)
+	var dest := Vector2(vs.x - 180, 24) - sz / 2
 	var fly: float = clamp((t - 2.6) / .8, 0, 1)
 	var e: float = fly * fly * (3 - 2 * fly)
 	var sc: float = lerpf(1.0, .1, e)

@@ -39,7 +39,8 @@ func setup(period: int, found: int) -> void:
 func _process(d: float) -> void:
 	t += d * 60.0
 	var vs := get_viewport_rect().size
-	var mw: float = min(vs.x * .5, 560.0)
+	# em tela baixa (16:9 ou mais larga) a lembrança encolhe para caber acima do Tomé
+	var mw: float = min(min(vs.x * .5, 560.0), vs.y * .36 / .44)
 	var mh: float = mw * .44
 	memory.position = Vector2(vs.x / 2 - mw / 2, vs.y * .04)
 	memory.size = Vector2(mw, mh)
@@ -54,7 +55,7 @@ func _draw() -> void:
 	Spr.vgrad(0, 0, vs.x, vs.y, Color("#120c08"), Color("#2a160a"))
 	var fl: float = .85 + sin(t * .31) * .08 + sin(t * .73) * .05
 	var fx: float = vs.x * .5 + 40
-	var fy: float = vs.y * .72
+	var fy: float = fire_y(vs)
 	Spr.glow(fx, fy - 40, 420 * fl, Color(1, .55, .2, .32))
 	Spr.glow(fx, fy - 30, 180 * fl, Color(1, .75, .35, .45))
 	# chão
@@ -73,6 +74,11 @@ func _draw() -> void:
 	# a fogueira grande
 	Spr.A("o_fire_on", fx, fy + 4, 1.6)
 	_after_fire(fx, fy)
+
+## altura do chão da fogueira: sobra embaixo o espaço da legenda, da lembrança e dos botões
+## (antes, em 540 px de altura, "FIM DA … · progresso salvo" ficava por cima do tronco do Tomé)
+static func fire_y(vs: Vector2) -> float:
+	return min(vs.y * .72, vs.y - 192.0)
 
 var show_dog := true
 func _dog(fx: float, fy: float) -> void:

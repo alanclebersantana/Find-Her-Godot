@@ -130,18 +130,31 @@ func _tap() -> void:
 		leaving = 0.0
 
 func _next() -> void:
+	if idx + 1 >= shots.size():
+		# último quadro: fica na tela (já escuro) enquanto a cena some
+		_end()
+		return
 	idx += 1
 	t = 0.0
 	leaving = -1.0
-	if idx >= shots.size():
-		_end()
+
+## Voltar do celular / B do controle: pula a cena
+func skip() -> void:
+	_end()
 
 func _end() -> void:
 	if done:
 		return
 	done = true
 	finished.emit()
-	queue_free()
+	# some em vez de cortar seco: o que vem depois (painel, jogo) aparece por baixo/por cima suavemente
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if skip_btn:
+		skip_btn.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	set_process_unhandled_input(false)
+	var tw := create_tween()
+	tw.tween_property(self, "modulate:a", 0.0, .3)
+	tw.tween_callback(queue_free)
 
 ## quadro pintado (assets/ui/<n>.jpg) com zoom lento (aproximando ou afastando)
 var _pics := {}
@@ -179,7 +192,7 @@ func _shown_chars() -> int:
 
 # ----------------------------------------------------------------------
 func _draw() -> void:
-	if done or idx >= shots.size():
+	if idx >= shots.size():
 		return
 	var W := size.x
 	var H := size.y

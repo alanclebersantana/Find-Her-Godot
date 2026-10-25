@@ -508,6 +508,17 @@ func _input(e: InputEvent) -> void:
 		if e.pressed and (e.keycode == KEY_ESCAPE or e.keycode == KEY_P):
 			_toggle_pause("tecla Esc/P")
 			return
+		if e.pressed and e.keycode == KEY_N:
+			# N: mapa da fase (a dica do teclado na tela inicial já anunciava, mas a tecla não fazia nada)
+			if state == S.PLAY and game.CINE.is_empty():
+				state = S.PAUSE
+				pause_reason = ""
+				_clear_keys()
+				_show_hud(false)
+				show_map(false)
+			elif state == S.PAUSE and panel and panel.has_meta("map"):
+				panel.get_meta("back").call()
+			return
 		if e.pressed and e.keycode in [KEY_M, KEY_I, KEY_TAB]:
 			if state == S.PLAY:
 				open_bag()
@@ -740,6 +751,12 @@ func _go_back() -> bool:
 	if panel != null and state in [S.BAG, S.PAUSE, S.CLUE]:
 		close_panel()
 		return true
+	# cena da história ou quadrinho na tela: Voltar pula (antes não fazia nada e parecia travado)
+	if state in [S.CUT, S.COMIC]:
+		for c in ui_layer.get_children():
+			if c.has_method("skip") and not c.is_queued_for_deletion() and not c.get("done"):
+				c.skip()
+				return true
 	return false
 
 # ---------- botões de toque ----------
@@ -836,7 +853,8 @@ func _layout() -> void:
 		if left:
 			pos.x = vs.x - pos.x - sz
 		var off: Array = Save.getv("opt", "pos_" + k, [0, 0])
-		b.position = pos + Vector2(off[0], off[1])
+		# posição arrastada no editor nunca sai da tela (outro celular, tela menor, botão maior)
+		b.position = _keep_in(pos + Vector2(off[0], off[1]), Vector2(sz, sz), vs)
 		b.set_meta("base_pos", b.position)
 	var so: Array = Save.getv("opt", "pos_stick", [0, 0])
 	stick.offset = Vector2(so[0], so[1])
@@ -852,11 +870,15 @@ func _layout() -> void:
 	if bag_btn:
 		var ob: Array = Save.getv("opt", "pos_bag", [0, 0])
 		bag_btn.size = Vector2(bs, bs)
-		bag_btn.position = Vector2(bx, gpos.y - 8 - bs) + Vector2(ob[0], ob[1])
+		bag_btn.position = _keep_in(Vector2(bx, gpos.y - 8 - bs) + Vector2(ob[0], ob[1]), Vector2(bs, bs), vs)
 	if dog_btn:
 		var od: Array = Save.getv("opt", "pos_dog", [0, 0])
 		dog_btn.size = Vector2(bs, bs)
-		dog_btn.position = Vector2(bx, gpos.y - 16 - bs * 2) + Vector2(od[0], od[1])
+		dog_btn.position = _keep_in(Vector2(bx, gpos.y - 16 - bs * 2) + Vector2(od[0], od[1]), Vector2(bs, bs), vs)
+
+## prende um botão de toque dentro da tela (com uma margem pequena)
+func _keep_in(p: Vector2, sz: Vector2, vs: Vector2) -> Vector2:
+	return Vector2(clamp(p.x, 4.0, max(4.0, vs.x - sz.x - 4.0)), clamp(p.y, 4.0, max(4.0, vs.y - sz.y - 4.0)))
 
 func _make_top_buttons() -> void:
 	# no topo só a pausa, no cantinho; mochila e Pipoca ficam empilhados em cima do botão da
@@ -1029,11 +1051,23 @@ func _overlay(dim: float = .78) -> VBoxContainer:
 	panel = root
 	# aparece com um esmaecer rápido e o conteúdo subindo um pouquinho
 	root.modulate.a = 0.0
-	var tw := root.create_tween().set_parallel(true)
+	var tw := root.create_tween()
 	tw.tween_property(root, "modulate:a", 1.0, .2)
-	vb.position.y += 14
-	tw.tween_property(vb, "position:y", vb.position.y - 14, .25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_rise_in(vb, cc)
 	return vb
+
+## o conteúdo do painel sobe 14 px até o lugar. Espera o contêiner centralizar primeiro (antes a
+## animação partia da posição 0 e o menu ficava grudado no alto da tela, com o título cortado)
+func _rise_in(vb: Control, cc: Container) -> void:
+	await get_tree().process_frame
+	if not is_instance_valid(vb) or not is_instance_valid(cc) or not vb.is_inside_tree():
+		return
+	var y0: float = vb.position.y
+	vb.position.y = y0 + 14
+	var tw := vb.create_tween()
+	tw.tween_property(vb, "position:y", y0, .22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	# no fim, o contêiner arruma de novo (se o tamanho mudou no meio, fica centralizado mesmo assim)
+	tw.tween_callback(cc.queue_sort)
 
 func _label(t: String, size: int = 18, c: Color = INK, f: Font = null, maxw: float = 0) -> Label:
 	var l := Label.new()
@@ -1320,11 +1354,14 @@ func _edit_controls(from_pause: bool) -> void:
 		panel = null
 	var ed := _CtrlEditor.new()
 	ed.main = self
+	# botões no estilo do jogo (sem o tema saíam cinza, no estilo padrão) e centralizados no alto
+	ed.theme = theme_ui
 	ed.set_anchors_preset(Control.PRESET_FULL_RECT)
 	ui_layer.add_child(ed)
 	panel = ed
 	var hb := HBoxContainer.new()
-	hb.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	hb.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	hb.alignment = BoxContainer.ALIGNMENT_CENTER
 	hb.offset_top = 16
 	hb.add_theme_constant_override("separation", 12)
 	ed.add_child(hb)
@@ -1362,7 +1399,7 @@ class _CtrlEditor extends Control:
 		return t
 	func _draw() -> void:
 		draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, .55))
-		draw_string(Spr.font_i, Vector2(size.x / 2 - 200, size.y / 2), "Arraste o direcional e os botões para onde preferir.", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(1, .95, .8))
+		draw_string(Spr.font_i, Vector2(0, size.y / 2), "Arraste o direcional e os botões para onde preferir.", HORIZONTAL_ALIGNMENT_CENTER, size.x, 18, Color(1, .95, .8))
 		var t := _targets()
 		for k in t:
 			var c: Vector2 = t[k][0]
@@ -1372,6 +1409,11 @@ class _CtrlEditor extends Control:
 			if t[k][2]:
 				var sz: float = r * 2
 				draw_texture_rect(t[k][2].texture_normal, Rect2(c - Vector2(r, r), Vector2(sz, sz)), false)
+			elif k == "stick" and main.stick.tex.has("base"):
+				# o analógico de verdade (antes era só um disco liso)
+				draw_texture_rect(main.stick.tex.base, Rect2(c - Vector2(r, r), Vector2(r, r) * 2), false)
+				if main.stick.tex.has("knob"):
+					draw_texture_rect(main.stick.tex.knob, Rect2(c - Vector2(r, r) * .5, Vector2(r, r)), false)
 	func _gui_input(e: InputEvent) -> void:
 		var pos := Vector2.ZERO
 		var down := false
@@ -1655,10 +1697,9 @@ func _pause_menu() -> void:
 		game.keys["Bp"] = true))
 	vb.add_child(_button("MAPA DA FASE", func(): show_map(true)))
 	vb.add_child(_button("OPÇÕES", func(): show_options(true)))
+	# sair para o menu perde o que foi feito desde a última fogueira: pergunta antes
 	vb.add_child(_button("MENU INICIAL", func():
-		panel.queue_free()
-		panel = null
-		show_title()))
+		_confirm("VOLTAR AO MENU INICIAL?", "O que você fez depois da última fogueira acesa não fica salvo.", "IR PARA O MENU", show_title, _pause_menu)))
 	panel.set_meta("ok", close_panel)
 	panel.set_meta("back", close_panel)
 
@@ -1967,6 +2008,7 @@ func show_map(from_pause: bool, from_bag: bool = false) -> void:
 	vb.add_child(_button("VOLTAR", back))
 	panel.set_meta("ok", back)
 	panel.set_meta("back", back)
+	panel.set_meta("map", true)
 
 # ---------- galeria ----------
 ## nomes dos períodos de cada episódio (sem depender da fase carregada agora)
@@ -2042,8 +2084,8 @@ func show_gallery(ep: int = 1) -> void:
 		crow.add_child(col)
 	vb.add_child(crow)
 	var bt2: int = int(Save.getv("conq", "time" if ep == 1 else "time%d" % ep, 0))
-	vb.add_child(_label("Reis vencidos %d/4 · Segredos %d · Lápis especiais %d/6 · Lápis dourado %s · Melhor tempo %s" % [
-		int(Save.getv("conq", "kings", 0)), int(Save.getv("conq", "secrets", 0)), int(Save.getv("conq", "specs", 0)),
+	vb.add_child(_label("Reis vencidos %d/%d · Segredos %d · Lápis especiais %d/6 · Lápis dourado %s · Melhor tempo %s" % [
+		int(Save.getv("conq", "kings" if ep == 1 else "kings%d" % ep, 0)), 4 if ep == 1 else 3, int(Save.getv("conq", "secrets", 0)), int(Save.getv("conq", "specs", 0)),
 		"✓" if Save.getv("conq", "gold", false) else "—", ("%d:%02d" % [bt2 / 60, bt2 % 60]) if bt2 > 0 else "—"], 13, Color(.85, .8, .7), Spr.font_i))
 	var row := GridContainer.new()
 	var nd: int = 3 if ep == 1 else 4
@@ -2211,7 +2253,9 @@ func _on_results() -> void:
 	for kk in [game.K.HAWK, game.K.BEAR, game.K.FISH]:
 		if not kk.is_empty() and kk.get("done", false):
 			kings += 1
-	Save.setv("conq", "kings", max(int(Save.getv("conq", "kings", 0)), kings))
+	# reis vencidos contam por episódio (o Ep. 2 tem 3; antes somava tudo em "x/4")
+	var kkey: String = "kings" if game.level_idx == 0 else "kings%d" % (game.level_idx + 1)
+	Save.setv("conq", kkey, max(int(Save.getv("conq", kkey, 0)), kings))
 	Save.setv("conq", "secrets", max(int(Save.getv("conq", "secrets", 0)), game.X.found.size()))
 	Save.setv("conq", "specs", max(int(Save.getv("conq", "specs", 0)), ns))
 	Save.setv("conq", "gold", Save.getv("conq", "gold", false) or game.X.GOLD.get("got", false))
@@ -2338,10 +2382,14 @@ func _on_over() -> void:
 			start_level(true)
 			game.lives = max(game.lives, 3)))
 	vb.add_child(_button("RECOMEÇAR A FASE", func(): _confirm_wipe(func(): start_level(false, game.level_idx), _on_over)))
-	vb.add_child(_button("MENU INICIAL", func():
-		panel.queue_free()
-		panel = null
-		show_title()))
+	var to_menu := func():
+		if panel:
+			panel.queue_free()
+			panel = null
+		show_title()
+	vb.add_child(_button("MENU INICIAL", to_menu))
+	# Voltar do celular / Esc / B: vai para o menu (antes não fazia nada nesta tela)
+	panel.set_meta("back", to_menu)
 
 
 ## Prepara as letras das fontes logo na abertura (fora da tela): sem isso cada letra nova desenhada pela
