@@ -1,5 +1,6 @@
 extends CanvasLayer
 class_name LightMap
+const FxClock = preload("res://scripts/fx_clock.gd")
 ## Escuridão e luzes num mapa de luz pequeno (1/4 da tela) multiplicado por cima do mundo.
 ## Substitui CanvasModulate + PointLight2D: no modo de compatibilidade cada PointLight2D redesenhava
 ## o cenário inteiro outra vez, e com 6–10 luzes o celular caía de quadros (o pulo ficava lento).
@@ -63,13 +64,16 @@ func tinted(g: Game) -> Color:
 	var a := ambient
 	if g == null or not g.L or (a.r > .995 and a.g > .995 and a.b > .995):
 		return a
-	var song: String = str(g.AMB.get("song", ""))
-	if float(g.AMB.get("night", 0.0)) < .5 and a.r > .45:
-		a = a.lerp(Color(.97, 1.0, .98), .38)
-	elif song in ["noite", "perseguicao"]:
-		a = Color(a.r * .97, a.g, min(1.0, a.b * 1.14 + .03))
-	elif song == "tunel":
-		a = Color(min(1.0, a.r * 1.1 + .02), a.g * 1.0, a.b * .86)
+	# tudo por pesos contínuos (noite e cenário de fundo já vêm misturados entre os trechos): a cor
+	# da escuridão nunca troca num estalo na passagem de um trecho para outro
+	var night: float = clamp(float(g.AMB.get("night", 0.0)), 0.0, 1.0)
+	var w: Dictionary = FxClock.nw(g)
+	var blue: float = FxClock.wsum(w, ["noite", "vila"]) * night
+	var amber: float = FxClock.wsum(w, ["mina", "esconderijo"]) * night
+	var lift: float = .38 * (1.0 - night) * clamp((a.r - .4) / .15, 0.0, 1.0)
+	a = a.lerp(Color(.97, 1.0, .98), lift)
+	a = a.lerp(Color(a.r * .97, a.g, min(1.0, a.b * 1.14 + .03)), blue)
+	a = a.lerp(Color(min(1.0, a.r * 1.1 + .02), a.g, a.b * .86), amber)
 	return a
 
 ## textura do clarão largo da lanterna (feita uma vez): cai devagar até a borda

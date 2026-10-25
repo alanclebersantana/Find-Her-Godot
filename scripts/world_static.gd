@@ -585,6 +585,8 @@ func dirt(s: Dictionary) -> void:
 	# entre dois chãos, fica no mesmo tom da terra do chão (nada de coluna escura embaixo da placa)
 	var hole: bool = not ol0 and not or0 and float(s.w) <= 90.0 and float(s.h) <= 140.0
 	_dirt_fill(ia, ib, s.y, s.y + s.h, s.x, 1.08 if hole else .8)
+	if hole:
+		_hole_tex(s, ia, ib)
 	for side in [0, 1]:
 		if (side == 0 and not ol) or (side == 1 and not orr):
 			continue
@@ -601,6 +603,33 @@ func dirt(s: Dictionary) -> void:
 		pts.push_back(Vector2(inner, s.y + s.h))
 		Spr.poly(pts, EARTH)
 	_earth_detail(s.x + (10.0 if ol0 else 0.0), s.x + s.w - (10.0 if or0 else 0.0), s.y + 6, s.y + s.h, EARTH)
+
+## buraco da placa: continua a MESMA textura do chão vizinho (mesmas linhas, mesmo alinhamento),
+## só que começando abaixo da grama — some a coluna de outra cor embaixo da placa
+func _hole_tex(s: Dictionary, xa: float, xb: float) -> void:
+	var n = null
+	for o in game.L.solids:
+		if str(o.get("t", "")) == "ground" and not o.get("deco") and abs(float(o.x) + float(o.w) - float(s.x)) < 2.0 and float(o.y) < float(s.y):
+			n = o
+			break
+	if n == null:
+		return
+	var t: Texture2D = gtex(game, (xa + xb) * .5)
+	var tw: float = t.get_width() - 1
+	var ox: float = 0.0 if gt_at(game, (xa + xb) * .5) != "" else float(n.x)
+	var ty0: float = float(n.y) - 32.0
+	var th: float = min(float(t.get_height()), float(n.get("h", 140)) + 32.0)
+	var ya: float = float(s.y)
+	var yb: float = min(float(s.y) + float(s.h), ty0 + th)
+	if yb <= ya:
+		return
+	var x: float = ox + floor((xa - ox) / tw) * tw
+	while x < xb:
+		var a: float = max(x, xa)
+		var b: float = min(x + tw + 1, xb)
+		if b > a:
+			Spr.ci.draw_texture_rect_region(t, Rect2(a, ya, b - a, yb - ya), Rect2(a - x, ya - ty0, b - a, yb - ya), _ground_tint((a + b) * .5))
+		x += tw
 
 ## laje fina dentro de um lago (onde ficam o capacete e o arpão): devolve o fundo do lago embaixo
 ## dela, ou -1 se não for uma laje de lago
@@ -962,15 +991,35 @@ func _snow_top(xa: float, xb: float, y: float) -> void:
 		Spr.ellipse(x + 13, y - 5, 16, hgt, Color(.97, .98, 1))
 		x += 26
 
+## até onde descem as pernas do cavalete: o chão firme logo embaixo (antes iam sempre até y=700 e
+## atravessavam o chão da galeria); sem chão embaixo (vão da mina) continuam para o escuro
+static func leg_floor(s: Dictionary, x: float) -> float:
+	var key := "_lf%d" % int(x - float(s.x))
+	if s.has(key):
+		return s[key]
+	var best := 700.0
+	var g: Game = Polish.g
+	if g != null and g.L:
+		for o in g.L.solids:
+			if o.get("deco") or not str(o.get("t", "")) in ["ground", "dirt", "stone", "cliff", "rockw"]:
+				continue
+			if x >= float(o.x) and x <= float(o.x) + float(o.get("w", 0)) and float(o.y) > float(s.y) + 16 and float(o.y) < best:
+				best = float(o.y) + 4.0
+	s[key] = best
+	return best
+
 static func plat(s: Dictionary) -> void:
 	if s.get("crumble"):
 		return
 	if s.get("trestle"):
 		var wood := Color("#4a3220")
 		for lx in [s.x + 8, s.x + s.w - 16]:
-			Spr.rect(lx, s.y + 10, 8, 700 - s.y, wood)
-		Spr.seg(s.x + 12, s.y + 30, s.x + s.w - 12, s.y + 120, wood, 5)
-		Spr.seg(s.x + s.w - 12, s.y + 30, s.x + 12, s.y + 120, wood, 5)
+			Spr.rect(lx, s.y + 10, 8, leg_floor(s, lx + 4) - s.y - 6, wood)
+		# cruz de travamento: nunca abaixo do chão (cavaletes baixos ficam com a cruz menor)
+		var cb: float = min(s.y + 120.0, min(leg_floor(s, s.x + 12), leg_floor(s, s.x + s.w - 12)) - 8.0)
+		if cb > s.y + 40.0:
+			Spr.seg(s.x + 12, s.y + 30, s.x + s.w - 12, cb, wood, 5)
+			Spr.seg(s.x + s.w - 12, s.y + 30, s.x + 12, cb, wood, 5)
 	# tábuas separadas (cada uma com veio e prego), pontas arredondadas e um pouco irregulares
 	var bx: float = s.x
 	var bi := 0
@@ -1549,14 +1598,61 @@ func hill(s: Dictionary) -> void:
 func _quad(p0: Vector2, p1: Vector2, p2: Vector2, t: float) -> Vector2:
 	return p0.lerp(p1, t).lerp(p1.lerp(p2, t), t)
 
+## celeiro/barracão: tábuas de tons diferentes com contorno, portas baixas nas pontas, telhado
+## vermelho de telhas e uma janelinha redonda na empena (antes era um bloco marrom chapado)
 func shed(s: Dictionary) -> void:
-	Spr.rect(s.x + 20, s.y + 20, s.w - 40, 100, Color("#3a2a1a"))
-	Spr.poly(PackedVector2Array([Vector2(s.x - 20, s.y + 20), Vector2(s.x + s.w / 2, s.y - 40), Vector2(s.x + s.w + 20, s.y + 20)]), Color("#5a3d22"))
+	var ol := Color("#2a1a0e")
+	var x0s: float = s.x + 20
+	var x1s: float = s.x + s.w - 20
+	var yb: float = s.y + 120
+	# sombra no chão e parede de tábuas
+	Spr.ellipse(s.x + s.w / 2, yb + 2, s.w * .55, 8, Color(0, 0, 0, .28))
+	Spr.rect(x0s - 2, s.y + 18, x1s - x0s + 4, yb - s.y - 18, ol)
+	var tones := [Color("#8a5d36"), Color("#7a5030"), Color("#94653c"), Color("#70482a")]
+	var x: float = x0s
+	var i := 0
+	while x < x1s - .5:
+		var w: float = min(26.0, x1s - x)
+		var c: Color = tones[int(hh(x + s.x, 71) * 4) % 4]
+		Spr.rect(x, s.y + 20, w - 2, yb - s.y - 20, c)
+		Spr.rect(x + 2, s.y + 22, 3, yb - s.y - 26, Color(1, .9, .7, .12))
+		# nós da madeira
+		if hh(x, 72) > .6:
+			Spr.ellipse(x + w * .5, s.y + 40 + hh(x, 73) * 60, 2.5, 3.5, Color(.25, .15, .08, .6))
+		x += w
+		i += 1
+	# travessas e a cruz do meio
+	Spr.rect(x0s, s.y + 34, x1s - x0s, 6, Color("#5a3a1e"))
+	Spr.rect(x0s, yb - 22, x1s - x0s, 6, Color("#5a3a1e"))
+	var mx: float = s.x + s.w / 2
+	Spr.seg(mx - 34, s.y + 42, mx + 34, yb - 24, Color("#5a3a1e"), 5)
+	Spr.seg(mx + 34, s.y + 42, mx - 34, yb - 24, Color("#5a3a1e"), 5)
+	# portas baixas nas duas pontas (é por elas que o Tomé entra abaixado)
+	for dx in [x0s + 6, x1s - 42]:
+		Spr.rect(dx - 3, yb - 58, 42, 58, ol)
+		Spr.rect(dx, yb - 55, 36, 55, Color("#1e140c"))
+		Spr.rect(dx, yb - 55, 36, 4, Color("#6b4626"))
+	# telhado vermelho com telhas e cumeeira clara
+	var r0 := Vector2(s.x - 24, s.y + 22)
+	var r1 := Vector2(mx, s.y - 44)
+	var r2 := Vector2(s.x + s.w + 24, s.y + 22)
+	Spr.poly(PackedVector2Array([r0 + Vector2(-3, 3), r1 + Vector2(0, -4), r2 + Vector2(3, 3)]), ol)
+	Spr.poly(PackedVector2Array([r0, r1, r2]), Color("#a8452c"))
+	for k in range(1, 5):
+		var u: float = k / 5.0
+		var la: Vector2 = r0.lerp(r1, u)
+		var lb: Vector2 = r2.lerp(r1, u)
+		Spr.seg(la.x, la.y, lb.x, lb.y, Color("#7e2f1e"), 2)
+	Spr.seg(r0.x, r0.y, r1.x, r1.y, Color(1, .8, .6, .35), 2)
+	Spr.circle(mx, s.y - 6, 9, ol)
+	Spr.circle(mx, s.y - 6, 7, Color("#f0c070"))
+	Spr.seg(mx - 7, s.y - 6, mx + 7, s.y - 6, ol, 1.5)
+	Spr.seg(mx, s.y - 13, mx, s.y + 1, ol, 1.5)
+	# beiral (onde dá para andar): viga de madeira com brilho em cima
 	Spr.rect(s.x, s.y, s.w, s.h, Color("#6b4a2a"))
-	var x: float = s.x + 20
-	while x < s.x + s.w:
-		Spr.rect(x, s.y + 30, 3, 90, Color(0, 0, 0, .3))
-		x += 30
+	Spr.rect(s.x, s.y, s.w, 3, Color(1, .9, .7, .25))
+	Spr.rect(s.x, s.y + s.h - 2, s.w, 2, ol)
+	_weather_coat(s.x, s.y - 40, s.w, 60)
 
 func beam(s: Dictionary) -> void:
 	# viga baixa de escoramento da mina: só passa abaixado

@@ -996,7 +996,7 @@ static func mech(g: Game, T: int) -> void:
 		var wood := Color(.42, .29, .17, a) if not s.get("icy") else Color(.72, .86, 1, a * .9)
 		if s.get("trestle") and not s.fallen:
 			for lx in [s.x + 8, s.x + s.w - 16]:
-				Spr.rect(lx, s.y + 10, 8, 700 - s.y, Color("#4a3220"))
+				Spr.rect(lx, s.y + 10, 8, WSt.leg_floor(s, lx + 4) - s.y - 6, Color("#4a3220"))
 		if s.get("tile") and not s.get("roofhole"):
 			# sarrafos finos esticados entre os telhados (as telhas ficam soltas em cima deles)
 			Spr.seg(s.x - 4, s.y + 12, s.x + s.w + 4, s.y + 12, Color("#3a2414"), 3)

@@ -184,6 +184,57 @@ static func _hlog(xa: float, xb: float, y: float, h: float) -> void:
 	Spr.restore()
 
 # ---------- rio ----------
+## fundo do rio: a água vai escurecendo até um leito de cascalho ondulado, com pedras, seixos e
+## algas balançando na correnteza (nada de faixa azul chapada cortada reto)
+static func _riverbed(sa: float, sb: float, wl: float, bot: float, T: int) -> void:
+	var bed0: float = wl + 148.0
+	Spr.vgrad(sa, wl + 66, sb - sa, bed0 - wl - 50, Color("#1d4a66"), Color("#133447"))
+	# raios de luz entrando na água, inclinados com a correnteza
+	var rk: float = floor(sa / 110.0) * 110.0
+	while rk < sb:
+		var r0: float = rk + 40 + sin(T * .01 + rk) * 8
+		if r0 > sa and r0 < sb - 30:
+			var ra: float = .035 + .025 * sin(T * .02 + rk * .01)
+			Spr.ci.draw_polygon(PackedVector2Array([Vector2(r0, wl + 12), Vector2(r0 + 22, wl + 12), Vector2(r0 + 60, bed0), Vector2(r0 + 30, bed0)]),
+				PackedColorArray([Color(.8, .95, 1, ra), Color(.8, .95, 1, ra), Color(.8, .95, 1, 0), Color(.8, .95, 1, 0)]))
+		rk += 110.0
+	# leito: linha ondulada de cascalho, terra escura embaixo
+	var bed := PackedVector2Array()
+	var x: float = floor(sa / 16.0) * 16.0
+	while x <= sb + 16.0:
+		var xc: float = clamp(x, sa, sb)
+		bed.push_back(Vector2(xc, bed0 + 10 * sin(xc * .006) + 5 * sin(xc * .021 + 1.0) + 2 * sin(xc * .07)))
+		x += 16.0
+	var body := PackedVector2Array(bed)
+	body.push_back(Vector2(sb, bot))
+	body.push_back(Vector2(sa, bot))
+	Spr.poly(body, Color("#1c2a26"))
+	Spr.line(bed, Color("#3a5048"), 3)
+	Spr.vgrad(sa, bed0 + 30, sb - sa, 160, Color(0, 0, 0, 0), Color(.04, .05, .06, .85))
+	Spr.rect(sa, bed0 + 189, sb - sa, max(0.0, bot - bed0 - 189), Color(.07, .08, .08))
+	# seixos, pedras maiores e algas presos ao leito (lugares fixos)
+	var k0: float = floor(sa / 37.0) * 37.0
+	while k0 < sb:
+		var hx: float = WorldStatic_hh(k0, 5)
+		var px: float = k0 + hx * 30.0
+		if px > sa + 6 and px < sb - 6:
+			var by: float = bed0 + 10 * sin(px * .006) + 5 * sin(px * .021 + 1.0) + 2 * sin(px * .07)
+			var hv: float = WorldStatic_hh(k0, 6)
+			if hv < .45:
+				Spr.P("peb%d" % (int(k0) % 3), px, by + 3, 10 + hv * 14, hv < .2, 0.0, Color(.55, .7, .72))
+			elif hv < .58:
+				Spr.P("rock%d" % (int(k0) % 3), px, by + 10, 34 + hv * 20, false, 0.0, Color(.5, .62, .66))
+			elif hv < .8:
+				# alga: gomos balançando para o lado da correnteza
+				var ah: float = 34.0 + WorldStatic_hh(k0, 7) * 46.0
+				var aw: float = ah * .32
+				var sw: float = sin(T * .04 + px * .05) * 6.0 + 4.0
+				for j in 5:
+					var v0: float = j / 5.0
+					var v1: float = (j + 1) / 5.0
+					Spr.PB("alga%d" % (int(k0) % 6), px - aw / 2 + sw * pow(v0, 1.5), by + 4 - ah * v1, aw, ah / 5.0 + 1.5, 1.0 - v1, 1.0 - v0, Color(.45, .62, .58, .85))
+		k0 += 37.0
+
 static func _river(g: Game, VH: Vehicles, T: int) -> void:
 	var RA: Dictionary = VH.RA
 	var a: float = max(float(RA.x0), g.cam - 60)
@@ -214,7 +265,7 @@ static func _river(g: Game, VH: Vehicles, T: int) -> void:
 			band.push_back(Vector2(sa, wl + 10))
 			Spr.poly(band, Color("#4f8fb0"))
 			Spr.vgrad(sa, wl + 10, sb - sa, 56, Color("#4f8fb0"), Color("#1d4a66"))
-			Spr.rect(sa, wl + 66, sb - sa, bot - wl, Color("#10283a"))
+			_riverbed(sa, sb, wl, bot, T)
 			# espuma e correnteza
 			# correnteza: fios de espuma curvos de tamanhos diferentes descendo o rio
 			for k in int((sb - sa) / 38) + 1:
