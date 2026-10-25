@@ -367,8 +367,17 @@ func _process(_d: float) -> void:
 			song = "bagre"
 		if game.K and game.K.bear_on():
 			song = "urso"
-		if game.VH and (game.VH.mode == "raft" or game.VH.mode == "sled"):
+		# na neve, a canção da Lia toca com vento de fundo
+		if song == "tema" and game.AMB.get("snow", 0.0) > .2:
+			song = "neve"
+		var base_song := song
+		# trechos especiais: cada um com a sua música animada
+		if game.RD and game.RD.riding:
+			song = "cavalo"
+		if game.VH and game.VH.mode == "raft":
 			song = "jangada"
+		elif game.VH and game.VH.mode == "sled":
+			song = "carrinho" if game.VH.is_cart() else "treno"
 		elif game.VH and game.VH.mode == "plane":
 			song = "voo"
 		if game.TR:
@@ -376,6 +385,14 @@ func _process(_d: float) -> void:
 				if o.k == "boulder" and o.st in ["drop", "roll"]:
 					song = "pedra"
 		if state == S.PLAY:
+			# quanto do trecho já foi andado (as músicas calmas vão ganhando camadas) e se a
+			# música pode dar uma pausa (só fora de luta, perseguição e trecho especial)
+			var calm := false
+			for c in game.CHK:
+				if c.on and abs(c.x - px) < 260 and abs(c.y - (game.player.y + game.player.h)) < 120:
+					calm = true
+					break
+			Audio.music_hint(_song_progress(game.amb_x(), base_song == "tunel", tun), song == base_song, calm)
 			Audio.set_song(song)
 			Audio.set_danger(_danger_level())
 		var in_cine: bool = not game.CINE.is_empty()
@@ -389,6 +406,31 @@ func _process(_d: float) -> void:
 	# desenho liso entre passos: chefes, Pipoca, plataformas... (volta ao normal no frame_pre_draw)
 	if state == S.PLAY and game.L and game.running:
 		Interp.apply(game.ifrac())
+
+## quanto do trecho da música atual o Tomé já andou (0..1): de onde começa a sequência de trechos
+## com a mesma música até onde ela acaba (o túnel conta à parte)
+func _song_progress(px: float, in_tunnel: bool, tun: Array) -> float:
+	if in_tunnel:
+		return clampf((px - float(tun[0])) / maxf(float(tun[1]) - float(tun[0]), 1.0), 0.0, 1.0)
+	var secs: Array = game.L.get("sections", [])
+	if secs.is_empty():
+		return 0.0
+	var i := 0
+	while i + 1 < secs.size() and float(secs[i + 1].x) <= px:
+		i += 1
+	var sg: String = str(secs[i].get("song", ""))
+	var a := i
+	while a > 0 and str(secs[a - 1].get("song", "")) == sg:
+		a -= 1
+	var b := i
+	while b + 1 < secs.size() and str(secs[b + 1].get("song", "")) == sg:
+		b += 1
+	var x0: float = float(secs[a].x)
+	var x1: float = float(secs[b + 1].x) if b + 1 < secs.size() else float(game.L.get("spanX", x0 + 10000.0))
+	# a noite acaba onde o túnel começa
+	if float(tun[1]) > float(tun[0]) and float(tun[0]) > x0 and px < float(tun[0]):
+		x1 = minf(x1, float(tun[0]))
+	return clampf((px - x0) / maxf(x1 - x0, 1.0), 0.0, 1.0)
 
 ## quanto perigo há por perto (para a camada de tambores da música)
 func _danger_level() -> float:

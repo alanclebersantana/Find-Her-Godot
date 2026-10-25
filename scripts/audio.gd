@@ -15,10 +15,19 @@ var song := ""
 var amb: AudioStreamPlayer
 var amb2: AudioStreamPlayer
 var amb_name := ""
-## volume de cada música (dB) para todas soarem parecidas
-const SONG_DB := {"perseguicao": -3.0, "vitoria": -6.0, "tarde": -8.0, "tema": -6.0}
-## som ambiente de cada trecho
-const AMB_FOR := {"manha": "passaros", "tarde": "passaros", "chuva": "sapos", "noite": "grilos", "tunel": "caverna", "perseguicao": "vento"}
+## volume de cada música (dB) para todas soarem parecidas (medido com a sonoridade de cada faixa)
+const SONG_DB := {"perseguicao": -3.0, "vitoria": -6.0, "tarde": -6.5, "tema": -5.0, "chuva": -3.0, "noite": -4.0, "tunel": -3.5,
+	"cavalo": -6.0, "treno": -8.0, "jangada": -5.5, "voo": -8.0, "carrinho": -4.0}
+## som ambiente de cada trecho (pelo nome pedido ou pela faixa que toca)
+const AMB_FOR := {"manha": "passaros", "tarde": "passaros", "chuva": "sapos", "noite": "grilos", "tunel": "caverna", "perseguicao": "vento",
+	"neve": "vento", "cavalo": "vento", "treno": "vento", "voo": "vento", "jangada": "sapos", "carrinho": "caverna"}
+## músicas calmas e longas gravadas em três camadas sincronizadas (mus_X, mus_X_2, mus_X_3):
+## a 1 é a música calma; a 2 traz o pulso (baixo, violão, percussão leve); a 3 o brilho (contracanto,
+## xilofone, pandeiro). Conforme o Tomé avança no trecho, as camadas entram aos poucos.
+const LAYERED := ["tema", "tarde", "chuva", "noite", "tunel"]
+## músicas em que a música pode dar uma pausa (nunca em chefes, perseguição e trechos especiais)
+const REST_SONGS := ["manha", "tarde", "chuva", "noite", "tunel", "tema"]
+const BATTLE := ["perseguicao", "gaviao", "bagre", "urso", "pedra"]
 var rain_target := 0.0
 ## barramentos: Música (músicas e tambores), Efeitos (sons curtos e ambiente) e Mundo (chuva e sons
 ## presos no cenário: fogueiras, água). O Mundo fica mudo fora do jogo (menus, fogueira grande, placar).
@@ -31,6 +40,7 @@ var world_on := true
 var world_gain := 1.0
 var _mus_tw: Tween
 var _amb_tw: Tween
+var bus_amb := 0
 const NAMES := ["jump", "dj", "pen", "stomp", "hurt", "item", "clue", "combine", "unlock", "splash", "slide", "fire", "thunder", "door", "spring", "climb", "die", "special", "roar"]   # (o latido do Pipoca ficou mudo: era irritante)
 
 func _bus(n: String, send: String) -> int:
@@ -47,12 +57,15 @@ func _ready() -> void:
 	bus_music = _bus("Musica", "Master")
 	bus_sfx = _bus("Efeitos", "Master")
 	bus_world = _bus("Mundo", "Efeitos")
+	# o ambiente tem barramento próprio: sobe um pouco quando a música faz uma pausa
+	bus_amb = _bus("Ambiente", "Efeitos")
 	vol_music = float(Save.getv("opt", "vol_music", 1.0))
 	vol_sfx = float(Save.getv("opt", "vol_sfx", 1.0))
 	for n in NAMES:
 		sfx[n] = load("res://assets/audio/%s.wav" % n)
 	# músicas e sons de ambiente já carregados (sem travada ao mudar de trecho)
 	for b in ["mus_manha", "mus_tarde", "mus_noite", "mus_chuva", "mus_perseguicao", "mus_tunel", "mus_tema", "mus_vitoria",
+			"mus_cavalo", "mus_treno", "mus_jangada", "mus_voo", "mus_carrinho",
 			"amb_caverna", "amb_grilos", "amb_passaros", "amb_sapos", "amb_vento"]:
 		_stream(b)
 	# latido do Pipoca: só uma vez, quando ele acha algo escondido
@@ -77,8 +90,8 @@ func _ready() -> void:
 	add_child(music2)
 	amb = AudioStreamPlayer.new()
 	amb2 = AudioStreamPlayer.new()
-	amb.bus = "Efeitos"
-	amb2.bus = "Efeitos"
+	amb.bus = "Ambiente"
+	amb2.bus = "Ambiente"
 	add_child(amb)
 	add_child(amb2)
 	# camada extra da música (tambores) que cresce quando há perigo por perto
@@ -113,8 +126,10 @@ func set_on(v: bool) -> void:
 
 ## volume da música e dos efeitos (0..1), guardados nas opções e aplicados na hora
 func _apply_volumes() -> void:
-	AudioServer.set_bus_volume_db(bus_music, linear_to_db(max(vol_music, .0001)))
-	AudioServer.set_bus_mute(bus_music, vol_music <= .001)
+	# (rest_gain: a pausa da música, que desce e volta aos poucos)
+	var mv: float = vol_music * rest_gain
+	AudioServer.set_bus_volume_db(bus_music, linear_to_db(max(mv, .0001)))
+	AudioServer.set_bus_mute(bus_music, mv <= .001)
 	AudioServer.set_bus_volume_db(bus_sfx, linear_to_db(max(vol_sfx, .0001)))
 	AudioServer.set_bus_mute(bus_sfx, vol_sfx <= .001)
 
@@ -212,6 +227,18 @@ func _stream(base: String) -> AudioStream:
 	return r
 
 func _stream_load(base: String) -> AudioStream:
+	# música em camadas: as três tocam juntas, na mesma amostra (AudioStreamSynchronized),
+	# e o volume de cada camada é mudado durante a música (ver _apply_layers)
+	if base.begins_with("mus_") and base.substr(4) in LAYERED and ResourceLoader.exists("res://assets/audio/%s_3.ogg" % base):
+		var sy := AudioStreamSynchronized.new()
+		sy.stream_count = 3
+		for i in 3:
+			var st = load("res://assets/audio/%s%s.ogg" % [base, "" if i == 0 else "_%d" % (i + 1)])
+			var c: AudioStreamOggVorbis = st.duplicate()
+			c.loop = true
+			sy.set_sync_stream(i, c)
+			sy.set_sync_stream_volume(i, 0.0 if i == 0 else -60.0)
+		return sy
 	for ext in ["ogg", "wav"]:
 		var path := "res://assets/audio/%s.%s" % [base, ext]
 		if ResourceLoader.exists(path):
@@ -225,7 +252,10 @@ func _stream_load(base: String) -> AudioStream:
 
 ## Troca a música com um cruzamento suave (e o som ambiente do trecho junto)
 ## músicas de batalha dos reis: a mesma faixa de batalha em outro andamento e tom
-const SONG_ALIAS := {"gaviao": ["perseguicao", 1.1], "bagre": ["perseguicao", .84], "urso": ["perseguicao", .94], "jangada": ["perseguicao", 1.05], "voo": ["manha", 1.06], "pedra": ["perseguicao", 1.15]}
+## (cavalo, trenó, jangada, avião e carrinho têm faixa própria: mus_cavalo, mus_treno...)
+## "neve" é a canção da Lia tocando na neve (com vento de fundo; nos menus ela toca sem vento)
+const SONG_ALIAS := {"gaviao": ["perseguicao", 1.1], "bagre": ["perseguicao", .84], "urso": ["perseguicao", .94], "pedra": ["perseguicao", 1.15], "neve": ["tema", 1.0]}
+var song_base := ""
 
 func set_song(n: String) -> void:
 	if n == song or n == "":
@@ -234,7 +264,18 @@ func set_song(n: String) -> void:
 	var s := _stream("mus_" + al[0])
 	if s == null:
 		return
+	# depois de uma luta, a música respira: uma pausa logo em seguida (se a última já vai longe)
+	if song in BATTLE and al[0] in REST_SONGS and _since_rest > 45.0:
+		_since_rest = maxf(_since_rest, _next_rest - 8.0)
+	# outra música em camadas: o tempo no trecho recomeça (voltar do cavalo para a neve não zera)
+	if al[0] in LAYERED and al[0] != _layer_song:
+		_layer_song = al[0]
+		_layer_time = 0.0
 	song = n
+	song_base = al[0]
+	if s is AudioStreamSynchronized:
+		_int_cur = _int_value()
+		_apply_layers(s as AudioStreamSynchronized, _int_cur)
 	# troca rápida (antes do cruzamento anterior acabar): o cruzamento velho é cancelado, senão
 	# ele terminava parando o tocador que já estava com a música nova (ficava tudo mudo)
 	if _mus_tw and _mus_tw.is_valid():
@@ -255,7 +296,7 @@ func set_song(n: String) -> void:
 		# só para o tocador se ele ainda for o que estava saindo
 		if fading != music:
 			fading.stop())
-	set_amb(AMB_FOR.get(al[0], ""))
+	set_amb(AMB_FOR.get(n, AMB_FOR.get(al[0], "")))
 
 func set_amb(n: String) -> void:
 	if n == amb_name:
@@ -301,6 +342,7 @@ func stop_music() -> void:
 	danger.stop()
 	danger_lv = 0.0
 	song = ""
+	song_base = ""
 	set_amb("")
 
 ## perigo de 0 a 1: os tambores entram aos poucos e saem suavemente
@@ -347,10 +389,106 @@ func _process(_d: float) -> void:
 		if danger_lv <= .02 and danger.playing:
 			danger.stop()
 			danger_lv = 0.0
+	_music_flow(_d)
 	var tgt := -60.0 if rain_target < 0.01 else lerpf(-30.0, -10.0, rain_target)
 	rain.volume_db = lerpf(rain.volume_db, tgt, 1.0 - pow(.95, _d * 60.0))
 	if rain_target < 0.01 and rain.volume_db < -55 and rain.playing:
 		rain.stop()
+
+# ----------------------------------------------------------------- camadas e pausas da música
+## O jogo chama music_hint() a cada quadro durante a partida: quanto do trecho já foi andado (0..1),
+## se a música pode dar uma pausa agora e se é um lugar calmo (fogueira). Sem chamada recente
+## (menus, cenas, placar), as camadas voltam para a calma e a pausa acaba.
+var _hint_frame := -100
+var _hint_pos := 0.0
+var _hint_rest := false
+var _hint_calm := false
+var _layer_song := ""
+var _layer_time := 0.0
+var _int_cur := 0.0
+var rest_gain := 1.0
+var _rest_st := 0          # 0 tocando, 1 descendo, 2 em silêncio, 3 voltando
+var _rest_t := 0.0
+var _rest_hold := 20.0
+var _since_rest := 0.0
+var _next_rest := 150.0
+const REST_FADE := 4.0
+
+func music_hint(pos: float, can_rest: bool, calm: bool) -> void:
+	_hint_frame = Engine.get_process_frames()
+	_hint_pos = clampf(pos, 0.0, 1.0)
+	_hint_rest = can_rest
+	_hint_calm = calm
+
+func _hint_fresh() -> bool:
+	return Engine.get_process_frames() - _hint_frame <= 2
+
+## animação desejada (0..1): o quanto o Tomé andou no trecho, ou o tempo que ele já passou nele
+## (quem demora explorando também ganha música mais viva: até a metade em 4 minutos)
+func _int_value() -> float:
+	if not _hint_fresh():
+		return 0.0
+	return maxf(_hint_pos, minf(_layer_time / 240.0, .55))
+
+## volume de cada camada: a 2 entra entre 15% e 45% da animação, a 3 entre 50% e 85%
+func _apply_layers(sy: AudioStreamSynchronized, v: float) -> void:
+	var g2: float = smoothstep(.15, .45, v)
+	var g3: float = smoothstep(.5, .85, v)
+	sy.set_sync_stream_volume(1, maxf(linear_to_db(maxf(g2, .0001)), -60.0))
+	sy.set_sync_stream_volume(2, maxf(linear_to_db(maxf(g3, .0001)), -60.0))
+
+## começa a volta da música a partir do volume em que ela está (sem salto)
+var _rest_k := 0.0
+func _rest_back() -> void:
+	_rest_st = 3
+	_rest_k = acos(clampf(1.0 - 2.0 * rest_gain, -1.0, 1.0)) / PI
+
+func _music_flow(d: float) -> void:
+	var fresh := _hint_fresh()
+	# camadas: sobem devagar (uns 30 s da calma à animação completa), sem nenhum corte
+	if song_base in LAYERED and fresh:
+		_layer_time += d
+	var tgt := _int_value()
+	_int_cur = move_toward(_int_cur, tgt, d * (1.0 / 30.0 if fresh else .35))
+	if music and music.stream is AudioStreamSynchronized:
+		_apply_layers(music.stream as AudioStreamSynchronized, _int_cur)
+	# pausas: de tempos em tempos a música desce até o silêncio (~4 s), deixa ouvir o mundo
+	# por 15-30 s e volta (~4 s). Chefe, perseguição ou trecho especial começando: volta já.
+	var ok: bool = fresh and _hint_rest and song_base in REST_SONGS
+	var g0 := rest_gain
+	_rest_t += d
+	match _rest_st:
+		0:
+			if ok:
+				_since_rest += d
+			if ok and danger_lv < .3 and (_since_rest >= _next_rest or (_hint_calm and _since_rest >= 75.0)):
+				_rest_st = 1
+				_rest_t = 0.0
+		1:
+			rest_gain = .5 + .5 * cos(PI * clampf(_rest_t / REST_FADE, 0.0, 1.0))
+			if not ok:
+				_rest_back()
+			elif _rest_t >= REST_FADE:
+				_rest_st = 2
+				_rest_t = 0.0
+				_rest_hold = randf_range(15.0, 30.0)
+		2:
+			rest_gain = 0.0
+			if not ok or _rest_t >= _rest_hold:
+				_rest_back()
+		3:
+			# volta em ~4 s (curva suave); se foi interrompida (chefe, menu), volta em 1 s
+			_rest_k = minf(_rest_k + d / (REST_FADE if ok else 1.0), 1.0)
+			rest_gain = .5 - .5 * cos(PI * _rest_k)
+			if _rest_k >= 1.0:
+				rest_gain = 1.0
+				_rest_st = 0
+				_since_rest = 0.0
+				_next_rest = randf_range(120.0, 180.0)
+	if rest_gain != g0:
+		_apply_volumes()
+		# o ambiente sobe um pouco (até +4 dB) enquanto a música está quieta
+		AudioServer.set_bus_volume_db(bus_amb, 4.0 * (1.0 - rest_gain))
 
 ## vibração: uma por vez — pedidos durante uma vibração mais longa são ignorados (vários golpes no
 ## mesmo instante não viram um zumbido contínuo), e nada mais longo que 250 ms
