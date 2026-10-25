@@ -3161,17 +3161,43 @@ func _crow(e: Dictionary) -> void:
 			e.sx = e.x
 			e.sy = e.y
 			e.tx = pc.x + player.vx * 14
-			e.ty = pc.y
+			# o rasante não entra no chão nem atravessa telhado/rocha que esteja embaixo dele
+			# (o ponto mais baixo do arco fica a 80% do caminho até o alvo: confere o chão ali e no alvo)
+			var lowx: float = clamp(e.sx + (e.tx - e.sx) * .8, e.r[0], e.r[1])
+			var fl: float = min(floor_under(clamp(e.tx, e.r[0], e.r[1]), e.y + 20.0), floor_under(lowx, e.y + 20.0))
+			e.ty = min(pc.y, fl - 22.0)
 			e.dir = 1 if e.tx > e.x else -1
 			Audio.play("dj", -12)
 	else:
 		var u: float = e.t / 56.0
-		e.x = clamp(e.sx + (e.tx - e.sx) * u * 1.6, e.r[0], e.r[1])
-		e.y = e.sy + (e.ty - e.sy) * sin(min(1.0, u) * PI)
+		var nx: float = clamp(e.sx + (e.tx - e.sx) * u * 1.6, e.r[0], e.r[1])
+		var ny: float = e.sy + (e.ty - e.sy) * sin(min(1.0, u) * PI)
+		# não atravessa telhado, rocha nem quina de parede no meio do rasante: se o caminho bate,
+		# ele para de avançar de lado (sobe/desce reto) ou espera ali mesmo
+		if e.has("xl"):
+			nx = e.xl
+		if _crow_blocked(nx, ny):
+			if not _crow_blocked(e.x, ny):
+				e.xl = e.x
+				nx = e.x
+			else:
+				nx = e.x
+				ny = e.y
+		e.x = nx
+		e.y = ny
 		if e.t >= 56:
 			e.st = 0
 			e.t = 0
+			e.erase("xl")
 			e.cy = e.get("base", e.cy)
+
+## o corpo do corvo em (x, y) entraria em algum sólido?
+func _crow_blocked(x: float, y: float) -> bool:
+	var r := R(x - 26, y - 14, 52, 22)
+	for s in blockers():
+		if not s.get("oneway") and not s.get("crate") and hit(r, s):
+			return true
+	return false
 
 ## piranha: patrulha a água e dá botes quando o Tomé chega perto
 func _piranha(e: Dictionary) -> void:

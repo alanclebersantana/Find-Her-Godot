@@ -604,7 +604,14 @@ static func spider(e: Dictionary, T: int) -> void:
 		_pc("spider_hang", 0, 10, 30)
 		Spr.restore()
 	else:
-		Spr.P_cycle("spider", ["spider0", "spider1", "spider2"], T / 7.0, 0, 6, 42, false, Color.WHITE, true)
+		# embaixo, na ponta do fio: parada e ameaçando (antes as pernas andavam no lugar sem sair dali).
+		# Ao chegar as pernas se abrem (quadro 1) e depois ela fica no quadro firme, respirando
+		var sf: float = 1.0 if (not e.dead and int(e.get("t", 0)) < 8) else 0.0
+		Spr.save()
+		if not e.dead:
+			Spr.scale(1.0 + sin(T * .12 + e.x) * .015, 1.0 - sin(T * .12 + e.x) * .025)
+		Spr.P_cycle("spider", ["spider0", "spider1", "spider2"], sf, 0, 6, 42, false, Color.WHITE, true)
+		Spr.restore()
 
 static func mole(e: Dictionary, T: int) -> void:
 	var st: int = e.get("st", 0)
