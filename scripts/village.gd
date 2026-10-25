@@ -251,7 +251,7 @@ func isis_step() -> void:
 		if not d.done and p.x > float(d.x) and p.onGround:
 			d.done = true
 			d.y = p.y + p.h
-			Audio.play("coin", -6, .8)
+			Audio.play("pen", -6, .8)   # ("coin" não existe no Audio: ficava mudo)
 			g.flash(str(d.get("msg", "A Isis deixou um lápis no chão: uma trilha para o papai.")), 170)
 	if CATCH.is_empty():
 		return
