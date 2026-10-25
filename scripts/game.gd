@@ -65,7 +65,7 @@ var CLUEGOT := {}
 var SPECGOT := {}
 var DRAWN := {}
 var STATS := {"pen": 0, "penTotal": 0}
-var AMB := {"dark": 0.0, "rain": 0.0, "night": 0.0, "tint": "", "tint_c": Color(0, 0, 0, 0), "song": "manha", "fog": 0.0, "wind": 0.0, "snow": 0.0, "snowfall": 0.0}
+var AMB := {"dark": 0.0, "rain": 0.0, "sun": 0.0, "night": 0.0, "tint": "", "tint_c": Color(0, 0, 0, 0), "song": "manha", "fog": 0.0, "wind": 0.0, "snow": 0.0, "snowfall": 0.0}
 var X: Extras
 var M: Mech
 var PR: Props
@@ -389,7 +389,7 @@ func _p1_load() -> void:
 	_comic_triggers()
 	lantern_lit = not L.has("lanternOutX")
 	look_y = 0
-	STATS = {"pen": 0, "penTotal": L.get("coins", []).size(), "pdeath": [0, 0, 0, 0, 0, 0]}
+	STATS = {"pen": 0, "penTotal": L.get("coins", []).size(), "pdeath": [0, 0, 0, 0, 0, 0, 0]}
 
 ## Episódio 2: depois da porta de ferro, a fuga da Isis (o último trecho do episódio)
 func begin_isis() -> void:
@@ -730,6 +730,7 @@ func ambient() -> void:
 		AMB.dark = 0.0
 		AMB.rain = 0.0
 		AMB.night = 0.0
+		AMB.sun = 0.0
 		AMB.tint = ""
 		AMB.tint_c = Color(0, 0, 0, 0)
 		AMB.fog = 0.0
@@ -752,6 +753,8 @@ func ambient() -> void:
 		return va + (vb - va) * t
 	AMB.dark = mix.call("dark")
 	AMB.rain = mix.call("rain")
+	# sol entre as nuvens (trechos com "sun"): fachos de luz mesmo no pântano
+	AMB.sun = mix.call("sun")
 	AMB.night = mix.call("night")
 	AMB.snow = mix.call("snow")
 	# na neve, neva de vez em quando: períodos de nevasca e de céu calmo (~45 s por ciclo)
@@ -857,7 +860,8 @@ func period_stars() -> Array:
 		var st := 1
 		if tot == 0 or got >= tot * .8:
 			st += 1
-		if STATS.get("pdeath", [0, 0, 0, 0, 0, 0])[i] == 0:
+		var pd: Array = STATS.get("pdeath", [])
+		if i >= pd.size() or pd[i] == 0:
 			st += 1
 		out.append(st)
 	return out
@@ -881,7 +885,7 @@ func use_available() -> bool:
 	return X.near_use() or X.beam_useful()
 
 ## nome do período do dia em que o Tomé está (a fase é uma só, dividida pelas fogueiras grandes)
-const PERIODS1 := ["Manhã no bosque", "Tarde", "Pântano", "Neve", "Céu", "Noite na mina"]
+const PERIODS1 := ["Manhã no bosque", "Tarde", "Pântano", "O Rio", "Neve", "Céu", "Noite na mina"]
 var PERIODS: Array = PERIODS1
 ## pistas da fase (Episódio 1: 1..6; Episódio 2: 7..12)
 func clue_ids() -> Array:
@@ -895,7 +899,7 @@ func period_index() -> int:
 	return n
 
 ## o nome no topo acompanha o cenário (a fogueira grande marca o fim de cada período)
-const PERIOD_OF := {"manha": 0, "tarde": 1, "chuva": 2, "rio": 2, "neve": 3, "ceu": 4, "noite": 5, "perseguicao": 5, "tunel": 5}
+const PERIOD_OF := {"manha": 0, "tarde": 1, "chuva": 2, "rio": 3, "neve": 4, "ceu": 5, "noite": 6, "perseguicao": 6, "tunel": 6}
 func period_label() -> String:
 	var px: float = amb_x()
 	var i: int = period_index()
@@ -3618,7 +3622,7 @@ func die(msg: String) -> void:
 		return
 	lives -= 1
 	if STATS.has("pdeath"):
-		STATS.pdeath[clamp(period_index(), 0, 5)] += 1
+		STATS.pdeath[clamp(period_index(), 0, STATS.pdeath.size() - 1)] += 1
 	shake = 14
 	burst(player.x + player.w / 2, player.y + player.h / 2, 22, Color("#cc5555"))
 	Polish.death_fx(player.x + player.w / 2, player.y + player.h / 2)

@@ -45,6 +45,8 @@ func _sim() -> void:
 func _sun_k(g: Game) -> float:
 	var ws: Dictionary = FxClock.nw(g)
 	var k: float = FxClock.wsum(ws, ["bosque", "tarde"]) + float(ws.get("moinho", 0.0)) * .7
+	# trechos com sol entre as nuvens (ex.: a parte calma do pântano): a luz atravessa a névoa
+	k += float(g.AMB.get("sun", 0.0))
 	return clamp(k, 0.0, 1.0) * clamp(1.0 - g.AMB.dark * 3.0, 0, 1) * clamp(1.0 - g.AMB.rain * 2.0, 0, 1)
 
 func _draw() -> void:
@@ -61,6 +63,12 @@ func _draw() -> void:
 	var vs := get_viewport_rect().size
 	var t := FxClock.ft
 	var warm := Color(1, .93, .7).lerp(Color(1, .7, .4), FxClock.wsum(ws, ["tarde", "moinho"]))
+	# sol entre as nuvens: um clarão quente lá no alto, de onde saem os fachos
+	var sun: float = float(g.AMB.get("sun", 0.0)) * k
+	if sun > .01:
+		var sr: float = vs.y * 1.3
+		draw_texture_rect(Spr.glow_tex, Rect2(vs.x * .72 - sr / 2, -vs.y * .25 - sr / 2, sr, sr), false, Color(1, .9, .62, .45 * sun))
+		draw_texture_rect(Spr.glow_tex, Rect2(vs.x * .72 - sr * .2, -vs.y * .25 - sr * .2, sr * .4, sr * .4), false, Color(1, .96, .8, .5 * sun))
 	# fachos: faixas inclinadas que andam devagar com a câmera (paralaxe do fundo) e respiram
 	var step := 420.0
 	var cam: float = g.rcam * .25

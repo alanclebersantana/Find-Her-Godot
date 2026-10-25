@@ -1606,9 +1606,10 @@ func _update_cine_bars() -> void:
 const REST_INFO := {
 	1: ["FIM DA MANHÃ", "Toda tarde ela desenhava na varanda, esperando eu voltar do trabalho.", "Aguenta firme, filha. Estou chegando."],
 	2: ["FIM DA TARDE", "Pega-pega no quintal... e ela sempre ganhava de mim.", "Aguenta firme, filha. Estou chegando."],
-	3: ["FIM DO PÂNTANO", "Pular nas poças com a lanterna acesa. Ela nunca teve medo da chuva.", "Estou chegando, Isis. Não tenha medo do escuro."],
-	4: ["FIM DA NEVE", "O boneco de neve ficou com o meu gorro. Ela riu a tarde inteira.", "Falta pouco, filha. Aguenta firme."],
-	5: ["FIM DO CÉU", "Soltar pipa no morro... ela dizia que um dia ia voar de avião.", "Voei por você, filha. Agora falta só a mina."],
+	3: ["FIM DO PÂNTANO", "Pular nas poças com a lanterna acesa. Ela nunca teve medo da chuva.", "Agora é o rio, filha. Estou chegando."],
+	4: ["FIM DO RIO", "Barquinhos de papel na enxurrada do meio-fio. O dela sempre chegava primeiro.", "Estou chegando, Isis. Não tenha medo do escuro."],
+	5: ["FIM DA NEVE", "O boneco de neve ficou com o meu gorro. Ela riu a tarde inteira.", "Falta pouco, filha. Aguenta firme."],
+	6: ["FIM DO CÉU", "Soltar pipa no morro... ela dizia que um dia ia voar de avião.", "Voei por você, filha. Agora falta só a mina."],
 }
 
 func _on_rest(n: int) -> void:
@@ -2296,6 +2297,16 @@ func _ep_periods(ep: int) -> Array:
 		_ep_per_cache[ep] = per
 	return _ep_per_cache[ep]
 
+## melhores estrelas por período de um episódio. O Ep. 1 ganhou o capítulo "O Rio" (4º) entre o
+## Pântano e a Neve: quem guardou as 6 de antes tem as da Neve em diante empurradas uma casa
+func _conq_stars(ep: int) -> Array:
+	var sk: String = "stars" if ep == 1 else "stars%d" % ep
+	var cs: Array = Save.getv("conq", sk, []).duplicate()
+	if ep == 1 and cs.size() == 6:
+		cs.insert(3, 0)
+		Save.setv("conq", sk, cs)
+	return cs
+
 ## nome curto do período ("A fuga da Isis" -> "A fuga", "Manhã no bosque" -> "Manhã")
 func _short_period(s: String) -> String:
 	var w: PackedStringArray = s.split(" ")
@@ -2340,8 +2351,7 @@ func show_gallery(ep: int = 1) -> void:
 		vb.add_child(tabs)
 	# conquistas: o melhor de cada período deste episódio
 	var per: Array = _ep_periods(ep)
-	var sk: String = "stars" if ep == 1 else "stars%d" % ep
-	var cs: Array = Save.getv("conq", sk, [])
+	var cs: Array = _conq_stars(ep)
 	var crow := HBoxContainer.new()
 	crow.alignment = BoxContainer.ALIGNMENT_CENTER
 	crow.add_theme_constant_override("separation", 14)
@@ -2519,7 +2529,7 @@ func _on_results() -> void:
 	var prow := HBoxContainer.new()
 	prow.add_theme_constant_override("separation", 12)
 	var sk: String = "stars" if game.level_idx == 0 else "stars%d" % (game.level_idx + 1)
-	var best: Array = Save.getv("conq", sk, [0, 0, 0, 0, 0, 0])
+	var best: Array = _conq_stars(game.level_idx + 1)
 	while best.size() < ps.size():
 		best.append(0)
 	for i in ps.size():

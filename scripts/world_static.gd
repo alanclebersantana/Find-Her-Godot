@@ -780,8 +780,12 @@ static func flowers_of(g: Game, s: Dictionary) -> Array:
 				var th := theme_at(g, gx)
 				var kind := int(hh(gx, 12) * 100)
 				var c := Color(0, 0, 0, 0)
-				if th == "neve" or under or th in ["noite", "perseguicao", "tunel", "chuva"]:
+				if th == "neve" or under or th in ["noite", "perseguicao", "tunel"]:
 					pass
+				elif th == "chuva":
+					# lírios do brejo: lilás, azuis e amarelos (o pântano não é só cinza)
+					if kind >= 75 and kind < 95:
+						c = [Color(1, .55, .7), Color(.6, .7, 1), Color(1, .55, .7), Color(1, .95, .55)][int(hh(gx, 13) * 4)]
 				elif th == "tarde":
 					if kind >= 45 and kind < 65:
 						c = Color(1, .82, .3)

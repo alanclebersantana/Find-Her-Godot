@@ -118,6 +118,18 @@ func until(set: Dictionary, cond: Callable, mx: int = 900):
 		frame(set)
 	return "timeout@%d,%d" % [int(px()), int(P.y)]
 
+## nada até (tx, ty) (pés do Tomé) até a condição valer
+func swim_to(tx: float, ty: float, cond: Callable, mx: int = 600):
+	for i in mx:
+		P = g.player
+		if not ok():
+			return "state"
+		if cond.call():
+			return true
+		var feet: float = P.y + P.h
+		frame({"R": px() < tx - 6, "L": px() > tx + 6, "S": feet < ty - 4, "U": feet > ty + 10})
+	return "timeout@%d,%d" % [int(px()), int(P.y)]
+
 func hop(dir: String, ndir: int, h: int = 16):
 	press("J")
 	for i in h:
@@ -1072,6 +1084,7 @@ func _initialize() -> void:
 	S("outra margem", vine_hop(null))
 	S("vivo no lamaçal", g.lives >= 3 and px() > 19990)
 	walk_to(20430)
+	S("fogueira entre a areia e a corda", g.CHK.filter(func(c): return int(c.x) == 20385)[0].on)
 	S("cipó da ribanceira", grab_vine(g.VINES[4]))
 	S("agarra a corda", _to_bar())
 	S("anda pendurado", until({"R": true}, func(): return px() > 21480, 600))
@@ -1083,6 +1096,15 @@ func _initialize() -> void:
 	S("colmeia 1 quieta", trap_at("hive", 21655).st == "idle")
 	walk_to(21775)
 	S("mergulho 2", until({"R": true, "S": true}, func(): return px() > 22040 and P.y > 600, 300))
+	# mergulho do meio: a grade da saída está fechada; a alavanca no fundo abre, a correnteza
+	# leva para a frente e, rente ao fundo (água calma), dá para pegar o baú
+	var ugate: Dictionary = g.SOL.filter(func(s): return s.get("id", "") == "ugrate1")[0]
+	S("grade da saída fechada", float(ugate.get("open", 0.0)) == 0.0 and g.blockers().has(ugate))
+	S("alavanca do fundo", swim_to(22140, 812, func(): return g.NT.ULEV[0].on, 400))
+	S("grade abriu", swim_to(22262, 800, func(): return float(ugate.get("open", 0.0)) >= 1.0, 300))
+	S("baú do fundo", swim_to(22560, 812, func(): return g.NT.CHESTS[0].got, 600))
+	S("respirou nas bolhas 2", g.lives >= 3)
+	S("correnteza empurra", swim_to(23000, 640, func(): return P.vx > 3.5, 300))
 	S("túnel d'água 2", until({"R": true}, func(): return px() > 23060, 1200))
 	S("sobe do mergulho 2", until({"U": true, "R": true}, func(): return P.y < 515, 300))
 	S("sai do mergulho 2", jump_to(23230))
@@ -1102,11 +1124,13 @@ func _initialize() -> void:
 	S("corrente de bolhas", until({"R": true}, func(): return px() > 25150, 600))
 	S("subiu na corrente", until({"R": true}, func(): return P.onGround and P.y < 480, 400))
 	S("margem do rio", walk_to(25480))
+	S("fogueira grande 3 (antes do rio)", rests.has(3))
+	S("capítulo O Rio", g.period_label().ends_with("O Rio"))
 	use()
 	S("subiu na jangada", g.VH.mode == "raft")
 	S("corredeira", ride_raft())
 	S("jangada sem virar", g.VH.tries == 0)
-	S("fogueira grande 3", walk_to(32820) and rests.has(3))
+	S("fogueira grande 4", walk_to(32820) and rests.has(4))
 	walk_to(33190)
 	S("pula a pedra", jump_to(33320, true))
 	S("empurra a bola de neve", until({"R": true}, func(): return g.NT.SNOWB[0].x + g.NT.SNOWB[0].w >= 33687, 900))
@@ -1153,14 +1177,14 @@ func _initialize() -> void:
 	# o trenó parte sozinho quando o Tomé chega nele
 	S("chega no trenó e parte sozinho", until({"R": true}, func(): return g.VH.mode == "sled", 600))
 	S("trenó chegou", sled_drive())
-	S("fogueira grande 4", walk_to(53090) and rests.has(4))
+	S("fogueira grande 5", walk_to(53090) and rests.has(5))
 	S("subida da montanha", climb_gusts(55630))
 	S("ponte de cordas", bridge_run(trap_at("bridge", 55660)))
 	S("pista do avião: embarca sozinho", until({"R": true}, func(): return g.VH.mode == "plane", 1500))
 	S("decolou", g.VH.mode == "plane")
 	S("voo", fly_plane())
 	S("avião sem rodopiar", g.VH.tries == 0)
-	S("fogueira grande 5", walk_to(64280) and rests.has(5))
+	S("fogueira grande 6", walk_to(64280) and rests.has(6))
 	S("margem", walk_to(64470))
 	var axe: Dictionary = g.TR.by_kind("axe")[0]
 	walk_to(64460)

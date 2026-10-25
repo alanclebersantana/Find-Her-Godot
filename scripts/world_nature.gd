@@ -333,8 +333,219 @@ static func draw(g: Game, T: int) -> void:
 			for k in 10:
 				var yy: float = c.y1 - fmod(T * 4.0 + k * 61.0, c.y1 - c.y0)
 				Spr.ring(c.x + c.w * (.2 + (k % 5) * .15), yy, 4 + (k % 3) * 2, Color(.85, .95, 1, .7), 1.5)
+	_flows(NT, T, x0, x1)
+	for o in NT.ULEV:
+		if o.x > x1 + 900 or o.x < x0 - 900:
+			continue
+		var gt = NT._gate_of(o)
+		if gt != null:
+			_chain(o, gt, T, x0, x1)
+			if float(gt.x) < x1 and float(gt.x) + gt.w > x0:
+				_ugrate(gt, T)
+		if o.x > x0 - 60 and o.x < x1 + 60:
+			_ulever(o, T)
+	for o in NT.CHESTS:
+		if o.x > x0 - 60 and o.x < x1 + 60:
+			_chest(o, T)
+
+## correnteza: fios de água clara correndo, folhinhas e bolhinhas arrastadas, mais forte no meio
+static func _flows(NT: Nature, T: int, x0: float, x1: float) -> void:
+	for f in NT.FLOWS:
+		if f.x > x1 or f.x + f.w < x0:
+			continue
+		var h: float = float(f.y1) - float(f.y0)
+		var sp: float = float(f.vx) * 2.2
+		for k in 22:
+			var ln: float = 26 + _bh(k, 21) * 40
+			var fx: float = float(f.x) + fposmod(T * sp * (.8 + _bh(k, 22) * .5) + k * 131.0, float(f.w) + ln) - ln
+			var fy: float = float(f.y0) + 10 + _bh(k, 23) * (h - 20) + sin(T * .05 + k) * 3.0
+			if fx + ln < x0 or fx > x1:
+				continue
+			var e: float = clamp(min(fx - f.x, f.x + f.w - fx - ln) / 60.0, 0.0, 1.0)
+			var mid: float = 1.0 - abs((fy - f.y0) / h - .5) * 1.4
+			var al: float = .5 * e * mid
+			if al <= .01:
+				continue
+			var pts := PackedVector2Array()
+			for q in 5:
+				var u: float = q / 4.0
+				pts.push_back(Vector2(fx + u * ln, fy + sin(u * 4.0 + T * .1 + k) * 2.0))
+			Spr.line(pts, Color(.85, .97, 1, al), 2.2)
+			Spr.circle(pts[4].x, pts[4].y, 1.6, Color(1, 1, 1, al))
+		# folhinhas e sujeira levadas pela água
+		for k in 7:
+			var fx2: float = float(f.x) + fposmod(T * sp * 1.1 + k * 173.0, float(f.w))
+			var fy2: float = float(f.y0) + 18 + _bh(k, 24) * (h - 36) + sin(T * .07 + k * 2.0) * 8.0
+			if fx2 < x0 or fx2 > x1:
+				continue
+			var e2: float = clamp(min(fx2 - f.x, f.x + f.w - fx2) / 60.0, 0.0, 1.0)
+			if k % 2 == 0:
+				Spr.ellipse(fx2, fy2, 5, 2, Color(.45, .55, .25, .7 * e2), T * .08 + k)
+			else:
+				Spr.ring(fx2, fy2, 2.5, Color(.85, .95, 1, .55 * e2), 1.0)
+
+## grade de ferro que fecha a saída do mergulho: sobe para dentro da pedra quando a alavanca desce
+static func _ugrate(s: Dictionary, T: int) -> void:
+	var op: float = float(s.get("open", 0.0))
+	var top: float = float(s.y)
+	var bot: float = float(s.y) + float(s.h) - op * (float(s.h) - 6)
+	if bot <= top + 2:
+		return
+	var sh: float = sin(T * .9) * .8 if op > 0.0 and op < 1.0 else 0.0
+	var gx: float = float(s.x) + sh
+	# sombra na pedra e as barras redondas (escuro, luz do lado esquerdo, ferrugem e limo)
+	Spr.rect(gx - 3, top, s.w + 6, bot - top, Color(0, 0, 0, .18))
+	for k in 4:
+		var bx: float = gx + 2 + k * (float(s.w) - 4) / 3.0
+		Spr.rect(bx - 3.6, top, 7.2, bot - top, Color("#1a1816"))
+		Spr.rect(bx - 2.4, top, 2.2, bot - top, Color("#7a7670"))
+		Spr.rect(bx + .4, top, 1.8, bot - top, Color("#3a3634"))
+		# pontas afiadas embaixo
+		Spr.poly(PackedVector2Array([Vector2(bx - 3.6, bot - 1), Vector2(bx + 3.6, bot - 1), Vector2(bx, bot + 9)]), Color("#2a2826"))
+	var cy: float = bot - 30.0
+	while cy > top + 8:
+		Spr.rr(gx - 4, cy - 3, s.w + 8, 7, 3, Color("#2a2624"))
+		Spr.rect(gx - 3, cy - 2, s.w + 6, 1.6, Color("#7a746c"))
+		Spr.circle(gx + 4, cy + 2, 2.2, Color(.55, .3, .15, .7))
+		cy -= 72.0
+	# limo pendurado balançando
+	for k in 3:
+		var lx: float = gx + 4 + k * 9
+		var ly: float = bot - 50 - k * 60
+		if ly < top + 10:
+			continue
+		var sw: float = sin(T * .06 + k * 1.7) * 3.0
+		Spr.line(PackedVector2Array([Vector2(lx, ly), Vector2(lx + sw * .5, ly + 10), Vector2(lx + sw, ly + 20)]), Color(.35, .5, .22, .8), 2.0)
+
+## corrente que sai da alavanca, corre pelo fundo e sobe até a grade (mostra que uma puxa a outra)
+static func _chain(o: Dictionary, gt: Dictionary, T: int, x0: float, x1: float) -> void:
+	var ax: float = float(o.x) + 8
+	var ay: float = float(o.y) - 8
+	var bx: float = float(gt.x) - 6
+	var by: float = float(o.y) - 6
+	var tight: float = clamp(float(o.t) / 24.0, 0.0, 1.0) if o.on else 0.0
+	var x: float = max(ax, x0 - 20)
+	var xe: float = min(bx, x1 + 20)
+	var k := int((x - ax) / 9.0)
+	x = ax + k * 9.0
+	while x < xe:
+		var u: float = (x - ax) / max(1.0, bx - ax)
+		var y: float = lerpf(ay, by, u) + 3.0 * (1.0 - tight) * (sin(x * .02) * .5 + .5) - tight * 2.0
+		if k % 2 == 0:
+			Spr.ellipse(x, y, 5, 2.6, Color("#2a2622"))
+			Spr.ellipse(x, y, 3.6, 1.4, Color("#6a625a"))
+		else:
+			Spr.rect(x - 1.5, y - 3, 3, 6, Color("#3a3430"))
+		x += 9.0
+		k += 1
+	# o pé da grade: a corrente sobe pela parede até a barra de baixo
+	if bx > x0 - 20 and bx < x1 + 20:
+		var gy0: float = by
+		var gy1: float = float(gt.y) + float(gt.h) - float(gt.get("open", 0.0)) * (float(gt.h) - 6) - 10
+		var y2: float = gy0
+		while y2 > gy1:
+			Spr.ellipse(bx, y2, 2.4, 4.5, Color("#2a2622"))
+			Spr.ellipse(bx, y2, 1.2, 3.2, Color("#6a625a"))
+			y2 -= 9.0
+		Spr.circle(bx, by, 4.5, Color("#3a3430"))
+		Spr.circle(bx - 1, by - 1, 1.6, Color("#8a827a"))
+
+## alavanca no fundo: base de pedra com limo, eixo de ferro e cabo de madeira com argola
+static func _ulever(o: Dictionary, T: int) -> void:
+	var x: float = o.x
+	var y: float = o.y
+	var u: float = clamp(float(o.t) / 18.0, 0.0, 1.0) if o.on else 0.0
+	var e: float = u * u * (3.0 - 2.0 * u)
+	var ang: float = lerpf(-.75, .75, e) + (sin(T * .05) * .03 if not o.on else 0.0)
+	if not o.on:
+		Spr.glow(x, y - 30, 46 + sin(T * .1) * 4, Color(1, .9, .55, .22))
+	# cabo
+	var hl: float = 52.0
+	var tip := Vector2(x + sin(ang) * hl, y - 14 - cos(ang) * hl)
+	Spr.seg(x, y - 14, tip.x, tip.y, Color("#24160c"), 8)
+	Spr.seg(x, y - 14, tip.x, tip.y, Color("#8a5a32"), 5)
+	Spr.seg(x - 1.5, y - 16, tip.x - 1.5, tip.y - 1, Color("#c08a54"), 1.6)
+	Spr.circle(tip.x, tip.y, 7, Color("#24160c"))
+	Spr.circle(tip.x, tip.y, 5.4, Color("#a87a4a"))
+	Spr.circle(tip.x - 1.5, tip.y - 1.5, 1.8, Color(1, 1, 1, .4))
+	# base de pedra
+	Spr.ellipse(x, y - 4, 26, 12, Color("#24201c"))
+	Spr.ellipse(x, y - 6, 24, 10, Color("#6a6a60"))
+	Spr.ellipse(x - 6, y - 10, 12, 4, Color(1, 1, 1, .15))
+	Spr.ellipse(x + 8, y - 13, 10, 3.5, Color(.36, .5, .22, .85))
+	Spr.circle(x, y - 14, 5, Color("#24201c"))
+	Spr.circle(x, y - 14, 3.4, Color("#8a8070"))
+	# setinha de dica antes de puxar
+	if not o.on and (T / 24) % 2 == 0:
+		Spr.text("▼", x, y - 92 + sin(T * .1) * 3, 16, Color(1, .92, .6, .85), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3)
+
+## baú no fundo: madeira escura com cintas de ouro; aberto, a tampa vira para trás e brilha
+static func _chest(o: Dictionary, T: int) -> void:
+	var x: float = o.x
+	var y: float = o.y
+	var w := 46.0
+	var h := 26.0
+	Spr.ellipse(x, y + 1, 28, 5, Color(0, 0, 0, .3))
+	if not o.got:
+		Spr.glow(x, y - 16, 40 + sin(T * .08) * 4, Color(1, .85, .4, .25))
+	# caixa
+	Spr.rr(x - w / 2 - 1.5, y - h - 1.5, w + 3, h + 3, 4, Color("#24160c"))
+	Spr.rr(x - w / 2, y - h, w, h, 3, Color("#7a4a26"))
+	Spr.rect(x - w / 2 + 2, y - h + 3, w - 4, 2, Color(1, .9, .7, .18))
+	for k in 3:
+		Spr.seg(x - w / 2 + 3, y - h + 8 + k * 6, x + w / 2 - 3, y - h + 8 + k * 6, Color("#4a2a14"), 1.0)
+	for cx in [x - w / 2 + 6, x + w / 2 - 6]:
+		Spr.rect(cx - 2.5, y - h, 5, h, Color("#d8a83a"))
+		Spr.rect(cx - 2.5, y - h, 1.6, h, Color("#ffe28a"))
+	# limo e um caramujo no canto
+	Spr.ellipse(x - w / 2 + 6, y - 2, 9, 3, Color(.32, .48, .2, .8))
+	Spr.circle(x + w / 2 - 4, y - h + 4, 3, Color("#c89060"))
+	if not o.got:
+		# tampa fechada (meia-lua) com fechadura
+		var lid := PackedVector2Array()
+		for i in 9:
+			var a: float = PI + i / 8.0 * PI
+			lid.push_back(Vector2(x + cos(a) * (w / 2 + 1), y - h + sin(a) * 12))
+		Spr.poly(lid, Color("#24160c"))
+		var lid2 := PackedVector2Array()
+		for i in 9:
+			var a: float = PI + i / 8.0 * PI
+			lid2.push_back(Vector2(x + cos(a) * (w / 2 - 1), y - h + 1 + sin(a) * 10.5))
+		Spr.poly(lid2, Color("#8a5430"))
+		Spr.seg(x - w / 2 + 6, y - h - 2, x - 6, y - h - 9, Color(1, .9, .7, .25), 2)
+		Spr.rect(x - 3.5, y - h - 4, 7, 9, Color("#d8a83a"))
+		Spr.circle(x, y - h, 1.4, Color("#24160c"))
+		# brilho que passeia
+		var sx: float = x - w / 2 + fposmod(T * 1.2, w + 60)
+		if sx < x + w / 2:
+			Spr.seg(sx, y - h + 2, sx + 6, y - 3, Color(1, 1, .85, .35), 2)
+	else:
+		# aberto: tampa para trás, luz dourada saindo e bolhas subindo
+		var u: float = clamp(float(o.t) / 14.0, 0.0, 1.0)
+		Spr.rect(x - w / 2 + 3, y - h + 1, w - 6, 5, Color("#24140a"))
+		Spr.glow(x, y - h - 4, 30 * u + 10, Color(1, .85, .4, .35 * (1.0 - min(1.0, float(o.t) / 240.0) * .6)))
+		Spr.save()
+		Spr.translate(x, y - h)
+		Spr.rotate(-1.9 * u)
+		Spr.rr(-w / 2 - 1, -12, w + 2, 12, 5, Color("#24160c"))
+		Spr.rr(-w / 2 + 1, -10.5, w - 2, 9.5, 4, Color("#8a5430"))
+		Spr.restore()
+
 
 ## lamaçal (na camada da frente: o Tomé afunda nele)
+## Lama grossa com relevo (montinhos que respiram devagar), brilho molhado nas cristas, veios e
+## gravetos/pedrinhas presos, limo verde boiando, bolhas que incham e estouram, e as sanguessugas.
+static func bog_top(b: Dictionary, x: float, T: int) -> float:
+	var u: float = clamp((x - b.x) / b.w, 0.0, 1.0)
+	var endk: float = pow(abs(u - .5) * 2.0, 6.0)
+	# relevo fixo (montes e vales) + o "respirar" lento da lama
+	var hump: float = sin(x * .013 + 1.3) * 5.0 + sin(x * .031 + .4) * 3.0 + sin(x * .071) * 1.2
+	return b.y - 3 + hump + sin(x * .04 + T * .02) * 1.6 + sin(x * .11 - T * .03) * .8 + endk * 10
+
+static func _bh(x: float, k: int) -> float:
+	var v := sin(x * 12.9898 + k * 78.233) * 43758.5453
+	return v - floor(v)
+
 static func draw_bogs(g: Game, T: int) -> void:
 	var NT: Nature = g.NT
 	if NT == null:
@@ -344,47 +555,156 @@ static func draw_bogs(g: Game, T: int) -> void:
 	for b in NT.BOGS:
 		if b.x > x1 or b.x + b.w < x0:
 			continue
-		# lamaçal: superfície mole ondulando devagar, pontas arredondadas entrando no barranco
+		var bx0: float = max(float(b.x), x0)
+		var bx1: float = min(float(b.x + b.w), x1)
+		# corpo: crista clara, vale escuro, e escurecendo para o fundo
 		var top := PackedVector2Array()
-		var xx: float = b.x
-		while xx <= b.x + b.w + .1:
-			var u: float = (xx - b.x) / b.w
-			var endk: float = pow(abs(u - .5) * 2.0, 6.0)
-			top.push_back(Vector2(xx, b.y - 4 + sin(xx * .04 + T * .02) * 2.0 + sin(xx * .11 - T * .03) * 1.2 + endk * 8))
-			xx += 12
+		var xx: float = bx0
+		while xx <= bx1 + .1:
+			top.push_back(Vector2(xx, bog_top(b, xx, T)))
+			xx += 10
+		if top[top.size() - 1].x < bx1:
+			top.push_back(Vector2(bx1, bog_top(b, bx1, T)))
 		var body := PackedVector2Array(top)
-		body.push_back(Vector2(b.x + b.w, b.y + 140))
-		body.push_back(Vector2(b.x, b.y + 140))
+		body.push_back(Vector2(bx1, b.y + 140))
+		body.push_back(Vector2(bx0, b.y + 140))
 		var cols := PackedColorArray()
-		for q in body:
-			cols.push_back(Color("#6a5230").lerp(Color("#2a1e10"), clamp((q.y - b.y + 4) / 60.0, 0, 1)))
+		for q in top:
+			var crest: float = clamp((b.y + 2 - q.y) / 9.0, 0.0, 1.0)
+			cols.push_back(Color("#4e3a1e").lerp(Color("#80663c"), crest))
+		cols.push_back(Color("#1c140a"))
+		cols.push_back(Color("#1c140a"))
 		Spr.ci.draw_polygon(body, cols)
-		Spr.line(top, Color(.85, .74, .5, .45), 2.5)
-		# brilho molhado e manchas mais escuras
-		for k in int(b.w / 70.0):
-			var mx: float = b.x + 30 + fmod(k * 83.0, b.w - 60)
-			Spr.ellipse(mx, b.y + 4, 18 + (k % 3) * 6, 2.2, Color(1, .95, .8, .16))
-			Spr.ellipse(mx + 30, b.y + 16, 26, 4, Color(0, 0, 0, .14))
+		# faixa logo abaixo da superfície (lama mais mole, um pouco mais clara) e veios escuros
+		var band := PackedVector2Array(top)
+		for i in range(top.size() - 1, -1, -1):
+			band.push_back(top[i] + Vector2(0, 16 + sin(top[i].x * .05) * 4))
+		Spr.poly(band, Color(.42, .31, .16, .45))
+		var vx: float = bx0 - fposmod(bx0, 46.0)
+		while vx < bx1:
+			var r := _bh(vx, 1)
+			if vx > b.x + 20 and vx < b.x + b.w - 40 and r < .7:
+				var vy: float = bog_top(b, vx, 0) + 22 + r * 70
+				var ln: float = 24 + _bh(vx, 2) * 40
+				var pts := PackedVector2Array()
+				for k in 5:
+					var u: float = k / 4.0
+					pts.push_back(Vector2(vx + u * ln, vy + sin(u * PI + r * 6.0) * 3.0))
+				Spr.line(pts, Color(.08, .05, .02, .3), 2.0)
+				Spr.line(pts, Color(.75, .6, .35, .1), 1.0)
+			vx += 46
+		# coisas presas na lama: pedrinhas, gravetos e folhas mortas (fixas, pela posição)
+		var ox: float = bx0 - fposmod(bx0, 37.0)
+		while ox < bx1:
+			if ox > b.x + 16 and ox < b.x + b.w - 16:
+				var r2 := _bh(ox, 3)
+				var oy: float = bog_top(b, ox, T) + 3 + _bh(ox, 4) * 5
+				if r2 < .22:
+					Spr.ellipse(ox, oy + 1, 4.5, 2.6, Color("#2a2016"))
+					Spr.ellipse(ox - .5, oy, 3.8, 2.0, Color("#7d7462"))
+					Spr.ellipse(ox - 1.5, oy - .8, 1.4, .7, Color(1, 1, 1, .35))
+				elif r2 < .38:
+					var a: float = (_bh(ox, 5) - .5) * .9
+					Spr.seg(ox - cos(a) * 12, oy - sin(a) * 12, ox + cos(a) * 12, oy + sin(a) * 12, Color("#2a1a0c"), 3.0)
+					Spr.seg(ox - cos(a) * 11, oy - sin(a) * 11 - 1, ox + cos(a) * 10, oy + sin(a) * 10 - 1, Color("#8a6a42"), 1.2)
+				elif r2 < .5:
+					Spr.ellipse(ox, oy, 6, 2.6, Color("#5a5a24"), (_bh(ox, 6) - .5) * .8)
+					Spr.seg(ox - 5, oy, ox + 5, oy, Color("#33300f"), 1.0)
+			ox += 37
+		# limo verde boiando nos vales
+		var lx: float = bx0 - fposmod(bx0, 120.0) + 40
+		while lx < bx1:
+			if lx > b.x + 40 and lx < b.x + b.w - 40 and _bh(lx, 7) < .55:
+				var ly: float = bog_top(b, lx, T) + 1.5
+				var lw: float = 18 + _bh(lx, 8) * 22
+				Spr.ellipse(lx, ly, lw, 3.2, Color(.36, .46, .16, .55))
+				Spr.ellipse(lx - lw * .3, ly - .6, lw * .45, 1.6, Color(.55, .66, .25, .5))
+				Spr.circle(lx + lw * .5, ly, 2.2, Color(.42, .54, .2, .6))
+			elif lx > b.x + 40 and lx < b.x + b.w - 40 and _bh(lx, 7) > .8:
+				# poça d'água parada no vale, refletindo o céu
+				var py: float = bog_top(b, lx, T) + 2.0
+				Spr.ellipse(lx, py, 16, 2.6, Color(.62, .72, .68, .5))
+				Spr.seg(lx - 10, py - .6, lx + 4, py - .6, Color(1, 1, 1, .35), 1.0)
+			lx += 120
+		# brilho molhado nas cristas (luz de cima, à esquerda)
+		for i in range(1, top.size() - 1):
+			var q: Vector2 = top[i]
+			if q.y < b.y - 2 and top[i + 1].y >= q.y - .5 and int(q.x / 10.0) % 3 != 0:
+				Spr.seg(q.x - 6, q.y + 2.2, q.x + 4, q.y + 1.8, Color(1, .95, .78, .3), 1.6)
+		Spr.line(top, Color(.2, .14, .07, .55), 2.0)
+		Spr.line(top, Color(.9, .78, .52, .32), 1.0)
+		# beiradas: a lama sobe um pouco no barranco
+		for side in [0, 1]:
+			var ex: float = b.x if side == 0 else b.x + b.w
+			if ex < x0 - 40 or ex > x1 + 40:
+				continue
+			var dir: float = 1.0 if side == 0 else -1.0
+			Spr.poly(PackedVector2Array([Vector2(ex - dir * 14, b.y - 2), Vector2(ex + dir * 6, b.y - 7), Vector2(ex + dir * 30, b.y + 4), Vector2(ex + dir * 30, b.y + 20), Vector2(ex - dir * 14, b.y + 12)]), Color("#5a4426"))
+			Spr.seg(ex - dir * 10, b.y - 3, ex + dir * 10, b.y - 6, Color(1, .92, .7, .25), 1.5)
+		# bolhas de gás: incham devagar, estouram com um anel e respingos, e nascem em outro lugar
+		for k in 9:
+			var per: float = 110.0 + _bh(k, 9) * 90.0
+			var ph: float = fposmod(T + _bh(k, 10) * per, per)
+			var cyc: int = int((T + _bh(k, 10) * per) / per)
+			var bx: float = b.x + 40 + _bh(cyc * 13 + k, 11) * (b.w - 80)
+			if bx < x0 or bx > x1:
+				continue
+			var by: float = bog_top(b, bx, T)
+			var big: float = 4.0 + _bh(cyc * 7 + k, 12) * 7.0
+			var grow: float = ph / (per * .8)
+			if grow < 1.0:
+				var r3: float = big * grow
+				if r3 > 1.0:
+					Spr.ellipse(bx, by + 1, r3 + 1.5, r3 * .35 + .8, Color(.12, .08, .04, .5))
+					Spr.ellipse(bx, by - r3 * .45, r3, r3 * .75, Color("#6e5634"))
+					Spr.ring(bx, by - r3 * .45, r3, Color(.2, .14, .07, .7), 1.0, PI, TAU)
+					Spr.circle(bx - r3 * .35, by - r3 * .85, max(.8, r3 * .22), Color(1, .95, .8, .55))
+			else:
+				var u2: float = (grow - 1.0) / .25
+				Spr.ring(bx, by - 1, big * (1.0 + u2 * 1.6), Color(.9, .78, .5, .45 * (1.0 - u2)), 1.3)
+				for d in 3:
+					var dx: float = (d - 1) * big * .9 * u2
+					var dy: float = -sin(u2 * PI) * (6 + d * 3)
+					Spr.circle(bx + dx, by - 2 + dy, 1.6 * (1.0 - u2 * .5), Color("#5a4428"))
+		# sanguessugas se contorcendo para fora da lama
 		var x: float = b.x + 24
 		var i := 0
 		while x < b.x + b.w - 10:
-			var t: float = fmod(T * .018 + i * .37, 1.0)
-			if i % 3 == 0:
-				# sanguessuga se contorcendo para fora da lama
+			if i % 3 == 0 and x > x0 - 20 and x < x1 + 20:
+				var t: float = fmod(T * .018 + i * .37, 1.0)
+				var sy: float = bog_top(b, x, T) + 2
 				var hgt: float = sin(t * PI) * 30
 				var sw: float = sin(T * .2 + i) * 5
 				if hgt < 10:
-					# entrando/saindo da lama: só a pontinha (o polígono baixo demais se cruzava e
-					# não desenhava — dava erro de triangulação a cada quadro)
-					Spr.ellipse(x + sw * .3, b.y - hgt * .3, 6, 2.0 + hgt * .3, Color("#1e1610"))
+					# entrando/saindo da lama: só a pontinha e um anel na lama
+					Spr.ellipse(x + sw * .3, sy - hgt * .3, 6, 2.0 + hgt * .3, Color("#1e1610"))
+					Spr.ring(x, sy, 7 + (10 - hgt), Color(.15, .1, .05, .3), 1.2)
 				else:
-					var pts := PackedVector2Array([Vector2(x - 6, b.y), Vector2(x - 4 + sw * .5, b.y - hgt * .5), Vector2(x + sw, b.y - hgt), Vector2(x + 6 + sw, b.y - hgt + 4), Vector2(x + 4 + sw * .5, b.y - hgt * .5 + 4), Vector2(x + 6, b.y)])
-					Spr.poly(pts, Color("#1e1610"))
-					Spr.ci.draw_polyline(pts, Color("#5a3a2a"), 1.5, true)
-					Spr.circle(x + sw + 2, b.y - hgt + 2, 1.8, Color(1, .35, .25))
-			else:
-				Spr.ring(x, b.y - 2, 4 + t * 12, Color(.9, .78, .5, .6 * (1.0 - t)), 1.5)
-				Spr.circle(x + 8, b.y - 3 - sin(t * PI) * 4, 3 * (1.0 - t), Color("#5a4428"))
+					# corpo de minhoca grossa e mole: curva em S que se estica, afina na ponta e brilha molhado
+					var body2 := PackedVector2Array()
+					for q in 8:
+						var u3: float = q / 7.0
+						body2.push_back(Vector2(x + sw * u3 + sin(u3 * 3.2 + T * .15 + i) * 4.0 * u3, sy - hgt * u3))
+					Spr.ellipse(x, sy - 1, 10, 3, Color("#2e2212"))
+					Spr.line(body2, Color("#120c06"), 9.0)
+					Spr.line(body2, Color("#3c3020"), 6.5)
+					# listras do corpo
+					for q in range(1, 7):
+						var c2: Vector2 = body2[q]
+						Spr.seg(c2.x - 3, c2.y + .5, c2.x + 3, c2.y - .5, Color(.12, .08, .04, .55), 1.0)
+					var hl2 := PackedVector2Array()
+					for q in range(1, 7):
+						hl2.push_back(body2[q] + Vector2(-1.8, 0))
+					Spr.line(hl2, Color(.85, .8, .6, .3), 1.4)
+					# cabeça com a ventosa e o olhinho vermelho (é inimigo)
+					var hd: Vector2 = body2[7]
+					Spr.circle(hd.x, hd.y, 4.2, Color("#120c06"))
+					Spr.circle(hd.x, hd.y, 3.2, Color("#4a3a26"))
+					Spr.ring(hd.x, hd.y - 1, 2.2, Color(.75, .3, .25, .9), 1.2, PI, TAU)
+					Spr.circle(hd.x + 1.6, hd.y + 1, 1.3, Color(1, .3, .22))
+					# lama escorrendo de volta
+					if int(T / 4 + i) % 3 == 0:
+						Spr.circle(body2[3].x + 3, body2[3].y + 4, 1.4, Color("#3a2a16"))
 			x += 34 + (i % 4) * 8
 			i += 1
 

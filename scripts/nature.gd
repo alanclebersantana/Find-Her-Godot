@@ -9,6 +9,9 @@ var BOGS: Array = []
 var BARS: Array = []
 var VENTS: Array = []
 var CURRENTS: Array = []
+var FLOWS: Array = []      # correntezas debaixo d'água (empurram o Tomé para o lado delas)
+var ULEV: Array = []       # alavancas no fundo (abrem uma grade)
+var CHESTS: Array = []     # baús no fundo
 var GEAR: Array = []
 var HOLES: Array = []
 var SNOWB: Array = []
@@ -29,6 +32,20 @@ func load_level() -> void:
 	BARS = L.get("bars", [])
 	VENTS = L.get("vents", [])
 	CURRENTS = L.get("currents", [])
+	FLOWS = L.get("flows", [])
+	ULEV = []
+	for o in L.get("ulevers", []):
+		var d: Dictionary = o.duplicate()
+		d.on = false
+		d.t = 0
+		d._gate = null
+		ULEV.append(d)
+	CHESTS = []
+	for o in L.get("chests", []):
+		var d: Dictionary = o.duplicate()
+		d.got = false
+		d.t = 0
+		CHESTS.append(d)
 	GEAR = []
 	for o in L.get("gear", []):
 		var d: Dictionary = o.duplicate()
@@ -205,6 +222,9 @@ func post() -> void:
 				p.jbuf = 0
 			if g.T % 3 == 0:
 				g.X.BUB.append({"x": c.x + randf() * c.w, "y": c.y1 - 10, "t": 0, "top": c.y0})
+	_flows(p, pcx)
+	_levers(p)
+	_chests(p)
 	# bolhas das fontes
 	if g.T % 5 == 0:
 		for v in VENTS:
@@ -248,6 +268,86 @@ func post() -> void:
 				break
 	HARP = HARP.filter(func(h): return not h.dead)
 	_snowballs()
+
+# ---------- mergulho do meio: correnteza, alavanca e baú ----------
+## força da correnteza num ponto (0 fora; sobe e desce suave nas pontas e no meio da faixa é mais forte)
+func flow_at(x: float, y: float) -> float:
+	for f in FLOWS:
+		if x > f.x and x < f.x + f.w and y > f.y0 and y < f.y1:
+			var ex: float = clamp(min(x - f.x, f.x + f.w - x) / 80.0, 0.0, 1.0)
+			var ey: float = clamp(min(y - f.y0, f.y1 - y) / 30.0, 0.0, 1.0)
+			return float(f.vx) * ex * (.4 + .6 * ey)
+	return 0.0
+
+func _flows(p: Dictionary, pcx: float) -> void:
+	if FLOWS.is_empty() or not p.swim or p.dyingT > 0:
+		return
+	var v: float = flow_at(pcx, p.y + p.h * .5)
+	if v == 0.0:
+		return
+	# o nado mira 2,5 px/quadro; somando isto a cada quadro o Tomé anda "v" mais rápido a favor
+	# (e "v" mais devagar contra). Rente ao fundo a água é calma.
+	p.vx += v * .12
+	if g.T % 6 == 0:
+		g.X.BUB.append({"x": pcx - sign(v) * 10, "y": p.y + 10 + randf() * 14, "t": 0, "top": p.y - 40})
+
+func _gate_of(o: Dictionary):
+	if o._gate != null and g.SOL.has(o._gate):
+		return o._gate
+	for s in g.SOL:
+		if s.get("id", "") == o.gate:
+			o._gate = s
+			return s
+	return null
+
+func _levers(p: Dictionary) -> void:
+	for o in ULEV:
+		var gt = _gate_of(o)
+		if o.on:
+			o.t += 1
+			# a corrente estica e, um instante depois, a grade sobe devagar (raspando)
+			if gt != null and o.t > 24:
+				var was: float = float(gt.get("open", 0.0))
+				gt.open = move_toward(was, 1.0, .018)
+				if was < .85 and gt.open >= .85:
+					g.burst(float(gt.x) + gt.w / 2, float(gt.y) + gt.h * .2, 10, Color(.6, .7, .7))
+				if was < 1.0 and o.t % 9 == 0:
+					Audio.play("climb", -12, .6)
+		elif p.dyingT == 0 and not p.get("dog") and Game.hit(p, g.R(o.x - 24, o.y - 70, 48, 70)):
+			o.on = true
+			o.t = 0
+			g.shake = max(g.shake, 6)
+			Audio.play("door", -4, .7)
+			Audio.vib(40)
+			g.burst(o.x, o.y - 30, 12, Color(.75, .85, .9))
+			for i in 6:
+				g.X.BUB.append({"x": o.x + randf_range(-16, 16), "y": o.y - 10, "t": 0, "top": o.y - 300})
+			g.flash("A alavanca desceu: a grade da saída está subindo!", 180)
+
+func _chests(p: Dictionary) -> void:
+	for o in CHESTS:
+		if o.got:
+			o.t += 1
+			continue
+		if p.dyingT == 0 and not p.get("dog") and Game.hit(p, g.R(o.x - 26, o.y - 40, 52, 40)):
+			o.got = true
+			o.t = 0
+			Audio.play("item")
+			Audio.play("door", -10, 1.3)
+			Audio.vib(45)
+			g.burst(o.x, o.y - 22, 22, Color("#ffd76a"))
+			for i in int(o.get("n", 6)):
+				g.gain_coin(o.x + randf_range(-14, 14), o.y - 30, i > 0)
+			var msg := "Um baú no fundo do rio: +%d lápis!" % int(o.get("n", 6))
+			if o.get("item", "") == "heart":
+				if p.hp < Game.MAXHP:
+					p.hp += 1
+					msg = "Um baú no fundo do rio: +1 coração e +%d lápis!" % int(o.get("n", 6))
+				else:
+					for i in 5:
+						g.gain_coin(o.x, o.y - 30, true)
+					msg = "Um baú no fundo do rio: +%d lápis!" % (int(o.get("n", 6)) + 5)
+			g.flash(msg, 180)
 
 # ---------- bolas de neve ----------
 func _snowballs() -> void:
@@ -346,7 +446,8 @@ func save_data() -> Dictionary:
 	for c in SNOWB:
 		sb.append([c.x, c.y, c.w, c.dead])
 	return {"helmet": helmet, "harpoon": harpoon, "gear": GEAR.map(func(o): return o.got),
-		"holes": HOLES.map(func(h): return h.filled), "snow": sb}
+		"holes": HOLES.map(func(h): return h.filled), "snow": sb,
+		"ulev": ULEV.map(func(o): return o.on), "chests": CHESTS.map(func(o): return o.got)}
 
 func restore(d: Dictionary) -> void:
 	helmet = d.get("helmet", false)
@@ -359,6 +460,19 @@ func restore(d: Dictionary) -> void:
 		if hh[i] and not HOLES[i].filled:
 			HOLES[i].filled = true
 			g.SOL.append({"t": "snowfill", "x": HOLES[i].x, "y": HOLES[i].y, "w": HOLES[i].w, "h": 30})
+	var ul: Array = d.get("ulev", [])
+	for i in min(ul.size(), ULEV.size()):
+		if ul[i]:
+			ULEV[i].on = true
+			ULEV[i].t = 999
+			var gt = _gate_of(ULEV[i])
+			if gt != null:
+				gt.open = 1.0
+	var ch: Array = d.get("chests", [])
+	for i in min(ch.size(), CHESTS.size()):
+		if ch[i]:
+			CHESTS[i].got = true
+			CHESTS[i].t = 999
 	var sb: Array = d.get("snow", [])
 	for i in min(sb.size(), SNOWB.size()):
 		var c: Dictionary = SNOWB[i]

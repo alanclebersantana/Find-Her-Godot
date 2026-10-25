@@ -22,7 +22,7 @@ void fragment() {
 """
 
 func setup(period: int, found: int) -> void:
-	n = period if period > 10 else clamp(period, 1, 5)
+	n = period if period > 10 else clamp(period, 1, 6)
 	drawings = found
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -131,8 +131,9 @@ class _Memory extends Control:
 			1: _porch(w, h, t)
 			2: _tag(w, h, t)
 			3: _puddles(w, h, t)
-			4: _snowman(w, h, t)
-			5: _kite(w, h, t)
+			4: _boats(w, h, t)
+			5: _snowman(w, h, t)
+			6: _kite(w, h, t)
 			11: _bedroom(w, h, t)
 			12: _mill(w, h, t)
 			13: _stars(w, h, t)
@@ -205,6 +206,39 @@ class _Memory extends Control:
 		# o pai com a lanterna acesa
 		Spr.frame(Spr.tex.pai, 0, 170, 160, 85, 156, w * .22, h * .86, _dad(h), false)
 		Spr.glow(w * .22 + 160 * _dad(h) * .36, h * .86 - 160 * _dad(h) * .45, 60, Color(1, .85, .5, .5))
+
+	## fim do rio: barquinhos de papel descendo a enxurrada do meio-fio, os dois correndo atrás
+	func _boats(w: float, h: float, t: float) -> void:
+		Spr.vgrad(0, 0, w, h * .8, Color("#a9bccb"), Color("#dfe6ea"))
+		# sol saindo depois da chuva
+		Spr.glow(w * .82, h * .16, 60, Color(1, .95, .7, .5))
+		Spr.circle(w * .82, h * .16, 14, Color(1, .96, .78))
+		# calçada, meio-fio e a enxurrada correndo para a direita
+		Spr.rect(0, h * .66, w, h * .14, Color("#9a9a8e"))
+		for i in 8:
+			Spr.seg(i * w / 8.0, h * .66, i * w / 8.0 + 6, h * .8, Color(.5, .5, .46, .6), 1.2)
+		Spr.rect(0, h * .8, w, h * .2, Color("#6f8296"))
+		for i in 14:
+			var rx: float = fmod(i * 61.0 + t * 1.6, w + 40) - 20
+			var ry: float = h * (.84 + (i % 4) * .035)
+			Spr.seg(rx, ry, rx + 16 + (i % 3) * 6, ry, Color(.88, .94, 1, .7), 1.4)
+		# dois barquinhos (o dela na frente, sempre)
+		for k in 2:
+			var bx: float = fmod(t * (1.1 - k * .25) + k * w * .35, w + 80) - 40
+			var by: float = h * .86 + sin(t * .09 + k * 2.0) * 2.0
+			var bs: float = h / 110.0 * (1.0 if k == 0 else .85)
+			var bc: Color = Color("#f4eee0") if k == 0 else Color("#e8d8b0")
+			Spr.save()
+			Spr.translate(bx, by)
+			Spr.rotate(sin(t * .07 + k) * .08)
+			Spr.poly(PackedVector2Array([Vector2(-16 * bs, -4 * bs), Vector2(16 * bs, -4 * bs), Vector2(10 * bs, 3 * bs), Vector2(-10 * bs, 3 * bs)]), bc)
+			Spr.poly(PackedVector2Array([Vector2(-8 * bs, -4 * bs), Vector2(0, -18 * bs), Vector2(8 * bs, -4 * bs)]), bc.darkened(.08))
+			Spr.seg(0, -18 * bs, 0, -4 * bs, Color(.6, .55, .45), 1.0)
+			Spr.restore()
+		# a Isis correndo atrás do barquinho, o pai logo atrás
+		var lx: float = w * .5 + sin(t * .02) * w * .08
+		_lia(2 if int(t / 10) % 2 == 0 else 1, lx, h * .8 - abs(sin(t * .18)) * 6, _kid(h))
+		Spr.frame_seq(Spr.tex.pai, [1, 2, 3, 2], t / 9.0, 170, 160, 85, 156, lx - w * .22, h * .8, _dad(h), false)
 
 	func _snowman(w: float, h: float, t: float) -> void:
 		Spr.vgrad(0, 0, w, h * .8, Color("#c6d6e6"), Color("#eef2f6"))

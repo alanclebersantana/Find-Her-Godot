@@ -602,7 +602,9 @@ func poly(pts: PackedVector2Array, c: Color) -> void:
 		ci.draw_colored_polygon(pts, col(c))
 
 func line(pts: PackedVector2Array, c: Color, w: float = 2.0) -> void:
-	ci.draw_polyline(pts, col(c), w, true)
+	# (fundo do lago quase fora da tela chegava com 1 ponto só: erro do motor a cada quadro)
+	if pts.size() >= 2:
+		ci.draw_polyline(pts, col(c), w, true)
 
 func seg(x0: float, y0: float, x1: float, y1: float, c: Color, w: float = 2.0) -> void:
 	ci.draw_line(Vector2(x0, y0), Vector2(x1, y1), col(c), w, true)
