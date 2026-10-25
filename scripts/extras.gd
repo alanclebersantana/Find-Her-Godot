@@ -961,6 +961,7 @@ func restore(d: Dictionary) -> void:
 		for tc in TOCAS:
 			if tc.get("id", 1) == id:
 				tc.done = true
+				toca_bring(tc, Vector2(float(tc.x) - 40, float(tc.y) - 24))
 	if d.get("dog", false) and not DOG.is_empty():
 		DOG.st = "follow"
 		DOG.x = -9999.0   # aparece perto do Tomé no primeiro passo
@@ -1003,6 +1004,33 @@ func _deliver_toca() -> void:
 			d.hidden = false
 			d.x = p.x + p.w / 2
 			d.y = p.y + 10
+	toca_bring(tc, Vector2(p.x + p.w / 2, p.y + 10))
+
+## objetos e pistas guardados lá dentro ("toca": id no item/pista) aparecem no ponto dado
+## (no Tomé, que pega na hora; ao continuar um jogo salvo, na boca da toca)
+func toca_bring(tc: Dictionary, at: Vector2) -> bool:
+	var any := false
+	for arr in [g.ITEMS, g.CLUES]:
+		for o in arr:
+			if o.get("hidden") and o.get("toca", -1) == tc.get("id", 1):
+				o.hidden = false
+				if o.got:
+					continue
+				o.x = at.x
+				o.y = at.y
+				o.ry = g._rest_y(at.x, at.y)
+				any = true
+	if any:
+		g.note("O Pipoca trouxe lá de dentro!")
+	return any
+
+## o que a toca guarda (o desenho que o Pipoca leva na boca)
+func toca_carry_spr(tc) -> String:
+	if tc is Dictionary:
+		for it in g.ITEMS:
+			if it.get("toca", -1) == tc.get("id", 1) and Spr.has("it_" + it.id):
+				return "it_" + it.id
+	return "drawing"
 
 func _use_toca() -> bool:
 	var p: Dictionary = g.player

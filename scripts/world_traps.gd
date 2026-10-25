@@ -15,6 +15,8 @@ static func draw(g: Game, T: int) -> void:
 	var c0: float = g.cam - 220
 	var c1: float = g.cam + g.W + 220
 	for o in TR.T:
+		if o.st == "off":
+			continue
 		var ox: float = o.get("bx", o.x)
 		if ox < c0 - 400 or ox > c1 + 400:
 			continue
@@ -1439,6 +1441,8 @@ static func _tunnel_ceiling(g: Game, T: int) -> void:
 	if ca >= cb:
 		return
 	var y0: float = 350.0
+	var ml: Dictionary = g.L.get("minelights", {})
+	var lamps: Array = ml.get("lamps", [])
 	# teto de rocha com a borda de baixo irregular e pontas (estalactites), sem régua
 	var top := PackedVector2Array([Vector2(ca - 10, y0 - 400)])
 	var bot := PackedVector2Array()
@@ -1471,9 +1475,98 @@ static func _tunnel_ceiling(g: Game, T: int) -> void:
 		if ok:
 			Spr.rect(bx0, y0 + 30, 12, 120, Color("#4e331d"))
 			Spr.rect(bx0 - 14, y0 + 26, 40, 10, Color("#6b4626"))
-			if int(bx0 / 260.0) % 2 == 0:
+			if lamps.has(int(bx0)):
+				# lampião de mineiro aceso (de tempos em tempos): a luz vem do mapa de luz e o
+				# clarão da chama é desenhado na camada de brilho (world_glow)
+				mine_lamp(bx0 + 22, y0 + 36, T, true)
+			elif int(bx0 / 260.0) % 2 == 0:
 				# lampião apagado pendurado
-				Spr.seg(bx0 + 22, y0 + 36, bx0 + 22, y0 + 50, Color("#2a2018"), 2)
-				Spr.rr(bx0 + 16, y0 + 50, 12, 16, 3, Color("#5a5048"))
-				Spr.rect(bx0 + 18, y0 + 54, 8, 8, Color(.25, .22, .18))
+				mine_lamp(bx0 + 22, y0 + 36, T, false)
 		bx0 += 260.0
+	# cristais crescendo na rocha do teto e frestas por onde entra o luar
+	for c in ml.get("crystals", []):
+		if float(c[0]) > ca - 60 and float(c[0]) < cb + 60:
+			_crystals(float(c[0]), float(c[1]), str(c[2]))
+	for mx in ml.get("moon", []):
+		if float(mx) > ca - 80 and float(mx) < cb + 80:
+			_moon_crack(float(mx), y0, T)
+
+## lampião de mineiro pendurado na trave (gancho em (x, y)); aceso: vidro cor de chama
+static func mine_lamp(x: float, y: float, T: int, lit: bool) -> void:
+	var sw: float = sin(T * .03 + x) * .06 if lit else 0.0
+	Spr.save()
+	Spr.translate(x, y)
+	Spr.rotate(sw)
+	Spr.seg(0, 0, 0, 12, Color("#2a2018"), 2)
+	Spr.ring(0, 15, 4, Color("#2a2018"), 1.6)
+	# chapéu de lata, vidro com grade e base
+	Spr.poly(PackedVector2Array([Vector2(-8, 22), Vector2(-4, 16), Vector2(4, 16), Vector2(8, 22)]), OUT)
+	Spr.poly(PackedVector2Array([Vector2(-7, 21), Vector2(-3, 17), Vector2(3, 17), Vector2(7, 21)]), Color("#6a625a"))
+	Spr.rr(-7, 21, 14, 17, 3, OUT)
+	if lit:
+		Spr.rr(-5.5, 22.5, 11, 14, 3, Color(1, .82, .42))
+		Spr.ellipse(0, 31, 2.6, 4.2, Color(1, .97, .8))
+	else:
+		Spr.rr(-5.5, 22.5, 11, 14, 3, Color(.25, .22, .18))
+	Spr.rect(-.8, 21, 1.6, 17, Color(.2, .17, .14, .8))
+	Spr.rect(-8, 37, 16, 4, Color("#4a423c"))
+	Spr.rect(-8, 37, 16, 1.4, Color(1, 1, 1, .16))
+	Spr.restore()
+
+## cachos de cristal na rocha do teto ("c" azul-esverdeado, "v" violeta): prismas apontando para baixo
+static func _crystals(x: float, y: float, k: String) -> void:
+	var base: Color = Color(.45, .85, .95) if k == "c" else Color(.72, .52, .98)
+	var dark: Color = base.darkened(.55)
+	for i in 5:
+		var a: float = -.6 + i * .3 + fposmod(x * .013 + i * .7, .2)
+		var ln: float = (16.0 + fposmod(x * .37 + i * 5.3, 14.0)) * (1.25 if i == 2 else 1.0)
+		var wd: float = 4.0 + fposmod(i * 2.1 + x, 2.5)
+		var bx: float = x - 12 + i * 6
+		var d := Vector2(sin(a), cos(a))
+		var n := Vector2(d.y, -d.x)
+		var p0 := Vector2(bx, y) + n * wd
+		var p1 := Vector2(bx, y) - n * wd
+		var tip := Vector2(bx, y) + d * ln
+		var mid0 := p0 + d * ln * .7
+		var mid1 := p1 + d * ln * .7
+		Spr.poly(PackedVector2Array([p0 + n * 1.2, mid0 + n * 1.2, tip + d * 1.5, mid1 - n * 1.2, p1 - n * 1.2]), OUT)
+		Spr.poly(PackedVector2Array([p0, mid0, tip, mid1, p1]), dark)
+		Spr.poly(PackedVector2Array([p0, mid0, tip, Vector2(bx, y)]), base)
+		Spr.seg(p0.x + d.x * 3, p0.y + d.y * 3, mid0.x - n.x, mid0.y - n.y, Color(1, 1, 1, .55), 1.2)
+	# pedra em volta da base do cacho
+	Spr.ellipse(x, y - 1, 20, 5, Color("#2e2218"))
+
+## fresta no teto da mina: rasgo na rocha mostrando o céu da noite, com raízes penduradas na borda
+static func _moon_crack(x: float, y0: float, T: int) -> void:
+	var pts := PackedVector2Array()
+	var rt := PackedVector2Array()
+	var yy: float = y0 - 330.0
+	while yy <= y0 + 30.0:
+		var u: float = (yy - (y0 - 330.0)) / 360.0
+		var hw: float = 5.0 + u * 13.0 + 3.0 * sin(yy * .09 + x)
+		pts.push_back(Vector2(x - hw + 4.0 * sin(yy * .05 + x * .1), yy))
+		rt.push_back(Vector2(x + hw + 4.0 * sin(yy * .05 + x * .1) + 2.0 * sin(yy * .21), yy))
+		yy += 15.0
+	var outline := PackedVector2Array(pts)
+	for i in range(rt.size() - 1, -1, -1):
+		outline.push_back(rt[i])
+	Spr.poly(outline, Color("#1a2238"))
+	# o céu lá fora: azul da noite clareando para baixo, com duas estrelinhas
+	var inner := PackedVector2Array()
+	for p in pts:
+		inner.push_back(p + Vector2(3, 0))
+	for i in range(rt.size() - 1, -1, -1):
+		inner.push_back(rt[i] - Vector2(3, 0))
+	var cols := PackedColorArray()
+	for p in inner:
+		var u2: float = clamp((p.y - (y0 - 330.0)) / 360.0, 0, 1)
+		cols.push_back(Color(.16, .24, .42).lerp(Color(.42, .55, .78), u2))
+	Spr.ci.draw_polygon(inner, cols)
+	Spr.circle(x + 1, y0 - 250, 1.3, Color(1, 1, .9, .8 + .2 * sin(T * .07)))
+	Spr.circle(x - 3, y0 - 170, 1.0, Color(1, 1, .9, .6 + .3 * sin(T * .05 + 2)))
+	# raízes e capim pendurados na borda de baixo da fresta
+	for k in 4:
+		var rx: float = x - 14 + k * 9
+		var ln: float = 10.0 + fposmod(k * 7.7 + x, 14.0)
+		var sw: float = sin(T * .02 + k) * 2.0
+		Spr.seg(rx, y0 + 28, rx + sw, y0 + 28 + ln, Color("#3b2c1c"), 1.6)

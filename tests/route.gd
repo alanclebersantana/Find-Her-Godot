@@ -56,6 +56,30 @@ func stake_cross(sx: float):
 			return "a ponte não caiu"
 	return walk_to(float(st.bridge.x) + float(st.bridge.w) + 40)
 
+## lago de veneno com corda esticada: pula da margem, agarra a corda, vai pendurado até o fim e solta
+func rope_cross(x0: float, x_after: float):
+	walk_to(x0)
+	press("J")
+	for i in 90:
+		P = g.player
+		if not ok():
+			return "state"
+		if P.get("bar") != null:
+			break
+		frame({"J": i < 8, "R": true})
+	P = g.player
+	if P.get("bar") == null:
+		return "não agarrou a corda x=%d y=%d" % [int(px()), int(P.y)]
+	var b: Dictionary = P.bar
+	var r = until({"R": true}, func(): return px() >= float(b.x1) - 2, 400)
+	if not (r is bool and r):
+		return "parou na corda x=%d (%s)" % [int(px()), str(r)]
+	press("S")
+	frame({"S": true})
+	if not wait_ground() is bool:
+		return "não pousou"
+	return walk_to(x_after)
+
 func px() -> float:
 	return P.x + P.w / 2
 
@@ -1218,7 +1242,7 @@ func _initialize() -> void:
 	S("chapéu mais alto", P.y + P.h <= 152)
 	S("desce de chapéu", jump_to(66265))
 	S("fim do bosque", jump_to(66450))
-	S("lago de veneno 3: ponte da estaca", stake_cross(67100))
+	S("lago de veneno 3: corda esticada", rope_cross(67128, 67600))
 	walk_to(67760)
 	S("desce no poço da mina", climb_to("S", func(): return P.onGround and P.y > 820, 500))
 	walk_to(67825)
@@ -1235,17 +1259,13 @@ func _initialize() -> void:
 	walk_to(69970)
 	S("sobe do poço", climb_to("U", func(): return P.ladder == null and P.onGround and P.y < 480, 500))
 	walk_to(70120)
-	S("porta do galpão", walk_to(70370))
+	S("porta do galpão", walk_to(70360))
 	hold({}, 20)
-	press("D")
-	frame()
-	S("Pipoca", g.M.ctrl)
-	S("Pipoca entra pela portinhola", walk_to(70600))
-	S("óleo", g.INV.has("oleo"))
-	S("Pipoca sai", walk_to(70370))
-	press("D")
-	frame()
-	S("Tomé", not g.M.ctrl)
+	use()
+	S("Pipoca foi buscar na toca do galpão", g.X.DOG.st in ["to_toca", "in_toca"])
+	S("óleo (o Pipoca trouxe)", until({}, func(): return g.INV.has("oleo"), 500))
+	S("pista do galpão", until({}, func(): return g.CLUES.any(func(c): return int(c.id) == 5 and c.got), 60))
+	S("Pipoca voltou a seguir", until({}, func(): return g.X.DOG.st in ["follow", "sit"], 120))
 	S("telhado do galpão", jump_to(70445, true))
 	S("desce do telhado", walk_to(70740))
 	S("escada da coruja", walk_to(71005))
@@ -1271,17 +1291,6 @@ func _initialize() -> void:
 	S("escada da laje", walk_to(70810))
 	S("sobe", climb_to("U", func(): return P.ladder == null and P.onGround and P.y < 480, 500))
 	walk_to(71005)
-	S("rede de caçador", walk_to(71070))
-	press("D")
-	frame()
-	S("Pipoca (rede)", g.M.ctrl)
-	S("Pipoca no poste", walk_to(71065))
-	press("A")
-	hold({}, 8)
-	S("rede caiu", g.TR.by_kind("net")[0].st == "down")
-	press("D")
-	frame()
-	S("Tomé de novo", not g.M.ctrl)
 	S("jaula prendeu", until({"R": true}, func(): return g.TR.trapped != null, 300))
 	hold({}, 30)
 	press("D")

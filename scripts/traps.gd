@@ -8,7 +8,9 @@ class_name Traps
 ##  roll    pedra rolando atrás do Tomé (dispara ao passar pelo gatilho)
 ##  axe     machado-pêndulo
 ##  snap    galho que estala e cai pouco depois de pisar
-##  cage    jaula de caçador: prende o Tomé; o Pipoca solta mordendo a corda
+##  cage    jaula de caçador: prende o Tomé; o Pipoca solta mordendo a corda do poste (é ESSA a
+##          solução: com o Pipoca junto, a picareta não quebra as grades). A picareta (6 golpes) só
+##          vale quando o Pipoca não está com o Tomé — assim o jogador nunca fica preso para sempre.
 ##  net     rede de caçador fechando a passagem; o Pipoca rói a corda
 ##  icicle  pingente de gelo no teto: treme quando o Tomé chega perto e cai; volta a crescer depois
 ##  swing   tronco pendurado por duas cordas balançando no caminho
@@ -28,7 +30,7 @@ var trapped = null           # jaula que prendeu o Tomé
 var bounce_note := 0
 ## armadilhas que continuam andando longe do Tomé (rolando, caindo, desabando) e os estados parados
 const FAR_RUN := {"roll": 1, "boulder": 1, "bridge": 1, "cage": 1, "net": 1}
-const FAR_STILL := {"idle": 1, "done": 1, "used": 1, "planted": 1}
+const FAR_STILL := {"idle": 1, "done": 1, "used": 1, "planted": 1, "off": 1}
 
 func _init(game) -> void:
 	g = game
@@ -42,6 +44,12 @@ func load_level() -> void:
 		o.t = 0
 		o.st = "idle"
 		o._cx = float(o.x) + float(o.get("w", 0)) / 2.0
+		if d.get("off"):
+			# tirada da fase ("off": 1): continua na lista só para não mudar os números (índices) que
+			# as dicas e o jogo salvo usam; não tem colisão, não reage e não é desenhada
+			o.st = "off"
+			T.append(o)
+			continue
 		match o.k:
 			"snap":
 				o.sol = {"t": "snapb", "x": o.x, "y": o.y, "w": o.w, "h": 16, "oneway": 1, "snap": 1}
@@ -199,6 +207,8 @@ func post() -> void:
 	var pcx: float = p.x + p.w / 2
 	var feet: float = p.y + p.h
 	for o in T:
+		if o.st == "off":
+			continue
 		# longe do Tomé e sem nada acontecendo: pula (a fase tem muitas armadilhas)
 		# (o centro de cada armadilha é guardado na carga; antes cada teste criava listas novas)
 		if abs(float(o._cx) - pcx) > 1800 and (not FAR_RUN.has(o.k) or FAR_STILL.has(o.st) or (o.k == "bridge" and o.st == "gone" and o.t > 300)) and not (o.k == "hive" and o.st != "idle"):
@@ -586,12 +596,22 @@ func _cage(o: Dictionary, p: Dictionary, pcx: float) -> void:
 				g.shake = max(g.shake, 8)
 				Audio.play("stomp")
 				g.burst(o.x + w / 2, o.y - 4, 16, Color("#b7a77f"))
+				# uma solução só: com o Pipoca junto, é ele quem solta (roendo a corda do poste);
+				# sem o Pipoca, a picareta quebra as grades (ver swing_hits)
 				if g.X.dog_free():
 					g.flash_tut("Preso numa jaula de caçador!", "Preso na jaula! Use o PIPOCA: roa a corda do poste (✦).", 300)
 				else:
 					g.flash("Preso! Bata com a picareta nas grades para quebrar.", 300)
 		"shut":
 			var b = g.M.tome if g.M.ctrl else p
+			# o Tomé foi parar longe da jaula (voltou à fogueira, renasceu, foi levado para outro
+			# ponto): a jaula sobe e solta — nunca fica "preso" a uma jaula que nem está ali
+			if abs(b.x + b.w / 2 - (o.x + w / 2)) > w or abs(b.y + b.h - float(o.y)) > 60:
+				o.st = "idle"
+				o.dy = -170.0
+				if trapped == o:
+					trapped = null
+				return
 			b.x = clamp(b.x, o.x + 6, o.x + w - 6 - b.w)
 		"open":
 			o.dy = max(-170.0, o.dy - 5.0)
@@ -625,6 +645,12 @@ func swing_hits(hb: Dictionary) -> void:
 	if trapped != null and not g.M.swing_hit.has("cage"):
 		g.M.swing_hit["cage"] = 1
 		var o: Dictionary = trapped
+		if g.X.dog_free():
+			# com o Pipoca junto a solução é ele (a dica e o aviso dizem isso): a picareta só faz barulho
+			Audio.play("unlock", -12)
+			g.burst(o.x + o.get("w", 64) / 2, o.y - 30, 4, Color("#c8d0dc"))
+			g.tip("As grades são de ferro grosso. Troque para o PIPOCA: ele rói a corda do poste (✦).")
+			return
 		o.hits = o.get("hits", 0) + 1
 		Audio.play("unlock", -8)
 		g.burst(o.x + o.get("w", 64) / 2, o.y - 30, 6, Color("#c8d0dc"))

@@ -196,6 +196,16 @@ func _build_world() -> void:
 			if o.k == "giant":
 				var gc := Color(o.get("c", "#6a5acd")).lightened(.25) if o.has("to") else Color(o.get("c", "#6a5acd")).darkened(.3)
 				lights.append({"n": _light(gc, 170 if o.has("to") else 110), "pos": Vector2(o.x, o.cap + 10)})
+	# túnel escuro da mina: lampiões acesos de tempos em tempos, cristais no teto e o luar das frestas
+	# (luzes pequenas e paradas no mesmo mapa de luz: quase não custam nada)
+	var ml: Dictionary = game.L.get("minelights", {})
+	for lx in ml.get("lamps", []):
+		lights.append({"n": _light(Color(1, .72, .38), 170), "pos": Vector2(float(lx) + 22, 418), "e": .95, "flick": 1})
+	for cr in ml.get("crystals", []):
+		lights.append({"n": _light(Color(.45, .85, 1) if str(cr[2]) == "c" else Color(.7, .5, 1), 85), "pos": Vector2(float(cr[0]), float(cr[1]) + 16), "e": .5})
+	for mx in ml.get("moon", []):
+		lights.append({"n": _light(Color(.6, .72, 1), 125), "pos": Vector2(float(mx) + 12, 482), "e": .75})
+		lights.append({"n": _light(Color(.55, .68, 1), 70), "pos": Vector2(float(mx) + 2, 420), "e": .45})
 	# facho concentrado da lanterna, cristais e lápis dourado
 	lights.append({"n": _light(Color(1, .9, .65), 200), "beam": true})
 	for c in game.X.CRYSTALS:
@@ -278,7 +288,9 @@ func _update_lights() -> void:
 				n.position = Vector2(v.x - 41, v.y - 97)
 		else:
 			n.position = l.pos
-			n.energy = dark * 1.1
+			n.energy = dark * float(l.get("e", 1.1))
+			if l.has("flick"):
+				n.energy *= .9 + .1 * sin(game.T * .31 + l.pos.x) * sin(game.T * .13 + l.pos.x * .7)
 
 var _slow_t := 0.0
 func _process(_d: float) -> void:

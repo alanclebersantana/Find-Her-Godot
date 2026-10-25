@@ -340,7 +340,7 @@ func _initialize() -> void:
 		S("barricada quebrada", walk_to(77500))
 	if all or args.has("lagos"):
 		# lagos de veneno com ponte de estaca: só passa baixando a ponte
-		for sx in [2040.0, 6480.0, 67100.0]:
+		for sx in [2040.0, 6480.0]:
 			var crossed := false
 			var died := 0
 			for mode in ["pulo", "duplo", "planar", "nadar", "alto"]:
@@ -390,6 +390,57 @@ func _initialize() -> void:
 			put(sx - (12.0 if sx < 2100 else 120.0), 500)
 			S("lago %d: estaca baixa a ponte e atravessa" % int(sx), stake_cross(sx))
 			S("lago %d: vivo" % int(sx), g.lives >= 9)
+	if all or args.has("corda_mina"):
+		# lago de veneno da noite (antes de entrar no poço da mina): só passa pendurado na corda esticada
+		var bar: Dictionary = {}
+		for b in g.NT.BARS:
+			if b.get("mine"):
+				bar = b
+		S("corda da mina existe", not bar.is_empty())
+		var crossed2 := false
+		var died2 := 0
+		for mode in ["pulo", "duplo", "planar"]:
+			g.load_level(0)
+			P = g.player
+			for e in g.EN:
+				e.dead = 99
+			g.died_log = []
+			put(66960.0, 500)
+			hold({"R": true}, 40)
+			press("J")
+			for i in 16:
+				frame({"J": true, "R": true})
+			if mode != "pulo":
+				for i in 40:
+					if P.vy >= -.5:
+						break
+					frame({"R": true})
+				press("J")
+				for i in 16:
+					frame({"J": true, "R": true})
+			for i in 300:
+				# (solta a corda se agarrou sem querer: aqui o teste é passar SEM ela)
+				if P.get("bar") != null:
+					P.bar = null
+					g.NT.bar_cd = 999
+				frame({"R": true, "P": mode == "planar"})
+				if px() > 67510 and P.onGround:
+					crossed2 = true
+				if P.dyingT > 0:
+					break
+			if P.dyingT > 0 or not g.died_log.is_empty():
+				died2 += 1
+			hold({}, 80)
+		g.NT.bar_cd = 0
+		S("lago da mina: não passa pulando nem planando", not crossed2)
+		S("lago da mina: cair é morte (veneno)", died2 >= 2)
+		g.load_level(0)
+		P = g.player
+		for e in g.EN:
+			e.dead = 99
+		put(67100.0, 500)
+		S("lago da mina: atravessa pendurado na corda", rope_cross(67128, 67600))
+		S("lago da mina: vivo", g.lives >= 9 and P.onGround)
 	if all or args.has("mochila"):
 		# perto da trava com as peças soltas: botão da mochila → junta → ✔ → usa
 		var wanted := []

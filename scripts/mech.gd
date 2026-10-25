@@ -312,6 +312,9 @@ func _dig_done() -> void:
 			d.x = p.x + p.w / 2 + p.face * 30
 			d.y = p.y - 6
 			found = true
+	# (cavando com o Pipoca no controle: o que estava lá dentro aparece na frente dele)
+	if X.toca_bring(tc, Vector2(p.x + p.w / 2 + p.face * 30, p.y + 6)):
+		found = true
 	if not found:
 		for i in 5:
 			g.gain_coin(tc.x, tc.y - 20)

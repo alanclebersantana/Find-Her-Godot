@@ -499,21 +499,22 @@
    "x": 70400,
    "y": 380,
    "w": 300,
-   "h": 20
+   "h": 20,
+   "shut": 1
   },
   {
    "t": "wall",
    "x": 70400,
    "y": 380,
    "w": 20,
-   "h": 96
+   "h": 120
   },
   {
    "t": "wall",
    "x": 70680,
    "y": 380,
    "w": 20,
-   "h": 96
+   "h": 120
   },
   {
    "t": "trunk",
@@ -852,22 +853,6 @@
    "w": 22,
    "h": 520,
    "id": "g2",
-   "dogpass": 1
-  },
-  {
-   "t": "dogdoor",
-   "x": 70400,
-   "y": 476,
-   "w": 20,
-   "h": 24,
-   "dogpass": 1
-  },
-  {
-   "t": "dogdoor",
-   "x": 70680,
-   "y": 476,
-   "w": 20,
-   "h": 24,
    "dogpass": 1
   },
   {
@@ -2477,7 +2462,8 @@
   {
    "x": 70600,
    "y": 476,
-   "id": "oleo"
+   "id": "oleo",
+   "toca": 2
   },
   {
    "x": 71025,
@@ -2549,7 +2535,7 @@
     "pavio"
    ],
    "where": {
-    "oleo": "dentro do galpão (a porta é baixa: entre abaixado ↓)",
+    "oleo": "dentro do galpão trancado (perto do buraco embaixo da parede, toque ✦: o Pipoca busca)",
     "pavio": "no alto da árvore grande (suba a escada)"
    },
    "pre": "Escuro demais para entrar.",
@@ -2585,7 +2571,8 @@
   {
    "x": 70550,
    "y": 470,
-   "id": 5
+   "id": 5,
+   "toca": 2
   },
   {
    "x": 78038,
@@ -5953,27 +5940,27 @@
   ],
   [
    67170,
-   470
+   452
   ],
   [
    67230,
-   470
+   452
   ],
   [
    67290,
-   470
+   452
   ],
   [
    67350,
-   470
+   452
   ],
   [
    67410,
-   470
+   452
   ],
   [
    67470,
-   470
+   452
   ],
   [
    6550,
@@ -6544,7 +6531,7 @@
   {
    "a": 70340,
    "b": 70430,
-   "t": "A porta do galpão está trancada... mas tem uma portinhola de cachorro! Troque para o Pipoca (botão do cachorro / tecla Q)."
+   "t": "O galpão está trancado... mas tem um buraco cavado embaixo da parede! Perto dele, toque ✦: o Pipoca entra e traz o que achar."
   },
   {
    "a": 70740,
@@ -6552,12 +6539,6 @@
    "yl": 520,
    "crack": "slab",
    "t": "Uma laje rachada com um X de giz da Isis... Uma picareta quebraria isso (✦ USAR)."
-  },
-  {
-   "a": 71025,
-   "b": 71100,
-   "t": "Uma rede de caçador fecha o caminho. Troque para o PIPOCA e mande roer a corda (✦) no poste.",
-   "trap": 9
   },
   {
    "a": 71140,
@@ -6621,7 +6602,7 @@
   {
    "a": 66840,
    "b": 67140,
-   "t": "Lago de veneno! Não dá para pular nem planar por cima: suba na estaca e dê um MERGULHO (pule e aperte ↓) para baixar a ponte."
+   "t": "Lago de veneno! Pule e agarre a corda esticada: ← → anda pendurado, ↓ solta do outro lado."
   },
   {
    "a": 6220,
@@ -6848,6 +6829,12 @@
    "x": 6040,
    "y": 100,
    "id": 1
+  },
+  {
+   "x": 70384,
+   "y": 500,
+   "id": 2,
+   "wall": 1
   }
  ],
  "plates": [
@@ -6971,7 +6958,8 @@
    "post": [
     71065,
     500
-   ]
+   ],
+   "off": 1
   },
   {
    "k": "cage",
@@ -7042,7 +7030,8 @@
    "to": [
     71435,
     120
-   ]
+   ],
+   "off": 1
   },
   {
    "k": "flower",
@@ -7348,6 +7337,13 @@
    "x0": 20740,
    "x1": 21550,
    "y": 220
+  },
+  {
+   "x0": 67150,
+   "x1": 67530,
+   "y": 410,
+   "mine": 1,
+   "ground": 500
   }
  ],
  "gear": [
@@ -8257,15 +8253,6 @@
  "slam": {
   "stakes": [
    {
-    "x": 67100,
-    "y": 500,
-    "bridge": {
-     "x": 67140,
-     "y": 500,
-     "w": 360
-    }
-   },
-   {
     "x": 6480,
     "y": 500,
     "bridge": {
@@ -8337,7 +8324,7 @@
    868
   ],
   [
-   70385,
+   70250,
    468
   ],
   [
@@ -8375,5 +8362,55 @@
    "y": 500,
    "gate": "cg1"
   }
- ]
+ ],
+ "minelights": {
+  "lamps": [
+   71760,
+   73320,
+   74880,
+   76440,
+   77480
+  ],
+  "crystals": [
+   [
+    72560,
+    368,
+    "c"
+   ],
+   [
+    72640,
+    372,
+    "v"
+   ],
+   [
+    74100,
+    366,
+    "c"
+   ],
+   [
+    75300,
+    370,
+    "v"
+   ],
+   [
+    75360,
+    368,
+    "c"
+   ],
+   [
+    76820,
+    370,
+    "v"
+   ],
+   [
+    77860,
+    368,
+    "c"
+   ]
+  ],
+  "moon": [
+   72420,
+   75060
+  ]
+ }
 }

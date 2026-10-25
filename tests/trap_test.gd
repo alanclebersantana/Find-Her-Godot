@@ -104,30 +104,19 @@ func _initialize() -> void:
 		frame()
 	say("galho quebrou", g.TR.T[7].st == "fall")
 
-	# 7) rede: Pipoca rói a corda
+	# 7) rede de caçador: tirada da fase (a jaula logo depois já é o trabalho do Pipoca ali); fica
+	# na lista só para não mudar os índices das dicas e do save
 	g.X.DOG.st = "follow"
 	g.X.DOG.x = 71030.0
 	g.X.DOG.y = 500.0
 	g.X.TRAIL = [Vector2(71030, 500)]
+	say("rede desligada", g.TR.T[9].k == "net" and g.TR.T[9].st == "off")
+	say("flor da jaula desligada", g.TR.T[17].k == "flower" and g.TR.T[17].st == "off")
 	put(71040, 500)
-	for i in 30:
+	for i in 24:
 		frame({"R": true})
-	say("rede segura o Tomé", g.player.x + 24 < 71102, str(int(g.player.x)))
+	say("nada segura o Tomé antes da jaula", g.player.x + 24 > 71110, str(int(g.player.x)))
 	say("Pipoca disponível", g.X.dog_free())
-	g.keys["Dp"] = true
-	frame()
-	say("virou Pipoca", g.M.ctrl)
-	for i in 120:
-		if abs(g.player.x + g.player.w / 2 - 71065) < 8:
-			break
-		frame({"R" if g.player.x + 15 < 71065 else "L": true})
-	g.keys["Ap"] = true
-	frame()
-	for i in 10:
-		frame()
-	say("rede caiu", g.TR.T[9].st == "down")
-	g.keys["Dp"] = true
-	frame()
 
 	# 8) jaula
 	put(71160, 500)
@@ -153,6 +142,62 @@ func _initialize() -> void:
 	g.keys["Dp"] = true
 	frame()
 	say("voltou ao Tomé", not g.M.ctrl, why)
+
+	# 8b) jaula com o Pipoca junto: a solução é ele (a picareta só faz barulho nas grades)
+	var cg: Dictionary = g.TR.by_kind("cage")[0]
+	cg.st = "idle"
+	put(71160, 500)
+	for i in 60:
+		frame({"R": true})
+	say("jaula prendeu de novo", g.TR.trapped != null)
+	for k in 8:
+		g.keys["Gp"] = true
+		frame()
+		for i in 24:
+			frame()
+	say("com o Pipoca junto a picareta não quebra", g.TR.trapped != null)
+	# 8c) voltar à fogueira preso (Tomé e com o Pipoca no controle): solta e o Pipoca volta a seguir
+	g.keys["Bp"] = true
+	frame()
+	for i in 30:
+		frame({"L": true})
+	say("voltar à fogueira solta da jaula", g.TR.trapped == null and cg.st == "idle")
+	put(71160, 500)
+	for i in 60:
+		frame({"R": true})
+	g.keys["Dp"] = true
+	frame()
+	say("preso, virou Pipoca", g.M.ctrl and g.TR.trapped != null)
+	g.keys["Bp"] = true
+	frame()
+	for i in 30:
+		frame()
+	say("Pipoca no controle + fogueira: solto, Tomé de volta", g.TR.trapped == null and not g.M.ctrl)
+	say("o Pipoca volta a seguir (não fica parado)", g.X.DOG.st in ["follow", "sit"], g.X.DOG.st)
+	# 8d) levado para longe preso (sem passar pela fogueira): a jaula solta sozinha
+	put(71160, 500)
+	for i in 60:
+		frame({"R": true})
+	g.player.x = 70300.0
+	g.player.y = 466.0
+	for i in 5:
+		frame()
+	say("longe da jaula: solto", g.TR.trapped == null)
+	# 8e) sem o Pipoca: a picareta quebra as grades
+	g.X.DOG.st = "tied"
+	put(71160, 500)
+	for i in 60:
+		frame({"R": true})
+	for k in 8:
+		g.keys["Gp"] = true
+		frame()
+		for i in 24:
+			frame()
+	say("sem o Pipoca, a picareta quebra a jaula", g.TR.trapped == null)
+	g.X.DOG.st = "follow"
+	g.X.DOG.x = g.player.x
+	g.X.DOG.y = 500.0
+	g.X.TRAIL = [Vector2(g.player.x, 500)]
 
 	# 10) pedra rolando (bola de neve da descida)
 	var rl: Dictionary = g.TR.by_kind("roll")[0]

@@ -126,11 +126,11 @@ func __draw_raw() -> void:
 			Spr.A("drawing", 0, 0, .6)
 			Spr.restore()
 	for it in g.ITEMS:
-		if it.got or it.x < x0 - 60 or it.x > x1 + 60:
+		if it.got or it.get("hidden") or it.x < x0 - 60 or it.x > x1 + 60:
 			continue
 		_ground_obj("it_" + it.id, it, .6, Color(1, .94, .74, .5), false)
 	for c in g.CLUES:
-		if c.got or c.x < x0 - 60 or c.x > x1 + 60:
+		if c.got or c.get("hidden") or c.x < x0 - 60 or c.x > x1 + 60:
 			continue
 		var flat: bool = int(c.id) in [2, 3, 4, 6]
 		var cy: float = _ground_obj("cl_%d" % int(c.id), c, .55, Color(.67, .86, 1, .6), flat)
@@ -231,6 +231,13 @@ func __draw_raw() -> void:
 		_rain_rings(g, a, b5, s.x, s.x + s.w, T, true, last_top)
 	_projectiles(g, T)
 	_extras(g, T)
+	# toca embaixo da parede do galpão (à noite): o aviso fica por cima do escuro
+	if g.X:
+		var tp: Dictionary = g.player
+		for tc in g.X.TOCAS:
+			if tc.get("wall") and not tc.done and not tp.get("dog") and abs(tp.x + tp.w / 2 - tc.x) < 80 and abs(tp.y + tp.h - tc.y) < 50:
+				var lbl := "✦ BUSCA, PIPOCA!" if g.X.dog_free() else "?"
+				Spr.text(lbl, tc.x, tc.y - 78 + sin(T * .15) * 3, 15, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
 	# manivela: aviso e barrinha de quanto a porta já subiu (por cima do escuro da mina)
 	for c in g.CRANKS:
 		if not c.done and g.near_crank() == c:
@@ -255,6 +262,9 @@ func __draw_raw() -> void:
 					Spr.circle(o.x + d[0] * o.w, o.cap + 8 + d[1] * o.w, d[2] * o.w * .6, Color(.85, 1, .95, .35))
 	# no túnel: gotas pingando do teto e poeira dançando na luz da lanterna
 	var tn: Array = g.L.get("tunnel", [])
+	var ml: Dictionary = g.L.get("minelights", {})
+	if not ml.is_empty() and tn.size() >= 2 and float(tn[1]) > x0 - 200 and float(tn[0]) < x1 + 200:
+		_mine_glows(ml, x0, x1, T)
 	if tn.size() >= 2 and float(tn[1]) > x0 and float(tn[0]) < x1:
 		for k in 9:
 			var dx: float = float(tn[0]) + fposmod(k * 433.0 + 97.0, float(tn[1]) - float(tn[0]))
@@ -357,6 +367,51 @@ func __draw_raw() -> void:
 		Spr.AB("o_bush_gold", -bsh.w / 2 - 20, -84, bsh.w + 40, 84, .35 if near else 1.0)
 		Spr.restore()
 		# folhinhas soltas: AmbientFx._tick_sparkles (passo de física)
+
+## luzes do túnel escuro (por cima da escuridão): chama dos lampiões de mineiro, cristais pulsando
+## devagar e o facho do luar descendo pela fresta do teto, com poeira flutuando nele
+func _mine_glows(ml: Dictionary, x0: float, x1: float, T: int) -> void:
+	for lx in ml.get("lamps", []):
+		var x: float = float(lx) + 22.0
+		if x < x0 - 80 or x > x1 + 80:
+			continue
+		var fl: float = .5 + .5 * sin(T * .31 + x) * sin(T * .13 + x * .7)
+		var sw: float = sin(T * .03 + x) * .06
+		var c := Vector2(x, 386.0) + Vector2(sin(-sw), cos(sw)) * 31.0
+		Spr.glow(c.x, c.y, 44 + fl * 4, Color(1, .7, .32, .22 + fl * .06))
+		Spr.glow(c.x, c.y, 13, Color(1, .92, .65, .55 + fl * .15))
+	for cr in ml.get("crystals", []):
+		var cx: float = float(cr[0])
+		if cx < x0 - 60 or cx > x1 + 60:
+			continue
+		var cc: Color = Color(.45, .9, 1) if str(cr[2]) == "c" else Color(.75, .55, 1)
+		var pu: float = .5 + .5 * sin(T * .025 + cx * .01)
+		Spr.glow(cx, float(cr[1]) + 14, 30, Color(cc.r, cc.g, cc.b, .16 + pu * .12))
+		if (T + int(cx)) % 140 < 12:
+			var u: float = ((T + int(cx)) % 140) / 12.0
+			Spr.glow(cx - 6 + fposmod(cx, 12.0), float(cr[1]) + 18, 5 + u * 4, Color(1, 1, 1, .7 * (1.0 - u)))
+	for mx in ml.get("moon", []):
+		var x2: float = float(mx)
+		if x2 < x0 - 120 or x2 > x1 + 120:
+			continue
+		# facho: estreito na fresta, abrindo até o chão, quase transparente
+		var top_y := 384.0
+		var bot_y := 500.0
+		var beam := PackedVector2Array([Vector2(x2 - 14, top_y), Vector2(x2 + 14, top_y), Vector2(x2 + 58, bot_y), Vector2(x2 - 34, bot_y)])
+		var a0: float = .15 + .03 * sin(T * .02 + x2)
+		Spr.ci.draw_polygon(beam, PackedColorArray([Color(.72, .84, 1, a0 * Spr.alpha), Color(.72, .84, 1, a0 * Spr.alpha), Color(.72, .84, 1, .03 * Spr.alpha), Color(.72, .84, 1, .03 * Spr.alpha)]))
+		var core := PackedVector2Array([Vector2(x2 - 5, top_y), Vector2(x2 + 5, top_y), Vector2(x2 + 24, bot_y), Vector2(x2 - 4, bot_y)])
+		Spr.ci.draw_polygon(core, PackedColorArray([Color(.85, .92, 1, .12 * Spr.alpha), Color(.85, .92, 1, .12 * Spr.alpha), Color(.85, .92, 1, 0), Color(.85, .92, 1, 0)]))
+		# mancha de luar no chão
+		Spr.ellipse(x2 + 12, bot_y - 1, 52, 7, Color(.75, .86, 1, .12))
+		Spr.ellipse(x2 + 12, bot_y - 1, 26, 4, Color(.85, .92, 1, .12))
+		# poeira descendo devagar dentro do facho
+		for k in 7:
+			var ph: float = fposmod(T * (.25 + k * .03) + k * 31.0, 116.0)
+			var u2: float = ph / 116.0
+			var hw: float = lerpf(12.0, 44.0, u2)
+			var px: float = x2 + lerpf(0.0, 12.0, u2) + sin(T * .02 + k * 2.1) * hw * .7
+			Spr.circle(px, top_y + ph, 1.1, Color(.9, .95, 1, .55 * sin(u2 * PI)))
 
 ## beirada do buraco que aparece até no escuro: contorno claro seguindo a terra que desmorona e
 ## pedrinhas soltas caindo da borda

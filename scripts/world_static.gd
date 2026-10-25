@@ -1743,8 +1743,23 @@ func shed(s: Dictionary) -> void:
 	# portas baixas nas duas pontas (é por elas que o Tomé entra abaixado)
 	for dx in [x0s + 6, x1s - 42]:
 		Spr.rect(dx - 3, yb - 58, 42, 58, ol)
-		Spr.rect(dx, yb - 55, 36, 55, Color("#1e140c"))
-		Spr.rect(dx, yb - 55, 36, 4, Color("#6b4626"))
+		if s.get("shut"):
+			# galpão trancado: porta de tábuas pregada, com tranca de ferro e cadeado
+			for k in 3:
+				Spr.rect(dx + k * 12, yb - 55, 11, 55, [Color("#7a5030"), Color("#8a5d36"), Color("#70482a")][k])
+				Spr.rect(dx + k * 12 + 2, yb - 53, 2, 50, Color(1, .9, .7, .1))
+			Spr.seg(dx + 3, yb - 8, dx + 33, yb - 48, Color("#4e331d"), 5)
+			Spr.rect(dx - 4, yb - 34, 44, 6, Color("#3a3634"))
+			Spr.rect(dx - 4, yb - 34, 44, 2, Color(1, 1, 1, .18))
+			for nx in [dx + 4, dx + 30]:
+				Spr.circle(nx, yb - 31, 1.6, Color("#9a9690"))
+			Spr.ring(dx + 18, yb - 31, 5, Color("#6c7680"), 2)
+			Spr.rr(dx + 12, yb - 30, 12, 11, 2, Color("#b08a3a"))
+			Spr.rr(dx + 12, yb - 30, 12, 3, 1, Color(1, .9, .6, .45))
+			Spr.circle(dx + 18, yb - 24, 1.5, Color("#2a1a0e"))
+		else:
+			Spr.rect(dx, yb - 55, 36, 55, Color("#1e140c"))
+			Spr.rect(dx, yb - 55, 36, 4, Color("#6b4626"))
 	# telhado vermelho com telhas e cumeeira clara
 	var r0 := Vector2(s.x - 24, s.y + 22)
 	var r1 := Vector2(mx, s.y - 44)

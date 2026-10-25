@@ -250,6 +250,54 @@ static func paws(d: Dictionary) -> void:
 		fx += 64
 		n += 1
 
+## corda esticada da mina sobre o lago de veneno: dois postes de tora roliça fincados nas margens,
+## com escora, roldana de ferro no alto e a corda dando voltas no poste (peso e volume, não um risco)
+static func _mine_posts(b: Dictionary) -> void:
+	var ol := Color("#2a1a0e")
+	var gy: float = float(b.get("ground", 500))
+	for side in [-1, 1]:
+		var px: float = (float(b.x0) - 18.0) if side < 0 else (float(b.x1) + 18.0)
+		var top: float = float(b.y) - 34.0
+		# sombra no chão e pedras calçando o pé
+		Spr.ellipse(px, gy + 1, 22, 4, Color(0, 0, 0, .32))
+		# escora inclinada para o lado de fora (segura a tração da corda)
+		var bx: float = px + side * 34.0
+		Spr.seg(bx, gy - 2, px + side * 4.0, top + 34, ol, 9)
+		Spr.seg(bx, gy - 2, px + side * 4.0, top + 34, Color("#6b4626"), 6)
+		Spr.seg(bx + 1, gy - 4, px + side * 3.0, top + 36, Color(1, .9, .7, .14), 1.6)
+		# tora roliça: contorno, corpo, sombra de um lado e brilho do outro (volume)
+		Spr.rr(px - 9, top, 18, gy - top + 4, 5, ol)
+		Spr.rr(px - 7, top + 2, 14, gy - top, 4, Color("#7a5232"))
+		Spr.rect(px + 2, top + 4, 5, gy - top - 4, Color(0, 0, 0, .22))
+		Spr.rect(px - 5, top + 4, 2.5, gy - top - 4, Color(1, .9, .7, .16))
+		for k in 4:
+			var ky: float = top + 18 + k * (gy - top - 30) / 3.0
+			Spr.seg(px - 6, ky, px + 1, ky + 5, Color(.25, .15, .08, .5), 1.2)
+		# topo cortado (anéis da madeira)
+		Spr.ellipse(px, top + 2, 8, 3, Color("#a8804a"))
+		Spr.ring(px, top + 2, 4, Color(.45, .3, .16, .7), 1)
+		# roldana de ferro presa no alto
+		var ry: float = float(b.y) - 4
+		Spr.circle(px, ry, 8, Color("#3a3634"))
+		Spr.circle(px, ry, 6, Color("#6c7680"))
+		Spr.circle(px, ry, 2, Color("#2a2826"))
+		Spr.ring(px, ry, 6, Color(1, 1, 1, .2), 1, -2.4, -1.2)
+		# a corda passa por cima da roldana e desce enrolando no poste
+		var ex: float = (float(b.x0) - 8.0) if side < 0 else (float(b.x1) + 12.0)
+		Spr.seg(px + side * 4.0, ry - 7, ex, float(b.y), Color("#3a2414"), 6)
+		Spr.seg(px + side * 4.0, ry - 7, ex, float(b.y), Color("#c9a26a"), 3.5)
+		Spr.ring(px, ry, 7, Color("#c9a26a"), 2.5, -PI * .95, -PI * .05)
+		Spr.seg(px - side * 7.0, ry, px - side * 7.0, ry + 12, Color("#c9a26a"), 2.5)
+		# voltas da corda no poste, abaixo da roldana
+		for k in 3:
+			var yy: float = ry + 12 + k * 5
+			Spr.seg(px - 9, yy + 2, px + 9, yy - 1, Color("#3a2414"), 4)
+			Spr.seg(px - 8, yy + 1, px + 8, yy - 2, Color("#c9a26a"), 2.2)
+		# pedras no pé
+		Spr.ellipse(px - side * 10, gy - 2, 9, 5, Color("#4a4440"))
+		Spr.ellipse(px + side * 9, gy - 1, 7, 4, Color("#5a534e"))
+		Spr.ellipse(px - side * 12, gy - 4, 4, 1.6, Color(1, 1, 1, .12))
+
 # ---------------------------------------------------------------- dinâmico (world_dyn)
 static func draw(g: Game, T: int) -> void:
 	var NT: Nature = g.NT
@@ -266,7 +314,9 @@ static func draw(g: Game, T: int) -> void:
 	for b in NT.BARS:
 		if b.x0 > x1 or b.x1 < x0:
 			continue
-		for px in ([] if b.get("clothes") else [b.x0 - 14, b.x1 + 6]):
+		if b.get("mine"):
+			_mine_posts(b)
+		for px in ([] if b.get("clothes") or b.get("mine") else [b.x0 - 14, b.x1 + 6]):
 			Spr.rect(px, b.y - 30, 12, 1150 - b.y, Color("#5a3d22"))
 			Spr.rect(px + 2, b.y - 30, 3, 1150 - b.y, Color(1, 1, 1, .08))
 			Spr.ellipse(px + 6, b.y - 30, 9, 4, Color("#7a5532"))

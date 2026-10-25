@@ -719,6 +719,9 @@ static func tocas(g: Game, T: int) -> void:
 	for tc in g.X.TOCAS:
 		if tc.x < g.cam - 100 or tc.x > g.cam + g.W + 100:
 			continue
+		if tc.get("wall"):
+			_toca_wall(g, tc, T)
+			continue
 		Spr.ellipse(tc.x, tc.y - 10, 34, 18, Color("#6a5e52"))
 		Spr.ellipse(tc.x - 10, tc.y - 18, 16, 9, Color("#857868"))
 		Spr.ellipse(tc.x + 2, tc.y - 4, 14, 10, Color("#120c08"))
@@ -728,6 +731,45 @@ static func tocas(g: Game, T: int) -> void:
 		if not tc.done and near:
 			var lbl := "✦ BUSCA, PIPOCA!" if g.X.dog_free() else "?"
 			Spr.text(lbl, tc.x, tc.y - 46 + sin(T * .15) * 3, 15, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
+
+## buraco cavado embaixo da parede do galpão (o Pipoca passa, o Tomé não): terra revirada do
+## lado de fora, tábua de baixo arrancada e a boca escura entrando por baixo da parede
+static func _toca_wall(g: Game, tc: Dictionary, T: int) -> void:
+	var x: float = tc.x
+	var y: float = tc.y
+	var ol := Color("#2a1a0e")
+	# monte de terra fofa jogada para trás (do lado de fora), com torrões e pedrinhas
+	Spr.poly(PackedVector2Array([Vector2(x - 62, y + 1), Vector2(x - 50, y - 12), Vector2(x - 36, y - 21), Vector2(x - 22, y - 15), Vector2(x - 12, y + 1)]), Color("#4a3622"))
+	Spr.poly(PackedVector2Array([Vector2(x - 55, y), Vector2(x - 46, y - 10), Vector2(x - 36, y - 17), Vector2(x - 25, y - 11), Vector2(x - 17, y)]), Color("#7a5a3a"))
+	Spr.ellipse(x - 39, y - 13, 8, 3, Color(1, .9, .7, .18))
+	for k in 5:
+		var rx: float = x - 64 + k * 12 + fposmod(k * 7.3, 5.0)
+		Spr.circle(rx, y - 3 - fposmod(k * 3.1, 3.0), 2.8 + fposmod(k * 1.7, 1.5), Color("#3a2a1a"))
+	# a boca do buraco: arco escuro por baixo da parede, com a borda de terra mais clara
+	var arc := PackedVector2Array()
+	for k in 13:
+		var a: float = PI + k / 12.0 * PI
+		arc.push_back(Vector2(x + 6 + cos(a) * 25, y + 3 + sin(a) * 24))
+	Spr.poly(arc, Color("#5a4028"))
+	var arc2 := PackedVector2Array()
+	for k in 13:
+		var a2: float = PI + k / 12.0 * PI
+		arc2.push_back(Vector2(x + 6 + cos(a2) * 19, y + 3 + sin(a2) * 18))
+	Spr.poly(arc2, Color("#0e0906"))
+	# borda de terra recém-revirada (mais clara, aparece no escuro)
+	Spr.ring(x + 6, y + 3, 21, Color("#9a7a50"), 3, PI * 1.05, PI * 1.95)
+	# tábua de baixo da parede arrancada, caída torta ao lado
+	Spr.save()
+	Spr.translate(x - 4, y - 3)
+	Spr.rotate(-.22)
+	Spr.rect(-30, -5, 34, 7, ol)
+	Spr.rect(-29, -4, 32, 5, Color("#8a5d36"))
+	Spr.circle(-24, -2, 1.2, Color("#9a9690"))
+	Spr.restore()
+	# marcas de unha na terra
+	for k in 3:
+		Spr.seg(x - 8 + k * 5, y - 1, x - 4 + k * 5, y - 7, Color(.2, .14, .08, .7), 1.3)
+	# (o aviso "BUSCA, PIPOCA!" desta toca é desenhado na camada de brilho, por cima do escuro)
 
 static func dog(g: Game, T: int) -> void:
 	var d: Dictionary = g.X.DOG
@@ -841,7 +883,8 @@ static func dog(g: Game, T: int) -> void:
 		Spr.save()
 		Spr.translate(x + d.face * 26, y - 30)
 		Spr.rotate(.3 * d.face)
-		Spr.A("drawing", 0, 0, .35)
+		var cs: String = g.X.toca_carry_spr(d.toca)
+		Spr.A(cs, 0, 0, .35 if cs == "drawing" else .5)
 		Spr.restore()
 	_dog_guide(g, d, x, y, T)
 	if d.bark > 0:

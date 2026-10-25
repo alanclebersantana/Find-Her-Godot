@@ -335,6 +335,8 @@ func _p1_load() -> void:
 	for it in L.get("items", []):
 		var o: Dictionary = it.duplicate()
 		o.got = false
+		# guardado lá dentro de uma toca/galpão ("toca": id): só aparece quando o Pipoca traz
+		o.hidden = it.has("toca")
 		ITEMS.append(o)
 	LOCKS = []
 	for l in L.get("locks", []):
@@ -355,6 +357,7 @@ func _p1_load() -> void:
 	for c in L.get("clues", []):
 		var o: Dictionary = c.duplicate()
 		o.got = CLUEGOT.has(int(c.id))
+		o.hidden = c.has("toca") and not o.got
 		CLUES.append(o)
 	SPECS = []
 	for s in L.get("specials", []):
@@ -415,6 +418,17 @@ func _reset_player(x: float, y: float, adjust: bool = true) -> void:
 		player.spawnX = player.x
 		player.spawnY = player.y
 	if M:
+		if M.ctrl and X and not X.DOG.is_empty() and X.DOG.st == "ctrl":
+			# voltou à fogueira (ou renasceu) com o jogador no controle do Pipoca: ele volta a
+			# seguir o Tomé (antes ficava parado para sempre onde estava, no estado "controlado")
+			X.DOG.st = "follow"
+			X.DOG.x = player.x + player.w / 2 - 30
+			X.DOG.y = player.y + player.h
+			X.DOG.hy = 0.0
+			X.DOG.erase("jmp")
+			X.TRAIL = [Vector2(X.DOG.x, X.DOG.y)]
+			X.DOG.i = 0
+			M.dig_t = 0
 		M.ctrl = false
 
 func make_body(x: float, y: float) -> Dictionary:
@@ -2660,12 +2674,12 @@ func _p1_post(pcx: float, _pcy: float) -> void:
 			return
 	# itens, pistas, lápis especiais
 	for it in ITEMS:
-		if not it.got and abs(it.x - pcx) < 80 and hit(player, R(it.x - 20, it.y - 20, 40, 40)):
+		if not it.got and not it.hidden and abs(it.x - pcx) < 80 and hit(player, R(it.x - 20, it.y - 20, 40, 40)):
 			it.got = true
 			give_item(it.id)
 			burst(it.x, it.y, 18, Color("#ffe9a0"))
 	for c in CLUES:
-		if not c.got and abs(c.x - pcx) < 80 and hit(player, R(c.x - 20, c.y - 20, 40, 40)):
+		if not c.got and not c.hidden and abs(c.x - pcx) < 80 and hit(player, R(c.x - 20, c.y - 20, 40, 40)):
 			c.got = true
 			CLUEGOT[int(c.id)] = 1
 			Save.setv("gallery", "c%d" % int(c.id), true)
