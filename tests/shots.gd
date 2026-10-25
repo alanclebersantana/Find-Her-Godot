@@ -199,7 +199,7 @@ func _initialize() -> void:
 				elif k == "bstun":
 					g.X.BOSS.active = true
 					g.X.BOSS.st = "stun"
-					g.X.BOSS.x = 3500
+					g.X.BOSS.x = x + 200
 					g.X.BOSS.y = 500.0
 					g.X.BOSS.t = 0
 					g.X._gate_on(true)

@@ -571,6 +571,14 @@ func cine_step(c: Dictionary) -> void:
 				Audio.play("roar")
 				g.shake = 14
 				Audio.vib(160)
+		"brutus":
+			# o Brutus já está no chão do quintal: só encara o Tomé e late (sem cair do céu)
+			var bb: Dictionary = BOSS
+			bb.t = 0
+			bb.dir = 1 if g.player.x > bb.x else -1
+			if t == 60 or t == 110:
+				Audio.play("bark")
+				g.shake = max(g.shake, 6)
 		"vargas":
 			if t == 6:
 				g.lightning = 12
@@ -592,6 +600,14 @@ func cine_end(id: String) -> void:
 				BOSS.st = "idle"
 			BOSS.t = 0
 			g.flash_tut("Faça o Javali-Rei bater a cabeça 4 vezes!", "Fique no chão para ele investir. Quando ele correr, pule para um galho: ele bate a cabeça na árvore ou no barranco. 4 batidas!", 260)
+		"brutus":
+			# sem o "pouso" do javali (o Brutus não cai do alto: nada de tremor e baque depois da cena)
+			if BOSS.st == "intro":
+				BOSS.y = 500.0
+				BOSS.st = "idle"
+			BOSS.t = 0
+			var n: int = int(BOSS.get("maxhp", 3))
+			g.flash_tut("Faça o Brutus bater a cabeça %d vezes!" % n, "Fique no chão para ele investir. Quando ele correr, suba numa banca: ele bate a cabeça no muro. %d batidas!" % n, 260)
 		"vargas":
 			g.tip("Atrás dele! Pule os buracos e abaixe sob as vigas.", 180)
 		"cao":
@@ -772,7 +788,7 @@ func boss_damage(from_slam: bool = false) -> void:
 		b.t = 0
 		Polish.final_blow()
 		if b.get("skin", "") != "dog":
-			Polish.crown_drop("leaf", b.x + 30, b.y - 140, -b.dir, 500.0)
+			Polish.crown_drop("gold", b.x + b.dir * 34, b.y - 122, -b.dir, 500.0)
 		Polish.loot_arc(b.x, b.y - 80, 12, 500.0)
 		_gate_on(false)
 		if b.skin == "dog":
@@ -827,6 +843,14 @@ func boss_finish_silent() -> void:
 		return
 	BOSS.done = true
 	BOSS.active = false
+	# chefe vencido num jogo salvo: o portão do outro lado da arena e a escada ficam como na vitória
+	if str(BOSS.get("open", "")) != "":
+		for so in g.SOL.duplicate():
+			if so.get("id", "") == BOSS.open:
+				g.SOL.erase(so)
+		g.blockers_dirty()
+	if BOSS.get("ladder") != null and not g.CLIMB.has(BOSS.ladder):
+		g.CLIMB.append(BOSS.ladder.duplicate())
 
 func ripple(x: float, y: float, s: float = 1.0) -> void:
 	RIP.append({"x": x, "y": y, "t": 0, "s": s})

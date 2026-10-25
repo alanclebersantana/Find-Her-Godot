@@ -436,29 +436,37 @@ static func boss(g: Game, T: int) -> void:
 	if b.st == "down":
 		tint.a = clamp(1.0 - (b.t - 90) / 60.0, 0.0, 1.0)
 	var dst := Rect2(-105 * sc, -136 * sc + 4, 210 * sc, 140 * sc)
-	var bct: Texture2D = Spr.opt("boss_charge") if b.st == "charge" and t < 22 else null
-	if bct:
-		# arranque da investida: pose própria, bem esticada
-		Spr.ci.draw_texture_rect(bct, dst, false, tint)
+	# ponto do alto da cabeça (entre as orelhas) no quadro desenhado, em pixels da folha (olhando para a
+	# direita): é onde a coroa assenta. Deitado (6) a cabeça fica bem mais baixa; na investida, mais à frente
+	var head := Vector2(134, 29)
+	var bct: Texture2D = Spr.opt("boss_charge") if b.st == "charge" and t < 30 else null
+	var ka: float = 1.0 - smoothstep(20.0, 30.0, float(t)) if bct else 0.0
+	if ka >= 1.0:
+		pass
 	elif cyc >= 0.0:
 		Spr.region_mix(Spr.tex.javali, dst, 210, 140, seq, cyc, tint)
+		if b.st == "charge":
+			# galope 5 <-> 3: a cabeça vai e volta junto com a troca dos quadros
+			var cu: float = .5 - .5 * cos(fposmod(cyc, 2.0) * PI)
+			head = Vector2(142, 30).lerp(Vector2(135, 29), cu)
 	else:
 		Spr.ci.draw_texture_rect_region(Spr.tex.javali, dst, Rect2(fr * 210, 0, 210, 140), tint)
-	# coroa de folhas (é o rei)
-	var cx := 30.0
-	var cy := -128.0 * sc + 10
+		if fr == 6:
+			head = Vector2(139, 55)
+		elif fr == 5:
+			head = Vector2(142, 30)
+	if bct:
+		# arranque da investida: pose própria, bem esticada; nos últimos quadros se desfaz no galope
+		# (sem estalo de uma pose para a outra)
+		Spr.ci.draw_texture_rect(bct, dst, false, Color(tint.r, tint.g, tint.b, tint.a * ka))
+		head = head.lerp(Vector2(157, 35), ka)
+	# coroa de ouro (é o rei — igual ao quadrinho de apresentação e aos outros reis)
+	var cx: float = (head.x - 105.0) * sc
+	var cy: float = -136.0 * sc + 4 + head.y * sc
 	# a coroa balança a cada golpe recebido (e some na derrota: ela cai e rola pelo chão)
 	if b.st != "down":
 		var wob: float = sin(float(b.red) * .7) * .4 * float(b.red) / 30.0
-		Spr.save()
-		Spr.translate(cx, cy + 8)
-		Spr.rotate(wob)
-		Spr.translate(-cx, -cy - 8)
-		for i in 5:
-			var a := -PI / 2 + (i - 2) * .38
-			Spr.ellipse(cx + cos(a) * 16, cy + sin(a) * 10 + 4, 7, 4, Color(.31, .54, .16, tint.a), a)
-		Spr.circle(cx, cy + 6, 4, Color(.88, .27, .23, tint.a))
-		Spr.restore()
+		WorldKings._crown(cx, cy, 1.15, wob - .12)
 	Spr.restore()
 	if b.st == "stun":
 		for i in 4:

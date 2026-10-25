@@ -71,10 +71,19 @@ func post() -> void:
 # ======================================================================
 func hawk_box() -> Dictionary:
 	if HAWK.get("skin", "hawk") == "bat":
-		# Morcego-Rei: o desenho fica bem acima do ponto de apoio (corpo ~150 px de altura)
+		# Morcego-Rei: a caixa acompanha o desenho (ver WorldKings._hawk): no mergulho o corpo desce até
+		# as garras tocarem o chão; preso, fica de pé com as garras cravadas e as asas para cima
 		var d: float = 1.0 if HAWK.dir > 0 else -1.0
-		return g.R(HAWK.x - 26.0 * d - 52, HAWK.y - 168, 104, 150)
+		if HAWK.st == "stuck":
+			return g.R(HAWK.x - 13.0 * d - 46, HAWK.gy - 128, 92, 126)
+		return g.R(HAWK.x - 26.0 * d - 50, HAWK.y - 200 + bat_drop(), 100, 116)
 	return g.R(HAWK.x - 46, HAWK.y - 58, 92, 64)
+
+## quanto o desenho do Morcego-Rei desce durante o mergulho (as garras chegam ao chão no fim)
+func bat_drop() -> float:
+	if HAWK.is_empty() or HAWK.st != "dive":
+		return 0.0
+	return 80.0 * min(1.0, HAWK.t / 20.0)
 
 func _hawk() -> void:
 	if HAWK.is_empty() or HAWK.done:
@@ -122,7 +131,9 @@ func _hawk() -> void:
 			h.t += 1
 			h.x = lerpf(h.x, h.tx, .08)
 			h.y = lerpf(h.y, gy - 160, .08)
-			h.dir = 1 if h.tx > h.x else h.dir
+			# olha para onde vai mergulhar (para qualquer lado; perto do alvo não fica virando)
+			if abs(h.tx - h.x) > 6:
+				h.dir = 1 if h.tx > h.x else -1
 			# o facho da lanterna confunde: ele mergulha no lugar errado
 			if not h.conf and g.X.in_cone(h.x, h.y - 20, 520.0):
 				h.conf = true
@@ -233,7 +244,7 @@ func swing_hits(hb: Dictionary) -> void:
 		h.t = 0
 		Polish.final_blow()
 		if h.get("skin", "hawk") != "bat":
-			Polish.crown_drop("gold", h.x + h.dir * 14, h.y - 112, h.dir, h.gy)
+			Polish.crown_drop("gold", h.x + h.dir * 38, h.y - 84, h.dir, h.gy)
 		Polish.loot_arc(h.x, h.y - 40, 10, h.gy)
 		_gate("hawkL", false, Rect2())
 		_gate("hawkR", false, Rect2())
@@ -680,12 +691,32 @@ func _bear_hit() -> void:
 func fish_box() -> Dictionary:
 	return g.R(FISH.x - 120, FISH.y - 46, 240, 92)
 
+## as 4 escamas azuis pintadas em cada quadro do bagre.png (em relação ao centro do bagre, olhando
+## para a direita): 0-3 nadando, 4 sugando, 5 cansado; "bite" = fish_bite.png (o bote)
+const FISH_SC := {
+	0: [Vector2(-1, 7.5), Vector2(22.8, 8.4), Vector2(33.6, -5.5), Vector2(44.4, 3.4)],
+	1: [Vector2(-6.4, -0.8), Vector2(16.4, 2), Vector2(27.8, -11), Vector2(36.6, -0.8)],
+	2: [Vector2(-1.5, 3), Vector2(21.2, 5.5), Vector2(32.4, -7.6), Vector2(41.4, 2.8)],
+	3: [Vector2(0.1, 6.9), Vector2(23.4, 8), Vector2(34.1, -5.6), Vector2(44.5, 3.5)],
+	4: [Vector2(-21.4, 2.7), Vector2(-5, 5), Vector2(1.6, -11.6), Vector2(8.7, -0.8)],
+	5: [Vector2(-10.6, 5.2), Vector2(12.3, 6.5), Vector2(22.3, -6.9), Vector2(31.6, 2.7)],
+	"bite": [Vector2(-6.7, 7.2), Vector2(17, 7.4), Vector2(24.8, -7.4), Vector2(36.7, 1.4)],
+}
+## pintas do Sapo-Rei (o desenho não tem pintas próprias: são desenhadas por cima, no peito)
+const FROG_SC := [Vector2(-1, 7), Vector2(23, 8), Vector2(34, -6), Vector2(44, 3)]
+
+## posição das escamas no desenho do quadro k (olhando para a direita)
+func scale_local(k) -> Array:
+	if FISH.get("skin", "fish") == "frog":
+		return FROG_SC
+	return FISH_SC.get(k, FISH_SC[0])
+
 ## escamas que brilham (pontos fracos), em coordenadas do mundo
 func scale_pts() -> Array:
 	var out := []
 	var f: Dictionary = FISH
-	# as 4 escamas azuis do desenho (em relação ao centro do bagre, olhando para a direita)
-	for p in [Vector2(-1, 7), Vector2(23, 8), Vector2(34, -6), Vector2(44, 3)]:
+	# cansado o desenho é o quadro 5 (as escamas ficam mais para trás que nadando)
+	for p in scale_local(5 if f.st == "tired" else 0):
 		out.append(Vector2(f.x + p.x * f.dir, f.y + p.y))
 	return out
 
@@ -905,8 +936,26 @@ func harpoon_hit(hp: Dictionary) -> bool:
 		return true
 	return false
 
-func cine_step(_c: Dictionary) -> void:
-	pass
+## durante a cena de apresentação o chefe entra em cena (senão ficava parado fora da tela)
+func cine_step(c: Dictionary) -> void:
+	match c.id:
+		"gaviao", "morcego":
+			# desce das copas (ou do teto da mina) e fica rondando à vista, do lado direito da arena
+			var h: Dictionary = HAWK
+			if h.is_empty():
+				return
+			h.x = lerpf(h.x, h.x1 - 200.0, .03)
+			# (o morcego é desenhado mais acima do ponto de apoio: desce um pouco mais)
+			var hy: float = h.gy - (165.0 if h.get("skin", "hawk") == "bat" else 200.0)
+			h.y = lerpf(h.y, hy + sin(c.t * .07) * 10.0, .035)
+			h.dir = -1
+		"bagre", "sapo":
+			# sai de trás do muro nadando devagar até o meio da arena (a cena "intro" continua depois)
+			var f: Dictionary = FISH
+			if f.is_empty():
+				return
+			f.dir = -1
+			f.x = lerpf(f.x, f.x1 - 170.0, .035)
 
 func cine_end(id: String) -> void:
 	match id:

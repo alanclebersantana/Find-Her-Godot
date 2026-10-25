@@ -48,7 +48,8 @@ static func _hawk(g: Game, K: Kings, T: int) -> void:
 	match h.st:
 		"dive":
 			fr = 1
-			rot = .5 * (1 if h.tx > h.sx else -1)
+			# mergulho de bico para baixo: inclina para o lado em que está olhando
+			rot = .5 * (1.0 if h.dir > 0 else -1.0)
 		"stuck":
 			fr = (T / 3) % 3
 		"mark":
@@ -56,9 +57,10 @@ static func _hawk(g: Game, K: Kings, T: int) -> void:
 	var tint := Color(1, .5, .45) if h.red > 0 and (T / 3) % 2 == 0 else Color(1, 1, 1)
 	tint = tint * Polish.fury(int(h.hp))   # última vida: pulsa avermelhado
 	var y: float = h.y - (6 if h.st == "stuck" else 50)
-	# inclinação do mergulho entra e sai aos poucos; o corpo sobe a cada batida de asa
-	h._rot = lerpf(float(h.get("_rot", 0.0)), rot, .2)
-	rot = h._rot
+	# inclinação do mergulho entra e sai aos poucos (no passo da lógica); o corpo sobe a cada batida de asa
+	if Polish.FRESH:
+		h._rot = lerpf(float(h.get("_rot", 0.0)), rot, .2)
+	rot = float(h.get("_rot", rot))
 	if h.st in ["circle", "rise", "flee", "mark"] and h.get("skin", "hawk") != "bat":
 		y += -sin(T * PI / 7.5) * 4.0
 	var hsx := 1.0
@@ -81,7 +83,8 @@ static func _hawk(g: Game, K: Kings, T: int) -> void:
 		var flap: float = 0.0 if h.st in ["stuck", "dive"] else -sin(T * PI / 8.0) * 5.0
 		var mrt: Texture2D = Spr.opt("morcego_rei")
 		Spr.save()
-		Spr.translate(h.x, y - 34 + flap)
+		# no mergulho desce até as garras tocarem o chão (a caixa de dano acompanha: Kings.bat_drop)
+		Spr.translate(h.x, y - 34 + flap + K.bat_drop())
 		Spr.rotate(rot * .6)
 		Spr.scale(hfs * hsx, hsy * Spr.tsy(h))
 		if mrt:
@@ -93,7 +96,15 @@ static func _hawk(g: Game, K: Kings, T: int) -> void:
 				mf = 4
 			var MW := 270.0
 			var MH := 306.0
-			if h.st in ["dive", "stuck"]:
+			if h.st == "stuck":
+				# tonto com as garras cravadas no chão: o quadro 4 (pendurado) de cabeça para cima,
+				# pés no chão e asas erguidas (a coroa e o rosto ficam do lado certo)
+				Spr.save()
+				Spr.translate(0, h.gy + 2 - (y - 34))
+				Spr.scale(1, -1)
+				Spr.ci.draw_texture_rect_region(mrt, Rect2(-.55 * MW, -64 * MH / 340.0, MW, MH), Rect2(mf * 300, 0, 300, 340), Color(tint.r, tint.g, tint.b, Spr.alpha))
+				Spr.restore()
+			elif h.st == "dive":
 				Spr.ci.draw_texture_rect_region(mrt, Rect2(-.55 * MW, -62 - .41 * MH, MW, MH), Rect2(mf * 300, 0, 300, 340), Color(tint.r, tint.g, tint.b, Spr.alpha))
 			else:
 				Spr.region_mix(mrt, Rect2(-.55 * MW, -62 - .41 * MH, MW, MH), 300, 340, [0, 1, 2, 1], T / 4.0, Color(tint.r, tint.g, tint.b, Spr.alpha))
@@ -119,16 +130,17 @@ static func _hawk(g: Game, K: Kings, T: int) -> void:
 			# asas: preso no chão bate rápido, mirando bate médio, voando bate devagar
 			var hsp: float = 3.0 if h.st == "stuck" else (4.0 if h.st == "mark" else 5.0)
 			Spr.region_mix(Spr.tex.gaviao, Rect2(-66, -96, 132, 124), 132, 124, [0, 1, 2], T / hsp, Color(tint.r, tint.g, tint.b, Spr.alpha))
-		Spr.restore()
-	if h.get("skin", "hawk") != "bat":
+		# coroa presa no alto da cabeça (no mesmo transform do corpo: acompanha o mergulho, a virada e o
+		# achatar); balança a cada golpe recebido e cai na derrota
 		if h.st != "flee":
-			_crown(h.x + hfs * 14, y - 112 * hsy, 1.2, sin(float(h.red) * .7) * .4 * float(h.red) / 30.0)
+			_crown(26, -49, .8, sin(float(h.red) * .7) * .4 * float(h.red) / 30.0)
+		Spr.restore()
 	if h.st == "stuck":
 		# garras presas na madeira
 		for i in 3:
 			Spr.seg(h.x - 10 + i * 10, h.gy - 4, h.x - 8 + i * 10, h.gy + 6, Color("#3a2414"), 3)
 		if (T / 10) % 2 == 0:
-			Spr.text("!", h.x, y - 150, 30, Color("#ffe27a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 5)
+			Spr.text("!", h.x, (h.gy - 206) if h.get("skin", "hawk") == "bat" else (y - 150), 30, Color("#ffe27a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 5)
 	if h.st == "flee":
 		for i in 3:
 			var a := T * .15 + TAU * i / 3.0
@@ -159,9 +171,11 @@ static func _fish(g: Game, K: Kings, T: int) -> void:
 	var tint := Color(1, .55, .5) if f.red > 0 and (T / 3) % 2 == 0 else Color(1, 1, 1)
 	tint = tint * Polish.fury(int(f.hp))   # última vida: pulsa avermelhado
 	# nada com o corpo: inclina para onde sobe/desce, estica no bote, encolhe ao mirar e achata ao bater
-	var fvy: float = f.y - float(f.get("_py", f.y))
-	f._py = f.y
-	f._pt = lerpf(float(f.get("_pt", 0.0)), clamp(fvy * .05, -.18, .18), .1)
+	# (a inclinação anda no passo da lógica: em telas de 90/120 Hz não fica tremendo)
+	if Polish.FRESH:
+		var fvy: float = f.y - float(f.get("_py", f.y))
+		f._py = f.y
+		f._pt = lerpf(float(f.get("_pt", 0.0)), clamp(fvy * .05, -.18, .18), .1)
 	var fsx := 1.0
 	var fsy := 1.0
 	if f.st == "charge":
@@ -179,7 +193,7 @@ static func _fish(g: Game, K: Kings, T: int) -> void:
 	Spr.save()
 	Spr.translate(f.x, f.y + (sin(T * .06) * 3.0 if f.st != "down" else 0.0))
 	var ffs: float = Spr.eturn(f, .1)
-	Spr.rotate(f._pt * sign(ffs) if f.st != "down" else 0.0)
+	Spr.rotate(float(f.get("_pt", 0.0)) * sign(ffs) if f.st != "down" else 0.0)
 	Spr.scale(ffs * fsx, fsy * Spr.tsy(f))
 	if f.get("skin", "fish") == "frog" and Spr.tex.has("en_frog2"):
 		# Sapo-Rei nadando: o sapo pintado bem grande, pernas batendo; boca aberta quando suga
@@ -204,18 +218,33 @@ static func _fish(g: Game, K: Kings, T: int) -> void:
 			Spr.region_mix(Spr.tex.bagre, Rect2(-140, -80, 280, 160), 280, 160, [0, 1, 2, 3], T / 7.0, Color(tint.r, tint.g, tint.b, Spr.alpha * a))
 		else:
 			Spr.ci.draw_texture_rect_region(Spr.tex.bagre, Rect2(-140, -80, 280, 160), Rect2(fr * 280, 0, 280, 160), Color(tint.r, tint.g, tint.b, Spr.alpha * a))
-	Spr.restore()
-	# escamas azuis = pontos fracos: brilham quando ele cansa; as que já caíram viram marca escura
+	# escamas azuis = pontos fracos: brilham quando ele cansa; as que já caíram viram marca escura.
+	# Desenhadas no mesmo transform do corpo, em cima das escamas pintadas do quadro que está na tela
+	# (nadando, as posições acompanham a troca de quadros)
 	if f.st != "down":
-		var pts: Array = K.scale_pts()
+		var lp: Array = K.scale_local(fr)
+		if f.get("skin", "fish") != "frog":
+			if f.st == "charge" and Spr.opt("fish_bite"):
+				lp = K.scale_local("bite")
+			elif fr < 4 and not f.st in ["suck", "tired", "down"]:
+				var cyc: float = T / 7.0
+				var c0: int = int(floor(cyc))
+				var la: Array = K.scale_local(posmod(c0, 4))
+				var lb: Array = K.scale_local(posmod(c0 + 1, 4))
+				# a folha x4 troca em 4 passos por quadro: as escamas andam junto
+				var cu: float = floor((cyc - c0) * 4.0) / 4.0
+				lp = []
+				for i in 4:
+					lp.append(la[i].lerp(lb[i], cu))
 		for i in 4:
-			var p: Vector2 = pts[i]
+			var p: Vector2 = lp[i]
 			if not f.scales[i]:
 				Spr.ellipse(p.x, p.y, 7, 6, Color(.24, .22, .12, a))
 				Spr.seg(p.x - 4, p.y - 3, p.x + 4, p.y + 3, Color(.08, .06, .03, a), 1.5)
 			elif f.st == "tired":
 				Spr.glow(p.x, p.y, 24 + sin(T * .3 + i) * 4, Color(.55, 1, 1, .6 * a))
 				Spr.ellipse(p.x, p.y, 6, 5, Color(.75, 1, 1, a))
+	Spr.restore()
 	# sucção: linhas de água entrando na boca
 	if f.st == "suck" and f.t > 30:
 		var mx2: float = f.x + f.dir * 118
@@ -344,10 +373,11 @@ static func _bear(g: Game, K: Kings, T: int) -> void:
 	var bsh: float = clamp(1.0 + float(b.get("hy", 0.0)) / 260.0, .4, 1.0)
 	Spr.ellipse(b.x, b.gy + 2, 100 * bsh, 12 * bsh, Color(0, 0, 0, .28 * bsh))
 	# inclinação e agachar com peso (sem estalar de uma pose para a outra)
-	b._rot = lerpf(float(b.get("_rot", 0.0)), rot, .18)
-	b._dy = lerpf(float(b.get("_dy", 0.0)), dy, .2)
-	rot = b._rot
-	dy = b._dy
+	if Polish.FRESH:
+		b._rot = lerpf(float(b.get("_rot", 0.0)), rot, .18)
+		b._dy = lerpf(float(b.get("_dy", 0.0)), dy, .2)
+	rot = float(b.get("_rot", rot))
+	dy = float(b.get("_dy", dy))
 	if b.st in ["walk", "charge"]:
 		dy -= abs(sin(b.anim * PI)) * (4.0 if b.st == "charge" else 2.5)
 	Spr.save()
