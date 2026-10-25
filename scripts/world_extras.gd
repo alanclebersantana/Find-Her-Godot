@@ -436,7 +436,11 @@ static func boss(g: Game, T: int) -> void:
 	if b.st == "down":
 		tint.a = clamp(1.0 - (b.t - 90) / 60.0, 0.0, 1.0)
 	var dst := Rect2(-105 * sc, -136 * sc + 4, 210 * sc, 140 * sc)
-	if cyc >= 0.0:
+	var bct: Texture2D = Spr.opt("boss_charge") if b.st == "charge" and t < 22 else null
+	if bct:
+		# arranque da investida: pose própria, bem esticada
+		Spr.ci.draw_texture_rect(bct, dst, false, tint)
+	elif cyc >= 0.0:
 		Spr.region_mix(Spr.tex.javali, dst, 210, 140, seq, cyc, tint)
 	else:
 		Spr.ci.draw_texture_rect_region(Spr.tex.javali, dst, Rect2(fr * 210, 0, 210, 140), tint)
@@ -719,7 +723,23 @@ static func dog(g: Game, T: int) -> void:
 	Spr.scale(abs(ns), (1.0 + breath) * Spr.tsy(d))
 	var drew: bool = Spr.novo("pipoca", nf, 54, ns < 0)
 	Spr.restore()
+	# poses pintadas extras: cavando, farejando, comemorando
+	var ov: Texture2D = null
 	if not drew:
+		if d.st == "dig":
+			ov = Spr.opt("dog_dig")
+		elif d.get("joyT", 0) > 0:
+			ov = Spr.opt("dog_joy")
+		elif d.st == "sit" and (int(d.t) + 140) % 520 < 80:
+			ov = Spr.opt("dog_sniff")
+	if ov != null:
+		var hop: float = -abs(sin(T * .35)) * 10.0 if d.get("joyT", 0) > 0 else 0.0
+		Spr.translate(0, hop)
+		Spr.scale(sc if d.face > 0 else -sc, sc * (1.0 + bob))
+		var ow: float = ov.get_width()
+		var oh: float = ov.get_height()
+		Spr.trect(ov, Rect2(-ow * .55, -oh + 2, ow, oh))
+	elif not drew:
 		if d.st == "dig":
 			Spr.rotate(d.face * .25)
 		# parado: de vez em quando fareja o chão ou coça a orelha

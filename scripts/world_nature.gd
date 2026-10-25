@@ -447,7 +447,22 @@ static func squirrel(e: Dictionary, T: int) -> void:
 
 static func crow(e: Dictionary, T: int) -> void:
 	if e.dead:
-		Spr.A("crow_dead", 0, 0, .5)
+		var ck: Texture2D = Spr.opt("crow_ko")
+		if ck:
+			Spr.save()
+			Spr.scale(.74, .74)
+			Spr.trect(ck, Rect2(-ck.get_width() * .5, -ck.get_height() * .5, ck.get_width(), ck.get_height()))
+			Spr.restore()
+		else:
+			Spr.A("crow_dead", 0, 0, .5)
+		return
+	# mergulho (descendo): pose pintada de asas recolhidas
+	var cd: Texture2D = Spr.opt("crow_dive")
+	if cd and e.get("st", 0) == 1 and e.get("t", 0) < 28:
+		Spr.save()
+		Spr.scale(.74, .74)
+		Spr.trect(cd, Rect2(-cd.get_width() * .5, -cd.get_height() * .5 - 10, cd.get_width(), cd.get_height()))
+		Spr.restore()
 		return
 	# corvo grande (bem maior que os tucanos do cenário); batendo asas rápido antes do mergulho
 	var fs: int = 3 if e.get("st", 0) == 5 else 5

@@ -613,6 +613,17 @@ static func _dragonfly(sd: int, wx0: float, wx1: float, wy: float, ft: float) ->
 	var u: float = clamp(ph / 9.0, 0, 1)
 	var pos := a.lerp(b, u * (2.0 - u)) + Vector2(sin(ft * .31 + sd) * 1.5, sin(ft * .47 + sd) * 1.2)
 	var dir: float = 1.0 if b.x >= a.x else -1.0
+	var dft: Texture2D = Spr.opt("dragonfly")
+	if dft:
+		# libélula pintada (vista de cima, de cabeça para a frente), achatada como vista de lado
+		var fl2: float = .5 + .5 * sin(ft * 2.3 + sd)
+		Spr.save()
+		Spr.translate(pos.x, pos.y)
+		Spr.scale(1.0, .42 + .08 * fl2)
+		Spr.rotate(dir * PI / 2)
+		Spr.ci.draw_texture_rect(dft, Rect2(-15, -9, 30, 18), false, Color(1, 1, 1, .95 * Spr.alpha))
+		Spr.restore()
+		return
 	var bc := Color(.12, .45, .55, .95)
 	Spr.seg(pos.x - dir * 9, pos.y + 1, pos.x + dir * 4, pos.y, bc, 1.8)
 	Spr.circle(pos.x + dir * 5, pos.y, 1.6, Color(.1, .3, .35))

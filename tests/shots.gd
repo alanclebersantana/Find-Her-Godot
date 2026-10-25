@@ -177,6 +177,25 @@ func _initialize() -> void:
 				elif k == "boss":
 					g.X.BOSS.st = "wait"
 					g.X.BOSS.done = false
+				elif k == "bchg":
+					g.X.BOSS.active = true
+					g.X.BOSS.st = "charge"
+					g.X.BOSS.x = x + 240
+					g.X.BOSS.y = 500.0
+					g.X.BOSS.t = 2
+					g.X.BOSS.spd = 2.0
+					g.X.BOSS.dir = -1
+				elif k == "fishc":
+					var f2: Dictionary = g.K.FISH
+					f2.active = true
+					f2.st = "charge"
+					f2.t = 2
+					f2.vx = -6.0
+					f2.x = x + 300
+					f2.y = y
+					f2.dir = -1
+					g.NT.helmet = true
+					g.NT.harpoon = true
 				elif k == "bstun":
 					g.X.BOSS.active = true
 					g.X.BOSS.st = "stun"

@@ -967,6 +967,7 @@ func _use_dog() -> bool:
 ## o que o Pipoca trouxe da toca aparece perto do Tomé
 func _deliver_toca() -> void:
 	DOG.carry = false
+	DOG.joyT = 70
 	var tc = DOG.toca
 	if tc == null:
 		return
@@ -1015,6 +1016,8 @@ func _dog() -> void:
 			if TRAIL.size() > 600:
 				TRAIL.pop_front()
 				DOG.i = max(0, DOG.i - 1)
+	if DOG.get("joyT", 0) > 0:
+		DOG.joyT -= 1
 	# trouxe algo da toca mas parou de voltar (trocou de controle, cena...): entrega mesmo assim
 	if DOG.carry and DOG.st not in ["return", "in_toca"]:
 		_deliver_toca()

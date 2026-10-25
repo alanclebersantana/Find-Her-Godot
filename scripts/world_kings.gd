@@ -196,6 +196,9 @@ static func _fish(g: Game, K: Kings, T: int) -> void:
 		else:
 			Spr.ci.draw_texture_rect_region(Spr.tex.en_frog2, Rect2(-150, -95, 300, 162), Rect2(ff * 130, 0, 130, 70), Color(tint.r * .8, tint.g, tint.b * .75, Spr.alpha * a))
 			_crown(18, -88, 1.1)
+	elif f.st == "charge" and Spr.opt("fish_bite"):
+		# bote: boca escancarada, dentes à mostra
+		Spr.ci.draw_texture_rect(Spr.opt("fish_bite"), Rect2(-140, -80, 280, 160), false, Color(tint.r, tint.g, tint.b, Spr.alpha * a))
 	else:
 		if fr < 4 and not f.st in ["suck", "tired", "down"]:
 			Spr.region_mix(Spr.tex.bagre, Rect2(-140, -80, 280, 160), 280, 160, [0, 1, 2, 3], T / 7.0, Color(tint.r, tint.g, tint.b, Spr.alpha * a))

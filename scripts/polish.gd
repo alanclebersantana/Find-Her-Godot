@@ -157,6 +157,20 @@ static func draw_part(p: Dictionary) -> void:
 		"leaf", "petal":
 			# folha: elipse que vira (o giro mostra a frente e a borda)
 			var flip: float = abs(sin(p.rot))
+			var lvt: Texture2D = Spr.opt("leaves") if p.k == "leaf" else null
+			if lvt:
+				# folha pintada (verde, amarela ou laranja, pela cor pedida), virando no ar
+				var hu: float = c.h
+				var fi: int = 0 if (hu > .17 and hu < .5) else (1 if hu > .1 and hu <= .17 else 2)
+				Spr.save()
+				Spr.translate(p.x, p.y)
+				Spr.rotate(p.rot * .5)
+				Spr.scale(1.0, .35 + .65 * flip)
+				var lw: float = s * 2.8
+				var lv: float = clamp(c.v / .62, .55, 1.1)   # brejo: folhas mais escuras
+				Spr.ci.draw_texture_rect_region(lvt, Rect2(-lw / 2, -lw / 2, lw, lw), Rect2(fi * 64, 0, 64, 64), Color(lv, lv, lv, a * Spr.alpha))
+				Spr.restore()
+				return
 			Spr.save()
 			Spr.translate(p.x, p.y)
 			Spr.rotate(p.rot * .5)
@@ -329,6 +343,8 @@ static func _tick_player() -> void:
 	# P6 dano: o clarão some aos poucos
 	if p.get("hitFx", 0) > 0:
 		p.hitFx -= 1
+	if p.get("cheerT", 0) > 0:
+		p.cheerT -= 1
 	if p.dyingT > 0 or p.get("dog", false):
 		return
 	var T: int = g.T
@@ -418,6 +434,7 @@ static func land_heavy(x: float, y: float, v: float) -> void:
 ## P9 comemoração ao pegar pista/desenho: pulinho e brilho dourado
 static func celebrate(x: float, y: float) -> void:
 	var p: Dictionary = g.player
+	p.cheerT = 50
 	if p.onGround and not p.get("dog", false):
 		p.vy = -4.6
 		p.onGround = false

@@ -863,8 +863,23 @@ func _enemy(e: Dictionary) -> void:
 		Spr.scale(1.0 - abs(ph) * .015, 1.0 + (abs(ph) - .5) * .03)
 	match e.k:
 		"frog":
-			if e.dead:
+			var jt0: int = int(e.get("jt", 0)) % 130
+			var pp0: Dictionary = game.player
+			if e.dead and Spr.opt("frog_ko"):
+				var fk: Texture2D = Spr.opt("frog_ko")
+				Spr.save()
+				Spr.scale(.82, .82)
+				Spr.trect(fk, Rect2(-fk.get_width() * .5, -fk.get_height() + 4, fk.get_width(), fk.get_height()))
+				Spr.restore()
+			elif e.dead:
 				Spr.A("en_frog_dead", 0, 3, .9)
+			elif not e.leap and jt0 >= 74 and jt0 < 86 and abs(pp0.x - e.x) < 320 and Spr.opt("frog_tongue"):
+				# ameaça: estica a língua antes do pulo
+				var ft: Texture2D = Spr.opt("frog_tongue")
+				Spr.save()
+				Spr.scale(.82, .82)
+				Spr.trect(ft, Rect2(-ft.get_width() * .22, -ft.get_height() + 4, ft.get_width(), ft.get_height()))
+				Spr.restore()
 			elif Spr.tex.has("en_frog2"):
 				# respira (papo inflando), pisca de vez em quando, agacha antes do pulo e estica no ar
 				var jt: int = int(e.get("jt", 0)) % 130
@@ -937,7 +952,18 @@ func _enemy(e: Dictionary) -> void:
 				fr = 5
 			else:
 				fr = [0, 1, 2, 3][(T / 8) % 4]
-			if fr < 4 and Spr.tex.has("en_boar"):
+			var bov: Texture2D = null
+			if (e.dead or e.stun) and Spr.opt("boar_ko"):
+				bov = Spr.opt("boar_ko")
+			elif not e.dead and e.get("wind", 0) > 0 and not e.get("charge") and Spr.opt("boar_wind"):
+				bov = Spr.opt("boar_wind")
+			if bov != null:
+				# poses pintadas: antecipação (raspando a pata) e tonto
+				Spr.save()
+				Spr.scale(.46, .46)
+				Spr.trect(bov, Rect2(-bov.get_width() * .5, -bov.get_height() + 6, bov.get_width(), bov.get_height()))
+				Spr.restore()
+			elif fr < 4 and Spr.tex.has("en_boar"):
 				# andando: 6 quadros novos, pernas alternando, com transição entre um quadro e outro
 				Spr.frame_mix(Spr.tex.en_boar, dist / 6.6, 6, 0, 210, 140, 105, 136, 0, 3, .46)
 			else:
@@ -1302,6 +1328,26 @@ func _isis_draw(p: Dictionary) -> void:
 	if t == null:
 		return
 	var s: float = ISIS_H / 150.0
+	# poses pintadas extras: subindo corda/cipó, escondida com medo, feliz
+	var ovn := ""
+	if p.ladder and p.ladder.get("kind", "") != "ladder":
+		ovn = "isis_climb"
+	elif p.get("cheerT", 0) > 0:
+		ovn = "isis_joy"
+	elif fr == 9:
+		ovn = "isis_scared"
+	var ovt: Texture2D = Spr.opt(ovn) if ovn != "" else null
+	if ovt != null:
+		var ow: float = ovt.get_width()
+		var oh: float = ovt.get_height()
+		var bob2: float = -abs(sin(T * .3)) * 4.0 if ovn == "isis_joy" else 0.0
+		_pose(ovn, ovt, Rect2(0, 0, ow, oh), Rect2(-ow / 2, -oh, ow, oh), cx, by - 2 + bob2, 0.0, -s if flip else s, s)
+		Spr.save()
+		Spr.translate(cx, by - 2 + bob2)
+		Spr.scale(-s if flip else s, s)
+		Spr.trect(ovt, Rect2(-ow / 2, -oh, ow, oh))
+		Spr.restore()
+		return
 	var rot := 0.0
 	var st := Vector2.ONE
 	if fr <= 6:
@@ -1557,7 +1603,7 @@ func _player_draw(g: Game) -> void:
 		_armor(p, cx, by)
 		return
 	# animações novas (se existirem em assets/sprites/tome/)
-	if not Spr.anim.is_empty() and not (p.get("hitT", 0) > 0) and not p.puff and not p.slam:
+	if not Spr.anim.is_empty() and (p.get("hitT", 0) <= 0 or Spr.anim.has("hurt")) and not p.puff and not p.slam:
 		var key := ""
 		var f := 0
 		var fnext := -1      # quadro seguinte (mistura suave entre quadros = animação mais fluida)
@@ -1570,6 +1616,15 @@ func _player_draw(g: Game) -> void:
 			key = "run" if p.run and Spr.anim.has("run") else "walk"
 		else:
 			key = _reaction(g, p)
+		# poses pintadas extras: dano, comemoração, empurrando, escorregando no gelo
+		if p.get("hitT", 0) > 0 and Spr.anim.has("hurt"):
+			key = "hurt"
+		elif p.get("cheerT", 0) > 0 and Spr.anim.has("cheer"):
+			key = "cheer"
+		elif p.onGround and p.get("pushT", 0) > 0 and abs(p.vx) > .2 and Spr.anim.has("push"):
+			key = "push"
+		elif p.onGround and abs(p.vx) > 1.2 and p._g is Dictionary and str(p._g.get("t", "")) == "ice" and not g.kd("L") and not g.kd("R") and Spr.anim.has("ice"):
+			key = "ice"
 		if Spr.anim.has(key):
 			var a: Dictionary = Spr.anim[key]
 			var n: int = a.n
@@ -1859,6 +1914,9 @@ func _reaction(g: Game, p: Dictionary) -> String:
 		return "rain"
 	if g.AMB.get("snow", 0.0) > .3 and it > 90:
 		return "shiver"
+	# parado há muito tempo: de vez em quando fica curioso, olhando em volta
+	if it > 420 and (it - 420) % 360 < 60 and Spr.anim.has("lookback"):
+		return "lookback"
 	return "idle"
 
 ## contorno de luz: de dia vem do sol (de cima, atrás), à noite da lanterna (da frente)

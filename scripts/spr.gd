@@ -24,7 +24,7 @@ var font_title: Font
 ## Animações extras do Tomé (opcionais): assets/sprites/tome/<nome>.png, quadros QUADRADOS lado a lado,
 ## pés no centro da base. Se o arquivo existir, o jogo usa no lugar das poses antigas.
 var anim := {}
-const ANIM_NAMES := ["idle", "walk", "run", "jump", "fall", "land", "crawl", "push", "look", "rain", "shiver", "lantern", "tired"]
+const ANIM_NAMES := ["idle", "walk", "run", "jump", "fall", "land", "crawl", "push", "look", "rain", "shiver", "lantern", "tired", "lookback", "ice", "hurt", "cheer"]
 var novos := {}
 const NOVOS := ["pipoca", "toupeira", "toupeira_capacete", "morcego", "aranha"]
 
@@ -359,6 +359,13 @@ func img(t: Texture2D, x: float, y: float, w: float, h: float, src: Rect2 = Rect
 		ci.draw_texture_rect_region(t, Rect2(x, y, w, h), src, Color(1, 1, 1, alpha * al))
 
 ## Quadro de uma folha de sprites (cw x ch) com âncora
+## textura inteira num retângulo (respeita a silhueta de contorno sil_c)
+func trect(t: Texture2D, r: Rect2) -> void:
+	if sil_c.a > 0:
+		ci.draw_texture_rect(sil(t), r, false, Color(sil_c.r, sil_c.g, sil_c.b, sil_c.a * alpha))
+	else:
+		ci.draw_texture_rect(t, r, false, Color(1, 1, 1, alpha))
+
 func frame(t: Texture2D, fr: int, cw: float, ch: float, ax: float, ay: float, x: float, y: float, sc: float, flip: bool = false, al: float = 1.0) -> void:
 	save()
 	translate(x, y)
