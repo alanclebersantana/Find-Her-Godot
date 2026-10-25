@@ -219,7 +219,8 @@ func _fade_step(d: float) -> void:
 	var X: Extras = game.X
 	var danger: bool = not Polish.bosses().is_empty() or (game.K and game.K.active()) or p.hp <= 1 \
 		or (X and X.breath < Extras.BREATH) or (game.AMB.dark > .45 and game.fuel_vis < .3) or p.dyingT > 0
-	var want: float = 1.0 if (idle_t < 4.0 or danger or not game.running or not game.CINE.is_empty()) else .35
+	# (antes esmaecia até 35%: no escuro o painel virava um retângulo cinza apagado — agora quase não esmaece)
+	var want: float = 1.0 if (idle_t < 4.0 or danger or not game.running or not game.CINE.is_empty()) else .92
 	if want > stats_a:
 		stats_a = want
 	else:

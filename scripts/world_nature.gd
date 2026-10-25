@@ -118,6 +118,7 @@ static func _roof_line(n: String) -> PackedFloat32Array:
 static func prop(n: String, x: float, y: float, h: float, flip: bool = false, a: float = 1.0) -> void:
 	var k := "p_" + n
 	if not Spr.tex.has(k):
+		Spr.late(k)
 		Spr.tex[k] = load("res://assets/sprites/%s.png" % k)
 	var t: Texture2D = Spr.tex[k]
 	var w: float = h * t.get_width() / t.get_height()

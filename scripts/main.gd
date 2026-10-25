@@ -1480,6 +1480,7 @@ func start_level(cont: bool, lvl: int = 0) -> void:
 	game.low_fx = bool(Save.getv("opt", "lowfx", false))
 	hud.reset_run()
 	_build_world()
+	_warm_shaders()
 	game.running = false
 	if cont:
 		show_intro(true)
@@ -1595,7 +1596,6 @@ func _on_rest(n: int) -> void:
 		_show_hud(true)
 		_clear_keys()
 		game.running = true
-		game.flash("Novo trecho: o relógio recomeçou.", 150)
 	var b_go := _button("CONTINUAR A JORNADA", go)
 	var b_later := _button("JOGAR MAIS TARDE", func():
 		if panel:
@@ -2414,3 +2414,61 @@ class _FontWarm extends Node2D:
 				draw_string(f, Vector2(-9000, -9000), s, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(1, 1, 1, .01))
 				draw_string_outline(f, Vector2(-9000, -9000), s, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, 4, Color(0, 0, 0, .01))
 		queue_free.call_deferred()
+
+
+## Compila de uma vez (durante a abertura da fase) todos os shaders e combinações de desenho que a fase usa:
+## no celular (GL) cada combinação nova era compilada na primeira vez que aparecia na tela — o primeiro inimigo,
+## a primeira água, o primeiro texto — e o jogo engasgava ali.
+func _warm_shaders() -> void:
+	var mats: Array = [null]
+	var stack: Array = [self]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		if n is CanvasItem and (n as CanvasItem).material != null and not mats.has((n as CanvasItem).material):
+			mats.append((n as CanvasItem).material)
+		for c in n.get_children():
+			stack.append(c)
+	var add := CanvasItemMaterial.new()
+	add.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	mats.append(add)
+	var mul := CanvasItemMaterial.new()
+	mul.blend_mode = CanvasItemMaterial.BLEND_MODE_MUL
+	mats.append(mul)
+	var cl := CanvasLayer.new()
+	cl.layer = 120
+	add_child(cl)
+	var i := 0
+	for m in mats:
+		var w := _ShaderWarm.new()
+		w.material = m
+		w.position = Vector2(2 + i * 3, 2)
+		cl.add_child(w)
+		i += 1
+	get_tree().create_timer(.25).timeout.connect(cl.queue_free)
+
+class _ShaderWarm extends Node2D:
+	func _draw() -> void:
+		var c := Color(1, 1, 1, .004)
+		var texs: Array = []
+		for k in ["atlas1", "paint1", "pai", "javali"]:
+			if Spr.tex.get(k) is Texture2D:
+				texs.append(Spr.tex[k])
+		if Spr.glow_tex:
+			texs.append(Spr.glow_tex)
+		for t in texs:
+			draw_texture_rect(t, Rect2(0, 0, 2, 2), false, c)
+			draw_texture_rect_region(t, Rect2(0, 0, 2, 2), Rect2(0, 0, 8, 8), c)
+			draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(2, 0), Vector2(2, 2)]), PackedColorArray([c, c, c]),
+				PackedVector2Array([Vector2(0, 0), Vector2(1, 0), Vector2(1, 1)]), t)
+		draw_colored_polygon(PackedVector2Array([Vector2(0, 0), Vector2(2, 0), Vector2(0, 2)]), c)
+		draw_rect(Rect2(0, 0, 2, 2), c)
+		draw_rect(Rect2(0, 0, 2, 2), c, false, 1.0)
+		draw_circle(Vector2(1, 1), 1.0, c)
+		draw_line(Vector2.ZERO, Vector2(2, 2), c, 1.0, true)
+		draw_line(Vector2.ZERO, Vector2(2, 2), c, 2.0, false)
+		draw_polyline(PackedVector2Array([Vector2(0, 0), Vector2(1, 2), Vector2(2, 0)]), c, 1.5, true)
+		draw_multiline(PackedVector2Array([Vector2(0, 0), Vector2(1, 2)]), c, 1.0)
+		for f in [Spr.font, Spr.font_i, Spr.font_b, Spr.font_title]:
+			if f:
+				draw_string(f, Vector2(0, 2), "Aa", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, c)
+				draw_string_outline(f, Vector2(0, 2), "Aa", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, 3, c)

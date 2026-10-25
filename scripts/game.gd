@@ -232,9 +232,8 @@ func load_level(i: int) -> void:
 	FUEL = .55
 	fuel_vis = .55
 	oil_seen = false
+	# ampulhetas ("+20 segundos") saíram: o jogo não tem relógio
 	CLK = []
-	for c in L.get("clocks", []):
-		CLK.append({"x": c[0], "y": c[1], "got": false})
 	DRWS = []
 	var di := 0
 	for d in L.get("drawings", []):

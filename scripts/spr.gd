@@ -157,6 +157,7 @@ func _ready() -> void:
 func opt(n: String) -> Texture2D:
 	if not tex.has(n):
 		var pth := "res://assets/sprites/%s.png" % n
+		late(pth)
 		tex[n] = load(pth) if ResourceLoader.exists(pth) else null
 	return tex[n]
 
@@ -317,6 +318,7 @@ func sil(t: Texture2D) -> Texture2D:
 		# silhueta pronta (tools/make_sil.py), senão calcula aqui
 		var sp: String = t.resource_path.get_basename() + "_sil.png" if t.resource_path != "" else ""
 		if sp != "" and ResourceLoader.exists(sp):
+			late(sp)
 			_sil[id] = load(sp)
 			return _sil[id]
 		var _t0 := Time.get_ticks_msec()
@@ -472,6 +474,7 @@ func x4(key: String) -> Dictionary:
 		if not ResourceLoader.exists(pth):
 			X4M.erase(key)
 			return {}
+		late(pth)
 		m.tex = load(pth)
 	return m
 
@@ -774,6 +777,11 @@ const WARM_SIL := ["atlas1", "atlas2", "extra", "en_boar", "en_frog2", "en_crow2
 	"boar_ko", "boar_wind", "crow_dive", "crow_ko", "frog_ko", "frog_tongue", "dog_dig", "dog_joy", "dog_sniff",
 	"isis_climb", "isis_joy", "isis_scared", "isis_run", "morcego_rei", "sapo_rei"]
 var _warm_req := {}      # caminho -> função que guarda o recurso pronto
+## testes (tests/hitch.gd): avisa quando algo é carregado no meio do jogo (dá travadinha no celular)
+var trace_late := false
+func late(what: String) -> void:
+	if trace_late:
+		print("LOADLATE ", what)
 var warmed := false
 
 func _req(pth: String, put: Callable) -> void:
@@ -790,6 +798,9 @@ func _warm_start() -> void:
 		var m: Dictionary = X4M[key]
 		var pth: String = "res://assets/sprites/" + str(m.get("file", ""))
 		_req(pth, func(r): _put_x4(pth, r))
+		# silhueta da folha x4 (contorno vermelho dos inimigos, clarão do golpe)
+		var xs: String = pth.trim_suffix(".png") + "_sil.png"
+		_req(xs, func(r): _put_sil(pth, r))
 	var sil_names: Array = WARM_SIL.duplicate()
 	for k in ANIM_NAMES:
 		sil_names.append("tome/" + k)
