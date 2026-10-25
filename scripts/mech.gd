@@ -395,6 +395,14 @@ func post() -> void:
 			s.fy += 6.0
 			s.rt -= 1
 			if s.rt <= 0:
+				# não volta por cima de quem está passando no lugar (prenderia o Tomé dentro da tábua)
+				var busy := false
+				for b in bodies():
+					if b.x + b.w > s.x and b.x < s.x + s.w and b.y + b.h > s.oy - 2 and b.y < s.oy + s.h:
+						busy = true
+				if busy:
+					s.rt = 10
+					continue
 				s.fallen = false
 				s.ct = 0
 				s.fy = 0.0

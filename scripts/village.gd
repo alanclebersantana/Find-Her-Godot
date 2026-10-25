@@ -151,7 +151,12 @@ func post() -> void:
 				d.bark = 20
 		else:
 			d.st = "idle"
-			d.x = move_toward(d.x, float(d.x0) + sin(d.t * .01) * 60.0, .8)
+			var nx: float = move_toward(d.x, float(d.x0) + sin(d.t * .01) * 60.0, .8)
+			# andando de volta / rondando: vira para onde vai (antes deslizava de costas)
+			d.mv = nx - d.x
+			if abs(d.mv) > .05:
+				d.dir = 1 if d.mv > 0 else -1
+			d.x = nx
 		if Game.hit(p, g.R(d.x - 22, 500 - 30, 44, 30)) and p.iframe == 0:
 			g.hurt(1, d.x)
 			Audio.play("bark", -2)
@@ -470,6 +475,10 @@ func _dog(d: Dictionary, T: int) -> void:
 	if d.st == "chase" and d.bark <= 20:
 		var gb: float = -abs(sin(dd / 13.0 * PI / 2.0)) * 2.0
 		Spr.sheet_cycle("cao", dd / 13.0, 4, 0, 200, 150, d.x, 502 + gb, CAO_H, d.dir < 0)
+	elif d.st != "chase" and d.bark <= 0 and abs(float(d.get("mv", 0.0))) > .25:
+		# rondando a rua: trote com as patas acompanhando a distância andada (sem patinar)
+		var tb: float = -abs(sin(dd / 9.0 * PI / 2.0)) * 1.2
+		Spr.sheet_cycle("cao", dd / 9.0, 4, 0, 200, 150, d.x, 502 + tb, CAO_H, d.dir < 0)
 	else:
 		var fr: int
 		if d.st == "chase":

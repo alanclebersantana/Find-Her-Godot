@@ -467,7 +467,8 @@ static func crow(e: Dictionary, T: int) -> void:
 	# corvo grande (bem maior que os tucanos do cenário); batendo asas rápido antes do mergulho
 	var fs: int = 3 if e.get("st", 0) == 5 else 5
 	if Spr.tex.has("en_crow2"):
-		Spr.frame_mix(Spr.tex.en_crow2, T / float(fs) + int(e.x * .1), 4, 0, 170, 130, 85, 65, 0, -8, .74)
+		# (a fase de cada corvo é fixa: antes dependia do x e as asas aceleravam ou travavam conforme ele voava)
+		Spr.frame_mix(Spr.tex.en_crow2, T / float(fs) + float(int(e.get("x0", 0.0) * .37) % 4), 4, 0, 170, 130, 85, 65, 0, -8, .74)
 	else:
 		Spr.A_cycle("crow", ["crow0", "crow1", "crow2"], T / 4.0, 0, -8, .74)
 

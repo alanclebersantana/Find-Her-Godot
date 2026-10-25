@@ -399,7 +399,7 @@ func frame_seq(t: Texture2D, seq: Array, fpos: float, cw: float, ch: float, ax: 
 	var f0: int = int(floor(fpos))
 	frame(t, int(seq[posmod(f0, n)]), cw, ch, ax, ay, x, y, sc, flip, al)
 	var k: float = smoothstep(.55, 1.0, fpos - f0) * .7
-	if k > .02:
+	if k > .02 and sil_c.a == 0:
 		frame(t, int(seq[posmod(f0 + 1, n)]), cw, ch, ax, ay, x, y, sc, flip, al * k)
 
 ## mesma ideia para folhas desenhadas direto (chefes): seq = ordem dos quadros no ciclo
@@ -412,7 +412,7 @@ func region_mix(t: Texture2D, dst: Rect2, cw: float, ch: float, seq: Array, fpos
 	var n: int = seq.size()
 	ci.draw_texture_rect_region(t, dst, Rect2(int(seq[posmod(f0, n)]) * cw, 0, cw, ch), mod)
 	var k: float = smoothstep(.55, 1.0, fpos - f0) * .7
-	if k > .02:
+	if k > .02 and sil_c.a == 0:
 		ci.draw_texture_rect_region(t, dst, Rect2(int(seq[posmod(f0 + 1, n)]) * cw, 0, cw, ch), Color(mod.r, mod.g, mod.b, mod.a * k))
 
 # ---------- quadros intermediários (tools/x4.py): 4 quadros para cada quadro desenhado ----------
@@ -475,7 +475,9 @@ func x4_draw(m: Dictionary, dst: Rect2, fpos: float, mod: Color = Color(1, 1, 1)
 		c = Color(sil_c.r, sil_c.g, sil_c.b, sil_c.a * alpha * mod.a)
 	ci.draw_texture_rect_region(t, dst, x4_src(m, q[0]), c)
 	var k: float = smoothstep(.5, 1.0, q[2]) * .5
-	if k > .02 and q[1] != q[0]:
+	# no contorno (silhueta) só o quadro principal: a silhueta do quadro seguinte aparecia por baixo
+	# do desenho meio transparente (pernas do javali ficavam vermelhas no galope)
+	if k > .02 and q[1] != q[0] and sil_c.a == 0:
 		ci.draw_texture_rect_region(t, dst, x4_src(m, q[1]), Color(c.r, c.g, c.b, c.a * k))
 
 ## ciclo de peças do atlas (Spr.A): nomes na ordem do ciclo

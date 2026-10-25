@@ -19,7 +19,7 @@ func _ready() -> void:
 	en_node = _Sub.new()
 	en_node.cb = _draw_enemy_node
 	var me := ShaderMaterial.new()
-	me.shader = preload("res://scripts/depth.gdshader")
+	me.shader = preload("res://scripts/depth_en.gdshader")
 	en_node.material = me
 	add_child(en_node)
 	pl_node = _Sub.new()
@@ -717,13 +717,26 @@ const EN_NAME := {"crow": "Corvo", "bat": "Morcego", "fly": "Mosca", "spider": "
 	"frog": "Sapo", "piranha": "Piranha", "leech": "Sanguessuga", "boar": "Javali", "owl": "Coruja brava", "mole": "Toupeira"}
 ## olhos vermelhos brilhando (posição na arte de cada bicho, olhando para a direita)
 const EYES := {"crow": [Vector2(17, -13)], "squirrel": [Vector2(28, -25)], "bat": [Vector2(8, 5), Vector2(13, 5)],
-	"spider": [Vector2(-3, 3), Vector2(3, 3)], "fly": [Vector2(13, 2)], "frog": [Vector2(-5, -38), Vector2(6, -38)], "boar": [Vector2(25, -28)],
+	"spider": [Vector2(2, 3), Vector2(7, 3)], "fly": [Vector2(13, 2)], "frog": [Vector2(-5, -38), Vector2(6, -38)], "boar": [Vector2(18, -30)],
 	"piranha": [Vector2(13, -8)]}
 
 func _enemy_eyes(e: Dictionary) -> void:
 	var ey: Array = EYES.get(e.k, [])
 	if ey.is_empty() or (e.k == "bat" and e.get("st", 0) == 0):
 		return
+	if e.k == "frog":
+		# os olhos acompanham a pose pintada (agachado e no salto a cabeça vai para a frente)
+		var jt: int = int(e.get("jt", 0)) % 130
+		if e.get("leap"):
+			ey = [Vector2(14, -34), Vector2(22, -34)]
+		elif jt >= 86 and jt < 100:
+			ey = [Vector2(10, -30), Vector2(20, -30)]
+	elif e.k == "squirrel" and e.get("st", 0) == 2:
+		# no bote ele se ergue: a cabeça fica bem mais alta
+		ey = [Vector2(16, -42)]
+	elif e.k == "spider" and e.get("st", 0) != 2:
+		# pendurada de cabeça para baixo: os olhos ficam embaixo
+		ey = [Vector2(-4, 22), Vector2(2, 22)]
 	var f: float = 1.0 if e.dir > 0 else -1.0
 	var b: float = .75 + .25 * sin(T * .2 + e.x)
 	var oy: float = e.get("eyeY", 0.0)
@@ -938,11 +951,19 @@ func _enemy(e: Dictionary) -> void:
 			if e.dead:
 				WorldExtras._pc("leech0", 0, 2, 36)
 			else:
+				# sai da poça se esticando (o corpo cresce para cima a partir da água), balança
+				# procurando o Tomé e volta a se enfiar na poça. A área de perigo acompanha (Game.leech_up)
 				var t: int = int(e.get("lt", 0)) % 200
-				if t >= 90:
-					# sai da poça encolhida e se estica para pegar
-					var up: bool = t >= 110 and t < 180
-					WorldExtras._pc("leech1" if not up else "leech0", 0, -6 if up else 0, 34 if not up else 42)
+				var lu: float = Game.leech_up(t)
+				if lu > 0.0:
+					var lw: float = 34.0
+					var lh: float = Spr.PH("leech1", lw)
+					var ww: float = lw * (1.25 - .25 * lu)
+					Spr.save()
+					Spr.translate(0, 4)
+					Spr.rotate(sin(T * .09 + e.x) * .09 * lu)
+					Spr.PR("leech1", -ww / 2, -lh * lu, ww, lh * lu)
+					Spr.restore()
 		_:
 			# javali
 			var fr: int
@@ -962,6 +983,13 @@ func _enemy(e: Dictionary) -> void:
 				Spr.save()
 				Spr.scale(.46, .46)
 				Spr.trect(bov, Rect2(-bov.get_width() * .5, -bov.get_height() + 6, bov.get_width(), bov.get_height()))
+				Spr.restore()
+			elif fr == 5 and Spr.tex.has("en_boar"):
+				# investindo: galope (as pernas correm de verdade, passada mais longa) e cabeça baixa
+				Spr.save()
+				Spr.translate(0, -abs(sin(dist * .2)) * 2.5)
+				Spr.rotate(.06)
+				Spr.frame_mix(Spr.tex.en_boar, dist / 5.0, 6, 0, 210, 140, 105, 136, 0, 3, .46)
 				Spr.restore()
 			elif fr < 4 and Spr.tex.has("en_boar"):
 				# andando: 6 quadros novos, pernas alternando, com transição entre um quadro e outro

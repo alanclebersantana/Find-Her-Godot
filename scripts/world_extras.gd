@@ -574,8 +574,8 @@ static func bat(e: Dictionary, T: int) -> void:
 
 static func spider(e: Dictionary, T: int) -> void:
 	var st: int = e.get("st", 0)
-	if not e.dead:
-		# fio de teia: curva com o vento e com o balanço da descida; brilha perto da lanterna
+	if not e.dead and Spr.sil_c.a == 0:
+		# fio de teia (fica fora do contorno vermelho: lá ele saía 8 vezes e virava uma corda grossa): curva com o vento e com o balanço da descida; brilha perto da lanterna
 		var gg: Game = Polish.g
 		var wnd: float = gg.AMB.get("wind", 0.0) if gg else 0.0
 		var top: float = e.top - e.y
@@ -592,8 +592,8 @@ static func spider(e: Dictionary, T: int) -> void:
 		if lit > .1:
 			var gi: int = int(T / 3) % 9
 			Spr.glow(pts[gi].x, pts[gi].y, 6, Color(1, .95, .8, .6 * lit))
-	if st in [1, 3] and not e.dead:
-		# descendo ou subindo pelo fio: pendurada, balançando de leve
+	if st in [0, 1, 3] and not e.dead:
+		# esperando no teto, descendo ou subindo pelo fio: pendurada, balançando de leve
 		Spr.save()
 		Spr.rotate(sin(T * .08 + e.x) * .12)
 		_pc("spider_hang", 0, 10, 30)

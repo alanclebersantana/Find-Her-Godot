@@ -287,8 +287,14 @@ static func _snap(o: Dictionary, T: int) -> void:
 	if o.st == "fall" and o.fy > 500:
 		return
 	var sh: float = sin(T * 2.1) * 2.0 if o.st == "crack" else 0.0
+	var pop: float = float(o.get("pop", 1.0))
 	Spr.save()
 	Spr.translate(o.x + o.w / 2 + sh, o.y + 8 + o.get("fy", 0.0))
+	if pop < 1.0:
+		# galho novo brotando no lugar do que caiu
+		var k: float = 1.0 - pow(1.0 - pop, 3.0)
+		Spr.alpha *= clamp(pop * 2.0, 0.0, 1.0)
+		Spr.scale(.6 + .4 * k, k)
 	if o.st == "fall":
 		Spr.rotate(o.fy * .004)
 	var w: float = o.w
@@ -556,17 +562,19 @@ static func _hive(g: Game, o: Dictionary, T: int) -> void:
 	if o.st == "idle":
 		for k in 3:
 			var a: float = T * .07 + k * 2.1
-			_bee(x + cos(a) * 30, y - 26 + sin(a * 1.3) * 16, T + k * 7)
+			_bee(x + cos(a) * 30, y - 26 + sin(a * 1.3) * 16, T + k * 7, -sin(a) > 0.0)
 	else:
 		# o enxame: uma nuvem escura zunindo com abelhas em volta
 		Spr.circle(o.sx, o.sy, 30 + sin(T * .3) * 3, Color(.15, .1, 0, .18))
 		for k in 16:
 			var a2: float = T * .23 + k * .9
 			var r: float = 10 + (k % 5) * 6
-			_bee(o.sx + cos(a2) * r, o.sy + sin(a2 * 1.4) * r * .7, T + k * 5)
+			_bee(o.sx + cos(a2) * r, o.sy + sin(a2 * 1.4) * r * .7, T + k * 5, -sin(a2) > 0.0)
 
-static func _bee(x: float, y: float, t: int) -> void:
-	Spr.P("bee", x, y + 5 + (1.0 if (t / 2) % 2 == 0 else 0.0), 13, (t / 9) % 2 == 0)
+## abelha (a arte olha para a esquerda): vira para o lado em que está voando (antes trocava de lado
+## a cada 9 quadros, sem motivo, e o enxame parecia tremer)
+static func _bee(x: float, y: float, t: int, right: bool) -> void:
+	Spr.P("bee", x, y + 5 + (1.0 if (t / 2) % 2 == 0 else 0.0), 13, right)
 
 # ---------- areia movediça ----------
 static func _sand_back(o: Dictionary, T: int) -> void:

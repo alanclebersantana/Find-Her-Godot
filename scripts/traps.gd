@@ -498,6 +498,7 @@ func _shatter(o: Dictionary) -> void:
 func _snap(o: Dictionary, p: Dictionary) -> void:
 	match o.st:
 		"idle":
+			o.pop = min(1.0, float(o.get("pop", 1.0)) + .04)
 			if p._g == o.sol:
 				o.st = "crack"
 				o.ct = 0
@@ -518,9 +519,16 @@ func _snap(o: Dictionary, p: Dictionary) -> void:
 			o.fy += o.vy
 			o.ct += 1
 			if o.ct > 320 and abs(p.x - o.x) > 300:
-				o.st = "idle"
-				o.sol.erase("fallen")
-				o.fy = 0.0
+				_snap_reset(o)
+
+## galho novo no lugar (brota aos poucos: o desenho usa o.pop)
+func _snap_reset(o: Dictionary) -> void:
+	o.st = "idle"
+	o.sol.erase("fallen")
+	o.fy = 0.0
+	o.vy = 0.0
+	o.ct = 0
+	o.pop = 0.0
 
 func _cage(o: Dictionary, p: Dictionary, pcx: float) -> void:
 	var w: float = o.get("w", 64)
@@ -575,7 +583,9 @@ func dog_bite(d: Dictionary) -> bool:
 
 ## a picareta nas grades (sem o Pipoca por perto)
 func swing_hits(hb: Dictionary) -> void:
-	if trapped != null:
+	# (a janela do golpe dura vários passos: cada picaretada conta uma vez só nas grades)
+	if trapped != null and not g.M.swing_hit.has("cage"):
+		g.M.swing_hit["cage"] = 1
 		var o: Dictionary = trapped
 		o.hits = o.get("hits", 0) + 1
 		Audio.play("unlock", -8)
@@ -614,6 +624,9 @@ func reset_on_respawn() -> void:
 			_bridge_build(o)
 		if o.k == "boulder" and o.st != "done":
 			_boulder_reset(o)
+		# galho que quebrou: volta inteiro (sem isso, renascendo perto, o caminho ficava sem ele)
+		if o.k == "snap" and o.st != "idle":
+			_snap_reset(o)
 	g.player.sink = 0.0
 	g.player.webT = 0
 	if not PICK.is_empty():

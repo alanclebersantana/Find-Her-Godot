@@ -159,6 +159,7 @@ func _ready() -> void:
 func load_level(i: int) -> void:
 	Polish.reset(self)
 	DIPS = []
+	_floor_cache = {}
 	level_idx = i
 	max_x = 0.0
 	cur_chk = -1
@@ -1533,7 +1534,10 @@ func step() -> void:
 			continue
 		var b := ebox(e)
 		if hit(player, b):
-			var stomp: bool = (player.vy > 1 or player.slam) and (player.y + player.h) - b.y < 22
+			# pisão: os pés entraram por cima nesta passada (conta onde os pés e o bicho estavam no
+			# passo anterior: caindo rápido ou no mergulho os pés afundam mais de 22 px num passo só)
+			var btop0: float = b.y - (e.y - float(e.get("ppy", e.y)))
+			var stomp: bool = (player.vy > 1 or player.slam) and ((player.y + player.h) - b.y < 22 or prev_py + player.h <= btop0 + 8)
 			if stomp and e.k == "mole" and e.get("helm") and not e.get("helm_off") and e.get("st", 0) != 5 and e.stun <= 0:
 				player.vy = STOMP * .8
 				player.cutOk = false
@@ -2751,7 +2755,10 @@ func _cranks_step(nearL) -> void:
 		_crank_decay(c)
 		var gt = crank_gate(c)
 		if gt != null:
-			gt.open = 1.0 if c.done else float(c.turn) * .82
+			# girando, a porta pesada só desgruda do chão (sem abrir um vão onde o Tomé caberia
+			# mas que ainda não deixa passar); na última volta ela sobe de vez, sem pular de uma vez
+			var want: float = 1.0 if c.done else float(c.turn) * .2
+			gt.open = move_toward(float(gt.open), want, .05 if c.done else .03)
 	for l in LOCKS:
 		if l.get("crank"):
 			_crank_decay(l)
@@ -2855,14 +2862,28 @@ func ebox(e: Dictionary) -> Dictionary:
 	if e.k == "bat" and e.get("st", 0) == 0:
 		return R(e.x - 12, e.y - 2, 24, 26)
 	if e.k == "leech":
-		if e.get("hid", true) or e.dead:
+		# a área de perigo cresce e encolhe junto com o corpo que sai da poça (sem pegar o Tomé
+		# com a sanguessuga ainda escondida)
+		var lu: float = leech_up(int(e.get("lt", 0)) % 200)
+		if e.get("hid", true) or e.dead or lu < .2:
 			return R(-9999, -9999, 0, 0)
-		return R(e.x - 16, e.y - 40, 32, 40)
+		return R(e.x - 16, e.y - 40 * lu, 32, 40 * lu)
 	if e.k == "crow":
 		return R(e.x - 30, e.y - 18, 60, 30)
 	if FLY.has(e.k):
 		return R(e.x - 22, e.y - 8, 44, 22)
 	return R(e.x - 20, e.y - 34, 40, 34)
+
+## quanto a sanguessuga está para fora da poça (0 = escondida, 1 = esticada) no tempo t do ciclo de 200
+static func leech_up(t: int) -> float:
+	if t < 88 or t >= 190:
+		return 0.0
+	if t < 100:
+		var u: float = (t - 88) / 12.0
+		return u * u * (3.0 - 2.0 * u)
+	if t >= 180:
+		return 1.0 - (t - 180) / 10.0
+	return 1.0
 
 ## voa/nada de um lado a outro fazendo a curva: desacelera perto da ponta e volta aos poucos
 func _glide(e: Dictionary, sp: float) -> void:
@@ -2940,16 +2961,24 @@ func _update_enemy_core(e: Dictionary) -> void:
 		e.hid = t < 95 or t >= 188
 		e.y = e.base
 		e.dir = 1 if player.x > e.x else -1
+		if t == 88 and abs(player.x - e.x) < 600:
+			# a poça borbulha e respinga logo antes de ela sair (aviso)
+			Polish.drops(e.x, e.y - 4, 6, 2.0, Color(.42, .5, .3, .85))
 		if t == 95 and abs(player.x - e.x) < 600:
 			Audio.play("splash", -8)
 		return
 	if e.k == "frog":
 		e.jt = e.get("jt", 0) + 1
 		var t: int = int(e.jt) % 130
-		if t == 100:
-			Polish.drops(e.x, e.y - 10, 4)
+		if t == 66 or not e.has("jdir"):
+			# decide o lado do pulo antes de agachar: vira já (a virada leva ~12 quadros) e pula
+			# olhando para a frente, em vez de sair de costas e virar no ar
 			var dx: float = player.x - e.x
 			e.jdir = (sign(dx) if dx != 0 else 1) if abs(dx) < 300 else (1 if e.x < (e.r[0] + e.r[1]) / 2.0 else -1)
+			if t >= 66 and t < 100:
+				e.dir = e.jdir
+		if t == 100:
+			Polish.drops(e.x, e.y - 10, 4)
 		if t >= 100:
 			var u := (t - 100) / 30.0
 			e.leap = 1
@@ -3041,6 +3070,13 @@ func _update_enemy_core(e: Dictionary) -> void:
 	var edge: float = (e.r[1] - e.x) if e.dir > 0 else (e.x - e.r[0])
 	if not e.get("charge"):
 		spd = min(spd, max(.2, edge * .07))
+	else:
+		# investindo também freia antes da ponta (derrapa levantando poeira, sem parar num estalo)
+		var brake: float = sqrt(.4 * max(0.0, edge)) * .95
+		if brake < spd:
+			spd = max(.2, brake)
+			if T % 3 == 0 and float(e.get("cs", 0.0)) > 1.0:
+				PARTS.append({"x": e.x + e.dir * 10, "y": e.base - 2, "vx": e.dir * randf_range(.6, 1.8), "vy": -randf_range(.5, 1.4), "life": 16, "col": _dust_col()})
 	# arranca e freia com peso (não muda de 1 para 2,7 num quadro só)
 	var cs: float = move_toward(float(e.get("cs", spd)), spd, .12 if spd >= float(e.get("cs", 0.0)) else .2)
 	e.cs = cs
@@ -3097,10 +3133,17 @@ func _piranha(e: Dictionary) -> void:
 	var pc := Vector2(player.x + player.w / 2, player.y + player.h / 2)
 	var d: Vector2 = pc - Vector2(e.x, e.y)
 	if d.length() < 170 and player.swim and player.dyingT == 0:
-		e.dir = 1 if d.x > 0 else -1
-		e.x = clamp(e.x + sign(d.x) * 2.6, e.r[0], e.r[1])
-		e.y += clamp(d.y, -1.6, 1.6)
+		# persegue com inércia (antes trocava de lado a cada quadro com o Tomé logo acima dela)
+		var pv: Vector2 = e.get("pv", Vector2(float(e.get("fv", 0.0)), 0.0))
+		pv = pv.lerp(Vector2(clamp(d.x * .06, -2.8, 2.8), clamp(d.y, -1.6, 1.6)), .12)
+		e.pv = pv
+		e.fv = pv.x
+		if abs(pv.x) > .5:
+			e.dir = 1 if pv.x > 0 else -1
+		e.x = clamp(e.x + pv.x, e.r[0], e.r[1])
+		e.y += pv.y
 	else:
+		e.pv = Vector2(float(e.get("fv", 0.0)), 0.0)
 		_glide(e, 1.3)
 		e.y = lerpf(e.y, e.cy + sin(T * .05 + e.x * .02) * 26, .05)
 	# não sai da água atrás do Tomé
@@ -3108,6 +3151,21 @@ func _piranha(e: Dictionary) -> void:
 		var w = X.water_at(e.x, e.cy)
 		e._wy = Vector2(float(w.y) + 16.0, float(w.y + w.h) - 12.0) if w != null else Vector2(e.cy - 60.0, e.cy + 160.0)
 	e.y = clamp(e.y, e._wy.x, e._wy.y)
+
+## topo do chão firme logo abaixo de (x, y) (guardado em faixas de 16 px: os sólidos fixos não mudam)
+var _floor_cache := {}
+func floor_under(x: float, y: float) -> float:
+	var key := Vector2i(int(floor(x / 16.0)), int(floor(y / 16.0)))
+	if _floor_cache.has(key):
+		return _floor_cache[key]
+	var best := 99999.0
+	for s in L.solids:
+		if s.get("deco") or s.get("oneway"):
+			continue
+		if x >= s.x and x <= s.x + s.w and s.y > y and s.y < best:
+			best = s.y
+	_floor_cache[key] = best
+	return best
 
 ## morcego: dorme pendurado; acorda quando o Tomé chega perto e foge da luz
 func _bat(e: Dictionary) -> void:
@@ -3130,7 +3188,8 @@ func _bat(e: Dictionary) -> void:
 		e.bv = bv
 		var v := bv + Vector2(0, sin(e.t * .25) * 2.2)
 		e.x = clamp(e.x + v.x, e.r[0], e.r[1])
-		e.y = clamp(e.y + v.y, e.cy, e.cy + 260)
+		# voa baixo atrás do Tomé, mas não entra no chão
+		e.y = clamp(e.y + v.y, e.cy, min(e.cy + 260, floor_under(e.x, e.cy) - 14.0))
 		if abs(bv.x) > .3:
 			e.dir = 1 if bv.x > 0 else -1
 		if X.lit(e.x, e.y, 95.0) or X.scare(e.x, e.y) or e.t > 420:
@@ -3505,6 +3564,9 @@ func restore_run(d: Dictionary) -> void:
 		if ck[i]:
 			CRANKS[i].done = true
 			CRANKS[i].turn = 1.0
+			var cg = crank_gate(CRANKS[i])
+			if cg != null:
+				cg.open = 1.0
 	var k: int = int(d.get("chk", -1))
 	if d.has("fires"):
 		for i in d.fires:
