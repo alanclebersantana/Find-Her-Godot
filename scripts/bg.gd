@@ -23,8 +23,9 @@ const FOGC := {"bosque": Color(.86, .94, .82), "tarde": Color(1, .78, .5), "pant
 	"vila": Color(.18, .24, .52), "esconderijo": Color(.32, .19, .09)}
 ## quanto o fundo puxa para a cor do céu (x) e perde cor (y) com a distância (pouca perda de cor: a
 ## distância vem da névoa colorida, não de deixar o fundo cinza)
-const HAZE := {"bosque": Vector2(.10, .06), "tarde": Vector2(.08, .04), "pantano": Vector2(.12, .06), "noite": Vector2(.06, .04),
-	"neve": Vector2(.10, .05), "mina": Vector2(0, .02), "moinho": Vector2(.08, .04), "vila": Vector2(.05, .04), "esconderijo": Vector2(0, .02)}
+## (metade do que era: o fundo longe ainda some no ar, mas sem lavar as cores)
+const HAZE := {"bosque": Vector2(.05, .02), "tarde": Vector2(.04, .01), "pantano": Vector2(.06, .02), "noite": Vector2(.03, .02),
+	"neve": Vector2(.05, .02), "mina": Vector2(0, .01), "moinho": Vector2(.04, .01), "vila": Vector2(.03, .02), "esconderijo": Vector2(0, .01)}
 ## onde está o sol pintado (pixels da pintura) e a força do brilho
 const SUN := {"tarde": Vector3(686, 322, 1.0), "moinho": Vector3(900, 224, .6)}
 

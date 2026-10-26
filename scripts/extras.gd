@@ -335,7 +335,7 @@ func weather_amb() -> void:
 			# (no trecho de sol entre as nuvens a garoa dá uma trégua)
 			g.AMB.rain = max(g.AMB.rain, .32 * clamp(1.0 - float(g.AMB.get("sun", 0.0)) * 1.5, 0.0, 1.0))
 		"neblina":
-			g.AMB.fog = .75
+			g.AMB.fog = .5
 		"vento":
 			g.AMB.wind = 1.0
 

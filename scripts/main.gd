@@ -48,6 +48,7 @@ const GOLD := Color("#e8d39a")
 const INK := Color("#f0e4c8")
 ## faixas de cinema (cenas, apresentação dos chefes e câmera lenta)
 var cine_bars: Control
+var vivid: ColorRect
 
 func _ready() -> void:
 	RenderingServer.set_default_clear_color(Color("#0b0906"))
@@ -116,6 +117,14 @@ func _ready() -> void:
 	var fxn := preload("res://scripts/screen_fx.gd").new()
 	fxn.game = game
 	screen_layer.add_child(fxn)
+	# acerto final de cor do mundo: cores vivas, contornos firmes, luz de sol (o HUD fica por cima)
+	vivid = ColorRect.new()
+	vivid.set_anchors_preset(Control.PRESET_FULL_RECT)
+	vivid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var vm := ShaderMaterial.new()
+	vm.shader = preload("res://scripts/vivid.gdshader")
+	vivid.material = vm
+	screen_layer.add_child(vivid)
 	cine_bars = preload("res://scripts/ui/cinema_bars.gd").new()
 	cine_bars.set_anchors_preset(Control.PRESET_FULL_RECT)
 	cine_bars.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -132,6 +141,21 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_layout)
 	_layout()
 	show_title()
+
+## cor viva: mais forte de dia, a luz quente do sol some à noite e no escuro; na qualidade baixa
+## fica só a cor (sem as 4 leituras do contorno)
+func _update_vivid() -> void:
+	if vivid == null:
+		return
+	vivid.visible = game != null and game.L and state != S.TITLE
+	if not vivid.visible:
+		return
+	var m: ShaderMaterial = vivid.material
+	var night: float = clamp(float(game.AMB.get("night", 0.0)), 0.0, 1.0)
+	var dark: float = clamp(float(game.AMB.get("dark", 0.0)), 0.0, 1.0)
+	m.set_shader_parameter("warm", .05 * (1.0 - night) * (1.0 - dark * .8))
+	m.set_shader_parameter("edge", 0.0 if game.low_fx else 1.7)
+	m.set_shader_parameter("px", clamp(get_viewport().get_visible_rect().size.y / 540.0, 1.0, 3.0) * 1.2)
 
 # ======================================================================
 #  MUNDO
@@ -250,7 +274,8 @@ func _light(c: Color, r: float) -> LightMap.Dot:
 func _update_lights() -> void:
 	var a: float = game.AMB.dark
 	var dark: float = clamp(a, 0, 1)
-	light_map.ambient = Color(1, 1, 1).lerp(Color(.035, .05, .1), dark * .97)
+	# escuro com cor (azul de noite) e não preto chapado: a cena continua legível e as luzes brilham por cima
+	light_map.ambient = Color(1, 1, 1).lerp(Color(.06, .075, .15), dark * .92)
 	var p: Dictionary = game.player
 	var pc := Vector2(p.x + p.w / 2, p.y + p.h / 2 + p.get("wdy", 0.0))
 	var out: bool = game.L.has("lanternOutX") and not game.lantern_lit and pc.x > game.L.lanternOutX
@@ -260,7 +285,7 @@ func _update_lights() -> void:
 	# o raio depende do óleo (ou dos vaga-lumes, com a lanterna apagada) e cresce aos poucos
 	var fv: float = game.fuel_vis
 	player_light.texture_scale = (lerpf(100.0, 185.0, fv) if out else lerpf(150.0, 300.0, fv)) * 2 / 256.0
-	player_light.energy = dark * (1.15 + sin(game.T * .21) * .04) * (.25 + .75 * p.get("wal", 1.0))
+	player_light.energy = dark * (1.4 + sin(game.T * .21) * .05) * (.25 + .75 * p.get("wal", 1.0))
 	if cone_light:
 		cone_light.position = player_light.position + Vector2(p.face * 10, 0)
 		cone_light.rotation = 0.0 if p.face > 0 else PI
@@ -294,6 +319,7 @@ func _update_lights() -> void:
 
 var _slow_t := 0.0
 func _process(_d: float) -> void:
+	_update_vivid()
 	if not Spr.warmed:
 		Spr.warm()
 	_joy_ring_update()
@@ -301,7 +327,7 @@ func _process(_d: float) -> void:
 	Audio.set_world(state == S.PLAY and game.running)
 	_update_cine_bars()
 	# qualidade automática: se o celular passar uns segundos abaixo de 45 quadros, desliga os enfeites
-	if state == S.PLAY and game.running and not game.low_fx:
+	if state == S.PLAY and game.running and not game.low_fx and OS.get_environment("FH_HIFX") != "1":
 		if Engine.get_frames_per_second() < 45:
 			_slow_t += _d
 		else:

@@ -107,8 +107,8 @@ func _draw_grade(n: CanvasItem) -> void:
 	n.draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), Color(c.r, c.g, c.b, 1))
 
 ## quanto da cor do trecho vira véu por cima e quanto vira filtro multiplicado
-const TINT_VEIL := .45
-const TINT_MUL := .9
+const TINT_VEIL := .25
+const TINT_MUL := .7
 
 func _tint() -> Color:
 	var tc = game.AMB.get("tint_c")
