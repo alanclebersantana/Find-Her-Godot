@@ -273,17 +273,6 @@ func _draw_add(n: CanvasItem) -> void:
 				n.draw_texture_rect(Spr.glow_tex, Rect2(sx - 330, sy - 10, 660, 20), false, Color(1, .8, .5, .08 * a))
 			x += tw
 			j += 1
-	# sol entre as nuvens no pântano (trechos com "sun"): um clarão quente atrás das árvores e a
-	# luz descendo pela névoa
-	var sun: float = float(game.AMB.get("sun", 0.0)) * float(_w.get("pantano", 0.0)) * clamp(1.0 - rain * 2.0, 0, 1)
-	if sun > .01:
-		var H2: float = game.H
-		var sx2: float = w * .7
-		var sy2: float = H2 * .1 + oy * .15
-		var br2: float = 1.0 + .05 * sin(t * .02)
-		n.draw_texture_rect(Spr.glow_tex, Rect2(sx2 - H2 * .75 * br2, sy2 - H2 * .6 * br2, H2 * 1.5 * br2, H2 * 1.2 * br2), false, Color(1, .78, .42, .2 * sun))
-		n.draw_texture_rect(Spr.glow_tex, Rect2(sx2 - 110, sy2 - 95, 220, 190), false, Color(1, .92, .68, .32 * sun))
-		n.draw_texture_rect(Spr.glow_tex, Rect2(-w * .2, H2 * .15, w * 1.4, H2 * .6), false, Color(1, .85, .55, .07 * sun))
 
 ## aves migratórias em V cruzando o céu de vez em quando (longe: pequenas e apagadas pela distância)
 func _geese(al: float, w: float, oy: float, tint: Color) -> void:

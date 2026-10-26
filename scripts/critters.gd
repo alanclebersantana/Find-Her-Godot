@@ -120,8 +120,7 @@ static func _make(g: Game, i: int) -> Dictionary:
 		"manha", "tarde":
 			kk = ["bird", "butterfly", "rabbit"][int(hh(i, 3) * 3)]
 		"chuva":
-			# no trecho de sol do pântano aparecem borboletas também
-			kk = "bird" if _sun_at(g, x) < .3 or hh(i, 3) < .5 else "butterfly"
+			kk = "bird"
 		"noite", "perseguicao":
 			kk = "owl"
 		"neve", "tema":
@@ -156,14 +155,6 @@ static func _make(g: Game, i: int) -> Dictionary:
 			c.jd = min(90.0, float(w.w) * .5 + 22.0)
 			break
 	return c
-
-## o trecho tem sol entre as nuvens? (parâmetro "sun" do trecho no ponto x)
-static func _sun_at(g: Game, x: float) -> float:
-	var v := 0.0
-	for sc in g.L.get("sections", []):
-		if sc.x <= x:
-			v = float(sc.get("sun", 0.0))
-	return v
 
 ## bando no céu de vez em quando: o do trecho (parâmetro "flock") ou um conforme o período —
 ## passarinhos de manhã, gansos em V à tarde, morcegos à noite
@@ -522,16 +513,11 @@ static func _frog(g: Game, c: Dictionary, px: float, py: float, T: int) -> void:
 	Spr.save()
 	Spr.translate(c.x, c.y + 1 - jy)
 	Spr.scale(1.0 + croak * .06, 1.0 - croak * .04)
-	# cada sapinho de uma cor (verde-limão, dourado, azulado ou o verde de sempre) e o papo colorido
-	var v: int = int(hh(c.x0, 9) * 4.0)
-	var tint: Color = [Color.WHITE, Color(1.25, 1.12, .55), Color(.75, 1.05, 1.5), Color(.95, 1.3, .7)][v]
-	Spr.P("frog_jump" if c.st == "jump" else "frog_sit", 0, 0, 26 if c.st == "jump" else 20, c.f < 0, 0.0, tint)
+	Spr.P("frog_jump" if c.st == "jump" else "frog_sit", 0, 0, 26 if c.st == "jump" else 20, c.f < 0)
 	Spr.restore()
 	if croak > .1:
 		# papo inflando
-		var sac: Color = [Color(1, .62, .25), Color(1, .9, .4), Color(.55, .85, 1), Color(1, .5, .45)][v]
-		Spr.circle(c.x + c.f * 6, c.y - 3, 2.5 + croak * 3.0, Color(sac, .9))
-		Spr.circle(c.x + c.f * 5.2, c.y - 4.2, 1.0 + croak * .8, Color(1, 1, 1, .6))
+		Spr.circle(c.x + c.f * 6, c.y - 3, 2.5 + croak * 3.0, Color(.9, .88, .6, .8))
 
 ## coruja num mourão de madeira fincado no chão: pisca devagar e vira a cabeça para o Tomé
 static func _owl(c: Dictionary, T: int, i: int, px: float) -> void:

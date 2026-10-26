@@ -41,8 +41,8 @@ static func grass(g: Game, T: int) -> void:
 	var has_flat: bool = not Polish.flat_zones.is_empty()
 	var has_cut: bool = not Polish.cut.is_empty()
 	for s in g.SOL:
-		if s.t != "ground" or s.x > x1 or s.x + s.w < x0 or s.get("snow") or s.get("mudpool"):
-			continue   # (no poço de lama não cresce capim)
+		if s.t != "ground" or s.x > x1 or s.x + s.w < x0 or s.get("snow"):
+			continue
 		if WSt.gt_at(g, s.x + s.w / 2) != "":
 			continue   # chão de pedra (mina, rua da vila): sem capim
 		# posições presas ao mundo (grade de 34 px): o tufo não muda de lugar quando a câmera anda
@@ -719,9 +719,6 @@ static func tocas(g: Game, T: int) -> void:
 	for tc in g.X.TOCAS:
 		if tc.x < g.cam - 100 or tc.x > g.cam + g.W + 100:
 			continue
-		if tc.get("wall"):
-			_toca_wall(g, tc, T)
-			continue
 		Spr.ellipse(tc.x, tc.y - 10, 34, 18, Color("#6a5e52"))
 		Spr.ellipse(tc.x - 10, tc.y - 18, 16, 9, Color("#857868"))
 		Spr.ellipse(tc.x + 2, tc.y - 4, 14, 10, Color("#120c08"))
@@ -731,45 +728,6 @@ static func tocas(g: Game, T: int) -> void:
 		if not tc.done and near:
 			var lbl := "✦ BUSCA, PIPOCA!" if g.X.dog_free() else "?"
 			Spr.text(lbl, tc.x, tc.y - 46 + sin(T * .15) * 3, 15, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
-
-## buraco cavado embaixo da parede do galpão (o Pipoca passa, o Tomé não): terra revirada do
-## lado de fora, tábua de baixo arrancada e a boca escura entrando por baixo da parede
-static func _toca_wall(g: Game, tc: Dictionary, T: int) -> void:
-	var x: float = tc.x
-	var y: float = tc.y
-	var ol := Color("#2a1a0e")
-	# monte de terra fofa jogada para trás (do lado de fora), com torrões e pedrinhas
-	Spr.poly(PackedVector2Array([Vector2(x - 62, y + 1), Vector2(x - 50, y - 12), Vector2(x - 36, y - 21), Vector2(x - 22, y - 15), Vector2(x - 12, y + 1)]), Color("#4a3622"))
-	Spr.poly(PackedVector2Array([Vector2(x - 55, y), Vector2(x - 46, y - 10), Vector2(x - 36, y - 17), Vector2(x - 25, y - 11), Vector2(x - 17, y)]), Color("#7a5a3a"))
-	Spr.ellipse(x - 39, y - 13, 8, 3, Color(1, .9, .7, .18))
-	for k in 5:
-		var rx: float = x - 64 + k * 12 + fposmod(k * 7.3, 5.0)
-		Spr.circle(rx, y - 3 - fposmod(k * 3.1, 3.0), 2.8 + fposmod(k * 1.7, 1.5), Color("#3a2a1a"))
-	# a boca do buraco: arco escuro por baixo da parede, com a borda de terra mais clara
-	var arc := PackedVector2Array()
-	for k in 13:
-		var a: float = PI + k / 12.0 * PI
-		arc.push_back(Vector2(x + 6 + cos(a) * 25, y + 3 + sin(a) * 24))
-	Spr.poly(arc, Color("#5a4028"))
-	var arc2 := PackedVector2Array()
-	for k in 13:
-		var a2: float = PI + k / 12.0 * PI
-		arc2.push_back(Vector2(x + 6 + cos(a2) * 19, y + 3 + sin(a2) * 18))
-	Spr.poly(arc2, Color("#0e0906"))
-	# borda de terra recém-revirada (mais clara, aparece no escuro)
-	Spr.ring(x + 6, y + 3, 21, Color("#9a7a50"), 3, PI * 1.05, PI * 1.95)
-	# tábua de baixo da parede arrancada, caída torta ao lado
-	Spr.save()
-	Spr.translate(x - 4, y - 3)
-	Spr.rotate(-.22)
-	Spr.rect(-30, -5, 34, 7, ol)
-	Spr.rect(-29, -4, 32, 5, Color("#8a5d36"))
-	Spr.circle(-24, -2, 1.2, Color("#9a9690"))
-	Spr.restore()
-	# marcas de unha na terra
-	for k in 3:
-		Spr.seg(x - 8 + k * 5, y - 1, x - 4 + k * 5, y - 7, Color(.2, .14, .08, .7), 1.3)
-	# (o aviso "BUSCA, PIPOCA!" desta toca é desenhado na camada de brilho, por cima do escuro)
 
 static func dog(g: Game, T: int) -> void:
 	var d: Dictionary = g.X.DOG
@@ -883,8 +841,7 @@ static func dog(g: Game, T: int) -> void:
 		Spr.save()
 		Spr.translate(x + d.face * 26, y - 30)
 		Spr.rotate(.3 * d.face)
-		var cs: String = g.X.toca_carry_spr(d.toca)
-		Spr.A(cs, 0, 0, .35 if cs == "drawing" else .5)
+		Spr.A("drawing", 0, 0, .35)
 		Spr.restore()
 	_dog_guide(g, d, x, y, T)
 	if d.bark > 0:
@@ -1012,53 +969,8 @@ static func mech(g: Game, T: int) -> void:
 		Spr.PR("plate", pl.x - 2, pl.y - 11 + dd, pl.w + 4, 15, Color(1, 1, 1) if not pl.on else Color(1.25, 1.1, .7))
 		if pl.on:
 			Spr.glow(pl.x + pl.w / 2, pl.y - 4, 30, Color(1, .85, .4, .35))
-		# portão de duas placas: luzinhas entalhadas na moldura contam quantas já têm peso ("1 de 2")
-		if int(pl.get("sib", 1)) > 1:
-			var pn := 0
-			for gt in M.GATES:
-				if gt.get("id") == pl.gate:
-					pn = int(gt.get("pn", 0))
-			var ns: int = int(pl.sib)
-			# marco de pedra do lado de lá do buraco (a caixa não passa por cima dele)
-			var mx: float = pl.x + pl.w + 12
-			var gy: float = pl.y - 20
-			var mh: float = 12.0 + ns * 13.0
-			Spr.ellipse(mx, gy + 1, 12, 3, Color(0, 0, 0, .3))
-			Spr.rr(mx - 9, gy - mh, 18, mh + 2, 5, Color(.2, .17, .14))
-			Spr.rr(mx - 7, gy - mh + 2, 14, mh - 2, 4, Color(.52, .48, .42))
-			Spr.rr(mx - 6, gy - mh + 2, 5, mh - 4, 3, Color(1, 1, 1, .12))
-			for k in ns:
-				var ly: float = gy - 10 - k * 13
-				var lit: bool = k < pn
-				Spr.circle(mx, ly, 4.4, Color(.12, .1, .08))
-				Spr.circle(mx, ly, 3.2, Color(1, .82, .35) if lit else Color(.34, .3, .26))
-				if lit:
-					Spr.glow(mx, ly, 13, Color(1, .8, .3, .5))
 	for gt in M.GATES:
 		if gt.x + gt.w < c0 or gt.x > c1:
-			continue
-		var gg: Dictionary = WSt.gate_geom(g, gt)
-		if gg.big:
-			# portão no muro de pedra (world_static desenha o muro, os batentes e a viga): a porta de tábuas
-			# sobe para dentro do muro; só aparece a parte dela que ainda está no vão. Passa quando abre
-			# mais de 85% (a colisão some aí), então a porta já está toda lá em cima nessa hora
-			var dh: float = gg.dh
-			var gb: float = gg.bot
-			var vl: float = clamp(gt.open / .85, 0.0, 1.0) * (dh - 10.0)
-			var vh: float = dh - vl
-			if vh > 1.0:
-				Spr.PB("gate_wood", gt.x - 6, gb - dh, gt.w + 12, vh, vl / dh, 1.0)
-				# beirada de baixo da porta com ferragem e a sombra dela no chão
-				Spr.rect(gt.x - 6, gb - vl - 4, gt.w + 12, 4, Color("#2a2622"))
-				Spr.ellipse(gt.x + gt.w / 2, gb + 1, gt.w * .9, 3, Color(0, 0, 0, .3 * (1.0 - vl / dh)))
-			if gt.get("dogpass") and gt.open < .3:
-				var fy2: float = gb - vl - 24
-				Spr.rr(gt.x - 3, fy2, gt.w + 6, 24, 4, Color("#3a2414"))
-				Spr.rr(gt.x - 1, fy2 + 3, gt.w + 2, 19, 3, Color("#a8804a"))
-				var px2: float = gt.x + gt.w / 2
-				Spr.circle(px2, fy2 + 15, 3.2, Color(.3, .2, .1))
-				for k in 3:
-					Spr.circle(px2 - 4 + k * 4, fy2 + 9, 1.6, Color(.3, .2, .1))
 			continue
 		var lift: float = gt.open * (gt.h - 18)
 		var y0: float = gt.y - lift

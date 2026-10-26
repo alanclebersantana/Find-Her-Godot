@@ -153,7 +153,7 @@ func _update_vivid() -> void:
 	var m: ShaderMaterial = vivid.material
 	var night: float = clamp(float(game.AMB.get("night", 0.0)), 0.0, 1.0)
 	var dark: float = clamp(float(game.AMB.get("dark", 0.0)), 0.0, 1.0)
-	m.set_shader_parameter("warm", .05 * (1.0 - night) * (1.0 - dark * .8))
+	m.set_shader_parameter("warm", .03 * (1.0 - night) * (1.0 - dark * .8))
 	m.set_shader_parameter("edge", 0.0 if game.low_fx else 1.7)
 	m.set_shader_parameter("px", clamp(get_viewport().get_visible_rect().size.y / 540.0, 1.0, 3.0) * 1.2)
 
@@ -220,16 +220,6 @@ func _build_world() -> void:
 			if o.k == "giant":
 				var gc := Color(o.get("c", "#6a5acd")).lightened(.25) if o.has("to") else Color(o.get("c", "#6a5acd")).darkened(.3)
 				lights.append({"n": _light(gc, 170 if o.has("to") else 110), "pos": Vector2(o.x, o.cap + 10)})
-	# túnel escuro da mina: lampiões acesos de tempos em tempos, cristais no teto e o luar das frestas
-	# (luzes pequenas e paradas no mesmo mapa de luz: quase não custam nada)
-	var ml: Dictionary = game.L.get("minelights", {})
-	for lx in ml.get("lamps", []):
-		lights.append({"n": _light(Color(1, .72, .38), 170), "pos": Vector2(float(lx) + 22, 418), "e": .95, "flick": 1})
-	for cr in ml.get("crystals", []):
-		lights.append({"n": _light(Color(.45, .85, 1) if str(cr[2]) == "c" else Color(.7, .5, 1), 85), "pos": Vector2(float(cr[0]), float(cr[1]) + 16), "e": .5})
-	for mx in ml.get("moon", []):
-		lights.append({"n": _light(Color(.6, .72, 1), 125), "pos": Vector2(float(mx) + 12, 482), "e": .75})
-		lights.append({"n": _light(Color(.55, .68, 1), 70), "pos": Vector2(float(mx) + 2, 420), "e": .45})
 	# facho concentrado da lanterna, cristais e lápis dourado
 	lights.append({"n": _light(Color(1, .9, .65), 200), "beam": true})
 	for c in game.X.CRYSTALS:
@@ -313,9 +303,7 @@ func _update_lights() -> void:
 				n.position = Vector2(v.x - 41, v.y - 97)
 		else:
 			n.position = l.pos
-			n.energy = dark * float(l.get("e", 1.1))
-			if l.has("flick"):
-				n.energy *= .9 + .1 * sin(game.T * .31 + l.pos.x) * sin(game.T * .13 + l.pos.x * .7)
+			n.energy = dark * 1.1
 
 var _slow_t := 0.0
 func _process(_d: float) -> void:
@@ -1640,24 +1628,14 @@ func _update_cine_bars() -> void:
 	cine_bars.target = want
 	hud.cine_bar = cine_bars.px()
 
-## grande fogueira: fim de um capítulo. Pausa, lembrança da Isis e escolha de seguir ou parar.
-## (pela ordem das fogueiras grandes no mapa; o título vem do nome do capítulo, o mesmo do HUD)
+## grande fogueira: fim de um período. Pausa, lembrança da Isis e escolha de seguir ou parar.
 const REST_INFO := {
-	1: ["Toda tarde ela desenhava na varanda, esperando eu voltar do trabalho.", "Aguenta firme, filha. Estou chegando."],
-	2: ["Pega-pega no quintal... e ela sempre ganhava de mim.", "Aguenta firme, filha. Estou chegando."],
-	3: ["Pular nas poças com a lanterna acesa. Ela nunca teve medo da chuva.", "Estou chegando, Isis. Não tenha medo do escuro."],
-	4: ["Barquinhos de papel no riacho... ela corria pela margem torcendo pelo dela.", "O rio ficou para trás, filha. Estou indo."],
-	5: ["O boneco de neve ficou com o meu gorro. Ela riu a tarde inteira.", "Falta pouco, filha. Aguenta firme."],
-	6: ["Soltar pipa no morro... ela dizia que um dia ia voar de avião.", "Voei por você, filha. Agora falta só a mina."],
+	1: ["FIM DA MANHÃ", "Toda tarde ela desenhava na varanda, esperando eu voltar do trabalho.", "Aguenta firme, filha. Estou chegando."],
+	2: ["FIM DA TARDE", "Pega-pega no quintal... e ela sempre ganhava de mim.", "Aguenta firme, filha. Estou chegando."],
+	3: ["FIM DO PÂNTANO", "Pular nas poças com a lanterna acesa. Ela nunca teve medo da chuva.", "Estou chegando, Isis. Não tenha medo do escuro."],
+	4: ["FIM DA NEVE", "O boneco de neve ficou com o meu gorro. Ela riu a tarde inteira.", "Falta pouco, filha. Aguenta firme."],
+	5: ["FIM DO CÉU", "Soltar pipa no morro... ela dizia que um dia ia voar de avião.", "Voei por você, filha. Agora falta só a mina."],
 }
-
-## título da cena da fogueira grande: o capítulo que terminou e o que vem a seguir
-func _rest_title(i: int) -> String:
-	var n: int = game.chapter_count()
-	var t := "CAPÍTULO %d DE %d · %s" % [i, n, game.chapter_name(i - 1).to_upper()]
-	if i < n:
-		t += "  ·  a seguir: " + game.chapter_name(i)
-	return t + "  ·  progresso salvo"
 
 func _on_rest(n: int) -> void:
 	state = S.REST
@@ -1674,20 +1652,12 @@ func _on_rest(n: int) -> void:
 		if d.got:
 			found += 1
 	sc.show_dog = game.L.has("dog")
-	var lr: Dictionary = game.L.get("rests", {})
-	var info: Array
-	if lr.has(str(n)):
-		# (o Episódio 2 traz os textos na própria fase)
-		sc.setup(n + (10 if game.level_idx == 1 else 0), found)
-		info = lr[str(n)]
-		info = [info[0] + " · progresso salvo", info[1], info[2]]
-	else:
-		# Episódio 1: pela ordem da fogueira no mapa (1 = fim do primeiro capítulo)
-		var ci: int = game.rest_ordinal(n)
-		sc.setup(ci, found)
-		var ri: Array = REST_INFO.get(ci, REST_INFO[1])
-		info = [_rest_title(ci), ri[0], ri[1]]
+	sc.setup(n + (10 if game.level_idx == 1 else 0), found)
 	root.add_child(sc)
+	var info: Array = REST_INFO.get(n, REST_INFO[1])
+	var lr: Dictionary = game.L.get("rests", {})
+	if lr.has(str(n)):
+		info = lr[str(n)]
 	var vb := VBoxContainer.new()
 	vb.alignment = BoxContainer.ALIGNMENT_END
 	vb.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -1695,7 +1665,7 @@ func _on_rest(n: int) -> void:
 	vb.add_theme_constant_override("separation", 8)
 	vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(vb)
-	var title := _label(info[0], 15, Color("#cdbfa6"))
+	var title := _label(info[0] + " · progresso salvo", 15, Color("#cdbfa6"))
 	var mem := _label(info[1], 17, Color("#e8dcc0"), Spr.font_i, 620)
 	var line := _label("“" + info[2] + "”", 22, GOLD, Spr.font_title, 640)
 	var row := HBoxContainer.new()
@@ -2352,32 +2322,12 @@ func _ep_periods(ep: int) -> Array:
 		_ep_per_cache[ep] = per
 	return _ep_per_cache[ep]
 
-## melhores estrelas por período de um episódio. O Ep. 1 ganhou o capítulo "O Rio" (4º) entre o
-## Pântano e a Neve: quem guardou as 6 de antes tem as da Neve em diante empurradas uma casa
-func _conq_stars(ep: int) -> Array:
-	var sk: String = "stars" if ep == 1 else "stars%d" % ep
-	if ep == 1:
-		_migrate_stars()
-	return Save.getv("conq", sk, []).duplicate()
-
 ## nome curto do período ("A fuga da Isis" -> "A fuga", "Manhã no bosque" -> "Manhã")
 func _short_period(s: String) -> String:
 	var w: PackedStringArray = s.split(" ")
 	if w.size() > 1 and w[0].length() <= 2:
 		return w[0] + " " + w[1]
 	return w[0]
-
-## o Episódio 1 passou de 6 para 7 capítulos (O Rio virou capítulo próprio, separado do Pântano):
-## as estrelas guardadas andam uma casa e o Rio começa com as do Pântano (o trecho antigo tinha os dois)
-func _migrate_stars() -> void:
-	if Save.getv("conq", "stars_v7", false):
-		return
-	var a: Array = Save.getv("conq", "stars", [])
-	if a.size() == 6:
-		a = a.duplicate()
-		a.insert(3, a[2])
-		Save.cfg.set_value("conq", "stars", a)
-	Save.setv("conq", "stars_v7", true)
 
 ## desenhos guardados por episódio (antes eram "d0".."d2" para todos: o Ep. 2 abria os do Ep. 1)
 func _migrate_gallery() -> void:
@@ -2415,9 +2365,9 @@ func show_gallery(ep: int = 1) -> void:
 			tabs.add_child(tb)
 		vb.add_child(tabs)
 	# conquistas: o melhor de cada período deste episódio
-	_migrate_stars()
 	var per: Array = _ep_periods(ep)
-	var cs: Array = _conq_stars(ep)
+	var sk: String = "stars" if ep == 1 else "stars%d" % ep
+	var cs: Array = Save.getv("conq", sk, [])
 	var crow := HBoxContainer.new()
 	crow.alignment = BoxContainer.ALIGNMENT_CENTER
 	crow.add_theme_constant_override("separation", 14)
@@ -2595,8 +2545,7 @@ func _on_results() -> void:
 	var prow := HBoxContainer.new()
 	prow.add_theme_constant_override("separation", 12)
 	var sk: String = "stars" if game.level_idx == 0 else "stars%d" % (game.level_idx + 1)
-	_migrate_stars()
-	var best: Array = _conq_stars(game.level_idx + 1)
+	var best: Array = Save.getv("conq", sk, [0, 0, 0, 0, 0, 0])
 	while best.size() < ps.size():
 		best.append(0)
 	for i in ps.size():

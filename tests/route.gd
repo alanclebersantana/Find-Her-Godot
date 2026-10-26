@@ -56,60 +56,6 @@ func stake_cross(sx: float):
 			return "a ponte não caiu"
 	return walk_to(float(st.bridge.x) + float(st.bridge.w) + 40)
 
-## lago de veneno com corda esticada: pula da margem, agarra a corda, vai pendurado até o fim e solta
-func rope_cross(x0: float, x_after: float):
-	walk_to(x0)
-	press("J")
-	for i in 90:
-		P = g.player
-		if not ok():
-			return "state"
-		if P.get("bar") != null:
-			break
-		frame({"J": i < 8, "R": true})
-	P = g.player
-	if P.get("bar") == null:
-		return "não agarrou a corda x=%d y=%d" % [int(px()), int(P.y)]
-	var b: Dictionary = P.bar
-	var r = until({"R": true}, func(): return px() >= float(b.x1) - 2, 400)
-	if not (r is bool and r):
-		return "parou na corda x=%d (%s)" % [int(px()), str(r)]
-	press("S")
-	frame({"S": true})
-	if not wait_ground() is bool:
-		return "não pousou"
-	return walk_to(x_after)
-
-## corrente de vento: pula, dá o pulo duplo e segura PULAR (planando, como no celular); sobe até o
-## alto da corrente e plana para a direita até passar de land_x; aí só plana até pousar
-func wind_up(land_x: float):
-	press("J")
-	for i in 16:
-		frame({"J": true})
-	for i in 30:
-		P = g.player
-		if P.vy >= -.5:
-			break
-		frame({"J": true})
-	press("J")
-	var top := 9999.0
-	var rose := false
-	for i in 500:
-		P = g.player
-		if not ok():
-			return "state"
-		top = min(top, P.y + P.h)
-		var d := {"J": true}
-		if top < 140:
-			rose = true
-		if rose and px() < land_x:
-			d["R"] = true
-		frame(d)
-		P = g.player
-		if P.onGround and i > 5:
-			return true if rose else "o vento não levantou (alto=%d)" % int(top)
-	return "air@%d,%d" % [int(px()), int(P.y)]
-
 func px() -> float:
 	return P.x + P.w / 2
 
@@ -170,18 +116,6 @@ func until(set: Dictionary, cond: Callable, mx: int = 900):
 		if cond.call():
 			return true
 		frame(set)
-	return "timeout@%d,%d" % [int(px()), int(P.y)]
-
-## nada até (tx, ty) (pés do Tomé) até a condição valer
-func swim_to(tx: float, ty: float, cond: Callable, mx: int = 600):
-	for i in mx:
-		P = g.player
-		if not ok():
-			return "state"
-		if cond.call():
-			return true
-		var feet: float = P.y + P.h
-		frame({"R": px() < tx - 6, "L": px() > tx + 6, "S": feet < ty - 4, "U": feet > ty + 10})
 	return "timeout@%d,%d" % [int(px()), int(P.y)]
 
 func hop(dir: String, ndir: int, h: int = 16):
@@ -904,8 +838,8 @@ func _initialize() -> void:
 		rests.append(n)
 		print("REST ", n, " T=", g.T)
 		g.running = true)
-	S("varanda", walk_to(600))
-	S("a pista 1 não fica mais na mesa da varanda", n_clues() == 0)
+	S("pista 1", walk_to(600))
+	S("pistas=%d" % n_clues(), n_clues() == 1)
 	S("abaixa sob as toras", crawl(870))
 	walk_to(980)
 	S("pedra 1 da escada", jump_to(1060))
@@ -913,22 +847,15 @@ func _initialize() -> void:
 	S("alto da escada de pedras", jump_to(1300))
 	walk_to(1570)
 	walk_to(1625)
-	S("caixa no buraco da placa", until({"R": true}, func(): return g.M.PUSH[4].x >= 1876 and g.M.PUSH[4].y >= 449, 900))
+	S("caixa no buraco da placa", until({"R": true}, func(): return g.M.PUSH[4].x >= 1879 and g.M.PUSH[4].y >= 449, 900))
 	S("portão 3 abriu", until({}, func(): return g.M.GATES[2].open > .85, 200))
 	S("pula a caixa 3", jump_to(1915))
 	S("passa o portão 3", walk_to(2065))
-	# o poço tóxico da manhã virou um poço raso de lama: só deixa lento
-	S("desce no poço de lama", walk_to(2260))
-	S("a lama prende as botas", P.mud and P.hp == 5)
-	walk_to(2410)
-	S("sai da lama", jump_to(2468))
-	S("fogueira antes do javali", g.cur_chk >= 0 and int(g.CHK[g.cur_chk].x) == 2468)
+	S("lago de veneno 1: ponte da estaca", stake_cross(2040))
 	walk_to(2605)
 	S("espinhos da manhã", cross_spikes(trap_at("spikes", 2640), 2780))
 	S("vai à escada", walk_to(2835))
 	S("sobe a escada", climb_to("U", func(): return P.y + P.h <= 228, 400))
-	walk_to(2765)
-	S("pista 1 na casa da árvore", n_clues() == 1)
 	walk_to(2930)
 	S("corda", g.INV.has("corda"))
 	S("volta à escada", walk_to(2835))
@@ -938,17 +865,13 @@ func _initialize() -> void:
 	S("desce", climb_to("S", func(): return P.onGround and P.y > 400, 500))
 	walk_to(3200)
 	S("caixa ★", hop("R", 5))
-	# começo da tarde: o vento leva o Tomé até a pedra alta; de lá ele derruba a caixa na placa
-	S("vai ao vento", walk_to(3532))
-	S("o vento leva até a pedra alta", wind_up(3615))
-	S("em cima da pedra", P.onGround and P.y + P.h <= 264 and px() > 3600 and px() < 3672)
-	S("empurra a caixa da beirada", until({"R": true}, func(): return g.M.PUSH[0].x >= 3756 and g.M.PUSH[0].y >= 449, 700))
+	S("empurra a caixa", until({"R": true}, func(): return g.M.PUSH[0].x >= 3529 and g.M.PUSH[0].y >= 449, 700))
 	S("portão abriu", until({}, func(): return g.M.GATES[0].open > .85, 200))
-	S("desce", wait_ground())
-	S("passa o portão", walk_to(3930))
-	walk_to(3900)
-	S("flor da tarde", jump_to(3950))
-	S("lançado ao galho alto", until({}, func(): return P.onGround and P.y + P.h <= 231 and px() > 3975, 300))
+	S("pula a caixa", jump_to(3670, true))
+	S("sob o galho", walk_to(3720))
+	S("salto duplo ao galho", djump("R"))
+	walk_to(3910)
+	S("galho alto", jump_to(4060, true))
 	S("corre", walk_to(4185))
 	press("J")
 	hold({"J": true, "R": true}, 16)
@@ -965,8 +888,21 @@ func _initialize() -> void:
 	frame()
 	S("pousa", wait_ground())
 	S("desenho 1", g.DRWS.filter(func(d): return d.got).size() == 1)
-	# o gancho agora fica no galho do desenho (o esconderijo foi para depois do javali)
-	S("gancho no galho alto", walk_to(4528) and g.INV.has("gancho"))
+	S("chão rachado", walk_to(4685))
+	slam_here()
+	S("mergulho quebrou o chão", g.X.broken.has("chao1"))
+	walk_to(4690)
+	S("desce a escada do esconderijo", climb_to("S", func(): return P.onGround and P.y > 800, 500))
+	hold({}, 60)
+	S("entrou na sala", g.player.y > 800)
+	S("gancho", walk_to(4920))
+	walk_to(4930)
+	jr(16, "R")
+	S("vermelho", spec("vermelho"))
+	S("parede falsa", walk_to(4420))
+	S("sala secreta 1", g.X.found.has("s1"))
+	S("volta à escada", walk_to(4690))
+	S("sobe com ↑", climb_to("U", func(): return P.ladder == null and P.onGround and P.y < 500, 500))
 	S("combina corda+gancho", g.try_combine("corda", "gancho") != "")
 	S("arena do javali", walk_to(5090))
 	S("javali apareceu", g.X.boss_active())
@@ -1002,37 +938,20 @@ func _initialize() -> void:
 	S("moita: pista 2 e amarelo", walk_to(6210))
 	S("pistas=2 amarelo", n_clues() == 2 and spec("amarelo"))
 	S("desce do platô", walk_to(6420))
+	S("lago de veneno 2: ponte da estaca", stake_cross(6480))
+	walk_to(6940)
 	S("fogueira grande 1", rests.has(1))
-	# esconderijo do chão rachado: o MERGULHO aprendido num lugar seguro, antes do lago de veneno
-	S("chão rachado", walk_to(6496))
-	slam_here()
-	S("mergulho quebrou o chão", g.X.broken.has("chao1"))
-	walk_to(6496)
-	S("desce a escada do esconderijo", climb_to("S", func(): return P.onGround and P.y > 800, 500))
-	hold({}, 60)
-	S("entrou na sala", g.player.y > 800)
-	walk_to(6250)
-	jr(16, "L")
-	S("vermelho", spec("vermelho"))
-	S("parede falsa", walk_to(5880))
-	S("sala secreta 1", g.X.found.has("s1"))
-	S("volta à escada", walk_to(6496))
-	S("sobe com ↑", climb_to("U", func(): return P.ladder == null and P.onGround and P.y < 500, 500))
-	S("lago de veneno: ponte da estaca", stake_cross(6680))
-	walk_to(7140)
-	walk_to(7210)
-	S("rasteja para a fenda", crawl(7430))
+	walk_to(7050)
+	S("rasteja para a fenda", crawl(7270))
 	S("sobe a fenda pulando nas paredes", crevice_climb())
-	S("topo da fenda", walk_to(7550))
+	S("topo da fenda", walk_to(7390))
 	walk_to(8340)
 	S("galho 1 das copas", jump_to(8490))
 	walk_to(8545)
 	S("galho 2", jump_to(8700, true))
 	walk_to(8745)
 	S("galho rachado 1", jump_to(8875))
-	S("galho largo de descanso", jump_to(9040, true))
-	walk_to(9070)
-	S("fogueira das copas", g.cur_chk >= 0 and int(g.CHK[g.cur_chk].x) == 9070)
+	S("galho 3", jump_to(9040, true))
 	walk_to(9105)
 	S("flor das copas", jump_to(9200))
 	walk_to(9220)
@@ -1044,38 +963,28 @@ func _initialize() -> void:
 	S("galho 5", jump_to(10010, true))
 	S("desce ao chão", walk_to(10140))
 	walk_to(10240)
-	S("tronco-pêndulo", cross_swing(trap_at("swing", 10450), 10650))
+	S("tronco-pêndulo", cross_swing(trap_at("swing", 10450), 10730))
 	S("passou o tronco", P.hp == 5)
-	walk_to(10650)
-	hold({}, 30)
+	walk_to(10730)
+	hold({}, 20)
 	press("D")
 	frame()
-	# portão 4: a placa fica do lado de cá; o Pipoca senta nela e segura o portão para o Tomé passar
 	S("Pipoca no portão da tarde", g.M.ctrl)
-	S("Pipoca até a placa", walk_to(10720))
+	S("Pipoca até a placa", walk_to(10910))
 	S("portão 4 abriu", until({}, func(): return g.M.GATES[3].open > .85, 200))
 	press("D")
 	frame()
-	S("Pipoca fica segurando a placa", not g.M.ctrl and g.X.DOG.st == "stay")
 	S("Tomé passa o portão 4", walk_to(10980))
 	walk_to(11025)
 	S("sobe a torre", climb_to("U", func(): return P.ladder == null and P.onGround and P.y + P.h <= 64, 500))
 	walk_to(11358)
 	S("desce a torre", climb_to("S", func(): return P.onGround and P.y > 400, 500))
-	S("o Pipoca largou a placa e veio atrás", g.X.DOG.st != "stay")
-	# portão 5: duas placas, uma caixa em cada buraco
-	walk_to(11395)
-	S("caixa no buraco da 1ª placa", until({"R": true}, func(): return g.M.PUSH[5].x >= 11556 and g.M.PUSH[5].y >= 449, 900))
-	hold({}, 10)
-	S("uma placa só não abre o portão 5", g.M.GATES[4].open < .1)
-	S("sobe na caixa", jump_to(11600))
-	walk_to(11650)
-	S("caixa no buraco da 2ª placa", until({"R": true}, func(): return g.M.PUSH[6].x >= 11786 and g.M.PUSH[6].y >= 449, 900))
+	walk_to(11450)
+	S("caixa no buraco da placa 5", until({"R": true}, func(): return g.M.PUSH[5].x >= 11789 and g.M.PUSH[5].y >= 449, 900))
 	S("portão 5 abriu", until({}, func(): return g.M.GATES[4].open > .85, 200))
 	S("pula a caixa 5", jump_to(11825))
 	S("passa o portão 5", walk_to(12040))
 	walk_to(12350)
-	S("fogueira antes do brejo", g.cur_chk >= 0 and int(g.CHK[g.cur_chk].x) == 12320)
 	walk_to(12420)
 	S("armadura", jump_to(12479))
 	S("beira da ilha", walk_to(12575))
@@ -1163,7 +1072,6 @@ func _initialize() -> void:
 	S("outra margem", vine_hop(null))
 	S("vivo no lamaçal", g.lives >= 3 and px() > 19990)
 	walk_to(20430)
-	S("fogueira entre a areia e a corda", g.CHK.filter(func(c): return int(c.x) == 20385)[0].on)
 	S("cipó da ribanceira", grab_vine(g.VINES[4]))
 	S("agarra a corda", _to_bar())
 	S("anda pendurado", until({"R": true}, func(): return px() > 21480, 600))
@@ -1175,15 +1083,6 @@ func _initialize() -> void:
 	S("colmeia 1 quieta", trap_at("hive", 21655).st == "idle")
 	walk_to(21775)
 	S("mergulho 2", until({"R": true, "S": true}, func(): return px() > 22040 and P.y > 600, 300))
-	# mergulho do meio: a grade da saída está fechada; a alavanca no fundo abre, a correnteza
-	# leva para a frente e, rente ao fundo (água calma), dá para pegar o baú
-	var ugate: Dictionary = g.SOL.filter(func(s): return s.get("id", "") == "ugrate1")[0]
-	S("grade da saída fechada", float(ugate.get("open", 0.0)) == 0.0 and g.blockers().has(ugate))
-	S("alavanca do fundo", swim_to(22140, 812, func(): return g.NT.ULEV[0].on, 400))
-	S("grade abriu", swim_to(22262, 800, func(): return float(ugate.get("open", 0.0)) >= 1.0, 300))
-	S("baú do fundo", swim_to(22560, 812, func(): return g.NT.CHESTS[0].got, 600))
-	S("respirou nas bolhas 2", g.lives >= 3)
-	S("correnteza empurra", swim_to(23000, 640, func(): return P.vx > 3.5, 300))
 	S("túnel d'água 2", until({"R": true}, func(): return px() > 23060, 1200))
 	S("sobe do mergulho 2", until({"U": true, "R": true}, func(): return P.y < 515, 300))
 	S("sai do mergulho 2", jump_to(23230))
@@ -1203,13 +1102,11 @@ func _initialize() -> void:
 	S("corrente de bolhas", until({"R": true}, func(): return px() > 25150, 600))
 	S("subiu na corrente", until({"R": true}, func(): return P.onGround and P.y < 480, 400))
 	S("margem do rio", walk_to(25480))
-	S("fogueira grande 3 (antes do rio)", rests.has(3))
-	S("capítulo O Rio", g.period_label().ends_with("O Rio"))
 	use()
 	S("subiu na jangada", g.VH.mode == "raft")
 	S("corredeira", ride_raft())
 	S("jangada sem virar", g.VH.tries == 0)
-	S("fogueira grande 4", walk_to(32820) and rests.has(4))
+	S("fogueira grande 3", walk_to(32820) and rests.has(3))
 	walk_to(33190)
 	S("pula a pedra", jump_to(33320, true))
 	S("empurra a bola de neve", until({"R": true}, func(): return g.NT.SNOWB[0].x + g.NT.SNOWB[0].w >= 33687, 900))
@@ -1223,14 +1120,9 @@ func _initialize() -> void:
 	walk_to(35720)
 	S("pula o buraco de gelo", jump_to(36005, true))
 	S("pedra da bola 2", jump_to(36115))
-	# pingente gigante na beirada do paredão: passa embaixo, recua, ele finca na neve e vira degrau
-	var big_ici: Dictionary = trap_at("icicle", 36222)
-	S("passa embaixo do pingente gigante", until({"R": true}, func(): return big_ici.st == "shake", 300))
-	S("recua do pingente", until({"L": true}, func(): return px() < 36140, 120))
-	var hp_ici: int = P.hp
-	S("pingente fincou e virou degrau", until({}, func(): return big_ici.st == "planted", 200))
-	S("pingente não acertou o Tomé", P.hp == hp_ici)
-	S("sobe no pingente", jump_to(36222) == true and P.y + P.h < 400)
+	walk_to(36118)
+	S("empurra a bola 3", until({"R": true}, func(): return g.NT.SNOWB[2].x + g.NT.SNOWB[2].w >= 36247, 900))
+	S("sobe na bola 3", jump_to(36220))
 	S("2º paredão", jump_to(36290, true))
 	walk_to(36385)
 	S("vila", walk_to(37040))
@@ -1253,32 +1145,22 @@ func _initialize() -> void:
 	S("cavalgada começou", until({}, func(): return g.RD.riding, 400))
 	S("cavalgada", ride())
 	S("sem tropeço", g.RD.tries == 0)
-	# trecho a pé depois da cavalgada: lago congelado, buraco de água gelada e bloco de gelo
-	S("fogueira do fim da cavalgada", walk_to(47200))
-	S("lago congelado", walk_to(48080))
-	walk_to(48262)
-	S("pula o buraco de água gelada", jump_to(48530, true))
-	walk_to(48850)
-	S("bloco de gelo", jump_to(48930) == true and P.y + P.h < 450)
-	S("desce do bloco", jump_to(49030))
 	S("toca do urso", walk_to(50400))
 	S("urso acordou", g.K.BEAR.st != "wait")
 	S("Urso-Rei: fuga pela fresta e coroa", bear_fight())
 	S("urso desistiu", until({}, func(): return g.K.BEAR.done, 600))
 	S("coroa do urso na coleção", root.get_node("Save").getv("gallery", "crown_urso", false))
-	# fim da neve: a fogueira grande 4 fica entre a fuga do urso e o trenó
-	S("fogueira grande 5", walk_to(52400) and rests.has(5))
 	# o trenó parte sozinho quando o Tomé chega nele
 	S("chega no trenó e parte sozinho", until({"R": true}, func(): return g.VH.mode == "sled", 600))
 	S("trenó chegou", sled_drive())
-	S("fogueira depois do trenó", walk_to(53300))
+	S("fogueira grande 4", walk_to(53090) and rests.has(4))
 	S("subida da montanha", climb_gusts(55630))
 	S("ponte de cordas", bridge_run(trap_at("bridge", 55660)))
 	S("pista do avião: embarca sozinho", until({"R": true}, func(): return g.VH.mode == "plane", 1500))
 	S("decolou", g.VH.mode == "plane")
 	S("voo", fly_plane())
 	S("avião sem rodopiar", g.VH.tries == 0)
-	S("fogueira grande 6", walk_to(64280) and rests.has(6))
+	S("fogueira grande 5", walk_to(64280) and rests.has(5))
 	S("margem", walk_to(64470))
 	var axe: Dictionary = g.TR.by_kind("axe")[0]
 	walk_to(64460)
@@ -1297,7 +1179,7 @@ func _initialize() -> void:
 	S("chapéu mais alto", P.y + P.h <= 152)
 	S("desce de chapéu", jump_to(66265))
 	S("fim do bosque", jump_to(66450))
-	S("lago de veneno 3: corda esticada", rope_cross(67128, 67600))
+	S("lago de veneno 3: ponte da estaca", stake_cross(67100))
 	walk_to(67760)
 	S("desce no poço da mina", climb_to("S", func(): return P.onGround and P.y > 820, 500))
 	walk_to(67825)
@@ -1314,13 +1196,17 @@ func _initialize() -> void:
 	walk_to(69970)
 	S("sobe do poço", climb_to("U", func(): return P.ladder == null and P.onGround and P.y < 480, 500))
 	walk_to(70120)
-	S("porta do galpão", walk_to(70360))
+	S("porta do galpão", walk_to(70370))
 	hold({}, 20)
-	use()
-	S("Pipoca foi buscar na toca do galpão", g.X.DOG.st in ["to_toca", "in_toca"])
-	S("óleo (o Pipoca trouxe)", until({}, func(): return g.INV.has("oleo"), 500))
-	S("pista do galpão", until({}, func(): return g.CLUES.any(func(c): return int(c.id) == 5 and c.got), 60))
-	S("Pipoca voltou a seguir", until({}, func(): return g.X.DOG.st in ["follow", "sit"], 120))
+	press("D")
+	frame()
+	S("Pipoca", g.M.ctrl)
+	S("Pipoca entra pela portinhola", walk_to(70600))
+	S("óleo", g.INV.has("oleo"))
+	S("Pipoca sai", walk_to(70370))
+	press("D")
+	frame()
+	S("Tomé", not g.M.ctrl)
 	S("telhado do galpão", jump_to(70445, true))
 	S("desce do telhado", walk_to(70740))
 	S("escada da coruja", walk_to(71005))
@@ -1346,6 +1232,17 @@ func _initialize() -> void:
 	S("escada da laje", walk_to(70810))
 	S("sobe", climb_to("U", func(): return P.ladder == null and P.onGround and P.y < 480, 500))
 	walk_to(71005)
+	S("rede de caçador", walk_to(71070))
+	press("D")
+	frame()
+	S("Pipoca (rede)", g.M.ctrl)
+	S("Pipoca no poste", walk_to(71065))
+	press("A")
+	hold({}, 8)
+	S("rede caiu", g.TR.by_kind("net")[0].st == "down")
+	press("D")
+	frame()
+	S("Tomé de novo", not g.M.ctrl)
 	S("jaula prendeu", until({"R": true}, func(): return g.TR.trapped != null, 300))
 	hold({}, 30)
 	press("D")

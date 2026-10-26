@@ -15,8 +15,6 @@ static func draw(g: Game, T: int) -> void:
 	var c0: float = g.cam - 220
 	var c1: float = g.cam + g.W + 220
 	for o in TR.T:
-		if o.st == "off":
-			continue
 		var ox: float = o.get("bx", o.x)
 		if ox < c0 - 400 or ox > c1 + 400:
 			continue
@@ -264,53 +262,22 @@ static func _wind(o: Dictionary, T: int) -> void:
 			var r: float = 10 + u * 26
 			Spr.circle(sx, sy, r, Color(.72, .72, .78, .32 * (1.0 - u)))
 		return
-	# corrente de vento subindo de uma fenda no chão: coluna de ar clara, fitas de vento torcendo,
-	# poeira e folhas da cor do trecho subindo em espiral (dá para ver de longe onde ela está)
-	var cxw: float = x + w / 2
-	Spr.vgrad(x - 6, y, w + 12, h, Color(.95, .98, 1, 0), Color(.95, .98, 1, .16))
-	Spr.vgrad(x - 6, y + h - 60, w + 12, 60, Color(.95, .9, .8, 0), Color(.95, .9, .8, .14))
-	for k in 6:
-		var ph: float = fmod(T * 3.2 + k * 71.0, h + 60.0)
+	Spr.vgrad(x, y, w, h, Color(.85, .95, 1, 0), Color(.85, .95, 1, .1))
+	for k in 7:
+		var lx: float = x + w * (k + .5) / 7.0
+		var ph: float = fmod(T * 2.4 + k * 53.0, h)
 		var yy: float = y + h - ph
-		var side: float = 1.0 if k % 2 == 0 else -1.0
 		var pts := PackedVector2Array()
-		for j in 9:
-			var yj: float = yy - j * 10.0
-			if yj < y - 30:
-				break
-			pts.push_back(Vector2(cxw + side * sin(yj * .045 + k * 1.3 + T * .05) * (w * .42) + side * j * .6, yj))
-		if pts.size() >= 2:
-			var al: float = clamp(ph / 80.0, 0.0, 1.0) * clamp((h + 60.0 - ph) / 120.0, 0.0, 1.0)
-			Spr.line(pts, Color(1, 1, 1, .5 * al), 2.6)
-			Spr.line(pts, Color(.75, .88, 1, .28 * al), 5.0)
-	# poeirinha subindo
-	for k in 10:
-		var u: float = fposmod(T * .011 + k * .1, 1.0)
-		var dx: float = sin(u * 13.0 + k * 2.1) * w * .45
-		Spr.circle(cxw + dx, y + h - u * h, 1.4, Color(1, .96, .85, .55 * (1.0 - u)))
-	# folhas secas e verdes subindo em espiral
-	var cols: Array = [Color("#e8862a"), Color("#c8402a"), Color("#f0b040"), Color("#9ec46a")]
-	for k in 6:
-		var u2: float = fposmod(T * .006 + k / 6.0, 1.0)
-		var fy: float = y + h - u2 * (h + 40)
-		var ang: float = T * .07 + k * 1.7
-		var fx: float = cxw + cos(ang) * w * (.25 + .25 * sin(k + u2 * 4.0))
-		var lc: Color = cols[k % 4]
-		Spr.ellipse(fx, fy, 5.5, 2.4, Color(lc.r * .55, lc.g * .55, lc.b * .55, .9 * (1.0 - u2 * .6)), ang * 1.3)
-		Spr.ellipse(fx, fy - .6, 4.5, 1.8, Color(lc.r, lc.g, lc.b, 1.0 - u2 * .6), ang * 1.3)
-	# a fenda de onde sai o vento: rachadura escura com pedras na beira e ar tremendo em cima
-	var gy: float = y + h
-	Spr.ellipse(cxw, gy + 1, w * .62, 6, Color(.08, .06, .05, .85))
-	Spr.ellipse(cxw, gy - 1, w * .48, 3, Color(.02, .02, .02, .9))
-	for k in 5:
-		var sx: float = x - 4 + k * (w + 8) / 4.0
-		var rr: float = 4.0 + fmod(sx * 1.37, 4.0)
-		Spr.ellipse(sx, gy + 2, rr + 1, rr * .6 + 1, Color(.15, .12, .1))
-		Spr.ellipse(sx, gy + 1, rr, rr * .6, Color(.52, .48, .43))
-		Spr.ellipse(sx - rr * .3, gy - rr * .2, rr * .4, rr * .2, Color(1, 1, 1, .2))
-	for k in 3:
-		var hy: float = gy - 8 - k * 9 - fmod(T * .8, 9.0)
-		Spr.seg(cxw - 14 + sin(T * .2 + k) * 3, hy, cxw + 14 + sin(T * .2 + k + 1) * 3, hy - 2, Color(1, 1, 1, .18), 1.2)
+		for j in 6:
+			pts.push_back(Vector2(lx + sin(yy * .05 + j * .7 + k) * 8, yy - j * 9))
+		Spr.line(pts, Color(1, 1, 1, .32 * (ph / h)), 2)
+	# folhinhas subindo
+	for k in 4:
+		var fx: float = x + fmod(k * 37.0 + T * .3, w)
+		var fy: float = y + h - fmod(T * 3.0 + k * 90.0, h)
+		Spr.ellipse(fx + sin(T * .1 + k) * 6, fy, 5, 2, Color("#9ec46a"), T * .1 + k)
+	# a fenda de onde sai o vento
+	Spr.ellipse(x + w / 2, y + h + 2, w * .45, 5, Color(.1, .08, .06, .7))
 
 # ---------- espinhos ----------
 static func _spikes(TR: Traps, o: Dictionary, T: int) -> void:
@@ -404,38 +371,19 @@ static func _axe(TR: Traps, o: Dictionary, T: int) -> void:
 		trail.push_back(Vector2(o.x + sin(a2) * (o.len + 18), o.y + cos(a2) * (o.len + 18)))
 	for k in range(trail.size() - 1):
 		Spr.seg(trail[k].x, trail[k].y, trail[k + 1].x, trail[k + 1].y, Color(1, 1, 1, .22 * spd * (1.0 - k / 10.0)), 10.0 - k * .8)
-	# forca de troncos (mesmo trato do tronco-pêndulo): poste roliço fincado no chão, trave de tronco
-	# com casca e musgo, mão-francesa e amarrações de corda grossa nas juntas
-	if not o.has("gy"):
-		o.gy = _ground_at(TR.g, float(o.get("frame", o.x)), float(o.y))
-	var gy: float = o.gy
+	# forca de madeira pintada (troncos)
 	if o.has("frame"):
 		var fx: float = o.frame
-		var by: float = o.y - 14.0
-		_sw_pole(Vector2(fx, gy + 6), Vector2(fx, by - 10), 9.0, .9)
-		Spr.ellipse(fx, gy + 1, 15, 5, Color("#5a3d24"))
-		Spr.ellipse(fx - 3, gy - 1, 9, 2.5, Color("#7a5a36"))
-		Spr.save()
-		Spr.translate(fx - 18, by)
-		_sw_log(o.x - fx + 44, 10.0, .6, T, true, Color(.86, .82, .78))
-		Spr.restore()
-		var kn := Vector2(fx, by + 62)
-		_sw_pole(kn, Vector2(fx + 52, by + 6), 5.0, .82)
-		for bp in [kn, Vector2(fx + 50, by + 8)]:
-			Spr.circle(bp.x, bp.y, 3.0, Color("#3a3632"))
-			Spr.circle(bp.x - .8, bp.y - .8, 1.2, Color("#9a948a"))
-		_sw_wrap(fx, by, 10.0)
-	# o cabo do machado: pau roliço de madeira preso no eixo por uma argola e um laço de corda grossa
-	var hd: Vector2 = (b - Vector2(o.x, o.y)).normalized()
-	_sw_pole(Vector2(o.x, o.y), b - hd * 10.0, 5.0, 1.0)
-	_sw_wrap(o.x, o.y - 14.0, 10.0)
-	Spr.circle(o.x, o.y, 8, OUT)
-	Spr.circle(o.x, o.y, 6.5, Color("#4a4642"))
-	Spr.circle(o.x - 1.5, o.y - 1.5, 2.5, Color("#9a948a"))
-	for k in 2:
-		var lp: Vector2 = Vector2(o.x, o.y) + hd * (30.0 + k * 70.0)
-		Spr.circle(lp.x, lp.y, 4.0, OUT)
-		Spr.circle(lp.x, lp.y, 3.0, SW_ROPE)
+		Spr.PR("log", fx - 9, o.y - 18, 18, 520 - o.y, Color(.85, .8, .75), false)
+		_beam_log(fx - 12, o.x + 16, o.y - 16, 16)
+		Spr.seg(fx + 2, o.y + 36, fx + 38, o.y - 8, Color("#4a3220"), 7)
+		Spr.seg(fx + 2, o.y + 36, fx + 38, o.y - 8, Color("#7a5634"), 3)
+		Spr.circle(fx, o.y - 10, 4, STEEL)
+	# haste de ferro e eixo
+	Spr.seg(o.x, o.y, b.x, b.y, Color("#3a3026"), 7)
+	Spr.seg(o.x, o.y, b.x, b.y, Color("#6a5a48"), 3)
+	Spr.circle(o.x, o.y, 9, Color("#2a221c"))
+	Spr.circle(o.x, o.y, 4, STEEL)
 	Spr.save()
 	Spr.translate(b.x, b.y)
 	Spr.rotate(-a)
@@ -458,6 +406,14 @@ static func _axe(TR: Traps, o: Dictionary, T: int) -> void:
 	Spr.line(bl, Color("#2a3038"), 2)
 	Spr.rr(-6, -16, 12, 16, 3, Color("#4a3220"))
 	Spr.rect(-6, -10, 12, 3, STEEL)
+	Spr.restore()
+
+## viga de tronco pintado deitada (de xa até xb, com altura h)
+static func _beam_log(xa: float, xb: float, y: float, h: float) -> void:
+	Spr.save()
+	Spr.translate(xa, y + h)
+	Spr.rotate(-PI / 2)
+	Spr.PR("log", 0, 0, h, xb - xa, Color(.9, .85, .8), false)
 	Spr.restore()
 
 # ---------- galho que quebra ----------
@@ -644,9 +600,6 @@ static func _icicle(g: Game, o: Dictionary, T: int) -> void:
 	var ln: float = o.get("len", 46)
 	var fl: float = o.get("floor", o.y + 300)
 	var w: float = ln * .55
-	if o.get("step"):
-		_big_icicle(g, o, T, ln, fl, w)
-		return
 	# base de gelo presa no teto (fica mesmo quando o pingente cai, e de onde ele volta a crescer)
 	Spr.ellipse(o.x, o.y + 2, w * .75, 7, Color("#9cc4e4"))
 	Spr.ellipse(o.x, o.y, w * .7, 5, Color("#d8eeff"))
@@ -678,47 +631,6 @@ static func _icicle(g: Game, o: Dictionary, T: int) -> void:
 		if Polish.FRESH and T % 6 == 0:
 			g.PARTS.append({"x": o.x + randf_range(-w * .4, w * .4), "y": y + 6, "vx": randf_range(-.4, .4), "vy": 1.5, "life": 24, "col": Color(.85, .95, 1, .9)})
 
-## pingente gigante pendurado na cornija de neve da beirada do paredão: treme, despenca e finca na
-## neve de ponta para baixo — a base larga fica em cima e vira degrau
-static func _big_icicle(g: Game, o: Dictionary, T: int, ln: float, fl: float, w: float) -> void:
-	var y: float = o.y + o.fy
-	# cornija de neve na beirada do paredão (de onde ele pende); depois da queda fica só um toco
-	Spr.ellipse(o.x + 14, o.y - 4, 42, 13, Color(.78, .86, .97))
-	Spr.ellipse(o.x + 12, o.y - 8, 40, 11, Color(.97, .98, 1))
-	Spr.ellipse(o.x - 6, o.y - 2, 18, 7, Color(.97, .98, 1))
-	if o.st == "planted":
-		# fincado: sombra, o gelo com a ponta enterrada e um monte de neve em volta da base
-		Spr.ellipse(o.x, fl + 2, w * .7, 6, Color(0, .05, .15, .25))
-		# a ponta ficou enterrada: só aparece o gelo acima da neve
-		Spr.PR("icicle", o.x - w * .5, y, w, fl - y + 6)
-		# neve assentada em cima da base (é o degrau)
-		Spr.ellipse(o.x, y + 3, w * .5, 6, Color(.97, .98, 1))
-		Spr.ellipse(o.x - w * .18, y + 1, w * .22, 4, Color(1, 1, 1))
-		# brilho frio no gelo e o monte de neve que a pancada levantou
-		Spr.seg(o.x - w * .22, y + 12, o.x - w * .08, fl - 30, Color(1, 1, 1, .35), 3)
-		Spr.ellipse(o.x, fl - 4, w * .62, 14, Color(.86, .92, 1))
-		Spr.ellipse(o.x - 6, fl - 8, w * .44, 10, Color(.97, .98, 1))
-		return
-	var sx: float = sin(T * 1.9) * 2.5 if o.st == "shake" else 0.0
-	if o.st in ["shake", "fall"]:
-		var sk: float = clamp(o.t / 60.0, 0, 1) if o.st == "shake" else 1.0
-		var pul: float = .8 + .2 * sin(T * .5)
-		Spr.ellipse(o.x, fl + 1, (16 + 26 * sk) * pul, 6, Color(0, .05, .15, .25 + .3 * sk))
-		Spr.ring(o.x, fl - 1, (16 + 24 * sk) * pul, Color(1, .3, .2, .4 + .4 * sk), 2.5, PI, TAU)
-	Spr.glow(o.x, y + ln * .45, 46, Color(.6, .85, 1, .16 + (.2 if o.st == "shake" else 0.0)))
-	if o.st == "fall":
-		for k in 4:
-			Spr.seg(o.x - 6 + k * 4, y - 8 - k * 10, o.x - 6 + k * 4, y - 34 - k * 14, Color(.85, .95, 1, .35 - k * .07), 2)
-	Spr.PR("icicle", o.x - w * .5 + sx, y, w, ln)
-	# reflexo e veios no gelo (volume)
-	Spr.seg(o.x - w * .2 + sx, y + 10, o.x - w * .04 + sx, y + ln * .7, Color(1, 1, 1, .3), 3)
-	if o.st == "shake":
-		if (T / 4) % 2 == 0:
-			Spr.seg(o.x - w * .4, y + 4, o.x - 2, y + 9, Color(1, 1, 1, .85), 2)
-			Spr.seg(o.x + 2, y + 8, o.x + w * .4, y + 3, Color(1, 1, 1, .85), 2)
-		if Polish.FRESH and T % 5 == 0:
-			g.PARTS.append({"x": o.x + randf_range(-30, 30), "y": o.y - 4, "vx": randf_range(-.4, .4), "vy": 1.2, "life": 30, "col": Color(.95, .98, 1, .9)})
-
 ## por cima do Tomé: a superfície da areia movediça (esconde as pernas que afundaram)
 static func draw_front(g: Game, T: int) -> void:
 	var TR: Traps = g.TR
@@ -734,18 +646,7 @@ static func draw_shadows(g: Game, T: int) -> void:
 	if TR == null:
 		return
 	for o in TR.T:
-		if not o.has("gy") or o.x < g.cam - 500 or o.x > g.cam + g.W + 500:
-			continue
-		if o.k == "axe":
-			# machado: sombra da lâmina andando no chão com o balanço e o pé do poste
-			var ab := TR.axe_blade(o)
-			var ah: float = max(0.0, float(o.gy) - ab.y)
-			var aa: float = .45 * clamp(1.0 - ah / 260.0, .25, 1.0)
-			Spr.ellipse(ab.x + ah * .1, float(o.gy) - 1, 26 + ah * .06, 4 + ah * .01, Color(.12, .05, 0, aa))
-			if o.has("frame"):
-				Spr.ellipse(float(o.frame) + 8, float(o.gy) - 1, 22, 4.5, Color(.12, .05, 0, .3))
-			continue
-		if o.k != "swing":
+		if o.k != "swing" or not o.has("gy") or o.x < g.cam - 500 or o.x > g.cam + g.W + 500:
 			continue
 		var e := TR.swing_end(o)
 		var gy: float = o.gy
@@ -1121,68 +1022,19 @@ static func _web(g: Game, o: Dictionary, T: int) -> void:
 	WorldExtras._pc("spider_hang", x + w - 14, sy + 8, 16)
 
 # ---------- rajadas de vento ----------
-## a rajada se anuncia antes: a biruta no poste enche e aponta para trás, o pinheirinho enverga, a neve
-## do chão começa a levantar e os riscos de vento aparecem; na rajada, tudo voa forte para a esquerda
 static func _gust(TR: Traps, o: Dictionary, T: int) -> void:
 	var st: int = TR.gust_state(o)
-	var k: float = TR.gust_k(o)
-	var gy: float = float(o.y) + float(o.h)
-	var fl: float = sin(T * (.35 + k * .5) + o.x) * (.04 + k * .1)
-	# pinheirinho na beira do caminho: enverga com o vento (a base fica plantada)
-	var px: float = float(o.x) + float(o.w) * .62
-	Spr.ellipse(px, gy + 1, 30, 5, Color(.95, .97, 1))
-	Spr.save()
-	Spr.translate(px, gy + 4)
-	Spr.rotate(-k * .32 + fl * .6 + sin(T * .03 + o.x) * .02)
-	Spr.scale(1.0 - k * .06, 1.0)
-	WorldNature.prop("pinheiro", 0, 0, 150)
-	Spr.restore()
-	# biruta no poste, no começo do trecho (o vento vem da direita)
-	var bx: float = float(o.x) + float(o.w) - 18.0
-	Spr.PR("stake", bx - 5, gy - 96, 10, 100, Color(.85, .8, .75))
-	Spr.ellipse(bx, gy - 96, 6, 3, Color(.97, .98, 1))
-	Spr.save()
-	Spr.translate(bx - 2, gy - 90)
-	# murcha (pendurada) no calmo, vai enchendo no aviso e fica esticada para trás na rajada
-	var ang: float = lerpf(PI * .5 - .25, PI * .97, clamp(k * 1.4, 0, 1)) + fl * 2.0
-	Spr.rotate(ang)
-	var fill: float = .45 + .55 * clamp(k * 1.6, 0, 1)
-	var L := 50.0
-	var pts := PackedVector2Array()
-	for t in 6:
-		var u: float = t / 5.0
-		var wv: float = sin(T * .5 - u * 5.0) * 3.0 * k * u
-		pts.push_back(Vector2(u * L, -lerpf(8.0, 5.0 * fill, u) + wv))
-	for t in range(5, -1, -1):
-		var u: float = t / 5.0
-		var wv: float = sin(T * .5 - u * 5.0) * 3.0 * k * u
-		pts.push_back(Vector2(u * L, lerpf(8.0, 5.0 * fill, u) + wv))
-	Spr.poly(pts, Color("#e8702a"))
-	for q in [.28, .64]:
-		var hw: float = lerpf(8.0, 5.0 * fill, q)
-		Spr.poly(PackedVector2Array([Vector2(q * L, -hw), Vector2(q * L + 9, -hw * .95), Vector2(q * L + 9, hw * .95), Vector2(q * L, hw)]), Color(.98, .96, .92))
-	pts.push_back(pts[0])
-	Spr.line(pts, OUT, 1.5)
-	Spr.restore()
-	if k < .03:
+	if st == 0:
 		return
-	# riscos de vento: poucos e fracos no aviso, muitos e fortes na rajada
-	var a: float = .12 + .5 * k
-	var n: int = 4 + int(k * 14)
-	for i in n:
-		var sp: float = 5.0 + 6.0 * k
-		var lx: float = o.x + o.w - fmod(T * sp + i * 97.0, o.w + 160)
-		var ly: float = o.y + fmod(i * 53.0, o.h - 20) + sin(T * .05 + i) * 6
-		var ln: float = 30 + (i % 3) * 18 + k * 30
-		Spr.seg(lx, ly, lx + ln, ly + 1, Color(1, 1, 1, a), 2)
-		if i % 3 == 0:
-			Spr.circle(lx - 6, ly + sin(T * .3 + i) * 4, 2.5, Color(1, 1, 1, a + .2))
-	# neve do chão levantando e voando para trás (só no quadro novo da lógica)
-	if Polish.FRESH and randf() < .25 + k:
-		var sx: float = o.x + randf() * o.w
-		Polish.part("snow", sx, gy - 2, -1.5 - k * 6.0, -randf_range(.5, 2.0 + k * 2.0), 40, Color(.97, .98, 1, .9), {"gy": gy, "size": randf_range(1.6, 3.0)})
-	if Polish.FRESH and st == 2 and randf() < .5:
-		Polish.part("snow", o.x + o.w + 40, o.y + randf() * o.h, -7.0 - randf() * 3.0, randf_range(-.5, .5), 60, Color(1, 1, 1, .85), {"size": randf_range(1.4, 2.4)})
+	var a: float = .2 if st == 1 else .55
+	var n: int = 6 if st == 1 else 16
+	for k in n:
+		var sp: float = 9.0 if st == 2 else 5.0
+		var lx: float = o.x + o.w - fmod(T * sp + k * 97.0, o.w + 120)
+		var ly: float = o.y + fmod(k * 53.0, o.h)
+		Spr.seg(lx, ly, lx + 40 + (k % 3) * 18, ly + 1, Color(1, 1, 1, a), 2)
+		if k % 3 == 0:
+			Spr.circle(lx - 6, ly + sin(T * .3 + k) * 4, 2.5, Color(1, 1, 1, a + .2))
 
 # ---------- ponte de cordas ----------
 static func _bridge(o: Dictionary, T: int) -> void:
@@ -1494,8 +1346,6 @@ static func _tunnel_ceiling(g: Game, T: int) -> void:
 	if ca >= cb:
 		return
 	var y0: float = 350.0
-	var ml: Dictionary = g.L.get("minelights", {})
-	var lamps: Array = ml.get("lamps", [])
 	# teto de rocha com a borda de baixo irregular e pontas (estalactites), sem régua
 	var top := PackedVector2Array([Vector2(ca - 10, y0 - 400)])
 	var bot := PackedVector2Array()
@@ -1528,98 +1378,9 @@ static func _tunnel_ceiling(g: Game, T: int) -> void:
 		if ok:
 			Spr.rect(bx0, y0 + 30, 12, 120, Color("#4e331d"))
 			Spr.rect(bx0 - 14, y0 + 26, 40, 10, Color("#6b4626"))
-			if lamps.has(int(bx0)):
-				# lampião de mineiro aceso (de tempos em tempos): a luz vem do mapa de luz e o
-				# clarão da chama é desenhado na camada de brilho (world_glow)
-				mine_lamp(bx0 + 22, y0 + 36, T, true)
-			elif int(bx0 / 260.0) % 2 == 0:
+			if int(bx0 / 260.0) % 2 == 0:
 				# lampião apagado pendurado
-				mine_lamp(bx0 + 22, y0 + 36, T, false)
+				Spr.seg(bx0 + 22, y0 + 36, bx0 + 22, y0 + 50, Color("#2a2018"), 2)
+				Spr.rr(bx0 + 16, y0 + 50, 12, 16, 3, Color("#5a5048"))
+				Spr.rect(bx0 + 18, y0 + 54, 8, 8, Color(.25, .22, .18))
 		bx0 += 260.0
-	# cristais crescendo na rocha do teto e frestas por onde entra o luar
-	for c in ml.get("crystals", []):
-		if float(c[0]) > ca - 60 and float(c[0]) < cb + 60:
-			_crystals(float(c[0]), float(c[1]), str(c[2]))
-	for mx in ml.get("moon", []):
-		if float(mx) > ca - 80 and float(mx) < cb + 80:
-			_moon_crack(float(mx), y0, T)
-
-## lampião de mineiro pendurado na trave (gancho em (x, y)); aceso: vidro cor de chama
-static func mine_lamp(x: float, y: float, T: int, lit: bool) -> void:
-	var sw: float = sin(T * .03 + x) * .06 if lit else 0.0
-	Spr.save()
-	Spr.translate(x, y)
-	Spr.rotate(sw)
-	Spr.seg(0, 0, 0, 12, Color("#2a2018"), 2)
-	Spr.ring(0, 15, 4, Color("#2a2018"), 1.6)
-	# chapéu de lata, vidro com grade e base
-	Spr.poly(PackedVector2Array([Vector2(-8, 22), Vector2(-4, 16), Vector2(4, 16), Vector2(8, 22)]), OUT)
-	Spr.poly(PackedVector2Array([Vector2(-7, 21), Vector2(-3, 17), Vector2(3, 17), Vector2(7, 21)]), Color("#6a625a"))
-	Spr.rr(-7, 21, 14, 17, 3, OUT)
-	if lit:
-		Spr.rr(-5.5, 22.5, 11, 14, 3, Color(1, .82, .42))
-		Spr.ellipse(0, 31, 2.6, 4.2, Color(1, .97, .8))
-	else:
-		Spr.rr(-5.5, 22.5, 11, 14, 3, Color(.25, .22, .18))
-	Spr.rect(-.8, 21, 1.6, 17, Color(.2, .17, .14, .8))
-	Spr.rect(-8, 37, 16, 4, Color("#4a423c"))
-	Spr.rect(-8, 37, 16, 1.4, Color(1, 1, 1, .16))
-	Spr.restore()
-
-## cachos de cristal na rocha do teto ("c" azul-esverdeado, "v" violeta): prismas apontando para baixo
-static func _crystals(x: float, y: float, k: String) -> void:
-	var base: Color = Color(.45, .85, .95) if k == "c" else Color(.72, .52, .98)
-	var dark: Color = base.darkened(.55)
-	for i in 5:
-		var a: float = -.6 + i * .3 + fposmod(x * .013 + i * .7, .2)
-		var ln: float = (16.0 + fposmod(x * .37 + i * 5.3, 14.0)) * (1.25 if i == 2 else 1.0)
-		var wd: float = 4.0 + fposmod(i * 2.1 + x, 2.5)
-		var bx: float = x - 12 + i * 6
-		var d := Vector2(sin(a), cos(a))
-		var n := Vector2(d.y, -d.x)
-		var p0 := Vector2(bx, y) + n * wd
-		var p1 := Vector2(bx, y) - n * wd
-		var tip := Vector2(bx, y) + d * ln
-		var mid0 := p0 + d * ln * .7
-		var mid1 := p1 + d * ln * .7
-		Spr.poly(PackedVector2Array([p0 + n * 1.2, mid0 + n * 1.2, tip + d * 1.5, mid1 - n * 1.2, p1 - n * 1.2]), OUT)
-		Spr.poly(PackedVector2Array([p0, mid0, tip, mid1, p1]), dark)
-		Spr.poly(PackedVector2Array([p0, mid0, tip, Vector2(bx, y)]), base)
-		Spr.seg(p0.x + d.x * 3, p0.y + d.y * 3, mid0.x - n.x, mid0.y - n.y, Color(1, 1, 1, .55), 1.2)
-	# pedra em volta da base do cacho
-	Spr.ellipse(x, y - 1, 20, 5, Color("#2e2218"))
-
-## fresta no teto da mina: rasgo na rocha mostrando o céu da noite, com raízes penduradas na borda
-static func _moon_crack(x: float, y0: float, T: int) -> void:
-	var pts := PackedVector2Array()
-	var rt := PackedVector2Array()
-	var yy: float = y0 - 330.0
-	while yy <= y0 + 30.0:
-		var u: float = (yy - (y0 - 330.0)) / 360.0
-		var hw: float = 5.0 + u * 13.0 + 3.0 * sin(yy * .09 + x)
-		pts.push_back(Vector2(x - hw + 4.0 * sin(yy * .05 + x * .1), yy))
-		rt.push_back(Vector2(x + hw + 4.0 * sin(yy * .05 + x * .1) + 2.0 * sin(yy * .21), yy))
-		yy += 15.0
-	var outline := PackedVector2Array(pts)
-	for i in range(rt.size() - 1, -1, -1):
-		outline.push_back(rt[i])
-	Spr.poly(outline, Color("#1a2238"))
-	# o céu lá fora: azul da noite clareando para baixo, com duas estrelinhas
-	var inner := PackedVector2Array()
-	for p in pts:
-		inner.push_back(p + Vector2(3, 0))
-	for i in range(rt.size() - 1, -1, -1):
-		inner.push_back(rt[i] - Vector2(3, 0))
-	var cols := PackedColorArray()
-	for p in inner:
-		var u2: float = clamp((p.y - (y0 - 330.0)) / 360.0, 0, 1)
-		cols.push_back(Color(.16, .24, .42).lerp(Color(.42, .55, .78), u2))
-	Spr.ci.draw_polygon(inner, cols)
-	Spr.circle(x + 1, y0 - 250, 1.3, Color(1, 1, .9, .8 + .2 * sin(T * .07)))
-	Spr.circle(x - 3, y0 - 170, 1.0, Color(1, 1, .9, .6 + .3 * sin(T * .05 + 2)))
-	# raízes e capim pendurados na borda de baixo da fresta
-	for k in 4:
-		var rx: float = x - 14 + k * 9
-		var ln: float = 10.0 + fposmod(k * 7.7 + x, 14.0)
-		var sw: float = sin(T * .02 + k) * 2.0
-		Spr.seg(rx, y0 + 28, rx + sw, y0 + 28 + ln, Color("#3b2c1c"), 1.6)

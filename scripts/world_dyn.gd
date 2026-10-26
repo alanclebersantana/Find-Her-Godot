@@ -625,72 +625,7 @@ func _lily_mud(g: Game) -> void:
 		Spr.ABb("sw_lily", 0, 0, p.w + 16, al)
 		Spr.restore()
 	for m in g.MUD:
-		if m.x + m.w < g.cam - 40 or m.x > g.cam + g.W + 40:
-			continue
-		if m.get("pool"):
-			_mud_pool_top(m)
-		else:
-			Spr.strip_at("sw_mud", m.x, m.x, m.x + m.w, m.y - 8, 22)
-		_mud_wet(m)
-
-## poço de lama: superfície grossa e encaroçada (montinhos com luz por cima e sombra embaixo), mais
-## escura e molhada que o chão; afunda um pouco sob as botas do Tomé
-func _mud_pool_top(m: Dictionary) -> void:
-	var y: float = m.y
-	var p: Dictionary = game.player
-	var pcx: float = p.x + p.w / 2
-	var on: bool = p.get("mud", false) and p.onGround
-	var top := PackedVector2Array()
-	var bot := PackedVector2Array()
-	var x: float = m.x - 4
-	while x <= m.x + m.w + 4:
-		var bump: float = sin(x * .09) * 1.6 + sin(x * .23 + 1.0) * 1.0
-		var dent: float = 0.0
-		if on:
-			dent = 4.0 * clamp(1.0 - abs(x - pcx) / 22.0, 0.0, 1.0)
-		top.push_back(Vector2(x, y - 6 + bump + dent))
-		bot.push_back(Vector2(x, y + 12 + sin(x * .07) * 1.5))
-		x += 6
-	var poly := PackedVector2Array(top)
-	for i in range(bot.size() - 1, -1, -1):
-		poly.push_back(bot[i])
-	Spr.poly(poly, Color("#3a2614"))
-	var hi := PackedVector2Array()
-	for q in top:
-		hi.push_back(q + Vector2(0, 1.5))
-	Spr.line(hi, Color(.62, .47, .32, .7), 2.0)
-	# montinhos de lama com luz por cima
-	x = m.x + 10
-	while x < m.x + m.w - 8:
-		var h1: float = WS.hh(x, 184)
-		var r: float = 5.0 + h1 * 7.0
-		Spr.ellipse(x, y + 2, r, r * .45, Color(.2, .13, .07))
-		Spr.ellipse(x - r * .2, y + .5, r * .75, r * .3, Color(.42, .29, .17))
-		Spr.ellipse(x - r * .35, y - .5, r * .3, r * .12, Color(.85, .7, .52, .5))
-		x += 18 + h1 * 20
-
-## lama molhada: brilho úmido parado na superfície e bolhas que incham e estouram devagar
-func _mud_wet(m: Dictionary) -> void:
-	var y: float = m.y - 4
-	var x: float = m.x + 18
-	var i := 0
-	while x < m.x + m.w - 14:
-		var h1: float = WS.hh(x, 181)
-		# brilho molhado (reflexo do céu) em manchas compridas
-		Spr.ellipse(x + h1 * 20, y + 1 + h1 * 3, 12 + h1 * 14, 1.6, Color(1, .93, .8, .2 + .06 * sin(T * .03 + x)))
-		# bolha: incha, estoura num anelzinho e some
-		var per: int = 150 + int(h1 * 90)
-		var ph: int = (T + int(x * 7.0)) % per
-		var bx: float = x + 10 + WS.hh(x, 182) * 20
-		if ph < 46:
-			var r: float = 1.5 + ph / 46.0 * 4.5
-			Spr.ellipse(bx, y + 2 - r * .5, r, r * .75, Color(.3, .2, .11, .95))
-			Spr.ellipse(bx - r * .3, y + 1 - r * .8, r * .35, r * .22, Color(1, .92, .78, .55))
-		elif ph < 60:
-			var u: float = (ph - 46) / 14.0
-			Spr.ring(bx, y + 2, 3 + u * 7, Color(.24, .16, .09, .7 * (1.0 - u)), 1.4)
-		x += 46 + WS.hh(x, 183) * 30
-		i += 1
+		Spr.strip_at("sw_mud", m.x, m.x, m.x + m.w, m.y - 8, 22)
 
 func _vine(v: Dictionary) -> void:
 	# cipó flexível: curva com o embalo (a ponta fica para trás) e enverga quando o Tomé agarra

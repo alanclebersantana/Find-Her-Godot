@@ -65,7 +65,7 @@ var CLUEGOT := {}
 var SPECGOT := {}
 var DRAWN := {}
 var STATS := {"pen": 0, "penTotal": 0}
-var AMB := {"dark": 0.0, "rain": 0.0, "sun": 0.0, "night": 0.0, "tint": "", "tint_c": Color(0, 0, 0, 0), "song": "manha", "fog": 0.0, "wind": 0.0, "snow": 0.0, "snowfall": 0.0}
+var AMB := {"dark": 0.0, "rain": 0.0, "night": 0.0, "tint": "", "tint_c": Color(0, 0, 0, 0), "song": "manha", "fog": 0.0, "wind": 0.0, "snow": 0.0, "snowfall": 0.0}
 var X: Extras
 var M: Mech
 var PR: Props
@@ -96,10 +96,6 @@ var bird_near := false     # algum passarinho voando perto (o Tomé olha para ci
 var iris_t := 0
 var flash_msg := ""
 var flash_t := 0
-## G1 fila de avisos: um aviso no meio da tela por vez; o próximo espera o atual ficar um pouco
-var flash_q: Array = []
-var flash_age := 0
-const FLASH_MIN := 50     # um aviso fica pelo menos ~0,8 s antes de dar a vez ao que está esperando
 var lantern_lit := true
 ## óleo da lanterna (0..1): cresce ao pegar frascos, gasta devagar no escuro; fuel_vis segue aos poucos
 var FUEL := .55
@@ -318,7 +314,7 @@ func load_level(i: int) -> void:
 	cam = clamp(player.x - W / 2, 0, max(0, L.spanX - W))
 	cam_focus = player.y
 	cam_y = clamp(player.y - H * .55, L.top, max(L.top, L.bottom - H))
-	clear_flash()
+	flash_t = 0
 	running = true
 
 func _rest_y(x: float, y: float, reach: float = 48) -> float:
@@ -339,8 +335,6 @@ func _p1_load() -> void:
 	for it in L.get("items", []):
 		var o: Dictionary = it.duplicate()
 		o.got = false
-		# guardado lá dentro de uma toca/galpão ("toca": id): só aparece quando o Pipoca traz
-		o.hidden = it.has("toca")
 		ITEMS.append(o)
 	LOCKS = []
 	for l in L.get("locks", []):
@@ -361,7 +355,6 @@ func _p1_load() -> void:
 	for c in L.get("clues", []):
 		var o: Dictionary = c.duplicate()
 		o.got = CLUEGOT.has(int(c.id))
-		o.hidden = c.has("toca") and not o.got
 		CLUES.append(o)
 	SPECS = []
 	for s in L.get("specials", []):
@@ -396,14 +389,14 @@ func _p1_load() -> void:
 	_comic_triggers()
 	lantern_lit = not L.has("lanternOutX")
 	look_y = 0
-	STATS = {"pen": 0, "penTotal": L.get("coins", []).size(), "pdeath": [0, 0, 0, 0, 0, 0, 0, 0]}
+	STATS = {"pen": 0, "penTotal": L.get("coins", []).size(), "pdeath": [0, 0, 0, 0, 0, 0]}
 
 ## Episódio 2: depois da porta de ferro, a fuga da Isis (o último trecho do episódio)
 func begin_isis() -> void:
 	var sp: Array = L.isisPart.spawn
 	_reset_player(float(sp[0]) - 12, float(sp[1]) - 34)
 	VH.mode = ""
-	clear_flash()
+	flash_t = 0
 	snap_camera()
 	iris_t = 30
 	running = true
@@ -422,17 +415,6 @@ func _reset_player(x: float, y: float, adjust: bool = true) -> void:
 		player.spawnX = player.x
 		player.spawnY = player.y
 	if M:
-		if M.ctrl and X and not X.DOG.is_empty() and X.DOG.st == "ctrl":
-			# voltou à fogueira (ou renasceu) com o jogador no controle do Pipoca: ele volta a
-			# seguir o Tomé (antes ficava parado para sempre onde estava, no estado "controlado")
-			X.DOG.st = "follow"
-			X.DOG.x = player.x + player.w / 2 - 30
-			X.DOG.y = player.y + player.h
-			X.DOG.hy = 0.0
-			X.DOG.erase("jmp")
-			X.TRAIL = [Vector2(X.DOG.x, X.DOG.y)]
-			X.DOG.i = 0
-			M.dig_t = 0
 		M.ctrl = false
 
 func make_body(x: float, y: float) -> Dictionary:
@@ -465,54 +447,8 @@ func kd(k: String) -> bool:
 
 func flash(m: String, t: int = 150) -> void:
 	# avisos curtos: no máximo ~3,5 s (textos longos ganham só um pouquinho a mais)
-	var dur: int = min(t, 150 + min(60, m.length()))
-	if m == "":
-		return
-	# G1: já tem outro aviso na tela: este entra na fila (sem repetir) e o atual encurta para dar a vez
-	# (antes o novo apagava o anterior no meio da leitura, ou os dois brigavam pelo mesmo lugar)
-	if (flash_t > 12 and flash_msg != "") or not flash_q.is_empty():
-		if m == flash_msg and flash_t > 0:
-			return
-		for q in flash_q:
-			if q[0] == m:
-				return
-		if flash_q.size() >= 2:
-			flash_q.pop_front()
-		flash_q.append([m, dur])
-		return
 	flash_msg = m
-	flash_t = dur
-	flash_age = 0
-
-## apaga o aviso e a fila (partida nova, volta à fogueira)
-func clear_flash() -> void:
-	flash_t = 0
-	flash_age = 0
-	flash_q.clear()
-
-## o relógio dos avisos anda um passo (na apresentação de um chefe ele espera: nada por cima da cena)
-func _flash_tick() -> void:
-	if boss_intro():
-		return
-	if flash_t > 0:
-		flash_t -= 1
-		flash_age += 1
-		if not flash_q.is_empty() and flash_age >= FLASH_MIN and flash_t > 12:
-			flash_t = 12
-	elif not flash_q.is_empty():
-		var q: Array = flash_q.pop_front()
-		flash_msg = q[0]
-		flash_t = q[1]
-		flash_age = 0
-
-## algum chefe se apresentando (faixas de cinema, sem cena de diálogo)
-func boss_intro() -> bool:
-	if Polish.g != self:
-		return false
-	for b in Polish.bosses():
-		if b.ref.get("st", "") == "intro":
-			return true
-	return false
+	flash_t = min(t, 150 + min(60, m.length()))
 
 func note(m: String) -> void:
 	if flash_t <= 30:
@@ -524,8 +460,7 @@ static func tutorial_on() -> bool:
 
 ## dica de "como fazer": só aparece com o tutorial ligado
 func tip(m: String, t: int = 150) -> void:
-	# (entra na fila se já houver aviso: antes a dica do chefe se perdia embaixo de outro aviso)
-	if tutorial_on():
+	if tutorial_on() and flash_t <= 30:
 		flash(m, t)
 
 ## mensagem com explicação só no tutorial (sem ele, só o essencial)
@@ -729,9 +664,6 @@ func _hint_text() -> String:
 		if h.get("dogtied") and X.dog_free():
 			continue
 		if h.has("trap") and int(h.trap) < TR.T.size():
-			# armadilha desligada na fase ("off"): a dica dela também some
-			if TR.T[int(h.trap)].get("off"):
-				continue
 			var tst: String = TR.T[int(h.trap)].st
 			if tst in ["down", "used", "done"] or (h.has("trapst") and tst != h.trapst):
 				continue
@@ -798,7 +730,6 @@ func ambient() -> void:
 		AMB.dark = 0.0
 		AMB.rain = 0.0
 		AMB.night = 0.0
-		AMB.sun = 0.0
 		AMB.tint = ""
 		AMB.tint_c = Color(0, 0, 0, 0)
 		AMB.fog = 0.0
@@ -821,8 +752,6 @@ func ambient() -> void:
 		return va + (vb - va) * t
 	AMB.dark = mix.call("dark")
 	AMB.rain = mix.call("rain")
-	# sol entre as nuvens (trechos com "sun"): fachos de luz mesmo no pântano
-	AMB.sun = mix.call("sun")
 	AMB.night = mix.call("night")
 	AMB.snow = mix.call("snow")
 	# na neve, neva de vez em quando: períodos de nevasca e de céu calmo (~45 s por ciclo)
@@ -928,8 +857,7 @@ func period_stars() -> Array:
 		var st := 1
 		if tot == 0 or got >= tot * .8:
 			st += 1
-		var pd: Array = STATS.get("pdeath", [])
-		if i >= pd.size() or pd[i] == 0:
+		if STATS.get("pdeath", [0, 0, 0, 0, 0, 0])[i] == 0:
 			st += 1
 		out.append(st)
 	return out
@@ -952,97 +880,33 @@ func use_available() -> bool:
 		return true
 	return X.near_use() or X.beam_useful()
 
-## capítulos do Episódio 1 (a fase é uma só, dividida pelas fogueiras grandes): o nome que o HUD
-## mostra ("n/N · nome"), o título que aparece ao entrar no capítulo e o da cena da fogueira grande
-## são sempre este mesmo (antes o HUD dizia "Tarde" desde x 3430 e a fogueira dizia "FIM DA MANHÃ")
-const PERIODS1 := ["Manhã no bosque", "Tarde nas copas", "O Pântano", "O Rio", "A Neve", "A Montanha", "Noite na mina"]
+## nome do período do dia em que o Tomé está (a fase é uma só, dividida pelas fogueiras grandes)
+const PERIODS1 := ["Manhã no bosque", "Tarde", "Pântano", "Neve", "Céu", "Noite na mina"]
 var PERIODS: Array = PERIODS1
 ## pistas da fase (Episódio 1: 1..6; Episódio 2: 7..12)
 func clue_ids() -> Array:
 	return L.get("clueIds", [1, 2, 3, 4, 5, 6]) if L else [1, 2, 3, 4, 5, 6]
-## capítulo pela posição: quantas fogueiras grandes ficaram para trás (pela ordem no mapa, não pelo
-## número gravado nelas: acrescentar ou mudar uma fogueira de lugar não embaralha os nomes)
 func period_index() -> int:
-	return chapter_at(amb_x())
-
-func chapter_at(px: float) -> int:
+	var px: float = amb_x()
 	var n := 0
 	for c in CHK:
 		if c.has("rest") and px > c.x + 30:
-			n += 1
+			n = max(n, int(c.rest))
 	return n
 
-## o Episódio 2 marca o período em cada trecho ("per"); o 1 vai pelas fogueiras grandes
-func chapters_by_section() -> bool:
-	for sc in L.get("sections", []):
-		if sc.has("per"):
-			return true
-	return false
-
-## nome do capítulo n (0 = o primeiro)
-func chapter_name(i: int) -> String:
-	if PERIODS.is_empty():
-		return ""
-	return str(PERIODS[clamp(i, 0, PERIODS.size() - 1)])
-
-## quantos capítulos a fase tem (nomes da lista; nunca menos que as fogueiras grandes + 1)
-func chapter_count() -> int:
-	var n := 1
-	for c in CHK:
-		if c.has("rest"):
-			n += 1
-	return PERIODS.size() if chapters_by_section() else max(PERIODS.size(), n)
-
-## onde cada capítulo começa (para o mapa): [[x, índice], ...]
-func chapter_starts() -> Array:
-	var out: Array = [[0.0, 0]]
-	if chapters_by_section():
-		var last := 0
-		for sc in L.get("sections", []):
-			if sc.has("per") and int(sc.per) != last:
-				last = int(sc.per)
-				out.append([float(sc.x), last])
-		return out
-	var xs: Array = []
-	for c in CHK:
-		if c.has("rest"):
-			xs.append(float(c.x))
-	xs.sort()
-	for i in xs.size():
-		out.append([xs[i], i + 1])
-	return out
-
-## capítulo que a fogueira grande "n" fecha (1 = fim do primeiro capítulo), pela ordem no mapa;
-## se duas fogueiras tiverem o mesmo número, vale a que está perto do Tomé
-func rest_ordinal(rn: int) -> int:
-	var xs: Array = []
-	var mine: Array = []
-	for c in CHK:
-		if c.has("rest"):
-			xs.append(float(c.x))
-			if int(c.rest) == rn:
-				mine.append(float(c.x))
-	xs.sort()
-	var x0: float
-	if mine.size() == 1:
-		x0 = mine[0]
-	else:
-		var px: float = player.x + player.w / 2
-		x0 = -1e9
-		for x in xs:
-			if x <= px + 40.0:
-				x0 = x
-	return max(1, xs.find(x0) + 1)
-
-## o nome no topo acompanha o capítulo (a fogueira grande marca o fim de cada um)
+## o nome no topo acompanha o cenário (a fogueira grande marca o fim de cada período)
+const PERIOD_OF := {"manha": 0, "tarde": 1, "chuva": 2, "rio": 2, "neve": 3, "ceu": 4, "noite": 5, "perseguicao": 5, "tunel": 5}
 func period_label() -> String:
 	var px: float = amb_x()
 	var i: int = period_index()
-	if chapters_by_section():
-		for sc in L.get("sections", []):
-			if sc.x <= px and sc.has("per"):
-				i = int(sc.per)
-	return "%d/%d · %s" % [i + 1, chapter_count(), chapter_name(i)]
+	var S: Array = L.get("sections", [])
+	for sc in S:
+		if sc.x <= px:
+			var k: String = sc.get("map", sc.get("bg", sc.get("song", "manha")))
+			if sc.get("bg", "") == "neve" and not sc.has("map"):
+				k = "neve"
+			i = int(sc.per) if sc.has("per") else PERIOD_OF.get(k, i)
+	return "%d/%d · %s" % [i + 1, PERIODS.size(), PERIODS[min(i, PERIODS.size() - 1)]]
 
 ## posição usada para clima e cenário (no trenó, a trilha fica longe do mapa: vale a do morro)
 func amb_x() -> float:
@@ -1184,7 +1048,8 @@ func step() -> void:
 				level_won.emit()
 		return
 	if RD.riding:
-		_flash_tick()
+		if flash_t > 0:
+			flash_t -= 1
 		if shake > 0:
 			shake *= .85
 		RD.step()
@@ -1193,7 +1058,8 @@ func step() -> void:
 		_camera()
 		return
 	if VH and VH.active():
-		_flash_tick()
+		if flash_t > 0:
+			flash_t -= 1
 		if shake > 0:
 			shake *= .85
 		VH.step()
@@ -1210,10 +1076,8 @@ func step() -> void:
 	for k in ["iframe", "vineCD", "actT", "pushT", "leap", "skidT", "hitT"]:
 		if player[k] > 0:
 			player[k] -= 1
-	_flash_tick()
-	# a faixa dos veículos ("MARCO", "CHEGADA!") termina de sumir depois que o passeio acaba
-	if VH:
-		VH.tick_cheer()
+	if flash_t > 0:
+		flash_t -= 1
 	# sem relógio: o tempo só é contado para o resumo do fim (nunca acaba)
 	time_left -= 1
 	var __m := Time.get_ticks_usec()
@@ -2792,12 +2656,12 @@ func _p1_post(pcx: float, _pcy: float) -> void:
 			return
 	# itens, pistas, lápis especiais
 	for it in ITEMS:
-		if not it.got and not it.hidden and abs(it.x - pcx) < 80 and hit(player, R(it.x - 20, it.y - 20, 40, 40)):
+		if not it.got and abs(it.x - pcx) < 80 and hit(player, R(it.x - 20, it.y - 20, 40, 40)):
 			it.got = true
 			give_item(it.id)
 			burst(it.x, it.y, 18, Color("#ffe9a0"))
 	for c in CLUES:
-		if not c.got and not c.hidden and abs(c.x - pcx) < 80 and hit(player, R(c.x - 20, c.y - 20, 40, 40)):
+		if not c.got and abs(c.x - pcx) < 80 and hit(player, R(c.x - 20, c.y - 20, 40, 40)):
 			c.got = true
 			CLUEGOT[int(c.id)] = 1
 			Save.setv("gallery", "c%d" % int(c.id), true)
@@ -3754,7 +3618,7 @@ func die(msg: String) -> void:
 		return
 	lives -= 1
 	if STATS.has("pdeath"):
-		STATS.pdeath[clamp(period_index(), 0, STATS.pdeath.size() - 1)] += 1
+		STATS.pdeath[clamp(period_index(), 0, 5)] += 1
 	shake = 14
 	burst(player.x + player.w / 2, player.y + player.h / 2, 22, Color("#cc5555"))
 	Polish.death_fx(player.x + player.w / 2, player.y + player.h / 2)
@@ -3789,7 +3653,6 @@ func _back_to_fire() -> void:
 	X.breath = Extras.BREATH
 	snap_camera()
 	_tick_fx()
-	clear_flash()
 	flash("De volta à fogueira.")
 
 func respawn() -> void:
@@ -3816,8 +3679,6 @@ func respawn() -> void:
 	VH.on_respawn()
 	X.breath = Extras.BREATH
 	snap_camera()
-	# (o que estava na fila ficou para trás: a volta mostra só o porquê)
-	clear_flash()
 	flash(msg + " Vidas: %d" % lives)
 
 # ======================================================================
@@ -3870,7 +3731,7 @@ func restore_run(d: Dictionary) -> void:
 					s.y = s.y2
 	MV.restore(d.get("mv", {}))
 	shake = 0
-	clear_flash()
+	flash_t = 0
 	for c in COINS:
 		if d.get("coins", []).has(c.ci):
 			c.got = true

@@ -127,55 +127,41 @@ static func _crown_feather() -> void:
 		Spr.circle(bx, -5, 1.2, Color("#ffe9a0"))
 
 static func _crown_pearl(T: int) -> void:
-	# coroa de ouro com as pérolas por cima (antes era toda verde-água e as pérolas brancas sumiam na água)
-	var gold := Color("#e8b030")
-	var gold_d := Color("#a8701a")
-	var gold_l := Color("#ffe28a")
-	var ol := Color("#4a2c08")
-	# fundo dourado escuro (fecha os vãos entre as pontas)
-	_cp(PackedVector2Array([Vector2(-18, -3), Vector2(-17, -14), Vector2(-9, -19), Vector2(0, -21), Vector2(9, -19), Vector2(17, -14), Vector2(18, -3)]), gold_d, 1.6, ol)
-	# cinco pontas de ouro em forma de concha, cada uma com uma pérola na ponta
-	var tips := [[-14.0, -19.0], [-7.0, -24.5], [0.0, -30.0], [7.0, -24.5], [14.0, -19.0]]
+	# capa de escamas (fecha os vãos)
+	_cp(PackedVector2Array([Vector2(-18, -3), Vector2(-17, -16), Vector2(-9, -22), Vector2(0, -24), Vector2(9, -22), Vector2(17, -16), Vector2(18, -3)]), Color("#2c7480"), 1.6, Color("#0e2e36"))
+	for row in 3:
+		var yy: float = -8 - row * 5.0
+		var half: float = 13.0 - row * 3.5
+		var sx: float = -half
+		while sx <= half + .1:
+			Spr.circle(sx, yy, 3.0, Color("#3f9aa2") if (row + int(sx)) % 2 == 0 else Color("#358c96"))
+			Spr.ring(sx, yy - .4, 2.2, Color("#a8f0ec", .7), 1.0, PI * 1.15, PI * 1.7)
+			sx += 5.2
+	# pontas com pérolas
+	var tips := [[-14.0, -19.0], [-7.0, -25.0], [0.0, -31.0], [7.0, -25.0], [14.0, -19.0]]
 	for i in tips.size():
 		var tx: float = tips[i][0]
 		var ty: float = tips[i][1]
-		var bw: float = 5.2 if i == 2 else 4.6
-		var pts := PackedVector2Array([Vector2(tx - bw, -7), Vector2(tx - bw * .55, ty + 6), Vector2(tx, ty + 2.5), Vector2(tx + bw * .55, ty + 6), Vector2(tx + bw, -7)])
-		_cp(pts, gold, 1.3, ol)
-		# luz do lado esquerdo e uma nervura de concha no meio
-		Spr.poly(PackedVector2Array([Vector2(tx - bw * .8, -8), Vector2(tx - bw * .45, ty + 6.5), Vector2(tx - .6, ty + 4), Vector2(tx - 1.2, -8)]), Color(gold_l, .55))
-		Spr.seg(tx, ty + 5, tx, -8, Color(gold_d, .9), 1.0)
-		var r: float = 3.9 if i == 2 else 3.1
+		_cp(PackedVector2Array([Vector2(tx - 4, ty + 9), Vector2(tx, ty + 2), Vector2(tx + 4, ty + 9)]), Color("#3a9aa0"), 1.2, Color("#0e2e36"))
+		var r: float = 3.9 if i == 2 else 3.2
 		Spr.circle(tx, ty, r + .9, Color("#2a2030"))
-		Spr.circle(tx, ty, r, Color("#f4f0fa"))
+		Spr.circle(tx, ty, r, Color("#f2eefa"))
 		Spr.circle(tx + r * .25, ty + r * .3, r * .55, Color("#d8cce8"))
 		Spr.circle(tx - r * .35, ty - r * .35, r * .32, Color(1, 1, 1, .95))
-	# aro de ouro com escamas gravadas e um fio de perolinhas
-	_cp(PackedVector2Array([Vector2(-18, -9), Vector2(18, -9), Vector2(19, -1), Vector2(14, 1.5), Vector2(-14, 1.5), Vector2(-19, -1)]), gold, 1.6, ol)
-	Spr.rect(-17, -3, 34, 3.2, gold_d)
-	Spr.seg(-16.5, -8, 16.5, -8, Color(gold_l, .9), 1.2)
+	# aro de escamas
+	_cp(PackedVector2Array([Vector2(-18, -9), Vector2(18, -9), Vector2(19, -1), Vector2(14, 1.5), Vector2(-14, 1.5), Vector2(-19, -1)]), Color("#3a9aa0"), 1.6, Color("#0e2e36"))
 	var bx := -15.0
 	while bx <= 15.1:
-		Spr.ring(bx, -4.4, 2.6, Color(gold_d, .9), 1.0, PI * .05, PI * .95)
+		Spr.circle(bx, -3.2, 3.4, Color("#2c8088"))
+		Spr.ring(bx, -3.2, 3.4, Color("#0e2e36"), 1.0, PI, TAU)
+		Spr.ring(bx, -3.6, 2.4, Color("#a8f0ec", .8), 1.0, PI * 1.15, PI * 1.6)
 		bx += 5.0
-	var qx := -14.0
-	while qx <= 14.1:
-		Spr.circle(qx, -.6, 1.55, Color("#3a2a20"))
-		Spr.circle(qx, -.7, 1.2, Color("#f2eefa"))
-		Spr.circle(qx - .4, -1.1, .45, Color(1, 1, 1, .9))
-		qx += 4.0
-	# pérola grande no meio, num engaste de ouro, com um brilho que passeia
-	Spr.circle(0, -9.5, 6.2, ol)
-	Spr.circle(0, -9.5, 5.6, gold)
-	Spr.circle(0, -9.5, 4.6, Color("#2a2030"))
-	Spr.circle(0, -9.5, 4.0, Color("#f6f2ff"))
-	Spr.circle(.9, -8.5, 2.4, Color("#e2d6f0"))
+	# pérola grande no meio, com um brilho que passeia
+	Spr.circle(0, -9.5, 5.2, Color("#2a2030"))
+	Spr.circle(0, -9.5, 4.4, Color("#f6f2ff"))
+	Spr.circle(.9, -8.5, 2.6, Color("#e2d6f0"))
 	var sh: float = sin(T * .08) * 1.2
-	Spr.circle(-1.4 + sh, -10.8, 1.2, Color(1, 1, 1, .95))
-	# cintilada no ouro de vez em quando
-	var tw: float = clamp(sin(T * .05) * 3.0 - 2.0, 0.0, 1.0)
-	if tw > 0.0:
-		Spr.circle(-10, -7.6, 1.4 * tw, Color(1, 1, .9, .9 * tw))
+	Spr.circle(-1.5 + sh, -11, 1.3, Color(1, 1, 1, .95))
 
 static func _crown_ice(T: int) -> void:
 	# geada de fundo (fecha os vãos entre os cristais)
@@ -612,15 +598,7 @@ static func _bear(g: Game, K: Kings, T: int) -> void:
 	if float(rk.x) + 400 < cx0 or float(b.den) - 300 > cx1:
 		return
 	_bear_obs(g, K, T)
-	if b.get("hide", false) and not b.done:
-		# ainda lá dentro da toca: só os olhos brilhando no escuro (piscando)
-		if (T / 6) % 14 != 0:
-			var ex: float = float(b.den) + 2.0
-			var ey: float = float(b.gy) - 100.0
-			for sd in [-1.0, 1.0]:
-				Spr.glow(ex + sd * 11, ey, 10, Color(1, .75, .3, .45))
-				Spr.ellipse(ex + sd * 11, ey, 4, 2.6, Color(1, .86, .45))
-	elif not (b.done or b.st == "wait"):
+	if not (b.done or b.st == "wait"):
 		_bear_body(g, K, T)
 	_bear_rock(g, K, T)
 
@@ -769,10 +747,6 @@ static func _bear_body(g: Game, K: Kings, T: int) -> void:
 		"intro", "chase", "recover", "flee":
 			walk = true
 	var tint := Color(1, .55, .5) if b.red > 0 and (T / 3) % 2 == 0 else Color(1, 1, 1)
-	# saindo da toca: começa escuro (na sombra da caverna) e vai clareando
-	var dim: float = float(b.get("dim", 0.0))
-	if dim > 0.0:
-		tint = tint.lerp(Color(.16, .17, .24), dim * .85)
 	var k: float = .35 + .25 * sin(T * .5)
 	# avisos no chão: a mancha da patada, a seta da investida
 	if b.st == "rear":

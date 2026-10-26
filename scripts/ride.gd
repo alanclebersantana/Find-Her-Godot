@@ -94,8 +94,7 @@ func _start() -> void:
 	hits = 0
 	cp_i = -1
 	_begin(float(H.ride0), 1.0)
-	# N5: a explicação só nos primeiros segundos; depois o HUD mostra só os ícones dos controles
-	g.flash_tut("Segure firme!", "Segure firme! PULAR salta nas marcas de cascos, ↓ abaixa sob galhos e cordas, → acelera.", 200)
+	g.flash_tut("Segure firme!", "Segure firme! PULAR salta (pule nas marcas de cascos na neve). ↓ abaixa sob galhos e cordas. → acelera, ← segura.", 240)
 
 ## marcos da trilha (bandeiras): onde a cavalgada recomeça depois de ficar sem corações
 func cps() -> Array:
@@ -475,7 +474,7 @@ func _finish() -> void:
 		g.X.DOG.st = "door"
 		g.X.DOG.x = hx - 30
 		g.X.DOG.y = 500.0
-	g.flash("O cavalo voltou para a vila. Daqui eu sigo a pé.", 200)
+	g.flash("O cavalo voltou para a vila. A trilha da mina começa aqui.", 200)
 
 ## o cavalo indo embora depois da cavalgada
 func post() -> void:

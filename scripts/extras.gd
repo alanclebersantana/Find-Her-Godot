@@ -332,8 +332,7 @@ func weather_amb() -> void:
 		return
 	match weather:
 		"garoa":
-			# (no trecho de sol entre as nuvens a garoa dá uma trégua)
-			g.AMB.rain = max(g.AMB.rain, .32 * clamp(1.0 - float(g.AMB.get("sun", 0.0)) * 1.5, 0.0, 1.0))
+			g.AMB.rain = max(g.AMB.rain, .32)
 		"neblina":
 			g.AMB.fog = .5
 		"vento":
@@ -600,8 +599,7 @@ func cine_end(id: String) -> void:
 				BOSS.y = 500.0
 				BOSS.st = "idle"
 			BOSS.t = 0
-			# (o como fazer fica no pergaminho do canto durante a luta: aqui só o objetivo, sem repetir)
-			g.flash("Faça o Javali-Rei bater a cabeça 4 vezes!", 200)
+			g.flash_tut("Faça o Javali-Rei bater a cabeça 4 vezes!", "Fique no chão para ele investir. Quando ele correr, pule para um galho: ele bate a cabeça na árvore ou no barranco. 4 batidas!", 260)
 		"brutus":
 			# sem o "pouso" do javali (o Brutus não cai do alto: nada de tremor e baque depois da cena)
 			if BOSS.st == "intro":
@@ -613,8 +611,7 @@ func cine_end(id: String) -> void:
 		"vargas":
 			g.tip("Atrás dele! Pule os buracos e abaixe sob as vigas.", 180)
 		"cao":
-			# (a toca logo adiante tem a sua própria dica: aqui só a notícia)
-			g.flash("O Pipoca agora vai com você!", 200)
+			g.flash_tut("O Pipoca agora vai com você!", "O Pipoca agora vai com você! Perto de uma toca, toque ✦ USAR e ele busca o que tiver lá dentro.", 260)
 
 # ======================================================================
 #  CHEFE: O JAVALI-REI
@@ -963,7 +960,6 @@ func restore(d: Dictionary) -> void:
 		for tc in TOCAS:
 			if tc.get("id", 1) == id:
 				tc.done = true
-				toca_bring(tc, Vector2(float(tc.x) - 40, float(tc.y) - 24))
 	if d.get("dog", false) and not DOG.is_empty():
 		DOG.st = "follow"
 		DOG.x = -9999.0   # aparece perto do Tomé no primeiro passo
@@ -1006,33 +1002,6 @@ func _deliver_toca() -> void:
 			d.hidden = false
 			d.x = p.x + p.w / 2
 			d.y = p.y + 10
-	toca_bring(tc, Vector2(p.x + p.w / 2, p.y + 10))
-
-## objetos e pistas guardados lá dentro ("toca": id no item/pista) aparecem no ponto dado
-## (no Tomé, que pega na hora; ao continuar um jogo salvo, na boca da toca)
-func toca_bring(tc: Dictionary, at: Vector2) -> bool:
-	var any := false
-	for arr in [g.ITEMS, g.CLUES]:
-		for o in arr:
-			if o.get("hidden") and o.get("toca", -1) == tc.get("id", 1):
-				o.hidden = false
-				if o.got:
-					continue
-				o.x = at.x
-				o.y = at.y
-				o.ry = g._rest_y(at.x, at.y)
-				any = true
-	if any:
-		g.note("O Pipoca trouxe lá de dentro!")
-	return any
-
-## o que a toca guarda (o desenho que o Pipoca leva na boca)
-func toca_carry_spr(tc) -> String:
-	if tc is Dictionary:
-		for it in g.ITEMS:
-			if it.get("toca", -1) == tc.get("id", 1) and Spr.has("it_" + it.id):
-				return "it_" + it.id
-	return "drawing"
 
 func _use_toca() -> bool:
 	var p: Dictionary = g.player
@@ -1090,10 +1059,8 @@ func _dog() -> void:
 				DOG.y = feet
 				_resync()
 		"stay":
-			# segurando uma placa: quando o Tomé já foi embora (passou o portão e seguiu), levanta e vai
-			# atrás dele (pela portinhola, se houver); antes só levantava a 1400 px e parecia esquecido
 			DOG.moving = false
-			if dog_dist() > 600:
+			if dog_dist() > 1400:
 				DOG.st = "follow"
 				_resync()
 		"tied":

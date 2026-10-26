@@ -305,7 +305,6 @@ func __draw_raw() -> void:
 	# sombras de nuvens passando devagar pelo chão (de dia, ao ar livre; somem com chuva e à noite)
 	if not under and not low:
 		var day: float = FxClock.wsum(nw, ["bosque", "tarde", "moinho"]) + float(nw.get("neve", 0.0)) * .6
-		day = min(1.0, day + float(g.AMB.get("sun", 0.0)))   # sol entre nuvens no pântano
 		day *= clamp(1.0 - g.AMB.rain * 4.0, 0, 1) * clamp(1.0 - dark * 6.0, 0, 1)
 		if day > .02:
 			var sc: Color = FxClock.blend(nw, SHADOW_C, Color(0, .02, .08))

@@ -126,11 +126,11 @@ func __draw_raw() -> void:
 			Spr.A("drawing", 0, 0, .6)
 			Spr.restore()
 	for it in g.ITEMS:
-		if it.got or it.get("hidden") or it.x < x0 - 60 or it.x > x1 + 60:
+		if it.got or it.x < x0 - 60 or it.x > x1 + 60:
 			continue
 		_ground_obj("it_" + it.id, it, .6, Color(1, .94, .74, .5), false)
 	for c in g.CLUES:
-		if c.got or c.get("hidden") or c.x < x0 - 60 or c.x > x1 + 60:
+		if c.got or c.x < x0 - 60 or c.x > x1 + 60:
 			continue
 		var flat: bool = int(c.id) in [2, 3, 4, 6]
 		var cy: float = _ground_obj("cl_%d" % int(c.id), c, .55, Color(.67, .86, 1, .6), flat)
@@ -154,6 +154,52 @@ func __draw_raw() -> void:
 		_water(g, a, b5, s.y, depth, Color(.42, .86, .16, .9), Color(.08, .26, .04, .97), T, false, 0.0, "s%d" % g.SWAMP.find(s), s.x, s.x + s.w)
 		if not s.get("fumes"):
 			_shade_under(s.y + depth, Color(.02, .03, .08, g.AMB.dark * .45))
+		var deep: bool = depth >= 100.0
+		if deep:
+			# brejo fundo visto de lado: a água turva escurece para baixo (nada de bloco verde chapado),
+			# com uns fiapos de lodo boiando no meio
+			var my: float = s.y + 40.0
+			var by1: float = s.y0 + s.h
+			# algas do fundo, escuras, balançando devagar (o lodo de baixo escurece as pontas de baixo)
+			var ak: float = floor(a / 90.0) * 90.0 - 90.0
+			while ak < b5 + 90.0:
+				var ax: float = ak + WorldExtras.h(ak, 21) * 50.0
+				var ah: float = min(depth - 60.0, 60.0 + WorldExtras.h(ak, 22) * 90.0)
+				if ax > s.x + 24 and ax < s.x + s.w - 24 and ah > 40.0:
+					var aw: float = ah * .32
+					var sw2: float = sin(T * .025 + ax * .05) * 6.0
+					for k in 5:
+						var v0: float = k / 5.0
+						var v1: float = (k + 1) / 5.0
+						Spr.PB("alga%d" % int(WorldExtras.h(ak, 23) * 6), ax - aw / 2 + sw2 * pow(v0, 1.5), by1 - 8 - ah * v1, aw, ah / 5.0 + 1.5, 1.0 - v1, 1.0 - v0, Color(.35, .5, .22, .7))
+				ak += 90.0
+			Spr.vgrad(a, my, b5 - a, 24.0, Color(.13, .2, .09, 0), Color(.13, .2, .09, .42))
+			Spr.vgrad(a, my + 24.0, b5 - a, max(0.0, by1 - my - 24.0), Color(.13, .2, .09, .42), Color(.02, .07, .03, .85))
+			var lk: float = floor(a / 70.0) * 70.0
+			while lk < b5:
+				var lx2: float = lk + WorldExtras.h(lk, 11) * 40.0
+				if lx2 > a + 8 and lx2 < b5 - 8 and lx2 > s.x + 20 and lx2 < s.x + s.w - 20:
+					var ly2: float = s.y + 70.0 + WorldExtras.h(lk, 12) * max(10.0, depth - 120.0) + sin(T * .02 + lk) * 4.0
+					Spr.ellipse(lx2, ly2, 9 + WorldExtras.h(lk, 13) * 8, 2.2, Color(.3, .5, .16, .22))
+				lk += 70.0
+		if s.get("fumes") or deep:
+			# fundo do lago: leito de lama irregular com pedrinhas (nada de linha reta)
+			var bed := PackedVector2Array()
+			var bx2: float = a
+			var by0: float = s.y0 + s.h
+			while bx2 <= b5 + 12:
+				var u2: float = clamp((bx2 - s.x) / max(1.0, float(s.w)), 0.0, 1.0)
+				var dip: float = sin(u2 * PI) * 26.0
+				bed.push_back(Vector2(min(bx2, b5), by0 - 34 + 26 - dip + 5 * sin(bx2 * .07) + 3 * sin(bx2 * .19)))
+				bx2 += 12
+			bed.push_back(Vector2(b5, by0 + 4))
+			bed.push_back(Vector2(a, by0 + 4))
+			Spr.poly(bed, Color("#2e2410"))
+			var pk: float = floor(a / 46.0) * 46.0
+			while pk < b5:
+				if pk > s.x + 12 and pk < s.x + s.w - 12 and WorldExtras.h(pk, 7) > .55:
+					Spr.P("peb%d" % (int(pk) % 3), pk, by0 - 6 - sin(clamp((pk - s.x) / float(s.w), 0, 1) * PI) * 18, 16, false, 0.0, Color(.55, .65, .4))
+				pk += 46
 		if s.get("fumes"):
 			# vapor de veneno subindo (não deixa planar por cima)
 			for k in 7:
@@ -185,13 +231,6 @@ func __draw_raw() -> void:
 		_rain_rings(g, a, b5, s.x, s.x + s.w, T, true, last_top)
 	_projectiles(g, T)
 	_extras(g, T)
-	# toca embaixo da parede do galpão (à noite): o aviso fica por cima do escuro
-	if g.X:
-		var tp: Dictionary = g.player
-		for tc in g.X.TOCAS:
-			if tc.get("wall") and not tc.done and not tp.get("dog") and abs(tp.x + tp.w / 2 - tc.x) < 80 and abs(tp.y + tp.h - tc.y) < 50:
-				var lbl := "✦ BUSCA, PIPOCA!" if g.X.dog_free() else "?"
-				Spr.text(lbl, tc.x, tc.y - 78 + sin(T * .15) * 3, 15, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
 	# manivela: aviso e barrinha de quanto a porta já subiu (por cima do escuro da mina)
 	for c in g.CRANKS:
 		if not c.done and g.near_crank() == c:
@@ -216,9 +255,6 @@ func __draw_raw() -> void:
 					Spr.circle(o.x + d[0] * o.w, o.cap + 8 + d[1] * o.w, d[2] * o.w * .6, Color(.85, 1, .95, .35))
 	# no túnel: gotas pingando do teto e poeira dançando na luz da lanterna
 	var tn: Array = g.L.get("tunnel", [])
-	var ml: Dictionary = g.L.get("minelights", {})
-	if not ml.is_empty() and tn.size() >= 2 and float(tn[1]) > x0 - 200 and float(tn[0]) < x1 + 200:
-		_mine_glows(ml, x0, x1, T)
 	if tn.size() >= 2 and float(tn[1]) > x0 and float(tn[0]) < x1:
 		for k in 9:
 			var dx: float = float(tn[0]) + fposmod(k * 433.0 + 97.0, float(tn[1]) - float(tn[0]))
@@ -321,51 +357,6 @@ func __draw_raw() -> void:
 		Spr.AB("o_bush_gold", -bsh.w / 2 - 20, -84, bsh.w + 40, 84, .35 if near else 1.0)
 		Spr.restore()
 		# folhinhas soltas: AmbientFx._tick_sparkles (passo de física)
-
-## luzes do túnel escuro (por cima da escuridão): chama dos lampiões de mineiro, cristais pulsando
-## devagar e o facho do luar descendo pela fresta do teto, com poeira flutuando nele
-func _mine_glows(ml: Dictionary, x0: float, x1: float, T: int) -> void:
-	for lx in ml.get("lamps", []):
-		var x: float = float(lx) + 22.0
-		if x < x0 - 80 or x > x1 + 80:
-			continue
-		var fl: float = .5 + .5 * sin(T * .31 + x) * sin(T * .13 + x * .7)
-		var sw: float = sin(T * .03 + x) * .06
-		var c := Vector2(x, 386.0) + Vector2(sin(-sw), cos(sw)) * 31.0
-		Spr.glow(c.x, c.y, 44 + fl * 4, Color(1, .7, .32, .22 + fl * .06))
-		Spr.glow(c.x, c.y, 13, Color(1, .92, .65, .55 + fl * .15))
-	for cr in ml.get("crystals", []):
-		var cx: float = float(cr[0])
-		if cx < x0 - 60 or cx > x1 + 60:
-			continue
-		var cc: Color = Color(.45, .9, 1) if str(cr[2]) == "c" else Color(.75, .55, 1)
-		var pu: float = .5 + .5 * sin(T * .025 + cx * .01)
-		Spr.glow(cx, float(cr[1]) + 14, 30, Color(cc.r, cc.g, cc.b, .16 + pu * .12))
-		if (T + int(cx)) % 140 < 12:
-			var u: float = ((T + int(cx)) % 140) / 12.0
-			Spr.glow(cx - 6 + fposmod(cx, 12.0), float(cr[1]) + 18, 5 + u * 4, Color(1, 1, 1, .7 * (1.0 - u)))
-	for mx in ml.get("moon", []):
-		var x2: float = float(mx)
-		if x2 < x0 - 120 or x2 > x1 + 120:
-			continue
-		# facho: estreito na fresta, abrindo até o chão, quase transparente
-		var top_y := 384.0
-		var bot_y := 500.0
-		var beam := PackedVector2Array([Vector2(x2 - 14, top_y), Vector2(x2 + 14, top_y), Vector2(x2 + 58, bot_y), Vector2(x2 - 34, bot_y)])
-		var a0: float = .15 + .03 * sin(T * .02 + x2)
-		Spr.ci.draw_polygon(beam, PackedColorArray([Color(.72, .84, 1, a0 * Spr.alpha), Color(.72, .84, 1, a0 * Spr.alpha), Color(.72, .84, 1, .03 * Spr.alpha), Color(.72, .84, 1, .03 * Spr.alpha)]))
-		var core := PackedVector2Array([Vector2(x2 - 5, top_y), Vector2(x2 + 5, top_y), Vector2(x2 + 24, bot_y), Vector2(x2 - 4, bot_y)])
-		Spr.ci.draw_polygon(core, PackedColorArray([Color(.85, .92, 1, .12 * Spr.alpha), Color(.85, .92, 1, .12 * Spr.alpha), Color(.85, .92, 1, 0), Color(.85, .92, 1, 0)]))
-		# mancha de luar no chão
-		Spr.ellipse(x2 + 12, bot_y - 1, 52, 7, Color(.75, .86, 1, .12))
-		Spr.ellipse(x2 + 12, bot_y - 1, 26, 4, Color(.85, .92, 1, .12))
-		# poeira descendo devagar dentro do facho
-		for k in 7:
-			var ph: float = fposmod(T * (.25 + k * .03) + k * 31.0, 116.0)
-			var u2: float = ph / 116.0
-			var hw: float = lerpf(12.0, 44.0, u2)
-			var px: float = x2 + lerpf(0.0, 12.0, u2) + sin(T * .02 + k * 2.1) * hw * .7
-			Spr.circle(px, top_y + ph, 1.1, Color(.9, .95, 1, .55 * sin(u2 * PI)))
 
 ## beirada do buraco que aparece até no escuro: contorno claro seguindo a terra que desmorona e
 ## pedrinhas soltas caindo da borda
@@ -538,163 +529,10 @@ var last_top := PackedVector2Array()
 func _shade_under(bottom: float, c: Color) -> void:
 	if last_top.size() < 2 or c.a <= 0.0:
 		return
-	# sem pontos repetidos (as pontas recortadas da onda repetem o x) e com o fundo abaixo da onda
-	var pts := PackedVector2Array()
-	var lo: float = bottom
-	for q in last_top:
-		if pts.size() > 0 and q.x <= pts[pts.size() - 1].x + .01:
-			continue
-		pts.push_back(q)
-		lo = max(lo, q.y + 2.0)
-	if pts.size() < 2:
-		return
-	pts.push_back(Vector2(pts[pts.size() - 1].x, lo))
-	pts.push_back(Vector2(pts[0].x, lo))
+	var pts := last_top.duplicate()
+	pts.push_back(Vector2(last_top[last_top.size() - 1].x, bottom))
+	pts.push_back(Vector2(last_top[0].x, bottom))
 	Spr.poly(pts, c)
-
-## leito do brejo em x: rampa de lama subindo até as margens (perto da beira dá para ver o fundo)
-## e plano no meio, com umas ondulações. top = onde encosta no barranco; fl = fundo do meio
-static func _bed_y(x: float, sx0: float, sx1: float, ramp: float, top: float, fl: float) -> float:
-	var e: float = min(x - sx0, sx1 - x)
-	var u: float = smoothstep(0.0, ramp, e)
-	return lerpf(top, fl, u) + (4.0 * sin(x * .05) + 2.5 * sin(x * .13)) * u
-
-## brejo tóxico visto de lado: nada de bloco verde chapado. A água turva escurece com a profundidade,
-## o leito de lama (com uma camada de lodo por cima, pedrinhas e gravetos afundados) sobe em rampa até
-## as margens, algas escuras presas no fundo balançam devagar, os caules das vitórias-régias descem
-## até a lama e fiapos de lodo boiam no meio. [a, b] = faixa visível
-func _toxic_depth(g: Game, s: Dictionary, a: float, b: float, T: int) -> void:
-	var y: float = s.y
-	var sx0: float = s.x
-	var sx1: float = s.x + s.w
-	var bot: float = float(s.y0) + float(s.h)
-	var depth: float = bot - y
-	if depth < 20.0 or b <= a:
-		return
-	var murk := Color(.05, .1, .045)
-	var low: float = g.cam_y + g.H + 80.0
-	# 1) água turva: continua a cor da faixa pintada da superfície (verde-oliva) e escurece para baixo
-	# (antes, abaixo da faixa, era um retângulo verde-limão liso)
-	var c0 := Color(.29, .36, .2)
-	var c1 := Color(.1, .16, .07)
-	var f0: float = y + 44.0
-	var dA: float = min(depth, 230.0)
-	if f0 + 18.0 < y + depth:
-		Spr.vgrad(a, f0, b - a, 18.0, Color(c0.r, c0.g, c0.b, 0), c0)
-		Spr.vgrad(a, f0 + 18.0, b - a, max(0.0, y + dA - f0 - 18.0), c0, c1)
-		if depth > dA and y + dA < low:
-			Spr.vgrad(a, y + dA, b - a, min(depth, low - y) - dA, c1, murk)
-	# faixas de luz fracas entrando na água turva, balançando devagar
-	var rk: float = floor(a / 130.0) * 130.0
-	while rk < b:
-		var r0: float = rk + 40.0 + WorldExtras.h(rk, 31) * 40.0
-		var lean: float = sin(T * .006 + rk * .02) * 10.0
-		var rl: float = min(depth - 10.0, 150.0)
-		if r0 > a and r0 < b - 24 and r0 > sx0 + 30 and r0 < sx1 - 50 and rl > 30.0:
-			var ra: float = .05 + .025 * sin(T * .018 + rk * .01)
-			Spr.ci.draw_polygon(PackedVector2Array([Vector2(r0, y + 10), Vector2(r0 + 16, y + 10), Vector2(r0 + 40 + lean, y + rl), Vector2(r0 + 18 + lean, y + rl)]),
-				PackedColorArray([Color(.85, 1, .6, ra), Color(.85, 1, .6, ra), Color(.85, 1, .6, 0), Color(.85, 1, .6, 0)]))
-		rk += 130.0
-	# leito: encosta no barranco um pouco abaixo da superfície e desce até o fundo
-	var ramp: float = clamp(s.w * .3, 18.0, 180.0)
-	var btop: float = y + min(depth * .45, 38.0)
-	var bfl: float = bot - 8.0
-	var fd: float = max(1.0, bfl - y)
-	# 2) algas escuras presas no fundo (atrás do leito: a base some na lama)
-	var ak: float = floor(a / 64.0) * 64.0 - 64.0
-	while ak < b + 64.0:
-		var ax: float = ak + WorldExtras.h(ak, 21) * 40.0
-		if ax > sx0 + 10 and ax < sx1 - 10 and WorldExtras.h(ak, 24) < .8:
-			var base: float = _bed_y(ax, sx0, sx1, ramp, btop, bfl) + 6.0
-			var room: float = base - y - 22.0
-			var ah: float = min(room, 34.0 + WorldExtras.h(ak, 22) * 70.0)
-			if ah > 22.0 and base - ah < low:
-				var aw: float = ah * .34
-				var sw2: float = sin(T * .025 + ax * .05) * 5.0 + sin(T * .041 + ax * .11) * 2.0
-				var dk: float = clamp((base - y) / fd, 0.0, 1.0)
-				var ac := Color(.36, .52, .2, .8).lerp(Color(.12, .2, .08, .8), dk * .7)
-				for k in 5:
-					var v0: float = k / 5.0
-					var v1: float = (k + 1) / 5.0
-					Spr.PB("alga%d" % int(WorldExtras.h(ak, 23) * 6), ax - aw / 2 + sw2 * pow((v0 + v1) * .5, 1.5), base - ah * v1, aw, ah / 5.0 + 1.5, 1.0 - v1, 1.0 - v0, ac)
-		ak += 64.0
-	# 3) o leito de lama: mais claro perto da superfície, sumindo no escuro lá embaixo
-	var bed := PackedVector2Array()
-	var cols := PackedColorArray()
-	var mud := Color(.36, .29, .14)
-	var xs: Array = [a]
-	var x: float = floor(a / 12.0) * 12.0 + 12.0
-	while x < b - 2.0:
-		xs.append(x)
-		x += 12.0
-	xs.append(b)
-	var ymax: float = btop
-	var ymin: float = bfl + 20.0
-	for xx in xs:
-		var by: float = _bed_y(xx, sx0, sx1, ramp, btop, bfl)
-		ymax = max(ymax, by)
-		ymin = min(ymin, by)
-		bed.push_back(Vector2(xx, by))
-		cols.push_back(mud.lerp(murk, .08 + .7 * clamp((by - y) / fd, 0.0, 1.0)))
-	var top_n: int = bed.size()
-	var ybot: float = max(min(bot + 4.0, low), ymax + 4.0)
-	if top_n >= 2 and ymin < low:
-		bed.push_back(Vector2(b, ybot))
-		cols.push_back(murk.lerp(Color(0, 0, 0), .3))
-		bed.push_back(Vector2(a, ybot))
-		cols.push_back(murk.lerp(Color(0, 0, 0), .3))
-		Spr.ci.draw_polygon(bed, cols)
-		# camada de lodo verde por cima da lama (mais grossa nas partes planas) e um fio claro molhado
-		var crest := bed.slice(0, top_n)
-		Spr.line(crest, Color(.3, .4, .14, .75), 5)
-		Spr.line(crest, Color(.6, .72, .3, .3), 1.5)
-		# pedrinhas, tufos de lodo e gravetos afundados (presos ao brejo, não à câmera)
-		var pk: float = floor(a / 38.0) * 38.0
-		while pk < b:
-			var hv: float = WorldExtras.h(pk, 7)
-			if pk > a + 6 and pk < b - 6 and pk > sx0 + 8 and pk < sx1 - 8:
-				var py: float = _bed_y(pk, sx0, sx1, ramp, btop, bfl)
-				var tk: Color = Color(.62, .7, .45).lerp(Color(.2, .28, .15), clamp((py - y) / fd, 0.0, 1.0))
-				if py < low:
-					if hv < .22:
-						Spr.P("peb%d" % (int(abs(pk)) % 3), pk, py + 4, 12 + hv * 30, hv < .11, 0.0, tk)
-					elif hv < .3:
-						Spr.save()
-						Spr.translate(pk, py + 1)
-						Spr.rotate(-1.35 + WorldExtras.h(pk, 9) * .5)
-						Spr.PR("log", -3.5, -42, 7, 42, tk.darkened(.25))
-						Spr.restore()
-					elif hv < .5:
-						Spr.ellipse(pk, py - 1, 9 + hv * 10, 3.2, Color(.34, .46, .16, .55))
-						Spr.ellipse(pk - 3, py - 2, 4, 1.4, Color(.62, .74, .32, .3))
-			pk += 38.0
-	# 4) caules das vitórias-régias descendo até a lama, balançando de leve
-	for lp in g.LILY:
-		var cx: float = lp.x + lp.w / 2
-		if cx < sx0 or cx > sx1 or cx < a - 20 or cx > b + 20:
-			continue
-		var ly: float = (lp.y0 + 66.0) if lp.st == 2 else (lp.y + 22.0 + float(lp.get("dip", 0.0)))
-		var fy: float = _bed_y(cx + 8.0, sx0, sx1, ramp, btop, bfl)
-		if fy - ly < 12.0:
-			continue
-		var stem := PackedVector2Array()
-		for i in 7:
-			var u: float = i / 6.0
-			stem.push_back(Vector2(cx + 8.0 * u + sin(u * 3.0 + T * .03 + cx) * 4.0 * u * (1.0 - u) * 2.0, lerpf(ly - 2.0, fy, u)))
-		Spr.line(stem, Color(.2, .32, .12, .8), 3.0)
-		Spr.line(stem, Color(.55, .7, .3, .25), 1.0)
-	# 5) lodo boiando: fiapos e pontinhos subindo e descendo devagar no meio da água
-	var lk: float = floor(a / 44.0) * 44.0
-	var mid_h: float = max(8.0, min(depth, 220.0) - 34.0)
-	while lk < b:
-		var lx: float = lk + WorldExtras.h(lk, 11) * 40.0 + sin(T * .008 + lk) * 6.0
-		var ly2: float = y + 22.0 + WorldExtras.h(lk, 12) * mid_h + sin(T * .017 + lk * .3) * 5.0
-		if lx > a + 4 and lx < b - 4 and lx > sx0 + 14 and lx < sx1 - 14 and ly2 < _bed_y(lx, sx0, sx1, ramp, btop, bfl) - 6.0 and ly2 < low:
-			if WorldExtras.h(lk, 13) < .35:
-				Spr.ellipse(lx, ly2, 8 + WorldExtras.h(lk, 14) * 10, 2.0, Color(.36, .55, .18, .28), sin(lk) * .2)
-			else:
-				Spr.circle(lx, ly2, 1.2 + WorldExtras.h(lk, 14) * 1.2, Color(.7, .85, .4, .3))
-		lk += 44.0
 
 ## superfície brilhante com ondinhas, reflexo da lanterna e bolhas / lentilha-d'água.
 ## [a, b] = faixa visível; [bx0, bx1] = o corpo d'água inteiro: todo detalhe que anda (espuma, bolhas,
@@ -737,21 +575,10 @@ func _water(g: Game, a: float, b: float, y: float, depth: float, c0: Color, c1: 
 		return top[i].y
 	# corpo d'água: faixa de cima acompanha a onda, o resto em degradê
 	var d1: float = min(depth, 70.0)
-	# (polígono sempre válido: sem pontos repetidos nas pontas recortadas e com a base abaixo do vale
-	# mais fundo da onda — um respingo forte afundava a onda abaixo de y+12 e o polígono se cruzava)
-	var band := PackedVector2Array()
-	var low_y: float = y + 12.0
-	for q in top:
-		if band.size() > 0 and q.x <= band[band.size() - 1].x + .01:
-			continue
-		band.push_back(q)
-		low_y = max(low_y, q.y + 2.0)
-	if band.size() >= 2:
-		band.push_back(Vector2(band[band.size() - 1].x, low_y))
-		band.push_back(Vector2(band[0].x, low_y))
-		Spr.poly(band, c0)
-		if low_y > y + 12.0:
-			Spr.rect(a, y + 12, w, low_y - y - 12, c0)
+	var band := top.duplicate()
+	band.push_back(Vector2(b, y + 12))
+	band.push_back(Vector2(a, y + 12))
+	Spr.poly(band, c0)
 	Spr.vgrad(a, y + 12, w, max(0.0, d1 - 12), c0, mid)
 	if depth > d1:
 		Spr.vgrad(a, y + d1, w, depth - d1, mid, c1)
@@ -760,12 +587,6 @@ func _water(g: Game, a: float, b: float, y: float, depth: float, c0: Color, c1: 
 		Spr.vgrad(a, y + 70, w, depth - 70, Color(.02, .07, .16, 0), Color(.01, .05, .14, .22))
 	if toxic and Spr.has("sw_water"):
 		Spr.strip_at("sw_water", ox, a, b, y - 6, min(70.0, depth + 6), .92)
-	# brejo: corpo d'água visto de lado (rasos ou fundos) — escurece com a profundidade, lodo boiando,
-	# plantas presas no fundo, caules das vitórias-régias e leito de lama em rampa (antes das margens)
-	if key.begins_with("s"):
-		var si: int = int(key.substr(1))
-		if si >= 0 and si < g.SWAMP.size():
-			_toxic_depth(g, g.SWAMP[si], a, b, T)
 	# faixas de luz que ondulam logo abaixo da superfície
 	for k in 3:
 		var pts := PackedVector2Array()

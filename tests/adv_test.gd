@@ -88,34 +88,18 @@ func _initialize() -> void:
 		S("parado afunda", g.lives == 8)
 		g.lives = 9
 	if all or args.has("tronco"):
-		# (o esconderijo do chão rachado fica depois da 1ª fogueira grande)
-		put(6496, 500)
+		put(4685, 500)
 		use()
 		S("picareta não quebra (é do mergulho)", not g.X.broken.has("chao1"))
 		slam_here()
 		S("quebrou o chão", g.X.broken.has("chao1"))
-		walk_to(6496)
+		walk_to(4690)
 		S("desceu", climb_to("S", func(): return P.onGround and P.y > 800, 500))
 		# solto lá embaixo (e com ↓ ainda apertado) ele não sobe sozinho
 		hold({"S": true}, 40)
 		hold({}, 120)
 		S("continua no esconderijo", g.player.y > 800)
 		S("sobe com ↑", climb_to("U", func(): return P.ladder == null and P.onGround and P.y < 500, 500))
-	if all or args.has("penhasco"):
-		# segredo no alto do penhasco da manhã: pedra rachada atrás da moita, com uma lembrança da Isis
-		var rl: Dictionary = {}
-		for r in g.X.RELICS:
-			if r.id == "r4":
-				rl = r
-		S("lembrança no alto do penhasco", not rl.is_empty())
-		if not rl.is_empty():
-			put(float(rl.x) - 50, float(rl.y))
-			S("em pé no alto do penhasco", P.onGround and abs(P.y + P.h - float(rl.y)) < 3)
-			P.face = 1
-			press("G")
-			hold({}, 26)
-			S("a picareta quebra a pedra", rl.broken)
-			S("pega a lembrança", walk_to(float(rl.x)) and until({}, func(): return rl.got, 60) and g.X.found.has("r4"))
 	if all or args.has("raft"):
 		put(25450, 500)
 		walk_to(25490)
@@ -356,8 +340,7 @@ func _initialize() -> void:
 		S("barricada quebrada", walk_to(77500))
 	if all or args.has("lagos"):
 		# lagos de veneno com ponte de estaca: só passa baixando a ponte
-		# (o poço tóxico da manhã virou poço raso de lama; o lago da tarde andou para depois do esconderijo)
-		for sx in [6680.0]:
+		for sx in [2040.0, 6480.0, 67100.0]:
 			var crossed := false
 			var died := 0
 			for mode in ["pulo", "duplo", "planar", "nadar", "alto"]:
@@ -371,7 +354,7 @@ func _initialize() -> void:
 					if abs(float(o.x) - sx) < 5:
 						st = o
 				var far: float = float(st.bridge.x) + float(st.bridge.w)
-				if mode == "alto" and sx == 6680.0:
+				if mode == "alto" and sx == 6480.0:
 					put(6300.0, 100)   # do alto do platô, correndo e planando
 				elif mode == "alto":
 					continue
@@ -407,57 +390,6 @@ func _initialize() -> void:
 			put(sx - (12.0 if sx < 2100 else 120.0), 500)
 			S("lago %d: estaca baixa a ponte e atravessa" % int(sx), stake_cross(sx))
 			S("lago %d: vivo" % int(sx), g.lives >= 9)
-	if all or args.has("corda_mina"):
-		# lago de veneno da noite (antes de entrar no poço da mina): só passa pendurado na corda esticada
-		var bar: Dictionary = {}
-		for b in g.NT.BARS:
-			if b.get("mine"):
-				bar = b
-		S("corda da mina existe", not bar.is_empty())
-		var crossed2 := false
-		var died2 := 0
-		for mode in ["pulo", "duplo", "planar"]:
-			g.load_level(0)
-			P = g.player
-			for e in g.EN:
-				e.dead = 99
-			g.died_log = []
-			put(66960.0, 500)
-			hold({"R": true}, 40)
-			press("J")
-			for i in 16:
-				frame({"J": true, "R": true})
-			if mode != "pulo":
-				for i in 40:
-					if P.vy >= -.5:
-						break
-					frame({"R": true})
-				press("J")
-				for i in 16:
-					frame({"J": true, "R": true})
-			for i in 300:
-				# (solta a corda se agarrou sem querer: aqui o teste é passar SEM ela)
-				if P.get("bar") != null:
-					P.bar = null
-					g.NT.bar_cd = 999
-				frame({"R": true, "P": mode == "planar"})
-				if px() > 67510 and P.onGround:
-					crossed2 = true
-				if P.dyingT > 0:
-					break
-			if P.dyingT > 0 or not g.died_log.is_empty():
-				died2 += 1
-			hold({}, 80)
-		g.NT.bar_cd = 0
-		S("lago da mina: não passa pulando nem planando", not crossed2)
-		S("lago da mina: cair é morte (veneno)", died2 >= 2)
-		g.load_level(0)
-		P = g.player
-		for e in g.EN:
-			e.dead = 99
-		put(67100.0, 500)
-		S("lago da mina: atravessa pendurado na corda", rope_cross(67128, 67600))
-		S("lago da mina: vivo", g.lives >= 9 and P.onGround)
 	if all or args.has("mochila"):
 		# perto da trava com as peças soltas: botão da mochila → junta → ✔ → usa
 		var wanted := []
@@ -608,15 +540,15 @@ func _initialize() -> void:
 		S("passa o portão", walk_to(71870))
 	if all or args.has("mergulho"):
 		# estaca: subir nela e mergulhar baixa a ponte do riacho
-		put(6680, 456)
-		var stk: Dictionary = g.SL.STAKES.filter(func(o): return abs(float(o.x) - 6680.0) < 5)[0]
+		put(2040, 456)
+		var stk: Dictionary = g.SL.STAKES.filter(func(o): return abs(float(o.x) - 2040.0) < 5)[0]
 		S("ponte em pé", not g.SOL.has(stk.sol))
 		S("em cima da estaca", P.onGround and P.y + P.h < 470)
 		slam_here()
 		S("estaca cravada", stk.done)
 		hold({}, 120)
 		S("ponte deitou", g.SOL.has(stk.sol))
-		S("atravessa a ponte", walk_to(7120))
+		S("atravessa a ponte", walk_to(2460))
 		S("seco (não caiu na água)", not P.swim)
 		# gangorra: mergulho na ponta de cá lança a pedra e caem lápis e uma fruta
 		put(63925, 456)

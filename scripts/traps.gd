@@ -8,9 +8,7 @@ class_name Traps
 ##  roll    pedra rolando atrás do Tomé (dispara ao passar pelo gatilho)
 ##  axe     machado-pêndulo
 ##  snap    galho que estala e cai pouco depois de pisar
-##  cage    jaula de caçador: prende o Tomé; o Pipoca solta mordendo a corda do poste (é ESSA a
-##          solução: com o Pipoca junto, a picareta não quebra as grades). A picareta (6 golpes) só
-##          vale quando o Pipoca não está com o Tomé — assim o jogador nunca fica preso para sempre.
+##  cage    jaula de caçador: prende o Tomé; o Pipoca solta mordendo a corda
 ##  net     rede de caçador fechando a passagem; o Pipoca rói a corda
 ##  icicle  pingente de gelo no teto: treme quando o Tomé chega perto e cai; volta a crescer depois
 ##  swing   tronco pendurado por duas cordas balançando no caminho
@@ -30,7 +28,7 @@ var trapped = null           # jaula que prendeu o Tomé
 var bounce_note := 0
 ## armadilhas que continuam andando longe do Tomé (rolando, caindo, desabando) e os estados parados
 const FAR_RUN := {"roll": 1, "boulder": 1, "bridge": 1, "cage": 1, "net": 1}
-const FAR_STILL := {"idle": 1, "done": 1, "used": 1, "planted": 1, "off": 1}
+const FAR_STILL := {"idle": 1, "done": 1, "used": 1}
 
 func _init(game) -> void:
 	g = game
@@ -44,12 +42,6 @@ func load_level() -> void:
 		o.t = 0
 		o.st = "idle"
 		o._cx = float(o.x) + float(o.get("w", 0)) / 2.0
-		if d.get("off"):
-			# tirada da fase ("off": 1): continua na lista só para não mudar os números (índices) que
-			# as dicas e o jogo salvo usam; não tem colisão, não reage e não é desenhada
-			o.st = "off"
-			T.append(o)
-			continue
 		match o.k:
 			"snap":
 				o.sol = {"t": "snapb", "x": o.x, "y": o.y, "w": o.w, "h": 16, "oneway": 1, "snap": 1}
@@ -207,8 +199,6 @@ func post() -> void:
 	var pcx: float = p.x + p.w / 2
 	var feet: float = p.y + p.h
 	for o in T:
-		if o.st == "off":
-			continue
 		# longe do Tomé e sem nada acontecendo: pula (a fase tem muitas armadilhas)
 		# (o centro de cada armadilha é guardado na carga; antes cada teste criava listas novas)
 		if abs(float(o._cx) - pcx) > 1800 and (not FAR_RUN.has(o.k) or FAR_STILL.has(o.st) or (o.k == "bridge" and o.st == "gone" and o.t > 300)) and not (o.k == "hive" and o.st != "idle"):
@@ -236,11 +226,7 @@ func post() -> void:
 				_flower(o, p, pcx, feet)
 			"wind":
 				if pcx > o.x and pcx < o.x + o.w and p.y + p.h > o.y and p.y < o.y + o.h and not p.vine and not p.ladder:
-					# planando o vento levanta. Antes só valia p.puff, que desliga quando o Tomé começa a
-					# subir: segurando PULAR (o jeito do celular) ele só ficava parado no ar. Agora conta
-					# quem segura PULAR/planar depois do pulo duplo
-					var glide: bool = p.puff or (not p.onGround and int(p.airJumps) == 0 and (g.kd("J") or g.kd("P")) and not p.slam and not p.get("dog") and not p.get("isis"))
-					if glide:
+					if p.puff:
 						p.vy = max(p.vy - o.pow, -6.5)
 					elif not p.onGround:
 						p.vy -= o.pow * .3
@@ -488,12 +474,7 @@ func _icicle(o: Dictionary, p: Dictionary, pcx: float) -> void:
 			o.vy = min(o.vy + .7, 14.0)
 			o.fy += o.vy
 			var tip: float = o.y + o.fy + ln
-			if o.get("step") and (tip >= o.get("floor", o.y + 300) or (p.dyingT == 0 and abs(pcx - o.x) < 30 and tip > p.y + 4 and o.y + o.fy < p.y + p.h)):
-				# pingente gigante: finca na neve e vira degrau (se acertou o Tomé, machuca e empurra)
-				if abs(pcx - o.x) < 30 and tip > p.y + 4:
-					g.hurt(1, o.x + 40)
-				_plant(o)
-			elif p.dyingT == 0 and abs(pcx - o.x) < 16 and tip > p.y + 4 and o.y + o.fy < p.y + p.h:
+			if p.dyingT == 0 and abs(pcx - o.x) < 16 and tip > p.y + 4 and o.y + o.fy < p.y + p.h:
 				g.hurt(1, o.x)
 				_shatter(o)
 			elif tip >= o.get("floor", o.y + 300):
@@ -510,34 +491,6 @@ func _icicle(o: Dictionary, p: Dictionary, pcx: float) -> void:
 				o.st = "idle"
 				o.grow = 0.0
 				o.fy = 0.0
-
-## pingente gigante fincado na neve: a ponta afunda e a base larga fica em cima, firme como um degrau
-func step_box(o: Dictionary) -> Dictionary:
-	var fl: float = o.get("floor", o.y + 300)
-	var top: float = fl - float(o.get("len", 46)) + 34.0
-	return {"t": "icestep", "x": float(o.x) - 32.0, "y": top, "w": 64.0, "h": fl - top, "id": "icestep"}
-
-func _plant(o: Dictionary, quiet: bool = false) -> void:
-	o.st = "planted"
-	o.t = 0
-	var fl: float = o.get("floor", o.y + 300)
-	o.fy = fl - float(o.get("len", 46)) + 34.0 - float(o.y)
-	o.sol = step_box(o)
-	g.SOL.append(o.sol)
-	g.blockers_dirty()
-	if quiet:
-		return
-	var p: Dictionary = g.player
-	if Game.hit(p, o.sol):
-		# o Tomé estava embaixo: sai para o lado de cá do degrau
-		p.x = float(o.sol.x) - p.w - 1.0
-	g.shake = max(g.shake, 9)
-	g.shake_dir = Vector2(0, 1) * 4.0
-	g.burst(o.x, fl - 4, 30, Color(.92, .96, 1))
-	g.fx("fx_pieces", o.x, fl - 10, 16, .3, -.4)
-	Audio.play("stomp", -2, .8)
-	Audio.play("splash", -10, .7)
-	g.flash("O pingente fincou na neve: virou degrau!", 160)
 
 func _shatter(o: Dictionary) -> void:
 	o.st = "broken"
@@ -582,7 +535,6 @@ func _snap_reset(o: Dictionary) -> void:
 	o.ct = 0
 	o.pop = 0.0
 
-const CAGE_MSG := "Preso na jaula! Troque para o PIPOCA e mande roer a corda do poste (✦)."
 func _cage(o: Dictionary, p: Dictionary, pcx: float) -> void:
 	var w: float = o.get("w", 64)
 	match o.st:
@@ -601,22 +553,12 @@ func _cage(o: Dictionary, p: Dictionary, pcx: float) -> void:
 				g.shake = max(g.shake, 8)
 				Audio.play("stomp")
 				g.burst(o.x + w / 2, o.y - 4, 16, Color("#b7a77f"))
-				# K1: uma instrução só. A saída é o Pipoca roer a corda do poste (o mesmo texto da dica
-				# do lugar); as picaretadas nas grades são só a reserva de quem está sem o Pipoca
 				if g.X.dog_free():
-					g.flash_tut("Preso na jaula!", CAGE_MSG, 300)
+					g.flash_tut("Preso numa jaula de caçador!", "Preso na jaula! Use o PIPOCA: roa a corda do poste (✦).", 300)
 				else:
-					g.flash("Preso na jaula! Bata com a picareta nas grades (GOLPE várias vezes).", 300)
+					g.flash("Preso! Bata com a picareta nas grades para quebrar.", 300)
 		"shut":
 			var b = g.M.tome if g.M.ctrl else p
-			# o Tomé foi parar longe da jaula (voltou à fogueira, renasceu, foi levado para outro
-			# ponto): a jaula sobe e solta — nunca fica "preso" a uma jaula que nem está ali
-			if abs(b.x + b.w / 2 - (o.x + w / 2)) > w or abs(b.y + b.h - float(o.y)) > 60:
-				o.st = "idle"
-				o.dy = -170.0
-				if trapped == o:
-					trapped = null
-				return
 			b.x = clamp(b.x, o.x + 6, o.x + w - 6 - b.w)
 		"open":
 			o.dy = max(-170.0, o.dy - 5.0)
@@ -650,12 +592,6 @@ func swing_hits(hb: Dictionary) -> void:
 	if trapped != null and not g.M.swing_hit.has("cage"):
 		g.M.swing_hit["cage"] = 1
 		var o: Dictionary = trapped
-		if g.X.dog_free():
-			# com o Pipoca junto a solução é ele (a dica e o aviso dizem isso): a picareta só faz barulho
-			Audio.play("unlock", -12)
-			g.burst(o.x + o.get("w", 64) / 2, o.y - 30, 4, Color("#c8d0dc"))
-			g.tip("As grades são de ferro grosso. Troque para o PIPOCA: ele rói a corda do poste (✦).")
-			return
 		o.hits = o.get("hits", 0) + 1
 		Audio.play("unlock", -8)
 		g.burst(o.x + o.get("w", 64) / 2, o.y - 30, 6, Color("#c8d0dc"))
@@ -706,7 +642,7 @@ func save_data() -> Dictionary:
 	var d := {}
 	for i in T.size():
 		var o: Dictionary = T[i]
-		if (o.k == "net" and o.st == "down") or (o.k == "cage" and o.st == "used") or (o.k in ["roll", "boulder"] and o.st == "done") or (o.k == "web" and o.cut) or (o.k == "icicle" and o.st == "planted"):
+		if (o.k == "net" and o.st == "down") or (o.k == "cage" and o.st == "used") or (o.k in ["roll", "boulder"] and o.st == "done") or (o.k == "web" and o.cut):
 			d[str(i)] = o.st
 	return d
 
@@ -724,8 +660,6 @@ func restore(d: Dictionary) -> void:
 			if o.k == "web":
 				o.cut = true
 				o.st = "idle"
-			if o.k == "icicle" and o.st == "planted" and not g.SOL.has(o.get("sol")):
-				_plant(o, true)
 			if o.k == "boulder":
 				for sb in g.SOL.duplicate():
 					if sb.get("bob") and o.smash.has(sb.get("id", "")):
@@ -867,30 +801,15 @@ func _sand(o: Dictionary, p: Dictionary, pcx: float, feet: float) -> void:
 
 # ---------- rajadas de vento ----------
 ## 0 = calmo, 1 = aviso (folhas e neve começam a voar), 2 = rajada
-const GUST_WARN := 45
-## o desenho anuncia antes ainda (a biruta enche, o pinheiro enverga, a neve começa a voar)
-const GUST_LOOK := 100
 func gust_state(o: Dictionary) -> int:
 	var per: int = o.get("per", 260)
 	var on: int = o.get("on", 110)
 	var u: int = (g.T + int(o.get("ph", 0))) % per
 	if u >= per - on:
 		return 2
-	if u >= per - on - GUST_WARN:
+	if u >= per - on - 45:
 		return 1
 	return 0
-
-## força da rajada para o desenho (0 calmo .. 1 rajada cheia): sobe durante o aviso e cai no fim
-func gust_k(o: Dictionary) -> float:
-	var per: int = o.get("per", 260)
-	var on: int = o.get("on", 110)
-	var u: float = float((g.T + int(o.get("ph", 0))) % per)
-	var w0: float = float(per - on - GUST_LOOK)
-	if u < w0:
-		return 0.0
-	if u < per - on:
-		return .45 * smoothstep(w0, float(per - on), u)
-	return .45 + .55 * (1.0 - smoothstep(float(per) - 14.0, float(per), u))
 
 func _gust(o: Dictionary, p: Dictionary, pcx: float) -> void:
 	if gust_state(o) != 2 or p.dyingT > 0 or p.get("dog"):
@@ -980,7 +899,7 @@ func _boulder(o: Dictionary, p: Dictionary, pcx: float) -> void:
 				Audio.play("stomp", -2)
 				g.shake = max(g.shake, 10)
 				g.want_comic("bola")
-				g.flash_tut("Fuja!", "Uma pedra gigante! Corra, pule os obstáculos e se abaixe (↓) no buraco do chão lá na frente!", 240)
+				g.flash_tut("Fuja!", "Uma pedra gigante! Fuja para a frente, pule os obstáculos e se abaixe (↓) no buraco do chão lá na frente!", 260)
 		"drop":
 			o.vy += .9
 			o.by += o.vy

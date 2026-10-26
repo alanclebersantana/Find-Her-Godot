@@ -234,7 +234,7 @@ func _initialize() -> void:
 	S("porta da manivela abriu", g.CRANKS[0].done)
 	S("passa a porta", walk_to(3300))
 	walk_to(3420)
-	S("caixa no buraco da placa", until({"R": true}, func(): return g.M.PUSH[0].x >= 3716 and g.M.PUSH[0].y >= 449, 900))
+	S("caixa no buraco da placa", until({"R": true}, func(): return g.M.PUSH[0].x >= 3719 and g.M.PUSH[0].y >= 449, 900))
 	S("portão g1 abriu", until({}, func(): return g.M.GATES[1].open > .85 if g.M.GATES.size() > 1 else g.M.GATES[0].open > .85, 200))
 	S("pula a caixa", jump_to(3840, true))
 	S("vai ao elevador", walk_to(4328))

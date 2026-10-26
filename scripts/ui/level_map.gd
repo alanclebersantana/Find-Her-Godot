@@ -3,16 +3,9 @@ extends Control
 ## O que falta só aparece (como "?") nos trechos por onde você já passou.
 
 var game: Game
-const BANDS := {"manha": Color(.36, .55, .3), "tarde": Color(.66, .45, .22), "chuva": Color(.22, .38, .36), "neve": Color(.62, .7, .82), "noite": Color(.16, .19, .36), "perseguicao": Color(.34, .14, .14), "ceu": Color(.45, .62, .82), "montanha": Color(.5, .58, .7), "rio": Color(.2, .42, .55),
+const BANDS := {"manha": Color(.36, .55, .3), "tarde": Color(.66, .45, .22), "chuva": Color(.22, .38, .36), "neve": Color(.62, .7, .82), "noite": Color(.16, .19, .36), "perseguicao": Color(.34, .14, .14), "ceu": Color(.45, .62, .82), "rio": Color(.2, .42, .55),
 	"mina": Color(.3, .2, .12), "moinho": Color(.72, .55, .25), "vila": Color(.18, .2, .4), "isis": Color(.45, .2, .32)}
-const NAMES := {"manha": "Manhã", "tarde": "Tarde", "chuva": "Pântano", "neve": "Neve", "noite": "Noite", "perseguicao": "Fuga", "ceu": "Montanha", "montanha": "Montanha", "rio": "Rio", "mina": "Mina", "moinho": "Moinho", "vila": "Vila", "isis": "Isis"}
-
-## nome curto do capítulo para o mapa ("O Pântano" -> "Pântano", "Noite na mina" -> "Noite")
-static func short_name(s: String) -> String:
-	var w: PackedStringArray = s.split(" ")
-	if w.size() > 1 and w[0] in ["O", "A", "Os", "As"]:
-		return w[1]
-	return w[0]
+const NAMES := {"manha": "Manhã", "tarde": "Tarde", "chuva": "Pântano", "neve": "Neve", "noite": "Noite", "perseguicao": "Fuga", "ceu": "Céu", "rio": "Corredeira", "mina": "Mina", "moinho": "Moinho", "vila": "Vila", "isis": "Isis"}
 
 func _init() -> void:
 	custom_minimum_size = Vector2(880, 250)
@@ -31,16 +24,11 @@ func _draw() -> void:
 	var secs: Array = L.sections
 	var shown := {}
 	var lab_end := -999.0     # fim do último nome escrito (trechos curtos: o nome seguinte não encavala)
-	# Episódio 1: os nomes no alto são os capítulos (os mesmos do HUD e das fogueiras grandes),
-	# com um risco claro onde cada um começa; as cores continuam as do cenário
-	var by_ch: bool = not game.chapters_by_section()
 	for i in secs.size():
 		var x0: float = secs[i].x
 		var x1: float = secs[i + 1].x if i + 1 < secs.size() else L.spanX
 		var song: String = secs[i].get("map", secs[i].get("bg", secs[i].song))
 		draw_rect(Rect2(x0 * sx, 26, (x1 - x0) * sx, h), BANDS.get(song, Color(.2, .2, .2)))
-		if by_ch:
-			continue
 		if not shown.has(song):
 			shown[song] = 1
 			var nm: String = NAMES.get(song, "")
@@ -49,18 +37,6 @@ func _draw() -> void:
 			lx = min(lx, w - lw)
 			draw_string(Spr.font_b, Vector2(lx, 18), nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("#e8dcc0"))
 			lab_end = lx + lw
-	if by_ch:
-		var cs: Array = game.chapter_starts()
-		for i in cs.size():
-			var cx0: float = float(cs[i][0]) * sx
-			if i > 0:
-				draw_line(Vector2(cx0, 20), Vector2(cx0, 26 + h), Color(1, .9, .7, .35), 1.0)
-			var nm2: String = short_name(game.chapter_name(int(cs[i][1])))
-			var lx3: float = max(cx0 + 4, lab_end + 8)
-			var lw3: float = Spr.font_b.get_string_size(nm2, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
-			lx3 = min(lx3, w - lw3)
-			draw_string(Spr.font_b, Vector2(lx3, 18), nm2, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("#e8dcc0"))
-			lab_end = lx3 + lw3
 	var visited: float = game.max_x
 	draw_rect(Rect2(visited * sx, 26, w - visited * sx, h), Color(0, 0, 0, .45))
 	for s in game.SOL:
