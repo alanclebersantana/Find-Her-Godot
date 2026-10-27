@@ -27,6 +27,8 @@ func _ready() -> void:
 	var m := ShaderMaterial.new()
 	m.shader = preload("res://scripts/depth.gdshader")
 	pl_node.material = m
+	# folhas do Tomé com mipmaps: reduzidas na tela, o recorte fica liso (sem degraus)
+	pl_node.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	add_child(pl_node)
 	front_node = _Sub.new()
 	front_node.cb = _draw_front_node

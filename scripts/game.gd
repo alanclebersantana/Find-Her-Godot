@@ -164,6 +164,7 @@ func load_level(i: int) -> void:
 	DIPS = []
 	_floor_cache = {}
 	_base_cache = {}
+	_tall_cache = {}
 	level_idx = i
 	max_x = 0.0
 	cur_chk = -1
@@ -1976,7 +1977,8 @@ func cam_ty(px: float, focus: float) -> float:
 	var feet: float = focus + player.h
 	var gy: float = floor_under(px, feet - 4.0)
 	var base: float = base_ground(px, feet)
-	if base < 90000.0 and base > feet + 30.0 and base - feet < H * .78:
+	# sobre lago/brejo (sem chão firme embaixo): a superfície é o chão da região, não o fundo
+	if base < 90000.0 and (base > feet + 30.0 or gy >= 90000.0) and base - feet < H * .78:
 		gy = base
 	var t: float = cam_focus_ty(focus)
 	if gy < 90000.0 and gy - feet < H * .78:
@@ -1992,12 +1994,26 @@ func base_ground(px: float, feet: float) -> float:
 		return _base_cache[key]
 	var x0: float = px - W * .6
 	var x1: float = px + W * .6
+	# lagos, brejos e água: o fundo deles não é "o chão" que a câmera deve mostrar
+	var waters: Array = []
+	for k in ["swamp", "water", "bogs"]:
+		for w in L.get(k, []):
+			if w is Dictionary and w.has("x") and w.has("y"):
+				waters.append(w)
 	var cover := {}
 	for s in L.solids:
 		if s.get("deco") or not str(s.get("t", "")) in ["ground", "dirt"]:
 			continue
 		var sy: float = float(s.y)
-		if sy < feet - 4.0 or sy > feet + H * .7:
+		# (o chão "da região" pode estar um tiquinho acima dos pés: vitória-régia, tábua baixa)
+		if sy < feet - 30.0 or sy > feet + H * .78:
+			continue
+		var sub := false
+		for w in waters:
+			if sy > float(w.y) + 12.0 and float(s.x) < float(w.x) + float(w.get("w", 0)) and float(s.x) + float(s.get("w", 0)) > float(w.x):
+				sub = true
+				break
+		if sub:
 			continue
 		var ov: float = min(x1, float(s.x) + float(s.get("w", 0))) - max(x0, float(s.x))
 		if ov <= 0.0:
@@ -2012,6 +2028,40 @@ func base_ground(px: float, feet: float) -> float:
 			best = float(k) * 10.0
 	_base_cache[key] = best
 	return best
+
+## paredão alto ao lado (barranco, muro de pedra, torre): quanto a câmera precisa abrir para mostrar o
+## topo dele e um pouco acima, com o chão ainda embaixo (1 = não precisa)
+var _tall_cache := {}
+func tall_zoom(base_h: float) -> float:
+	var p: Dictionary = player
+	var px: float = p.x + p.w / 2
+	var feet: float = p.y + p.h
+	var key := Vector2i(int(floor(px / 32.0)), int(floor(feet / 24.0)))
+	if _tall_cache.has(key):
+		return _tall_cache[key]
+	var gy: float = floor_under(px, feet - 4.0)
+	var z := 1.0
+	if gy < 90000.0 and gy - feet < 120.0:
+		var top := 99999.0
+		for s in L.solids:
+			if s.get("deco") or not str(s.get("t", "")) in ["cliff", "wall", "stone", "damwall", "hill"]:
+				continue
+			var sx: float = float(s.x)
+			var sw: float = float(s.get("w", 0))
+			if sx > px + 430.0 or sx + sw < px - 160.0:
+				continue
+			var sy: float = float(s.y)
+			var sb: float = sy + float(s.get("h", 0))
+			# de pé no mesmo chão do Tomé e mais alto que o que já aparece
+			if sb < gy - 40.0 or sy > gy - base_h * .7 or feet <= sy + 10.0:
+				continue
+			top = min(top, sy)
+		if top < 90000.0:
+			var need: float = (gy - top + 60.0) / .9
+			if need > base_h:
+				z = clamp(base_h / need, .72, 1.0)
+	_tall_cache[key] = z
+	return z
 
 func cam_focus_ty(focus: float) -> float:
 	return focus - H * .55

@@ -530,6 +530,10 @@ func _zoom_target() -> float:
 		for o in g.MV.MV:
 			if o.k == "wheel" and abs(float(o.x) - (p.x + p.w / 2)) < 700:
 				return .62
+	# paredão alto ao lado: abre até mostrar o topo e um pouco acima
+	var tz: float = g.tall_zoom(get_viewport().get_visible_rect().size.y)
+	if tz < 1.0:
+		return tz
 	# calma: perto de uma fogueira, parado
 	if abs(p.vx) < .5 and p.onGround:
 		for c in g.CHK:
@@ -2769,8 +2773,8 @@ func _sync_world_vp() -> void:
 		world_show.size = vis
 		var om: ShaderMaterial = world_show.material
 		if om:
-			# traço de ~2,2 px na tela de base (540 linhas), mais grosso nas telas maiores
-			om.set_shader_parameter("px", clamp(2.2 * float(real.y) / max(vis.y, 1.0), 1.6, 6.0))
+			# traço de ~2,2 px na tela de base (540 linhas), proporcional nas telas maiores
+			om.set_shader_parameter("px", clamp(2.5 * float(real.y) / max(vis.y, 1.0), 1.8, 7.0))
 
 class _WorldShow extends Node2D:
 	var vp: SubViewport
