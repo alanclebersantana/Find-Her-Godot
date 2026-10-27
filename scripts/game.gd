@@ -166,6 +166,7 @@ func load_level(i: int) -> void:
 	cur_chk = -1
 	L = JSON.parse_string(FileAccess.get_file_as_string("res://assets/data/level%d.json" % (i + 1)))
 	PERIODS = L.get("periods", PERIODS1)
+	_support_physics()
 	SOL = []
 	for s in L.solids:
 		if s.get("deco"):
@@ -1511,7 +1512,7 @@ func step() -> void:
 			flash(d.txt, 280)
 			burst(d.x, d.y, 24, Color("#f6efdc"))
 			drawing_found.emit(int(d.i))
-			Polish.celebrate(player.x + player.w / 2, player.y + 10)
+			Polish.celebrate(player.x + player.w / 2, player.y + 10, false)
 			Audio.play("clue")
 			Audio.vib(50)
 	# molas (cogumelo)
@@ -1975,6 +1976,71 @@ func cam_ty(px: float, focus: float) -> float:
 
 func cam_focus_ty(focus: float) -> float:
 	return focus - H * .55
+
+## leis da física: nada fica flutuando no ar.
+##  - galho sem árvore: ganha um tronco (só desenho) no lado de onde ele nasce, até o chão (ou até o
+##    fundo do barranco, se não houver chão embaixo)
+##  - pedra no alto: vira pilar de rocha firme até o chão (antes o pilar era só desenho e o Tomé
+##    passava por dentro dele)
+##  - tábua solta no ar: ganha cavalete com pernas até o chão
+func _support_physics() -> void:
+	var sol: Array = L.solids
+	var bottom: float = float(L.get("bottom", 900))
+	var floor_at := func(x: float, y: float) -> float:
+		var best := 99999.0
+		for o in sol:
+			if o.get("deco") or not str(o.get("t", "")) in ["ground", "dirt", "stone", "cliff", "rockw", "hill"]:
+				continue
+			if x >= float(o.x) and x <= float(o.x) + float(o.get("w", 0)) and float(o.y) >= y - 2 and float(o.y) < best:
+				best = float(o.y)
+		return best
+	var holders: Array = []
+	for o in sol:
+		if str(o.get("t", "")) in ["trunk", "deadtree", "cliff", "rockw", "wall", "treehouse", "hill", "beam", "shed", "cabin"]:
+			holders.append(o)
+	var held := func(s: Dictionary, extra: Array) -> bool:
+		for o in holders + extra:
+			var ox0: float = float(o.x)
+			var ox1: float = ox0 + float(o.get("w", 0))
+			var oy0: float = float(o.y)
+			var oy1: float = oy0 + float(o.get("h", 4000))
+			if oy0 > float(s.y) + 10 or oy1 < float(s.y):
+				continue
+			var sx0: float = float(s.x)
+			var sx1: float = sx0 + float(s.w)
+			if abs(sx0 - ox1) < 26 or abs(sx1 - ox0) < 26 or (sx0 < ox1 and sx1 > ox0):
+				return true
+		return false
+	var add: Array = []
+	for s in sol:
+		var t := str(s.get("t", ""))
+		if t == "stone" and not s.get("rubble") and not s.get("deco") and not s.get("ice"):
+			# pedra no alto: fica apoiada no topo quebrado de um tronco velho (atrás, como as outras
+			# árvores — a caixa e o Tomé passam pela frente, igual passam pelos troncos dos galhos)
+			var fy: float = floor_at.call(float(s.x) + float(s.w) / 2, float(s.y) + float(s.h) + 1)
+			var gap: float = fy - (float(s.y) + float(s.h))
+			if gap > 20.0 and gap < 900.0:
+				s.perch = 1
+				var tw2: float = min(float(s.w) - 6.0, 46.0)
+				var ty2: float = float(s.y) + float(s.h) - 8.0
+				add.append({"t": "trunk", "x": float(s.x) + float(s.w) / 2 - tw2 / 2, "y": ty2, "w": tw2, "h": fy - ty2, "deco": 1, "auto": 1, "stump": 1})
+		elif t == "branch" and not held.call(s, add):
+			for side in [-1, 1]:
+				var tw := 50.0
+				var tx: float = float(s.x) - tw + 8 if side < 0 else float(s.x) + float(s.w) - 8
+				var fy2: float = floor_at.call(tx + tw / 2, float(s.y))
+				if fy2 > 90000.0:
+					if side < 0:
+						continue   # tenta o outro lado; se nenhum tiver chão, desce até o fundo do barranco
+					fy2 = bottom + 200.0
+				var top: float = float(s.y) - 160.0
+				add.append({"t": "trunk", "x": tx, "y": top, "w": tw, "h": fy2 - top, "deco": 1, "auto": 1})
+				break
+		elif t == "plat" and not s.get("trestle") and not s.get("hatch") and not s.get("crumble") and not held.call(s, add):
+			var fy3: float = floor_at.call(float(s.x) + float(s.w) / 2, float(s.y) + 2)
+			if fy3 - float(s.y) < 420.0:
+				s.trestle = 1
+	sol.append_array(add)
 
 func snap_camera() -> void:
 	prev_px = -99999
@@ -2683,7 +2749,7 @@ func _p1_post(pcx: float, _pcy: float) -> void:
 			Audio.play("clue")
 			Audio.vib(80)
 			clue_opened.emit(int(c.id))
-			Polish.celebrate(player.x + player.w / 2, player.y + 10)
+			Polish.celebrate(player.x + player.w / 2, player.y + 10, false)
 	for s in SPECS:
 		if not s.got and abs(s.x - pcx) < 80 and hit(player, R(s.x - 20, s.y - 22, 40, 44)):
 			s.got = true

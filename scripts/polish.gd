@@ -431,13 +431,15 @@ static func land_heavy(x: float, y: float, v: float) -> void:
 		part("dust", x + d * randf_range(4, 14), y - 3, d * randf_range(1.2, 3.2), -randf_range(.3, 1.0), 26, ground_col(), {"size": 4.0 + 2.0 * k})
 	g.shake = max(g.shake, 3 + 4 * k)
 
-## P9 comemoração ao pegar pista/desenho: pulinho e brilho dourado
-static func celebrate(x: float, y: float) -> void:
+## P9 brilho dourado ao pegar algo; "happy" = pulinho e pose de comemoração (só nas vitórias de
+## verdade: pistas e desenhos da Isis não são motivo de festa — o pai está procurando a filha)
+static func celebrate(x: float, y: float, happy: bool = true) -> void:
 	var p: Dictionary = g.player
-	p.cheerT = 50
-	if p.onGround and not p.get("dog", false):
-		p.vy = -4.6
-		p.onGround = false
+	if happy:
+		p.cheerT = 50
+		if p.onGround and not p.get("dog", false):
+			p.vy = -4.6
+			p.onGround = false
 	for i in 10:
 		var an: float = TAU * i / 10.0
 		part("spark", x, y, cos(an) * 2.2, sin(an) * 2.2 - 1.0, 30, Color(1, .86, .4), {"g": .04, "drag": .94})

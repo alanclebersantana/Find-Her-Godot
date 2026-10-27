@@ -83,6 +83,9 @@ func _initialize() -> void:
 					g.X.DOG.y = y
 					g.X.DOG.t = 400
 					g.X.TRAIL = [Vector2(x - 60, y)]
+				elif k == "gopen":
+					for gt in g.M.GATES:
+						gt.open = 1.0
 				elif k == "dark":
 					g.lantern_lit = false
 				elif k == "drain":

@@ -1523,6 +1523,11 @@ func stone(s: Dictionary) -> void:
 	var h := hash(int(s.x) * 31 + int(s.y))
 	var cx: float = s.x + s.w / 2
 	var gy: float = s.y + s.h
+	if s.get("perch"):
+		# laje apoiada no topo de um tronco velho (o tronco é desenhado com as árvores)
+		Spr.ellipse(cx, gy + 2, s.w * .45, 5, Color(0, 0, 0, .3))
+		Spr.PR("slab%d" % (hash(int(s.x)) % 3), s.x - 10, s.y - 4, s.w + 20, s.h + 6)
+		return
 	if s.h <= s.w * .9 + 12:
 		var fy: float = _floor_below(cx, gy)
 		if fy - gy > 30:
