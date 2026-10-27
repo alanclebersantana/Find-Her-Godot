@@ -144,10 +144,23 @@ func _ready() -> void:
 
 ## cor viva: mais forte de dia, a luz quente do sol some à noite e no escuro; na qualidade baixa
 ## fica só a cor (sem as 4 leituras do contorno)
+var _lq_applied := false
 func _update_vivid() -> void:
 	if vivid == null:
 		return
-	vivid.visible = game != null and game.L and state != S.TITLE
+	# qualidade baixa: o jogo inteiro é desenhado na resolução de base (540 linhas) e ampliado — muito
+	# menos pixels para a placa de vídeo pintar (o que mais pesa nos celulares de tela grande)
+	var lq: bool = game != null and game.low_fx
+	if lq != _lq_applied:
+		_lq_applied = lq
+		var w := get_tree().root
+		if lq:
+			w.content_scale_mode = Window.CONTENT_SCALE_MODE_VIEWPORT
+		else:
+			w.content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
+	# na qualidade baixa (celular mais fraco ou que já engasgou) o acerto de cor sai inteiro: ele lê a
+	# tela toda a cada quadro e pesa na placa de vídeo
+	vivid.visible = game != null and game.L and state != S.TITLE and not game.low_fx
 	if not vivid.visible:
 		return
 	var m: ShaderMaterial = vivid.material
@@ -320,7 +333,7 @@ func _process(_d: float) -> void:
 			_slow_t += _d
 		else:
 			_slow_t = max(0.0, _slow_t - _d * .5)
-		if _slow_t > 4.0:
+		if _slow_t > 2.5:
 			game.low_fx = true
 			Save.setv("opt", "lowfx", true)
 	# botão da mão: só quando há algo para usar (ou enquanto está sendo segurado)

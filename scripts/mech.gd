@@ -388,6 +388,8 @@ func post() -> void:
 		for pl in PLATES:
 			if pl.gate == gt.id and pl.on:
 				want = 1.0
+		if gt.get("force_open"):
+			want = 1.0
 		if want == 0.0 and gt.open > 0.0:
 			for b in bl:
 				if b.x + b.w > gt.x and b.x < gt.x + gt.w and b.y + b.h > gt.y and b.y < gt.y + gt.h:

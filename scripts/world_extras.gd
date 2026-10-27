@@ -1103,104 +1103,133 @@ static func mech(g: Game, T: int) -> void:
 	Spr.alpha = a_crumb
 
 
-## portão de placa alto: uma paliçada de toras pontudas fincadas no chão, com um vão de porta no meio.
-## A porta de tábuas sobe para dentro da paliçada (some atrás das toras de cima) — nada pendurado no
-## céu e nenhum portão em cima do outro. A paliçada é alta o bastante para ninguém pular por cima
-## (passa uns 190 px do ponto mais alto que dá para alcançar ali perto); acima dela, a colisão
-## continua invisível como antes.
+## portão de placa alto: uma paliçada de toras pontudas vista de frente, com a porta na ponta esquerda.
+## A porta de tábuas sobe para dentro da paliçada (some atrás das toras de cima). O Tomé entra pela
+## porta, anda POR TRÁS da paliçada (as toras da frente são desenhadas por cima dele, em
+## palisade_front, e ficam translúcidas enquanto alguém está atrás) e sai pela ponta direita, que
+## fica aberta. A paliçada tem altura fixa (~3 Tomés); acima dela a colisão continua invisível como antes.
 const GATE_DOOR := 150.0
-static func palisade_top(g: Game, gt: Dictionary) -> float:
-	if gt.has("_ptop"):
-		return gt._ptop
-	var bot: float = float(gt.y) + float(gt.h)
-	var hi: float = bot
-	var gx0: float = float(gt.x)
-	var gx1: float = gx0 + float(gt.w)
-	var near := func(a: float, b: float) -> bool:
-		return max(0.0, max(a - gx1, gx0 - b)) <= 450.0
-	for o in g.L.solids:
-		if o.get("deco") or str(o.get("t", "")) == "pgate":
-			continue
-		if near.call(float(o.x), float(o.x) + float(o.get("w", 0))) and float(o.y) < bot - 20.0:
-			hi = min(hi, float(o.y))
-	for tr in g.L.get("traps", []):
-		if str(tr.get("k", "")) == "wind" and near.call(float(tr.x), float(tr.x) + float(tr.get("w", 0))):
-			hi = min(hi, float(tr.y))
-	for c in g.L.get("climb", []):
-		if near.call(float(c.x), float(c.x) + float(c.get("w", 0))):
-			hi = min(hi, float(c.y))
-	var top: float = max(float(gt.y), min(bot - 300.0, hi - 190.0))
-	gt._ptop = top
-	return top
+const PAL_LW := 30.0      # largura de uma tora
+const PAL_EXT := 2        # toras da frente à direita da porta (o trecho por onde ele passa escondido)
+static func palisade_top(_g: Game, gt: Dictionary) -> float:
+	# uma paliçada de verdade: ~3 Tomés de altura (acima dela a colisão do portão continua invisível)
+	return max(float(gt.y), float(gt.y) + float(gt.h) - 320.0)
 
-static func _palisade_gate(g: Game, gt: Dictionary) -> void:
-	var bot: float = float(gt.y) + float(gt.h)
-	var top: float = palisade_top(g, gt)
+## geometria comum: [d0 = começo da porta, dw = largura da porta, x1 = fim das toras da frente]
+static func _pal_geo(gt: Dictionary) -> Array:
 	var cx: float = float(gt.x) + float(gt.w) / 2
 	var dw := 66.0
 	var d0: float = cx - dw / 2
+	var x1: float = d0 + dw - 4.0 + PAL_EXT * (PAL_LW - 5.0) + 5.0
+	return [d0, dw, x1]
+
+static func _pal_log_top(lx: float, top: float) -> float:
+	return top - 10.0 + float((int(lx * 7.3) % 5) * 7)
+
+## parte de trás: chão de dentro, o vão escuro, a porta subindo e o batente esquerdo (o Tomé passa na frente deles)
+static func _palisade_gate(g: Game, gt: Dictionary) -> void:
+	var bot: float = float(gt.y) + float(gt.h)
+	var top: float = palisade_top(g, gt)
+	var geo: Array = _pal_geo(gt)
+	var d0: float = geo[0]
+	var dw: float = geo[1]
+	var x1: float = geo[2]
+	var cx: float = d0 + dw / 2
 	var lin: float = bot - GATE_DOOR - 14.0
 	var lift: float = clamp(float(gt.open), 0.0, 1.0) * (GATE_DOOR + 6.0)
-	var tint := Color(.92, .88, .84)
-	# sombra no chão
-	Spr.ellipse(cx, bot + 3, dw * 1.9, 8, Color(0, 0, 0, .28))
-	# vão escuro atrás da porta (dá profundidade quando ela sobe)
-	Spr.rect(d0 + 2, lin + 8, dw - 4, bot - lin - 8, Color(.12, .09, .06, .55))
+	# sombra da paliçada no chão (de ponta a ponta)
+	Spr.ellipse((d0 - PAL_LW + x1) / 2, bot + 3, (x1 - d0 + PAL_LW) * .62, 9, Color(0, 0, 0, .3))
+	# lado de dentro: escuro (aparece no vão e quando as toras da frente ficam translúcidas)
+	Spr.rect(d0 + 2, top + 30, x1 - d0 - 2, bot - top - 30, Color(.1, .07, .05, .5))
+	Spr.rect(d0 + 2, lin + 8, dw - 4, bot - lin - 8, Color(.08, .06, .04, .45))
 	# a porta de tábuas (sobe para trás das toras de cima)
 	Spr.PR("gate_wood", d0, bot - GATE_DOOR - lift, dw, GATE_DOOR + 2)
-	# toras de cima do vão e dos lados: estacas pontudas viradas para cima, alturas um pouco diferentes
-	var lw := 30.0
-	var xs: Array = []
-	var x: float = d0 - lw * 3 + 4
-	while x < d0 + dw + lw * 3 - 4:
-		xs.append(x)
-		x += lw - 5
-	for i in xs.size():
-		var lx: float = xs[i]
-		var over: bool = lx + lw > d0 + 4 and lx < d0 + dw - 4
-		var ty: float = top - 10.0 + float((int(lx * 7.3) % 5) * 7)
-		var by: float = lin + 6.0 if over else bot + 8.0
-		if by - ty < 30.0:
-			continue
-		_palisade_log(lx, ty, by, lw, tint * (.86 if over else 1.0), int(lx))
-	# viga atravessada em cima do vão, amarrada nas toras
-	Spr.rect(d0 - 14, lin - 2, dw + 28, 16, Color("#3a2414"))
-	Spr.rect(d0 - 12, lin, dw + 24, 12, Color("#7a5434"))
-	Spr.rect(d0 - 12, lin, dw + 24, 3, Color(1, .9, .7, .25))
-	for k in [d0 - 4, d0 + dw - 2]:
-		Spr.rect(k, lin - 4, 6, 20, Color("#a0502e"))
 	# portinhola do Pipoca, embaixo da porta fechada
 	if gt.get("dogpass") and gt.open < .3:
 		var fy: float = bot - 24
 		Spr.rr(cx - 14, fy, 28, 24, 4, Color("#3a2414"))
 		Spr.rr(cx - 12, fy + 3, 24, 19, 3, Color("#a8804a"))
 		Spr.circle(cx, fy + 15, 3.2, Color(.3, .2, .1))
+	# batente esquerdo: a tora da quina, um pouco mais grossa, e uma escora de lado (a paliçada fica de pé)
+	var jx: float = d0 - PAL_LW + 6.0
+	Spr.seg(jx - 26, bot + 2, jx + 8, top + 140, Color("#2e1c10"), 9.0)
+	Spr.seg(jx - 26, bot + 2, jx + 8, top + 140, Color("#7a5434"), 5.0)
+	_palisade_log(jx, _pal_log_top(jx, top) - 8.0, bot + 8.0, PAL_LW + 2.0, Color(.92, .88, .84), int(jx))
+
+## parte da frente (desenhada por cima do Tomé e do Pipoca): toras em cima da porta, a viga e as toras
+## à direita da porta. Enquanto alguém está atrás, ficam translúcidas para dar para ver quem passa.
+static func palisade_front(g: Game) -> void:
+	var M: Mech = g.M
+	if M == null:
+		return
+	var c0: float = g.cam - 150
+	var c1: float = g.cam + g.W + 150
+	for gt in M.GATES:
+		if gt.get("crank") or float(gt.h) <= 200.0 or gt.x + 200 < c0 or gt.x - 100 > c1:
+			continue
+		var bot: float = float(gt.y) + float(gt.h)
+		var top: float = palisade_top(g, gt)
+		var geo: Array = _pal_geo(gt)
+		var d0: float = geo[0]
+		var dw: float = geo[1]
+		var x1: float = geo[2]
+		var lin: float = bot - GATE_DOOR - 14.0
+		# alguém atrás? (Tomé ou Pipoca entre a porta e a ponta direita)
+		var behind := false
+		var P = g.player
+		if P and P.x + P.w > d0 + 6 and P.x < x1 - 4 and P.y + P.h > top and P.y < bot + 4:
+			behind = true
+		var D: Dictionary = g.X.DOG if g.X else {}
+		if not D.is_empty() and float(D.x) + 18 > d0 + 6 and float(D.x) - 18 < x1 - 4 and abs(float(D.y) - bot) < 60:
+			behind = true
+		var fa: float = float(gt.get("_fa", 1.0))
+		fa = move_toward(fa, .42 if behind else 1.0, .08)
+		gt._fa = fa
+		var tint := Color(.92, .88, .84, fa)
+		var x: float = d0 - 4.0
+		while x < x1 - 6.0:
+			var over: bool = x < d0 + dw - 8.0
+			var ty: float = _pal_log_top(x, top)
+			var by: float = lin + 6.0 if over else bot + 8.0
+			if by - ty >= 30.0:
+				_palisade_log(x, ty, by, PAL_LW, Color(tint.r * (.86 if over else 1.0), tint.g * (.86 if over else 1.0), tint.b * (.86 if over else 1.0), fa), int(x))
+			x += PAL_LW - 5.0
+		# ponta direita: a última tora um pouco mais escura, virando para dentro (a quina da paliçada)
+		Spr.rect(x1 - 7, top + 40, 7, bot - top - 32, Color(0, 0, 0, .22 * fa))
+		# viga atravessada em cima da porta, amarrada nas toras
+		Spr.rect(d0 - 14, lin - 2, dw + 28, 16, Color(Color("#3a2414"), fa))
+		Spr.rect(d0 - 12, lin, dw + 24, 12, Color(Color("#7a5434"), fa))
+		Spr.rect(d0 - 12, lin, dw + 24, 3, Color(1, .9, .7, .25 * fa))
+		for k in [d0 - 4, d0 + dw - 2]:
+			Spr.rect(k, lin - 4, 6, 20, Color(Color("#a0502e"), fa))
 
 ## uma tora da paliçada: corpo roliço (contorno, luz de um lado, sombra do outro, casca) e ponta afiada
 static func _palisade_log(lx: float, ty: float, by: float, w: float, tint: Color, seed: int) -> void:
 	var tip := 34.0
 	var ol := Color("#2e1c10")
+	var fa: float = tint.a
+	ol.a = fa
 	var base := Color("#8a5a34") * tint
-	base.a = 1.0
+	base.a = fa
 	Spr.rect(lx + 1, ty + tip - 2, w - 2, by - ty - tip + 2, ol)
 	Spr.rect(lx + 3, ty + tip - 2, w - 6, by - ty - tip + 2, base)
-	Spr.rect(lx + 5, ty + tip, 4, by - ty - tip, Color(1, .9, .7, .2))
-	Spr.rect(lx + w - 11, ty + tip, 6, by - ty - tip, Color(0, 0, 0, .2))
+	Spr.rect(lx + 5, ty + tip, 4, by - ty - tip, Color(1, .9, .7, .2 * fa))
+	Spr.rect(lx + w - 11, ty + tip, 6, by - ty - tip, Color(0, 0, 0, .2 * fa))
 	# casca: risquinhos verticais e um nó
 	var k := 0
 	var yy: float = ty + tip + 20.0 + float(seed % 23)
 	while yy < by - 16.0:
 		var xx: float = lx + 8.0 + float((seed + k * 7) % int(max(1.0, w - 16.0)))
-		Spr.seg(xx, yy, xx + 1, yy + 14 + (k % 3) * 6, Color(.25, .15, .08, .45), 1.4)
+		Spr.seg(xx, yy, xx + 1, yy + 14 + (k % 3) * 6, Color(.25, .15, .08, .45 * fa), 1.4)
 		yy += 34.0 + float((seed + k * 13) % 21)
 		k += 1
-	Spr.circle(lx + w * .5, ty + tip + 40 + float(seed % 37), 3.0, Color(.3, .18, .1, .7))
+	Spr.circle(lx + w * .5, ty + tip + 40 + float(seed % 37), 3.0, Color(.3, .18, .1, .7 * fa))
 	# ponta afiada (madeira clara do corte)
 	Spr.poly(PackedVector2Array([Vector2(lx + 1, ty + tip), Vector2(lx + w * .5, ty - 2), Vector2(lx + w - 1, ty + tip)]), ol)
-	Spr.poly(PackedVector2Array([Vector2(lx + 4, ty + tip - 1), Vector2(lx + w * .5, ty + 3), Vector2(lx + w - 4, ty + tip - 1)]), Color("#c79a62") * tint)
-	Spr.poly(PackedVector2Array([Vector2(lx + w * .5, ty + 3), Vector2(lx + w - 4, ty + tip - 1), Vector2(lx + w * .5 + 2, ty + tip - 1)]), Color(0, 0, 0, .18))
+	Spr.poly(PackedVector2Array([Vector2(lx + 4, ty + tip - 1), Vector2(lx + w * .5, ty + 3), Vector2(lx + w - 4, ty + tip - 1)]), Color(Color("#c79a62") * tint, fa))
+	Spr.poly(PackedVector2Array([Vector2(lx + w * .5, ty + 3), Vector2(lx + w - 4, ty + tip - 1), Vector2(lx + w * .5 + 2, ty + tip - 1)]), Color(0, 0, 0, .18 * fa))
 	# amarração de corda perto do pé e perto do topo
 	for ry in [ty + tip + 26.0, by - 70.0]:
 		if ry > ty + tip + 10.0 and ry < by - 10.0:
-			Spr.rect(lx + 1, ry, w - 2, 7, Color("#5a3a1c"))
-			Spr.rect(lx + 1, ry + 1, w - 2, 2, Color(1, .85, .6, .3))
+			Spr.rect(lx + 1, ry, w - 2, 7, Color(Color("#5a3a1c"), fa))
+			Spr.rect(lx + 1, ry + 1, w - 2, 2, Color(1, .85, .6, .3 * fa))

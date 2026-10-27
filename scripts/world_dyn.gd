@@ -300,6 +300,7 @@ func _draw_front_node(n: CanvasItem) -> void:
 		return
 	Spr.begin(n)
 	_front_decor_fade(g)
+	WorldExtras.palisade_front(g)
 	_ride_front(g)
 	WorldVehicles.front(g, T)
 	if g.VL:
@@ -2025,6 +2026,24 @@ func _player_draw(g: Game) -> void:
 				src3 = Spr.x4_src(m4, q4[0])
 				src4 = Spr.x4_src(m4, q4[1])
 				k4 = smoothstep(.5, 1.0, q4[2]) * .5 if q4[1] != q4[0] else 0.0
+			# meia-volta em "3D": no meio da virada ele aparece de frente (pose de corpo inteiro, com volume),
+			# em vez de afinar como uma folha; dos lados, o corpo só estreita um pouco
+			var front_t: bool = float(tst[2]) > .2 and float(tst[2]) < .8 and Spr.anim.has("lookback") and not wsl
+			if front_t:
+				var la: Dictionary = Spr.anim["lookback"]
+				var lsz: float = float(la.s)
+				var kl: float = 78.0 / lsz
+				tx3 = la.tex
+				src3 = Rect2(0, 0, lsz, lsz)
+				dst3 = Rect2(-lsz / 2, -lsz, lsz, lsz)
+				m4 = {}
+				fnext = -1
+				k4 = 0.0
+				sz = lsz
+				var nf3: float = 1.0 if p.face > 0 else -1.0
+				sx3 = nf3 * kl * (1 + sq3 * .2) * st.x * (.94 + .06 * abs(cos(PI * float(tst[2]))))
+				sy3 = kl * (1 - sq3 * .25) * st.y * (1.0 - tdip) * dk3
+				fp = -1.0
 			# peso: sobe-e-desce da passada (baixo no apoio), lanterna e pompom nas molas, meia-volta na grade
 			var bob3: float = _gait_bob(p, key, fp) if p.onGround else 0.0
 			_mg_springs(g, p, bob3)
@@ -2069,7 +2088,8 @@ func _player_draw(g: Game) -> void:
 				# mistura com o próximo quadro: o passo fica contínuo (sem "pulos" entre quadros)
 				_mg_layer(a.tex, Rect2(fnext * sz, 0, sz, sz), Spr.alpha * smoothstep(.2, 1.0, fmix) * .55)
 			Spr.restore()
-			_turn_other(p, tst, tx3, src3, dst3, cx3, by, rot3, sx3, sy3)
+			if not front_t:
+				_turn_other(p, tst, tx3, src3, dst3, cx3, by, rot3, sx3, sy3)
 			_armor(p, cx, by)
 			return
 	# folhas de sprites antigas (parado, andar, pulo, planar, mergulho)
@@ -2172,7 +2192,7 @@ func _player_draw(g: Game) -> void:
 ## adiantam, as pernas batem no nado; e o lado que gira para longe escurece (sombra da rotação).
 const MG_C := 16
 const MG_R := 16
-const TURN_N := 7      # passos da meia-volta (rápida: a física vira na hora, só o desenho gira)
+const TURN_N := 10      # passos da meia-volta (rápida: a física vira na hora, só o desenho gira)
 ## pontos de cada quadro (em pixels do quadro pintado): mão que segura a lanterna (x, y), centro da lanterna (x, y)
 ## e o pompom do gorro (x, y) — medidos nas folhas assets/sprites/tome/*.png e pai.png (quadro 0)
 const MG_PTS := {
@@ -2438,7 +2458,7 @@ func _turn_state(g: Game, p: Dictionary) -> Array:
 	var df: float = fr if u < .5 else (1.0 if p.face > 0 else -1.0)
 	# gira em torno do eixo do corpo: estreita até a metade (sem ficar fino como papel: o corpo tem
 	# grossura) e abre do outro lado
-	var wf: float = .45 + .55 * abs(cos(PI * u))
+	var wf: float = .72 + .28 * abs(cos(PI * u))
 	return [df, wf, u]
 
 ## no meio da meia-volta o outro lado aparece por cima, sumindo (o corpo de frente, sem "estalo" ao espelhar)

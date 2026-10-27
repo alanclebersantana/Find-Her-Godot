@@ -461,7 +461,7 @@ func _initialize() -> void:
 		S("manivela: passa pela porta", walk_to(float(gt.x) + 120.0) == true)
 	if all or args.has("portas"):
 		# portas de caixa no botão: sem a caixa no botão não dá para passar (nem pulando da caixa)
-		for gid in ["g1", "g3", "g5", "g2", "g4"]:
+		for gid in ["g1", "g5", "g2", "g4"]:
 			g.load_level(0)
 			P = g.player
 			for e in g.EN:

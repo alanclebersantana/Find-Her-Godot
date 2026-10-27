@@ -161,6 +161,7 @@ func load_level(i: int) -> void:
 	Polish.reset(self)
 	DIPS = []
 	_floor_cache = {}
+	_base_cache = {}
 	level_idx = i
 	max_x = 0.0
 	cur_chk = -1
@@ -1966,13 +1967,49 @@ func cam_bounds() -> Rect2:
 	return Rect2(0, L.top, L.spanX, L.bottom - L.top)
 
 ## altura da câmera: o chão de verdade sob o Tomé fica sempre na mesma altura da tela
+## Em cima de casa, plataforma, muro ou platô, quem manda é o chão de verdade da região (a altura de
+## chão que ocupa mais largura em volta): ele continua aparecendo embaixo, e o Tomé fica mais alto
+## na tela. Buracos e fundos de lago perto não puxam a câmera (ocupam pouca largura).
 func cam_ty(px: float, focus: float) -> float:
 	var feet: float = focus + player.h
 	var gy: float = floor_under(px, feet - 4.0)
+	var base: float = base_ground(px, feet)
+	if base < 90000.0 and base > feet + 30.0 and base - feet < H * .78:
+		gy = base
 	var t: float = cam_focus_ty(focus)
-	if gy < 90000.0 and gy - feet < H * .62:
-		t = gy - H * .885
-	return min(t, focus - H * .2)
+	if gy < 90000.0 and gy - feet < H * .78:
+		t = gy - H * .9
+	return min(t, focus - H * .12)
+
+## altura do chão "da região": entre os chãos (terra/grama) abaixo dos pés numa faixa da largura da
+## tela, o que cobre mais largura
+var _base_cache := {}
+func base_ground(px: float, feet: float) -> float:
+	var key := Vector2i(int(floor(px / 32.0)), int(floor(feet / 16.0)))
+	if _base_cache.has(key):
+		return _base_cache[key]
+	var x0: float = px - W * .6
+	var x1: float = px + W * .6
+	var cover := {}
+	for s in L.solids:
+		if s.get("deco") or not str(s.get("t", "")) in ["ground", "dirt"]:
+			continue
+		var sy: float = float(s.y)
+		if sy < feet - 4.0 or sy > feet + H * .7:
+			continue
+		var ov: float = min(x1, float(s.x) + float(s.get("w", 0))) - max(x0, float(s.x))
+		if ov <= 0.0:
+			continue
+		var k := int(round(sy / 10.0))
+		cover[k] = cover.get(k, 0.0) + ov
+	var best := 99999.0
+	var bw := 0.0
+	for k in cover:
+		if cover[k] > bw:
+			bw = cover[k]
+			best = float(k) * 10.0
+	_base_cache[key] = best
+	return best
 
 func cam_focus_ty(focus: float) -> float:
 	return focus - H * .55

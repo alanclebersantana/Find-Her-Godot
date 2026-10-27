@@ -96,21 +96,21 @@ static func decor(d: Dictionary) -> void:
 
 ## linha de cima da arte (o contorno do telhado), a cada 3 px, para a neve assentar certinho
 static var _roofs := {}
+static var _roof_data := {}
+static var _roof_data_loaded := false
 static func _roof_line(n: String) -> PackedFloat32Array:
 	if _roofs.has(n):
 		return _roofs[n]
-	var r = Spr.AR[n]
-	var im: Image = Spr.atlas_tex(r).get_image()
-	if im.is_compressed():
-		im.decompress()
+	# medido uma vez da arte (assets/data/roofs.json, feito por tools): ler a imagem da placa de vídeo no
+	# celular era lento e segurava a entrada na fase com a tela preta
 	var out := PackedFloat32Array()
-	var x := 0
-	while x < int(r[2]):
-		var y := 0
-		while y < int(r[3]) and im.get_pixel(int(r[0]) + x, int(r[1]) + y).a < .5:
-			y += 1
-		out.push_back(float(y))
-		x += 3
+	if not _roof_data_loaded:
+		_roof_data_loaded = true
+		var j = JSON.parse_string(FileAccess.get_file_as_string("res://assets/data/roofs.json"))
+		if j is Dictionary:
+			_roof_data = j
+	for v in _roof_data.get(n, []):
+		out.push_back(float(v))
 	_roofs[n] = out
 	return out
 

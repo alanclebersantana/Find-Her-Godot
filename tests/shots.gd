@@ -86,6 +86,9 @@ func _initialize() -> void:
 				elif k == "gopen":
 					for gt in g.M.GATES:
 						gt.open = 1.0
+						gt.force_open = true
+				elif k == "low":
+					g.low_fx = true
 				elif k == "dark":
 					g.lantern_lit = false
 				elif k == "drain":
