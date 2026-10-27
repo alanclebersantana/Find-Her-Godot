@@ -1802,7 +1802,10 @@ func _camera() -> void:
 			cam_focus = player.y
 		elif player.y < cam_focus - 150:
 			cam_focus = player.y + 150
-		ty = cam_focus - H * .55 + look_y
+		# o chão de verdade fica sempre na mesma altura da tela (pouco subsolo aparecendo), em qualquer
+		# fase; galhos, tábuas e ilhas não contam. Se o chão estiver longe lá embaixo (penhasco, lago
+		# fundo, plataformas altas) volta a seguir o Tomé, e ele nunca sai por cima da tela
+		ty = cam_ty(px, cam_focus) + look_y
 	var cb := cam_bounds()
 	tx = clamp(tx, cb.position.x, max(cb.position.x, cb.end.x - W))
 	ty = clamp(ty, cb.position.y, max(cb.position.y, cb.end.y - H))
@@ -1961,6 +1964,18 @@ func cam_bounds() -> Rect2:
 		return ZN.cam_rect()
 	return Rect2(0, L.top, L.spanX, L.bottom - L.top)
 
+## altura da câmera: o chão de verdade sob o Tomé fica sempre na mesma altura da tela
+func cam_ty(px: float, focus: float) -> float:
+	var feet: float = focus + player.h
+	var gy: float = floor_under(px, feet - 4.0)
+	var t: float = cam_focus_ty(focus)
+	if gy < 90000.0 and gy - feet < H * .62:
+		t = gy - H * .885
+	return min(t, focus - H * .2)
+
+func cam_focus_ty(focus: float) -> float:
+	return focus - H * .55
+
 func snap_camera() -> void:
 	prev_px = -99999
 	cam_vx = 0.0
@@ -1972,7 +1987,7 @@ func snap_camera() -> void:
 	var cb := cam_bounds()
 	cam = clamp(player.x + player.w / 2 - W / 2 + look_x, cb.position.x, max(cb.position.x, cb.end.x - W))
 	cam_focus = player.y
-	cam_y = clamp(player.y - H * .55, cb.position.y, max(cb.position.y, cb.end.y - H))
+	cam_y = clamp(cam_ty(player.x + player.w / 2, player.y), cb.position.y, max(cb.position.y, cb.end.y - H))
 	prev_cam = cam
 	prev_cam_y = cam_y
 	rcam = cam
