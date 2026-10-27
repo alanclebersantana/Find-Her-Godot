@@ -2060,6 +2060,20 @@ func tall_zoom(base_h: float) -> float:
 			var need: float = (gy - top + 60.0) / .9
 			if need > base_h:
 				z = clamp(base_h / need, .72, 1.0)
+	# no alto (barranco, plataforma, casa) com o chão lá embaixo: abre para caber o chão E o que está
+	# acima do Tomé (folga sobre a cabeça e o topo das paliçadas ali perto) — nada cortado em cima
+	var base: float = base_ground(px, feet)
+	if base < 90000.0 and base - feet > 30.0 and base - feet < base_h * 1.2:
+		var top2: float = p.y - 110.0
+		if M:
+			for gt in M.GATES:
+				if gt.get("crank") or float(gt.h) <= 200.0:
+					continue
+				if float(gt.x) > px - 250.0 and float(gt.x) < px + 450.0:
+					top2 = min(top2, WorldExtras.palisade_top(self, gt) - 40.0)
+		var need2: float = (base - top2) / .9
+		if need2 > base_h:
+			z = min(z, clamp(base_h / need2, .65, 1.0))
 	_tall_cache[key] = z
 	return z
 
