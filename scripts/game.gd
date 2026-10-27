@@ -1976,14 +1976,49 @@ func cam_bounds() -> Rect2:
 func cam_ty(px: float, focus: float) -> float:
 	var feet: float = focus + player.h
 	var gy: float = floor_under(px, feet - 4.0)
+	# fundo de lago/brejo com o Tomé por cima (vitória-régia, pulo): não é chão para a câmera
+	if gy < 90000.0 and _submerged(px, gy, feet):
+		gy = 99999.0
 	var base: float = base_ground(px, feet)
 	# sobre lago/brejo (sem chão firme embaixo): a superfície é o chão da região, não o fundo
-	if base < 90000.0 and (base > feet + 30.0 or gy >= 90000.0) and base - feet < H * .78:
+	if base < 90000.0 and base >= feet - 30.0 and (base > feet + 30.0 or gy >= 90000.0) and base - feet < H * .78:
 		gy = base
 	var t: float = cam_focus_ty(focus)
 	if gy < 90000.0 and gy - feet < H * .78:
 		t = gy - H * .9
+		# algo interessante mais embaixo que o chão (canal, poço, água funda entre pilares): mostra
+		var low: float = low_interest(px, gy)
+		if low > 0.0:
+			t = max(t, low + 30.0 - H)
 	return min(t, focus - H * .12)
+
+## o ponto (px, y) está no fundo de água/brejo e o Tomé está por cima da superfície (não nadando)
+func _submerged(px: float, y: float, feet: float) -> bool:
+	for arr in [SWAMP, X.WATER if X else []]:
+		for w in arr:
+			var wx: float = float(w.x)
+			if px < wx or px > wx + float(w.w):
+				continue
+			var top: float = float(w.y)
+			if y > top + 12.0 and feet < top + 20.0:
+				return true
+	return false
+
+## a parte de baixo que vale mostrar (superfície de canal/água/brejo bem abaixo do chão, mais um
+## pedaço dela) numa faixa em volta do Tomé; 0 = nada (só subsolo). Lago na altura do chão não conta.
+func low_interest(px: float, gy: float) -> float:
+	var low := 0.0
+	var x0: float = px - 960.0 * .42
+	var x1: float = px + 960.0 * .42
+	for arr in [SWAMP, X.WATER if X else []]:
+		for w in arr:
+			var wx: float = float(w.x)
+			if wx > x1 or wx + float(w.w) < x0:
+				continue
+			var top: float = float(w.y)
+			if top > gy + 40.0 and top < gy + 280.0:
+				low = max(low, min(top + 50.0, top + float(w.h)))
+	return low
 
 ## altura do chão "da região": entre os chãos (terra/grama) abaixo dos pés numa faixa da largura da
 ## tela, o que cobre mais largura
@@ -2040,8 +2075,13 @@ func tall_zoom(base_h: float) -> float:
 	if _tall_cache.has(key):
 		return _tall_cache[key]
 	var gy: float = floor_under(px, feet - 4.0)
+	if gy >= 90000.0 or gy - feet > 120.0:
+		var bg: float = base_ground(px, feet)
+		if bg < 90000.0:
+			gy = bg
 	var z := 1.0
-	if gy < 90000.0 and gy - feet < 120.0:
+	# no chão ou subindo pelo paredão (pulando nas paredes, escada): o topo aparece a subida toda
+	if gy < 90000.0 and gy > feet - 10.0:
 		var top := 99999.0
 		for s in L.solids:
 			if s.get("deco") or not str(s.get("t", "")) in ["cliff", "wall", "stone", "damwall", "hill"]:
@@ -2074,6 +2114,14 @@ func tall_zoom(base_h: float) -> float:
 		var need2: float = (base - top2) / .9
 		if need2 > base_h:
 			z = min(z, clamp(base_h / need2, .65, 1.0))
+	# algo para mostrar embaixo (canal, água entre pilares): cabe isso e a folga sobre a cabeça
+	var g3: float = gy if gy < 90000.0 else base
+	if g3 < 90000.0 and g3 >= feet - 10.0:
+		var low: float = low_interest(px, g3)
+		if low > 0.0:
+			var need3: float = (low + 30.0) - (p.y - 110.0)
+			if need3 > base_h:
+				z = min(z, clamp(base_h / need3, .72, 1.0))
 	_tall_cache[key] = z
 	return z
 

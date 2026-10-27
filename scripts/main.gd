@@ -158,9 +158,9 @@ func _update_vivid() -> void:
 			w.content_scale_mode = Window.CONTENT_SCALE_MODE_VIEWPORT
 		else:
 			w.content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
-	# na qualidade baixa (celular mais fraco ou que já engasgou) o acerto de cor sai inteiro: ele lê a
-	# tela toda a cada quadro e pesa na placa de vídeo
-	vivid.visible = game != null and game.L and state != S.TITLE and not game.low_fx
+	# sem as leituras do contorno (que agora vem do outline.gdshader) é uma leitura só por pixel: fica
+	# ligado também na qualidade baixa
+	vivid.visible = game != null and game.L and state != S.TITLE
 	if not vivid.visible:
 		return
 	var m: ShaderMaterial = vivid.material
