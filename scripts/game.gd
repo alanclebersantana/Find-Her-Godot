@@ -138,6 +138,8 @@ var low_fx := false
 var shown_crate := false
 var rng := RandomNumberGenerator.new()
 var camera: Camera2D
+## onde ficam os nós do mundo (tela à parte com o contorno; main.gd)
+var world_parent: Node = null
 # interpolação do desenho entre passos fixos (movimento liso em telas de 90/120 Hz)
 var prev_px := 0.0
 var prev_py := 0.0

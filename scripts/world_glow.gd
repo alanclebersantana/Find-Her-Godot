@@ -12,7 +12,8 @@ func _ready() -> void:
 	if game == null:
 		return
 	var idx := -1
-	for c in game.get_children():
+	var wp: Node = game.world_parent if game.world_parent else game
+	for c in wp.get_children():
 		if c.is_queued_for_deletion():
 			continue
 		if c.get_script() == AFX:
@@ -22,9 +23,9 @@ func _ready() -> void:
 	var amb: Node2D = AFX.new()
 	amb.game = game
 	amb.name = "AmbientFx"
-	game.add_child(amb)
+	wp.add_child(amb)
 	if idx >= 0:
-		game.move_child(amb, idx + 1)
+		wp.move_child(amb, idx + 1)
 
 func _process(_d: float) -> void:
 	queue_redraw()

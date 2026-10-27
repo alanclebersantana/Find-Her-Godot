@@ -167,7 +167,8 @@ func _update_vivid() -> void:
 	var night: float = clamp(float(game.AMB.get("night", 0.0)), 0.0, 1.0)
 	var dark: float = clamp(float(game.AMB.get("dark", 0.0)), 0.0, 1.0)
 	m.set_shader_parameter("warm", .03 * (1.0 - night) * (1.0 - dark * .8))
-	m.set_shader_parameter("edge", 0.0 if game.low_fx else 1.7)
+	# o contorno agora vem do outline.gdshader (tela do mundo); aqui só a cor, sem as 4 leituras extras
+	m.set_shader_parameter("edge", 0.0)
 	m.set_shader_parameter("px", clamp(get_viewport().get_visible_rect().size.y / 540.0, 1.0, 3.0) * 1.2)
 
 # ======================================================================
@@ -186,6 +187,18 @@ func _build_world() -> void:
 	bg.game = game
 	bg.z_index = -10
 	game.add_child(bg)
+	# o mundo (tudo menos o plano de fundo) é desenhado numa tela transparente à parte e colado por cima
+	# do fundo com o contorno de desenho animado (outline.gdshader)
+	_make_world_vp()
+	for c in world_root.get_children():
+		c.queue_free()
+	game.world_parent = world_root
+	world_show = _WorldShow.new()
+	world_show.vp = world_vp
+	var om := ShaderMaterial.new()
+	om.shader = preload("res://scripts/outline.gdshader")
+	world_show.material = om
+	game.add_child(world_show)
 	var span: int = game.L.spanX
 	var x := 0
 	while x < span:
@@ -193,11 +206,11 @@ func _build_world() -> void:
 		ch.game = game
 		ch.x0 = x
 		ch.x1 = min(x + 1024, span)
-		game.add_child(ch)
+		world_root.add_child(ch)
 		x += 1024
 	var dyn := preload("res://scripts/world_dyn.gd").new()
 	dyn.game = game
-	game.add_child(dyn)
+	world_root.add_child(dyn)
 	var gl := preload("res://scripts/world_glow.gd").new()
 	gl.game = game
 	glow_layer.add_child(gl)
@@ -2717,6 +2730,57 @@ func _on_over() -> void:
 
 ## Prepara as letras das fontes logo na abertura (fora da tela): sem isso cada letra nova desenhada pela
 ## primeira vez (aviso, fala, placar) era gerada na hora e dava uma travadinha.
+## tela à parte do mundo (fundo transparente), do tamanho da tela de verdade e com a mesma câmera
+var world_vp: SubViewport
+var world_root: Node2D
+var world_show: Node2D
+func _make_world_vp() -> void:
+	if world_vp != null:
+		return
+	world_vp = SubViewport.new()
+	world_vp.disable_3d = true
+	world_vp.transparent_bg = true
+	world_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	world_vp.canvas_item_default_texture_filter = get_viewport().canvas_item_default_texture_filter
+	world_vp.size_2d_override_stretch = true
+	add_child(world_vp)
+	world_root = Node2D.new()
+	world_root.name = "Mundo"
+	world_vp.add_child(world_root)
+	RenderingServer.frame_pre_draw.connect(_sync_world_vp)
+	_sync_world_vp()
+
+## antes de cada quadro ser pintado: mesmo tamanho, mesma escala e mesma câmera da tela principal
+func _sync_world_vp() -> void:
+	if world_vp == null:
+		return
+	var root := get_tree().root
+	var vis: Vector2 = root.get_visible_rect().size
+	var real: Vector2i = root.size if root.content_scale_mode == Window.CONTENT_SCALE_MODE_CANVAS_ITEMS else Vector2i(vis)
+	real = Vector2i(max(real.x, 16), max(real.y, 16))
+	if world_vp.size != real:
+		world_vp.size = real
+	if world_vp.size_2d_override != Vector2i(vis):
+		world_vp.size_2d_override = Vector2i(vis)
+	var ct: Transform2D = root.canvas_transform
+	world_vp.canvas_transform = ct
+	if is_instance_valid(world_show):
+		world_show.transform = ct.affine_inverse()
+		world_show.size = vis
+		var om: ShaderMaterial = world_show.material
+		if om:
+			# traço de ~2,2 px na tela de base (540 linhas), mais grosso nas telas maiores
+			om.set_shader_parameter("px", clamp(2.2 * float(real.y) / max(vis.y, 1.0), 1.6, 6.0))
+
+class _WorldShow extends Node2D:
+	var vp: SubViewport
+	var size := Vector2(960, 540)
+	func _process(_d: float) -> void:
+		queue_redraw()
+	func _draw() -> void:
+		if vp:
+			draw_texture_rect(vp.get_texture(), Rect2(Vector2.ZERO, size), false)
+
 class _FontWarm extends Node2D:
 	func _draw() -> void:
 		var s := ""
