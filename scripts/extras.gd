@@ -669,7 +669,13 @@ func _boss() -> void:
 				_gate_on(true)
 				Audio.play("thunder", -6)
 				g.shake = 6
-				if b.skin == "dog":
+				if b.skin == "dog" and b.get("seen", false):
+					# voltou da fogueira: sem a apresentação de novo, a luta recomeça direto
+					b.st = "idle"
+					b.t = 0
+					g.flash("O Brutus de novo: prenda a corrente nas argolas!", 140)
+				elif b.skin == "dog":
+					b.seen = true
 					g.start_cine("brutus", b.spawn - 60, 420, 260,
 						[[165, 250, "TOMÉ", "O cão do Vargas, preso numa corrente! Se eu prender a corrente nas argolas do chão, ele não chega mais no portão.", "tome"]],
 						[75, 160, "BRUTUS", "o cão de guarda do Vargas"])

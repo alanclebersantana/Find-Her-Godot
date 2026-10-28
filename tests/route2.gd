@@ -264,7 +264,7 @@ func lily_hop(x: float):
 ## gruda na colmeia); com o sapo tonto, pula na cabeça dele
 func frog_fight():
 	var f: Dictionary = g.K.FISH
-	for it in 600:
+	for it in 1000:
 		P = g.player
 		if OS.get_environment("DBG") != "" and it % 5 == 0:
 			print("FR it=%d st=%s t=%d hp=%d fx=%d px=%d py=%d swim=%s phl=%d tg=%s" % [it, f.st, f.t, f.hp, int(f.x), int(px()), int(P.y + P.h), str(P.swim), P.hp, str(f.tg.get("st", ""))])

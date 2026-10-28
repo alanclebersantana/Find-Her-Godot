@@ -191,6 +191,12 @@ static func _flock(g: Game, T: int) -> void:
 	var bx: float = x0 + dir * u * (g.W + 400)
 	var by: float = g.cam_y + 70 + hh(cyc, 4) * 90 + sin(u * 6.0) * 10
 	var n: int = 5 + int(hh(cyc, 5) * 5)
+	# câmera olhando o fundo de um lago: o bando passaria "voando" dentro da água — não aparece
+	var mx: float = g.cam + g.W * .5
+	for arr in [g.SWAMP, g.X.WATER if g.X else []]:
+		for w in arr:
+			if mx > float(w.x) - 200.0 and mx < float(w.x) + float(w.w) + 200.0 and float(w.y) < by + 40.0:
+				return
 	var kd := str(kind)
 	if kd == "geese":
 		# gansos em V, devagar e longe (pequenos, apagados)

@@ -336,6 +336,11 @@ static func bat_step(g, K) -> void:
 				K._gate("hawkL", true, Rect2(h.x0 - 24, gy - 260, 24, 260))
 				K._gate("hawkR", true, Rect2(h.x1, gy - 260, 24, 260))
 				Audio.play("thunder", -8)
+				if h.get("seen", false):
+					# voltou da fogueira: sem a apresentação de novo, a luta recomeça direto
+					g.flash("O Morcego-Rei de novo: acenda as lamparinas!", 140)
+					return
+				h.seen = true
 				g.start_cine("morcego", (h.x0 + h.x1) / 2.0, gy - 160, 250,
 					[[150, 245, "TOMÉ", "Um morcego gigante! No escuro eu nem vejo ele... Se eu acender as lamparinas da caverna, ele não tem onde se esconder.", "tome"]],
 					[60, 150, "MORCEGO-REI", "o dono das profundezas"])
@@ -596,6 +601,11 @@ static func frog_step(g, K) -> void:
 				K._gate("fishL", true, Rect2(f.x0 - 24, f.y0 - 330, 24, f.y1 - f.y0 + 330))
 				K._gate("fishR", true, Rect2(f.x1, f.y0 - 330, 24, f.y1 - f.y0 + 330))
 				Audio.play("thunder", -8)
+				if f.get("seen", false):
+					# já viu a apresentação (voltou da fogueira): a luta recomeça direto
+					g.flash("O Sapo-Rei de novo: engane a língua com as colmeias!", 140)
+					return
+				f.seen = true
 				g.start_cine("sapo", f.x - 60.0, f.y - 80.0, 250,
 					[[150, 245, "TOMÉ", "Um sapo do tamanho de uma carroça! Essa língua gruda em tudo... e se ela grudar numa daquelas colmeias?", "tome"]],
 					[60, 150, "SAPO-REI", "o dono do lago do moinho"])
@@ -754,11 +764,27 @@ static func _tongue_step(g, K, f: Dictionary, tg: Dictionary, p: Dictionary) -> 
 				f.st = "idle"
 				f.t = 0
 				f.cd = 150
-				p.x = f.x + f.dir * 190.0 - p.w / 2
-				p.y = float(f.y0) - p.h + 6.0
-				p.vy = 3.0
+				# cuspido de volta numa vitória-régia pequena (antes caía no fundo do lago e ficava
+				# preso lá embaixo sem ar): cai em cima dela, molhado, e perde um coração
+				var land = null
+				var bd := 1e9
+				for l in g.LILY:
+					if l.get("big") or l.st != 0:
+						continue
+					var lc: float = float(l.x) + float(l.w) / 2.0
+					var dd: float = abs(lc - (f.x - 330.0))
+					if lc < f.x - 120.0 and dd < bd:
+						bd = dd
+						land = l
 				Audio.play("splash")
-				g.burst(p.x + p.w / 2, float(f.y0), 18, Color(.7, .85, .9))
+				g.burst(mouth.x, mouth.y, 14, Color(.7, .85, .9))
+				if land != null:
+					p.x = float(land.x) + float(land.w) / 2.0 - p.w / 2
+					p.y = float(land.y) - p.h - 60.0
+				else:
+					p.x = f.x + f.dir * 190.0 - p.w / 2
+					p.y = float(f.y0) - p.h - 60.0
+				p.vy = 1.0
 				g.hurt(1, f.x)
 				if not g.L.get("_frog_grab", false):
 					g.L["_frog_grab"] = true
