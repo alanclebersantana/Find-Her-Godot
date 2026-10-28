@@ -964,15 +964,6 @@ static func _sled_track(g: Game, VH: Vehicles, T: int) -> void:
 				else:
 					Spr.PR("stake", fx - 4, fy - 56, 8, 58, Color(.85, .8, .75))
 					Spr.poly(PackedVector2Array([Vector2(fx + 3, fy - 56), Vector2(fx + 30, fy - 48 + sin(T * .2) * 3), Vector2(fx + 3, fy - 38)]), Color("#e0463a"))
-	# placas antes de cada obstáculo: seta verde para cima (pular) ou laranja para baixo (abaixar)
-	for o in VH.OBS:
-		if o.k == "bump" or o.k == "kick":
-			continue
-		var su0: float = float(o.u) - 260.0
-		var sx0: float = t0 + su0
-		if sx0 < a - 80 or sx0 > b + 80:
-			continue
-		_ground_sign(sx0, VH.sled_y(su0), o.k != "branch", T)
 	# marcos da descida (bandeiras: vermelha antes, dourada depois de passar)
 	var C: Array = VH.SL.get("cps", [])
 	for i in C.size():
@@ -1451,21 +1442,7 @@ static func _cart_track(g: Game, VH: Vehicles, T: int) -> void:
 						stx += 16
 					Spr.restore()
 				if ft < 0:
-					# placa "ABAIXE" pendurada na viga e setas piscando para baixo
-					var pul2: float = .55 + .45 * sin(T * .2)
-					Spr.seg(o.x - 2, by + 18, o.x - 2, by + 26, Color("#222"), 2)
-					Spr.rr(o.x - 34, by + 26, 64, 20, 4, Color(1, .82, .15, .95))
-					Spr.text("↓ ABAIXE", o.x - 2, by + 41, 12, Color(.15, .1, .05), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b)
-					for k in 2:
-						var u2: float = fposmod(T * .025 + k * .5, 1.0)
-						var ay2: float = oy - 150 + u2 * 30
-						Spr.line(PackedVector2Array([Vector2(o.x - 210 - 14, ay2 - 12), Vector2(o.x - 210, ay2), Vector2(o.x - 210 + 14, ay2 - 12)]), Color(1, .6, .1, sin(u2 * PI) * pul2), 6)
-					# placa de aviso antes da viga, num poste
-					var wx: float = o.x - 210
-					var wy: float = VH.sled_y(float(o.u) - 210)
-					Spr.rect(wx - 3, wy - 92, 6, 92, Color("#4a3018"))
-					Spr.poly(PackedVector2Array([Vector2(wx, wy - 120), Vector2(wx + 24, wy - 96), Vector2(wx, wy - 72), Vector2(wx - 24, wy - 96)]), Color(1, .8, .1))
-					Spr.text("↓", wx, wy - 86, 22, Color(.1, .08, .05), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b)
+					pass   # (sem placa nem setas: a viga listrada de amarelo e preto já avisa)
 			"crack":
 				# trilho quebrado sobre um buraco escuro
 				var w: float = float(o.w)
@@ -1506,7 +1483,7 @@ static func front(g: Game, T: int) -> void:
 		_fg_clouds(g, VH, T)
 	if sq != "":
 		_speed_lines(g, VH, sq, T)
-	_cheer(g, VH, T)
+	# (a faixa de comemoração é desenhada na camada de brilho, por cima da escuridão: world_glow)
 
 ## primeiro plano do trenó: copas de pinheiro bem perto da câmera passando rápido embaixo da tela
 ## (andam mais que o cenário: dá a sensação de velocidade)

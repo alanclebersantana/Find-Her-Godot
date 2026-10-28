@@ -361,6 +361,12 @@ func __draw_raw() -> void:
 
 ## beirada do buraco que aparece até no escuro: contorno claro seguindo a terra que desmorona e
 ## pedrinhas soltas caindo da borda
+	# faixa de comemoração das corridas ("CHEGADA!", "POUSO PERFEITO!"): por cima da escuridão,
+	# bem acesa mesmo à noite
+	if g.VH:
+		WorldVehicles._cheer(g, g.VH, T)
+
+
 func _pit_rim(e: float, y: float, dir: float, k: float) -> void:
 	# beira do buraco: musgo e cogumelinhos que brilham sozinhos (dá para ver a borda mesmo no
 	# escuro), vaga-lumes em volta e, lá no fundo, uma claridade fraca dando noção da altura

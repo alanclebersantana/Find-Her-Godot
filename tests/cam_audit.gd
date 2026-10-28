@@ -6,6 +6,7 @@ func _initialize() -> void:
 	var main = load("res://scenes/main.tscn").instantiate()
 	root.add_child(main)
 	await process_frame
+	main.set_process(false)   # (sem o mundo montado: a tela principal não precisa rodar)
 	var g = main.game
 	var lvl := int(OS.get_environment("LVL")) if OS.get_environment("LVL") != "" else 0
 	g.load_level(lvl)

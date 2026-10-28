@@ -13,7 +13,7 @@ var fog: Array = []
 var streaks: Array = []
 var drift: Array = []
 const PAR := 1.45     # a camada da frente anda 45% mais rápido que o mundo
-const NLEAF := 44
+const NLEAF := 70
 ## camadas de profundidade das folhas: tamanho, velocidade, paralaxe da câmera
 const LZ_S := [.55, 1.0, 1.55]
 const LZ_V := [.6, 1.0, 1.35]

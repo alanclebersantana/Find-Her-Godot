@@ -22,6 +22,9 @@ func _ready() -> void:
 	me.shader = preload("res://scripts/depth_en.gdshader")
 	en_node.material = me
 	add_child(en_node)
+	# gráficos no máximo: o mesmo volume (sombra de forma larga, luz do lado do sol) em tudo o que se
+	# mexe no mundo — bichos, Isis, Pipoca, caixas, plantas — não só nos inimigos e no Tomé
+	material = me
 	pl_node = _Sub.new()
 	pl_node.cb = _draw_player_node
 	var m := ShaderMaterial.new()
@@ -1289,17 +1292,7 @@ func _ride_marks(g: Game, RD: Ride, x0: float, x1: float) -> void:
 	var ax: float = RD.finish_x()
 	if ax > x0 - 200 and ax < x1 + 200:
 		WorldVehicles.finish_arch(ax, 500.0, 0.0, T)
-	for o in RD.OBS:
-		if o.hit:
-			continue
-		var sx: float = float(o.x) - 300.0
-		if sx < x0 - 60 or sx > x1 + 60:
-			continue
-		if o.k in ["branch", "rope"]:
-			WorldVehicles._ground_sign(sx, 500, false, T)
-		elif o.k == "leap":
-			WorldVehicles._ground_sign(sx, 500, true, T)
-			WorldVehicles._ground_sign(sx - 40, 500, true, T)
+	# (sem placas de seta antes dos obstáculos: o próprio obstáculo avisa)
 
 var _hpitch := 0.0
 ## cavalgada: o galho baixo por cima do Tomé e do cavalo (a árvore fica atrás, em _ride_world)
@@ -1597,7 +1590,7 @@ func _isis_draw(p: Dictionary) -> void:
 		fr = int(p.anim * .78) % 4
 	_ppos = Vector2(p.x, p.y)
 	var air: float = clamp(1 - abs(p.vy) / 16.0, .35, 1) if not p.onGround else 1.0
-	if fr != 10 and fr != 8:
+	if fr != 10 and fr != 8 and p.onGround:
 		Polish.shadow(cx, p.y + p.h + 1, 13 * air, 3 * air, .3 * air)
 	var t: Texture2D = Spr.tex.get("isis2")
 	if t == null:
@@ -1605,7 +1598,8 @@ func _isis_draw(p: Dictionary) -> void:
 	var s: float = ISIS_H / 150.0
 	# poses pintadas extras: subindo corda/cipó, escondida com medo, feliz
 	var ovn := ""
-	if p.ladder and p.ladder.get("kind", "") != "ladder":
+	# (também na escada de verdade: o quadro 8 da folha tem uma escadinha pintada junto)
+	if p.ladder:
 		ovn = "isis_climb"
 	elif p.get("cheerT", 0) > 0:
 		ovn = "isis_joy"
@@ -2053,7 +2047,9 @@ func _player_draw(g: Game) -> void:
 			_turn_mg(p, tst)
 			# a sombra respira com o passo: mais larga e escura no apoio
 			var bn: float = bob3 / 8.0
-			Polish.shadow(cx, by + 1, 16 * air3 * (1.0 + .07 * bn), 4 * air3, .25 * air3 * (1.0 + .15 * bn))
+			# (no ar não tem sombra: ela ficava "voando" junto, debaixo dos pés)
+			if p.onGround:
+				Polish.shadow(cx, by + 1, 16 * air3 * (1.0 + .07 * bn), 4 * air3, .25 * air3 * (1.0 + .15 * bn))
 			# na parede: o corpo afasta um palmo (só a mão encosta) e inclina para fora, tremendo com o atrito
 			var cx3: float = cx + p.face * 8.0 * wk
 			var rot3: float = p.lean + (p.face * .1 + sin(T * 1.1) * .012) * wk + p.face * (1.0 - dk3) * .35
@@ -2131,7 +2127,8 @@ func _player_draw(g: Game) -> void:
 		otex = om.tex
 		osrc = Spr.x4_src(om, Spr.x4_pos(om, ofp)[0])
 	var air: float = clamp(1 - abs(p.vy) / 16.0, .3, 1)
-	Polish.shadow(cx, by + 1, 16 * air, 4 * air, .25 * air)
+	if p.onGround:
+		Polish.shadow(cx, by + 1, 16 * air, 4 * air, .25 * air)
 	if p.puff:
 		Spr.glow(cx, by - 30, 50, Color(1, .96, .82, .55))
 	if p.run and p.onGround:

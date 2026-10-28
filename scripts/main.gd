@@ -161,6 +161,8 @@ func _update_vivid() -> void:
 	# sem as leituras do contorno (que agora vem do outline.gdshader) é uma leitura só por pixel: fica
 	# ligado também na qualidade baixa
 	vivid.visible = game != null and game.L and state != S.TITLE
+	if outline_rect:
+		outline_rect.visible = vivid.visible
 	if not vivid.visible:
 		return
 	var m: ShaderMaterial = vivid.material
@@ -196,7 +198,7 @@ func _build_world() -> void:
 	world_show = _WorldShow.new()
 	world_show.vp = world_vp
 	var om := ShaderMaterial.new()
-	om.shader = preload("res://scripts/outline.gdshader")
+	om.shader = preload("res://scripts/premul.gdshader")
 	world_show.material = om
 	game.add_child(world_show)
 	var span: int = game.L.spanX
@@ -340,15 +342,7 @@ func _process(_d: float) -> void:
 	# chuva, tambores e sons do cenário só tocam com o jogo rodando (somem nos menus e voltam depois)
 	Audio.set_world(state == S.PLAY and game.running)
 	_update_cine_bars()
-	# qualidade automática: se o celular passar uns segundos abaixo de 45 quadros, desliga os enfeites
-	if state == S.PLAY and game.running and not game.low_fx and OS.get_environment("FH_HIFX") != "1":
-		if Engine.get_frames_per_second() < 45:
-			_slow_t += _d
-		else:
-			_slow_t = max(0.0, _slow_t - _d * .5)
-		if _slow_t > 2.5:
-			game.low_fx = true
-			Save.setv("opt", "lowfx", true)
+	# (gráficos sempre no máximo: não existe mais a redução automática de qualidade)
 	# botão da mão: só quando há algo para usar (ou enquanto está sendo segurado)
 	for tb in touch:
 		if tb.get_meta("k") == "A":
@@ -1416,7 +1410,6 @@ func show_options(from_pause: bool) -> void:
 	opt_row.call("Transparência", "btn_alpha", [["Clara", "clara"], ["Média", "media"], ["Forte", "forte"]], "media")
 	opt_row.call("Mão", "left", [["Destro", false], ["Canhoto", true]], false)
 	opt_row.call("Velocidade", "tps", [["Normal", 44], ["Rápida", 52], ["Muito rápida", 60]], 44)
-	opt_row.call("Gráficos", "lowfx", [["Completos", false], ["Leves (celular lento)", true]], false)
 	opt_row.call("Tutorial (dicas)", "tutorial", [["Ligado", true], ["Desligado", false]], true)
 	opt_row.call("Som", "sound", [["Ligado", true], ["Desligado", false]], true)
 	vol_row.call("Música", Audio.vol_music, Audio.set_music_vol, false)
@@ -1591,7 +1584,8 @@ func start_level(cont: bool, lvl: int = 0) -> void:
 		Save.clear_run()
 		game.load_level(lvl)
 		Save.run_secs = 0.0
-	game.low_fx = bool(Save.getv("opt", "lowfx", false))
+	# gráficos sempre no máximo (a opção "Leves" e a redução automática saíram)
+	game.low_fx = false
 	hud.reset_run()
 	_build_world()
 	_warm_shaders()
@@ -2739,6 +2733,7 @@ func _on_over() -> void:
 var world_vp: SubViewport
 var world_root: Node2D
 var world_show: Node2D
+var outline_rect: ColorRect
 func _make_world_vp() -> void:
 	if world_vp != null:
 		return
@@ -2752,6 +2747,16 @@ func _make_world_vp() -> void:
 	world_root = Node2D.new()
 	world_root.name = "Mundo"
 	world_vp.add_child(world_root)
+	# o contorno preto vai numa camada por cima de tudo (depois da luz, da escuridão e dos tons)
+	outline_rect = ColorRect.new()
+	outline_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	outline_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var olm := ShaderMaterial.new()
+	olm.shader = preload("res://scripts/outline.gdshader")
+	olm.set_shader_parameter("world_tex", world_vp.get_texture())
+	outline_rect.material = olm
+	screen_layer.add_child(outline_rect)
+	screen_layer.move_child(outline_rect, vivid.get_index() + 1)
 	RenderingServer.frame_pre_draw.connect(_sync_world_vp)
 	_sync_world_vp()
 
@@ -2772,10 +2777,11 @@ func _sync_world_vp() -> void:
 	if is_instance_valid(world_show):
 		world_show.transform = ct.affine_inverse()
 		world_show.size = vis
-		var om: ShaderMaterial = world_show.material
-		if om:
-			# traço de ~2,2 px na tela de base (540 linhas), proporcional nas telas maiores
-			om.set_shader_parameter("px", clamp(2.5 * float(real.y) / max(vis.y, 1.0), 1.8, 7.0))
+	if outline_rect:
+		var olm: ShaderMaterial = outline_rect.material
+		# traço de ~2,5 px na tela de base (540 linhas), proporcional nas telas maiores
+		olm.set_shader_parameter("px", clamp(2.5 * float(real.y) / max(vis.y, 1.0), 1.8, 7.0))
+		olm.set_shader_parameter("texel", Vector2(1.0 / float(real.x), 1.0 / float(real.y)))
 
 class _WorldShow extends Node2D:
 	var vp: SubViewport

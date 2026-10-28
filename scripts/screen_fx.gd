@@ -32,7 +32,7 @@ func _ready() -> void:
 	vign.fill_to = Vector2(1.08, .5)
 	vign.width = 256
 	vign.height = 144
-	for i in 160:
+	for i in 280:
 		rain.append({"x": randf() * 1400, "y": randf() * 540, "v": 12 + randf() * 8})
 	# acerto de cor: um retângulo multiplicado, desenhado antes do resto desta camada
 	grade = _Sub.new()

@@ -137,8 +137,8 @@ class _Painter extends Node2D:
 			# luzes mais coloridas (lanterna dourada, fogo laranja, cristal azul) e um pouco mais fortes
 			var dc: Color = d.color
 			var gl: float = (dc.r + dc.g + dc.b) / 3.0
-			dc = Color(gl + (dc.r - gl) * 1.15, gl + (dc.g - gl) * 1.15, gl + (dc.b - gl) * 1.15)
-			var c: Color = dc * d.energy * 1.12
+			dc = Color(gl + (dc.r - gl) * 1.22, gl + (dc.g - gl) * 1.22, gl + (dc.b - gl) * 1.22)
+			var c: Color = dc * d.energy * 1.3
 			c.a = 1.0
 			draw_set_transform(sp, d.rotation, Vector2(k * d.texture_scale, k * d.texture_scale))
 			var w: float = d.texture.get_width()

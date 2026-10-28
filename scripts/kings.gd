@@ -491,7 +491,8 @@ func _bear() -> void:
 				b.st = "intro"
 				b.t = 0
 				b.hp = b.maxhp
-				b.x = float(b.den)
+				# o urso vem correndo pela floresta, de fora da tela (não tem mais a toca)
+				b.x = pcx - 640.0
 				b.dir = 1
 				b.v = 0.0
 				b.won = false
@@ -501,16 +502,16 @@ func _bear() -> void:
 				b.crown = true
 				_bear_obs_reset()
 				if b.get("seen", false):
-					# já viu a apresentação: o urso sai da toca rugindo e a corrida começa na hora
-					b.x = float(b.den) + 70.0
-					b.st = "roar"
+					# já viu a apresentação: o urso já vem correndo e a fuga começa na hora
+					b.x = pcx - 560.0
+					b.st = "chase"
 					b.t = 0
-					g.flash("O urso acordou de novo: CORRA!", 120)
+					g.flash("O urso vem aí: CORRA!", 120)
 					return
 				b.seen = true
 				Audio.play("roar", -4)
-				g.start_cine("urso", (float(b.den) + pcx) / 2.0 + 40, gy - 140, 230,
-					[[130, 225, "TOMÉ", "Acordei o urso! Grande demais para enfrentar... CORRE! Lá na frente, a fresta da rocha: ele não cabe!", "tome"]],
+				g.start_cine("urso", pcx - 140.0, gy - 140, 230,
+					[[130, 225, "TOMÉ", "Um urso vem correndo pela floresta! Grande demais para enfrentar... CORRE! Lá na frente, a fresta da rocha: ele não cabe!", "tome"]],
 					[50, 130, "URSO-PARDO-REI", "o guardião da neve"])
 			return
 		"intro":
@@ -993,13 +994,13 @@ func cine_step(c: Dictionary) -> void:
 			f.dir = -1
 			f.x = lerpf(f.x, f.x1 - 170.0, .035)
 		"urso":
-			# o urso sai da toca, se ergue e ruge; a câmera mostra a toca e o Tomé
+			# o urso chega correndo de fora da tela, se ergue e ruge; a câmera mostra o urso e o Tomé
 			var b: Dictionary = BEAR
 			if b.is_empty():
 				return
 			b.dir = 1
 			if c.t < 60:
-				b.x = lerpf(b.x, float(b.den) + 70.0, .05)
+				b.x = lerpf(b.x, g.player.x - 300.0, .07)
 				b.anim += .06
 				b.st = "intro"
 			elif c.t < 110:

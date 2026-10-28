@@ -38,7 +38,7 @@ static func draw(g: Game, T: int) -> void:
 			"gust": _gust(TR, o, T)
 			"bridge": _bridge(o, T)
 			"boulder": _boulder(g, o, T)
-			"giant": _giant(o, T)
+			"giant": _giant_cached(g, o, T)
 			"icicle": _icicle(g, o, T)
 	_bobs(g, T)
 	_ice_hits(g, T)
@@ -1150,6 +1150,69 @@ static func _salt_h(w: float) -> float:
 	var r: Array = Spr.AR["p_saltador0"]
 	return w * r[3] / r[2]
 
+## Cogumelo gigante desenhado UMA vez num nó próprio (era o desenho mais caro do trecho dos cogumelos,
+## refeito inteiro a cada quadro): o nó só é redesenhado quando a mola amassa. O que se mexe sempre
+## (brilho pulsando, setinhas, névoa do buraco) continua aqui, barato.
+class _GiantNode extends Node2D:
+	var o: Dictionary
+	var last := -99.0
+	func _draw() -> void:
+		Spr.begin(self)
+		WorldTraps._giant(o, 0)
+
+static func _giant_cached(g: Game, o: Dictionary, T: int) -> void:
+	var n = o.get("_node")
+	if n == null or not is_instance_valid(n) or not n.is_inside_tree():
+		if n == null or not is_instance_valid(n):
+			var wp: Node = g.world_parent
+			var dyn: CanvasItem = Spr.ci
+			if wp == null or dyn == null or dyn.get_parent() != wp:
+				_giant(o, T)
+				_giant_anim(o, T)
+				return
+			var gn := _GiantNode.new()
+			gn.o = o
+			o._node = gn
+			# entra logo antes do mundo que se mexe (atrás de bichos, do Tomé e das armadilhas)
+			(func():
+				if is_instance_valid(wp) and is_instance_valid(dyn) and dyn.get_parent() == wp:
+					wp.add_child(gn)
+					wp.move_child(gn, dyn.get_index())
+				).call_deferred()
+		# ainda não entrou na árvore: desenha direto neste quadro
+		_giant(o, T)
+		_giant_anim(o, T)
+		return
+	var sq: float = snappedf(float(o.get("squash", 0.0)), .02)
+	if sq != n.last:
+		n.last = sq
+		n.queue_redraw()
+	_giant_anim(o, T)
+
+## partes animadas do cogumelo gigante (desenhadas a cada quadro)
+static func _giant_anim(o: Dictionary, T: int) -> void:
+	var x: float = o.x
+	if o.has("to") and Spr.has("p_saltador0"):
+		var aw: float = o.w * 1.12
+		var ah: float = _salt_h(aw)
+		var atop: float = float(o.cap) - ah * .05
+		# brilho pulsando em volta do chapéu
+		Spr.glow(x, float(o.cap) + 10, aw * .75, Color(1, .6, .2, .22 + .08 * sin(T * .1 + x)))
+		# setinhas subindo em cima do chapéu ("pule aqui!")
+		for k in 2:
+			var u: float = fposmod(T * .02 + k * .5, 1.0)
+			var ay: float = atop - 14 - u * 34
+			var al: float = sin(u * PI) * .9
+			Spr.line(PackedVector2Array([Vector2(x - 11, ay + 8), Vector2(x, ay), Vector2(x + 11, ay + 8)]), Color(1, .92, .4, al), 4)
+	elif float(o.y) > 560:
+		# névoa passando no fundo escuro do buraco
+		var top: float = o.cap
+		var sw: float = 16.0 + float(o.w) * .08
+		var fy: float = max(top + 60, 560.0)
+		for k in 3:
+			var mx: float = x + sin(T * .01 + k * 2.0 + x) * 18
+			Spr.ellipse(mx, fy + 60 + k * 18, sw * 2.2, 10, Color(.55, .65, .85, .1))
+
 static func _giant(o: Dictionary, T: int) -> void:
 	var x: float = o.x
 	var base: float = o.y
@@ -1182,9 +1245,6 @@ static func _giant(o: Dictionary, T: int) -> void:
 		# some no fundo escuro do buraco com névoa
 		var fy: float = max(top + 60, 560.0)
 		Spr.vgrad(x - sw * 1.6, fy, sw * 3.2, base - fy + 4, Color(.04, .05, .1, 0), Color(.04, .05, .1, 1))
-		for k in 3:
-			var mx: float = x + sin(T * .01 + k * 2.0 + x) * 18
-			Spr.ellipse(mx, fy + 60 + k * 18, sw * 2.2, 10, Color(.55, .65, .85, .1))
 	else:
 		# bulbo com raízes no chão
 		Spr.ellipse(x, base - 3, sw * 1.3, 7, Color("#cbbd9f"))
@@ -1263,11 +1323,9 @@ static func _giant_spring(o: Dictionary, T: int) -> void:
 			Spr.vgrad(x - 30, fy, 60, base - fy + 4, Color(.04, .05, .1, 0), Color(.04, .05, .1, 1))
 	else:
 		Spr.ellipse(x, base + 1, aw * .32, 5, Color(0, 0, 0, .3))
-	# brilho pulsando em volta do chapéu
-	Spr.glow(x, cap + 10, aw * .75, Color(1, .6, .2, .22 + .08 * sin(T * .1 + x)))
 	# mola de arame embaixo do chapéu: amassa quando lança e volta esticando (o chapéu desce junto)
 	var c0: float = atop + ah * .44
-	var capdy: float = sq * (abot - c0) * .5 + sin(T * .12 + x) * 1.2
+	var capdy: float = sq * (abot - c0) * .5
 	var top_c: float = c0 + capdy
 	var nco := 6
 	var crx: float = aw * .2
@@ -1288,12 +1346,6 @@ static func _giant_spring(o: Dictionary, T: int) -> void:
 	var cw: float = aw * .96 * (1.0 + sq * .08)
 	var chh: float = ah * .36 * (1.0 - sq * .15)
 	_mcap(x, atop + ah * .44 - chh + capdy, cw, chh, Color("#f2681a"), Color("#ffd23a"), x, false, Color("#f3ece0"), 7)
-	# setinhas subindo em cima do chapéu ("pule aqui!")
-	for k in 2:
-		var u: float = fposmod(T * .02 + k * .5, 1.0)
-		var ay: float = atop - 14 - u * 34
-		var al: float = sin(u * PI) * .9
-		Spr.line(PackedVector2Array([Vector2(x - 11, ay + 8), Vector2(x, ay), Vector2(x + 11, ay + 8)]), Color(1, .92, .4, al), 4)
 
 ## arco a lápis até o próximo cogumelo (desenhado na camada de brilho: aparece no escuro da noite)
 static func giant_arc(o: Dictionary, T: int) -> void:

@@ -197,7 +197,7 @@ static func _tick_spores(g: Game) -> void:
 	SPORES = SPORES.filter(func(s): return s.l > 0)
 	if not is_dark(g) or g.submerged():
 		return
-	var cap: int = 14 if g.low_fx else 40
+	var cap: int = 14 if g.low_fx else 70
 	if SPORES.size() >= cap:
 		return
 	var x0: float = g.cam - 40
@@ -355,7 +355,7 @@ func _chimneys(g: Game, T: int, x0: float, x1: float) -> void:
 	if C.ho.is_empty():
 		return
 	var wind: float = float(g.AMB.get("wind", 0.0)) + Polish.gust_k() * .6
-	var n: int = 4 if g.low_fx else 7
+	var n: int = 4 if g.low_fx else 11
 	for s in C.ho:
 		if s.x > x1 + 200 or s.x + s.w < x0 - 200:
 			continue
