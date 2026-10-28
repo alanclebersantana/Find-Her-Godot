@@ -130,44 +130,226 @@ func swim_to(x: float, fy: float, cond: Callable, mx: int = 900):
 		frame(d)
 	return "timeout@%d,%d" % [int(px()), int(P.y)]
 
-## Brutus (o cão do Vargas): fica no chão para chamar; quando ele investe, sobe na banca;
-## ele bate a cabeça no muro/portão; repete até ele fugir
+## do fundo do lago até em cima de uma vitória-régia (sobe com braçadas e pula para fora da água)
+func surface_to_lily(x: float):
+	for i in 900:
+		P = g.player
+		if not ok():
+			return "state"
+		if P.onGround and P.y + P.h < -100:
+			return true
+		var d := {}
+		if px() < x - 6:
+			d["R"] = true
+		elif px() > x + 6:
+			d["L"] = true
+		if i % 6 == 0:
+			press("J")
+		d["J"] = true
+		frame(d)
+	return "timeout@%d,%d swim=%s" % [int(px()), int(P.y), str(P.swim)]
+
+## Brutus (o cão do Vargas), preso na corrente: em cima de uma banca, espera o Pipoca provocar;
+## quando a corrente estica no chão, MERGULHO na argola que brilha (3 argolas, uma por banca)
 func brutus_fight():
 	var b: Dictionary = g.X.BOSS
 	var stalls: Array = []
 	for s in g.SOL:
 		if s.t == "plat" and s.get("trestle") and s.x > b.x0 and s.x < b.x1:
 			stalls.append(s)
+	stalls.sort_custom(func(a, c): return a.x < c.x)
 	until({"R": true}, func(): return b.active, 300)
-	for it in 40:
+	for it in 14:
 		P = g.player
+		if OS.get_environment("DBG") != "":
+			print("BR it=%d st=%s t=%d hooked=%d bx=%d px=%d py=%d hp=%d" % [it, b.st, b.t, int(b.get("hooked", 0)), int(b.x), int(px()), int(P.y + P.h), P.hp])
 		if b.done or b.st == "down":
-			hold({}, 160)
+			hold({}, 170)
 			return true
 		if not ok():
 			return "state"
-		# desce da banca e espera no chão perto da banca mais próxima
-		var st: Dictionary = stalls[0]
-		var best: float = 1e9
-		for s2 in stalls:
-			var d2: float = abs(float(s2.x) + float(s2.w) / 2 - px())
-			if d2 < best:
-				best = d2
-				st = s2
-		var stand: float = float(st.x) + float(st.w) / 2
-		if P.y + P.h < 494:
-			until({}, func(): return b.st in ["idle", "paw", "down"], 400)
-			if b.st == "down":
-				continue
-			walk_to(float(st.x) - 30)
-			until({}, func(): return P.onGround and P.y + P.h >= 494, 60)
-		walk_to(stand)
-		until({}, func(): return b.st == "charge" and abs(b.x - px()) < 320 or b.st == "down", 500)
-		if b.st == "down":
+		var k: int = int(b.hooked)
+		var st: Dictionary = stalls[min(k, stalls.size() - 1)]
+		var r: Dictionary = b.rings[min(k, b.rings.size() - 1)]
+		# provoca do chão, fora do alcance da corrente (à esquerda da banca da vez)
+		var reach: float = max(float(b.x0) + 80.0, float(b.stake) - float(b.len)) - 78.0
+		var bait: float = min(float(st.x) - 30.0, reach - 40.0)
+		until({}, func(): return b.st in ["idle", "trot"], 400)
+		if P.y + P.h < 494 or abs(px() - bait) > 10:
+			if P.y + P.h < 494:
+				walk_to(float(st.x) - 10 if px() < float(st.x) + float(st.w) / 2 else float(st.x) + float(st.w) + 10)
+				wait_ground()
+			walk_to(bait)
+		var w = until({}, func(): return b.st == "taut" or b.done, 900)
+		if b.done:
 			continue
-		jump_to(stand, true)
-		hold({}, 4)
-	return "hp=%d st=%s" % [b.hp, b.st]
+		if not (w is bool):
+			return "a corrente não esticou (st=%s px=%d)" % [b.st, int(px())]
+		# sobe na banca (por cima do Brutus esticado) e mergulha na argola do outro lado
+		jump_to(float(st.x) + float(st.w) - 24, true)
+		var rx: float = float(r.x)
+		press("J")
+		var slammed := false
+		for i in 120:
+			P = g.player
+			var d := {"J": i < 10}
+			if not slammed:
+				if px() < rx - 6:
+					d["R"] = true
+				elif px() > rx + 6:
+					d["L"] = true
+				if abs(px() - rx) < 12 and i > 6:
+					press("S")
+					slammed = true
+			frame(d)
+			P = g.player
+			if P.onGround and i > 4:
+				break
+		hold({}, 6)
+	return "hp=%d st=%s hooked=%d" % [b.hp, b.st, int(b.get("hooked", 0))]
+
+## Morcego-Rei: sobe em cada plataforma e acende a lamparina (✦ USAR)
+func bat_fight():
+	var h: Dictionary = g.K.HAWK
+	var lamps: Array = h.lamps.duplicate()
+	lamps.sort_custom(func(a, c): return a.x < c.x)
+	for l in lamps:
+		P = g.player
+		if h.done or h.st in ["dazzle", "fall", "down", "flee"]:
+			break
+		if l.lit:
+			continue
+		for tries in 4:
+			P = g.player
+			if not ok():
+				return "state"
+			if P.onGround and abs(P.y + P.h - float(l.y)) < 6 and abs(px() - float(l.x)) < 40:
+				break
+			if P.y + P.h < float(l.y) - 6 or P.y + P.h > 494:
+				pass
+			walk_to(float(l.x) - 80)
+			jump_to(float(l.x), true)
+		use()
+		if not l.lit:
+			return "não acendeu a lamparina em %d (y=%d)" % [int(l.x), int(P.y + P.h)]
+	var r = until({}, func(): return h.done or h.st in ["down", "flee"], 600)
+	hold({}, 40)
+	return r
+
+## pulando de vitória-régia em vitória-régia até a que fica em x
+func lily_hop(x: float):
+	for n in 12:
+		P = g.player
+		if not ok():
+			return "state"
+		if P.swim:
+			return "caiu na água"
+		if abs(px() - x) < 14 and P.onGround:
+			return true
+		var dir: float = 1.0 if x > px() else -1.0
+		var nx: float = x
+		var best := 1e9
+		for l in g.LILY:
+			var cx: float = float(l.x) + float(l.w) / 2
+			var dd: float = (cx - px()) * dir
+			if dd > 20 and dd < 230 and dd < best and (cx - x) * dir <= 1:
+				best = dd
+				nx = cx
+		if best >= 1e9:
+			nx = x
+		jump_to(nx, abs(nx - px()) > 150)
+	return abs(px() - x) < 14
+
+## Sapo-Rei: parado na vitória-régia de uma colmeia; quando a mira trava, pula no lugar (a língua
+## gruda na colmeia); com o sapo tonto, pula na cabeça dele
+func frog_fight():
+	var f: Dictionary = g.K.FISH
+	for it in 600:
+		P = g.player
+		if OS.get_environment("DBG") != "" and it % 5 == 0:
+			print("FR it=%d st=%s t=%d hp=%d fx=%d px=%d py=%d swim=%s phl=%d tg=%s" % [it, f.st, f.t, f.hp, int(f.x), int(px()), int(P.y + P.h), str(P.swim), P.hp, str(f.tg.get("st", ""))])
+		if f.done or f.st == "down":
+			hold({}, 60)
+			return true
+		if not ok():
+			return "state"
+		if P.swim:
+			# caiu na água: nada até a vitória-régia mais perto e pula para cima dela
+			var best: Dictionary = {}
+			var bd := 1e9
+			for l in g.LILY:
+				var dd: float = abs(float(l.x) + float(l.w) / 2 - px())
+				if dd < bd and l.st == 0 and not l.get("big"):
+					bd = dd
+					best = l
+			surface_to_lily(float(best.x) + float(best.w) / 2)
+			frame()
+			continue
+		# a colmeia mais perto do sapo que ainda está no cipó
+		var hv: Dictionary = {}
+		var hd := 1e9
+		for h2 in f.hives:
+			if h2.st == "hang":
+				var dd2: float = abs(float(h2.x) - f.x)
+				if dd2 < hd:
+					hd = dd2
+					hv = h2
+		if f.st == "dizzy":
+			# vai até a vitória-régia mais perto do sapo e pula na cabeça dele
+			var nl: float = 1e9
+			var lx := px()
+			for l in g.LILY:
+				var cx: float = float(l.x) + float(l.w) / 2
+				if not l.get("big") and cx < f.x and abs(cx - f.x) < nl:
+					nl = abs(cx - f.x)
+					lx = cx
+			if abs(px() - lx) > 14:
+				lily_hop(lx)
+				continue
+			press("J")
+			var used := false
+			for i in 140:
+				P = g.player
+				var d := {"J": i < 16 or (used and i < 40)}
+				if px() < f.x - 16:
+					d["R"] = true
+				elif px() > f.x + 16:
+					d["L"] = true
+				if not used and i > 12 and P.vy > -1:
+					press("J")
+					used = true
+				frame(d)
+				P = g.player
+				if f.st in ["hurt", "down"] or (P.onGround and i > 3) or P.swim:
+					break
+			if f.st in ["hurt", "down"]:
+				# quicou na cabeça: volta para as vitórias-régias
+				for i in 60:
+					frame({"L": true})
+					P = g.player
+					if P.onGround and i > 4:
+						break
+			continue
+		if hv.is_empty():
+			frame()
+			continue
+		var hx: float = float(hv.x)
+		if abs(px() - hx) > 14 or not P.onGround:
+			if P.onGround:
+				lily_hop(hx)
+			else:
+				frame({"R": true} if px() < hx else {"L": true})
+			continue
+		# parado na frente da colmeia: espera a mira travar e pula no lugar
+		var aim_t: int = 40 if f.hp <= 1 else 52
+		if f.st == "aim" and f.t >= aim_t - 8:
+			press("J")
+			for i in 14:
+				frame({"J": true})
+			wait_ground()
+			continue
+		frame()
+	return "hp=%d st=%s" % [f.hp, f.st]
 
 func house_list() -> Array:
 	var out: Array = []
@@ -307,11 +489,16 @@ func _initialize() -> void:
 	S("desce até a prateleira", swim_to(14775, 292, func(): return g.NT.helmet))
 	S("pega o arpão", swim_to(14860, 292, func(): return g.NT.harpoon))
 	S("capacete e arpão", g.NT.helmet and g.NT.harpoon)
-	S("entra na arena do Sapo-Rei", until({"R": true}, func(): return g.K.FISH.active, 400))
-	S("vence o Sapo-Rei", fish_fight())
+	# volta para a superfície e sobe na primeira vitória-régia: a luta do Sapo-Rei
+	S("sobe para a vitória-régia", surface_to_lily(14826))
+	S("entra na arena do Sapo-Rei", until({"R": true}, func(): return g.K.FISH.active, 200) if not g.K.FISH.active else true)
+	S("vence o Sapo-Rei", frog_fight())
 	# o lápis verde no fundo e a corrente de bolhas
 	var vx: float = 15440.0
-	S("verde", until({"R": true, "S": true} if px() < vx else {"L": true, "S": true}, func(): return g.SPECGOT.has("verde"), 600))
+	if not P.swim:
+		# da vitória-régia: cai no lago
+		walk_to(px() + 60)
+	S("verde", swim_to(vx, 430, func(): return g.SPECGOT.has("verde"), 900))
 	S("corrente de bolhas", until({"R": true}, func(): return P.onGround and px() > 16000 and P.y < -100, 700))
 	S("desenho 3", walk_to(16120))
 	S("fogueira 2", walk_to(16300))
@@ -426,7 +613,7 @@ func _initialize() -> void:
 	S("pista 11", walk_to(D0 + 610) and n_clues() == 5)
 	g.lantern_lit = true
 	S("entra na caverna", until({"R": true}, func(): return g.K.HAWK.active, 400))
-	S("vence o Morcego-Rei", hawk_fight())
+	S("vence o Morcego-Rei", bat_fight())
 	walk_to(D0 + 1260)
 	S("tábua do roxo", jump_to(D0 + 1360))
 	hop("R", 0)

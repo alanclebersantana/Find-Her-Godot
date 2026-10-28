@@ -102,6 +102,9 @@ func load_level() -> void:
 		BOSS = {"x": b.spawn, "y": 500.0, "st": "wait", "t": 0, "hp": b.hp, "maxhp": b.hp, "dir": -1, "spd": 0.0,
 			"vy": 0.0, "x0": b.x0, "x1": b.x1, "trig": b.trig, "spawn": b.spawn, "active": false, "done": false, "red": 0, "item": b.item,
 			"skin": str(b.get("skin", "boar")), "open": b.get("open", ""), "ladder": b.get("ladder", null)}
+		if BOSS.skin == "dog":
+			# Brutus: preso numa corrente comprida (Ep2Bosses)
+			Ep2Bosses.brutus_setup(BOSS, L)
 	broken = {}
 	opened = {}
 	found = {}
@@ -265,7 +268,7 @@ func post() -> void:
 			g.keys.Ap = false
 			g.M.dog_action()
 	elif g.keys.get("Ap", false):
-		if g.RD.use() or g.VH.use() or g.EV.use() or _use_dog() or _use_toca() or _use_crack() or _use_mirror():
+		if g.RD.use() or g.VH.use() or g.EV.use() or (g.K and Ep2Bosses.use_lamp(g, g.K)) or _use_dog() or _use_toca() or _use_crack() or _use_mirror():
 			g.keys.Ap = false
 			focus_block = true
 	if not g.kd("A"):
@@ -361,6 +364,8 @@ func near_use() -> bool:
 	var pcx: float = p.x + p.w / 2
 	var feet: float = p.y + p.h
 	if not DOG.is_empty() and DOG.st == "tied" and abs(pcx - DOG.x) < 70 and abs(feet - DOG.y) < 50:
+		return true
+	if g.K and Ep2Bosses.near_lamp(g, g.K) != null:
 		return true
 	for tc in TOCAS:
 		if not tc.done and abs(pcx - tc.x) < 80 and abs(feet - tc.y) < 50:
@@ -607,7 +612,8 @@ func cine_end(id: String) -> void:
 				BOSS.st = "idle"
 			BOSS.t = 0
 			var n: int = int(BOSS.get("maxhp", 3))
-			g.flash_tut("Faça o Brutus bater a cabeça %d vezes!" % n, "Fique no chão para ele investir. Quando ele correr, suba numa banca: ele bate a cabeça no muro. %d batidas!" % n, 260)
+			var bait: String = "O Pipoca late lá do canto para provocar o Brutus" if dog_free() else "Fique no chão, longe do Brutus, para ele investir"
+			g.flash_tut("Prenda a corrente do Brutus em %d argolas!" % n, "%s: a corrente estica e ele para. Aí suba na banca e dê um MERGULHO (pule e aperte ↓) na argola que brilha. %d argolas!" % [bait, n], 300)
 		"vargas":
 			g.tip("Atrás dele! Pule os buracos e abaixe sob as vigas.", 180)
 		"cao":
@@ -642,6 +648,9 @@ func _boss() -> void:
 	var pcx: float = p.x + p.w / 2
 	# o Tomé está no chão da clareira (e não num galho)? só aí o javali investe
 	var on_floor: bool = p.onGround and p.y + p.h >= 494 and pcx > b.x0 and pcx < b.x1
+	if b.get("skin", "") == "dog" and b.st not in ["wait", "intro"]:
+		Ep2Bosses.brutus_step(g, self)
+		return
 	if b.red > 0:
 		b.red -= 1
 	for k in ["hitT", "landT"]:
@@ -662,7 +671,7 @@ func _boss() -> void:
 				g.shake = 6
 				if b.skin == "dog":
 					g.start_cine("brutus", b.spawn - 60, 420, 260,
-						[[165, 250, "TOMÉ", "O cão do Vargas! Grande demais para enfrentar de frente... Vou fazer ele bater a cabeça no muro!", "tome"]],
+						[[165, 250, "TOMÉ", "O cão do Vargas, preso numa corrente! Se eu prender a corrente nas argolas do chão, ele não chega mais no portão.", "tome"]],
 						[75, 160, "BRUTUS", "o cão de guarda do Vargas"])
 				else:
 					g.start_cine("boss", b.spawn - 60, 420, 260,
@@ -837,6 +846,8 @@ func boss_reset() -> void:
 	for k in ["spd", "tv", "hitT", "landT", "vx", "vy", "kb"]:
 		if BOSS.has(k):
 			BOSS[k] = 0.0 if typeof(BOSS[k]) == TYPE_FLOAT else 0
+	if BOSS.get("skin", "") == "dog":
+		Ep2Bosses.brutus_setup(BOSS, g.L)
 	_gate_on(false)
 
 func boss_finish_silent() -> void:
@@ -844,6 +855,16 @@ func boss_finish_silent() -> void:
 		return
 	BOSS.done = true
 	BOSS.active = false
+	if BOSS.get("skin", "") == "dog":
+		# o Brutus fica deitado do lado da estaca, com a corrente presa nas argolas
+		BOSS.sulk = true
+		BOSS.st = "down"
+		BOSS.t = 999
+		BOSS.x = float(BOSS.get("stake", BOSS.spawn)) - 46.0
+		BOSS.hooked = BOSS.get("rings", []).size()
+		for r in BOSS.get("rings", []):
+			r.on = true
+		BOSS.len = float(BOSS.lens.back()) if BOSS.has("lens") else 60.0
 	# chefe vencido num jogo salvo: o portão do outro lado da arena e a escada ficam como na vitória
 	if str(BOSS.get("open", "")) != "":
 		for so in g.SOL.duplicate():
@@ -1046,9 +1067,17 @@ func _dog() -> void:
 	# trouxe algo da toca mas parou de voltar (trocou de controle, cena...): entrega mesmo assim
 	if DOG.carry and DOG.st not in ["return", "in_toca"]:
 		_deliver_toca()
+	# luta do Brutus: o Pipoca vai para o canto do quintal provocar; acabou a luta, volta a seguir
+	if DOG.st in ["follow", "sit"] and boss_active() and BOSS.get("skin", "") == "dog" and BOSS.st != "intro":
+		DOG.st = "bait"
+	elif DOG.st == "bait" and not boss_active():
+		DOG.st = "follow"
+		_resync()
 	match DOG.st:
 		"ctrl", "dig":
 			pass
+		"bait":
+			Ep2Bosses.pipoca_bait(g, self)
 		"door":
 			# esperando do lado de fora da torre
 			DOG.moving = false

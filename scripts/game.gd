@@ -2851,11 +2851,11 @@ func _p1_post(pcx: float, _pcy: float) -> void:
 		if p.st == 0:
 			if player._g == p:
 				p.t += 1
-				if p.t > 50:
+				if p.t > 50 and not p.get("keep"):
 					p.st = 1
 			else:
 				p.t = max(0, p.t - 1)
-			p.y = p.y0 + sin(T * .05 + p.x) * 1.5 + (p.t * .08 if p.t > 0 else 0.0)
+			p.y = p.y0 + sin(T * .05 + p.x) * 1.5 + (min(p.t, 50) * .08 if p.t > 0 else 0.0)
 		elif p.st == 1:
 			p.y += .9
 			if p.y > p.y0 + 26:

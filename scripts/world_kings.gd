@@ -200,6 +200,8 @@ static func draw(g: Game, T: int) -> void:
 	_hawk(g, K, T)
 	_bear(g, K, T)
 	sinking(g, T)
+	# colmeias do Sapo-Rei (Ep. 2) atrás do Tomé
+	WorldEp2.hives_back(g, T)
 
 ## o bagre é desenhado na camada de cima (depois da água), para não sumir no fundo escuro
 static func draw_fish(g: Game, T: int) -> void:
@@ -209,6 +211,9 @@ static func draw_fish(g: Game, T: int) -> void:
 
 static func _hawk(g: Game, K: Kings, T: int) -> void:
 	var h: Dictionary = K.HAWK
+	if h.get("skin", "") == "bat":
+		# lamparinas da caverna (luta do Morcego-Rei no Ep. 2)
+		WorldEp2.lamps(g, h, T)
 	if h.is_empty() or h.done or h.st == "wait":
 		return
 	# sombra do mergulho no chão
@@ -233,7 +238,8 @@ static func _hawk(g: Game, K: Kings, T: int) -> void:
 			fr = (T / 4) % 3
 	var tint := Color(1, .5, .45) if h.red > 0 and (T / 3) % 2 == 0 else Color(1, 1, 1)
 	tint = tint * Polish.fury(int(h.hp))   # última vida: pulsa avermelhado
-	var y: float = h.y - (6 if h.st == "stuck" else 50)
+	var stuckish: bool = h.st == "stuck" or (h.st == "down" and h.get("skin", "") == "bat")
+	var y: float = h.y - (6 if stuckish else 50)
 	# inclinação do mergulho entra e sai aos poucos (no passo da lógica); o corpo sobe a cada batida de asa
 	if Polish.FRESH:
 		h._rot = lerpf(float(h.get("_rot", 0.0)), rot, .2)
@@ -252,13 +258,18 @@ static func _hawk(g: Game, K: Kings, T: int) -> void:
 	if h.get("skin", "hawk") == "bat":
 		# Morcego-Rei: o morcego pintado bem grande, asas batendo, olhos vermelhos brilhando
 		var bf: int = [0, 1, 2, 1][(T / 4) % 4]
-		if h.st == "stuck":
+		if stuckish:
 			bf = 2
-		elif h.st == "dive":
+		elif h.st in ["dive", "fall"]:
 			bf = 0
+		# ofuscado: bate as asas rápido e sem rumo
+		if h.st == "dazzle":
+			bf = [0, 1, 2, 1][(T / 2) % 4]
 		# o corpo sobe a cada batida de asa (para baixo) e vira girando no ar
-		var flap: float = 0.0 if h.st in ["stuck", "dive"] else -sin(T * PI / 8.0) * 5.0
+		var flap: float = 0.0 if (stuckish or h.st in ["dive", "fall"]) else -sin(T * PI / 8.0) * 5.0
 		var mrt: Texture2D = Spr.opt("morcego_rei")
+		# no escuro (longe das lamparinas e da lanterna) ele vira só um vulto
+		var bvis: float = float(h.get("vis", 1.0))
 		Spr.save()
 		# no mergulho desce até as garras tocarem o chão (a caixa de dano acompanha: Kings.bat_drop)
 		Spr.translate(h.x, y - 34 + flap + K.bat_drop())
@@ -267,26 +278,26 @@ static func _hawk(g: Game, K: Kings, T: int) -> void:
 		if mrt:
 			# arte própria: 0-2 batendo as asas, 3 mergulho, 4 tonto (coroa e olhos já desenhados)
 			var mf: int = bf
-			if h.st == "dive":
+			if h.st in ["dive", "fall"]:
 				mf = 3
-			elif h.st == "stuck":
+			elif stuckish:
 				mf = 4
 			var MW := 270.0
 			var MH := 306.0
-			if h.st == "stuck":
+			if stuckish:
 				# tonto com as garras cravadas no chão: o quadro 4 (pendurado) de cabeça para cima,
 				# pés no chão e asas erguidas (a coroa e o rosto ficam do lado certo)
 				Spr.save()
 				Spr.translate(0, h.gy + 2 - (y - 34))
 				Spr.scale(1, -1)
-				Spr.ci.draw_texture_rect_region(mrt, Rect2(-.55 * MW, -64 * MH / 340.0, MW, MH), Rect2(mf * 300, 0, 300, 340), Color(tint.r, tint.g, tint.b, Spr.alpha))
+				Spr.ci.draw_texture_rect_region(mrt, Rect2(-.55 * MW, -64 * MH / 340.0, MW, MH), Rect2(mf * 300, 0, 300, 340), Color(tint.r, tint.g, tint.b, Spr.alpha * bvis))
 				Spr.restore()
-			elif h.st == "dive":
-				Spr.ci.draw_texture_rect_region(mrt, Rect2(-.55 * MW, -62 - .41 * MH, MW, MH), Rect2(mf * 300, 0, 300, 340), Color(tint.r, tint.g, tint.b, Spr.alpha))
+			elif h.st in ["dive", "fall"]:
+				Spr.ci.draw_texture_rect_region(mrt, Rect2(-.55 * MW, -62 - .41 * MH, MW, MH), Rect2(mf * 300, 0, 300, 340), Color(tint.r, tint.g, tint.b, Spr.alpha * bvis))
 			else:
-				Spr.region_mix(mrt, Rect2(-.55 * MW, -62 - .41 * MH, MW, MH), 300, 340, [0, 1, 2, 1], T / 4.0, Color(tint.r, tint.g, tint.b, Spr.alpha))
+				Spr.region_mix(mrt, Rect2(-.55 * MW, -62 - .41 * MH, MW, MH), 300, 340, [0, 1, 2, 1], T / 4.0, Color(tint.r, tint.g, tint.b, Spr.alpha * bvis))
 			Spr.restore()
-			Spr.glow(h.x, y - 92, 40, Color(1, .2, .1, .12))
+			Spr.glow(h.x, y - 92, 40, Color(1, .2, .1, .12 * bvis))
 		else:
 			var bn: String = "bat%d" % bf
 			var bh: float = Spr.PH(bn, 230)
@@ -318,13 +329,17 @@ static func _hawk(g: Game, K: Kings, T: int) -> void:
 			Spr.seg(h.x - 10 + i * 10, h.gy - 4, h.x - 8 + i * 10, h.gy + 6, Color("#3a2414"), 3)
 		if (T / 10) % 2 == 0:
 			Spr.text("!", h.x, (h.gy - 206) if h.get("skin", "hawk") == "bat" else (y - 150), 30, Color("#ffe27a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 5)
-	if h.st == "flee":
+	if h.st == "flee" or (stuckish and h.st == "down") or h.st == "dazzle":
 		for i in 3:
 			var a := T * .15 + TAU * i / 3.0
 			Spr.text("★", h.x + cos(a) * 40, y - 120 + sin(a) * 10, 16, Color("#ffe27a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3)
 
 static func _fish(g: Game, K: Kings, T: int) -> void:
 	var f: Dictionary = K.FISH
+	if f.get("skin", "") == "frog" and f.has("hives"):
+		# Sapo-Rei na vitória-régia gigante (Ep. 2): colmeias, língua e mira
+		WorldEp2.frog(g, K, T)
+		return
 	if f.is_empty() or f.done and f.st != "down":
 		return
 	if f.st == "wait":

@@ -55,12 +55,18 @@ func load_level() -> void:
 		HAWK = {"x0": h.x0, "x1": h.x1, "gy": h.y, "trig": h.trig, "maxhp": h.hp, "hp": h.hp, "st": "wait",
 			"x": (h.x0 + h.x1) / 2.0, "y": h.y - 340.0, "t": 0, "dir": 1, "tx": 0.0, "sx": 0.0, "sy": 0.0,
 			"red": 0, "active": false, "done": false, "conf": false, "second": false, "crows": false, "skin": str(h.get("skin", "hawk"))}
+		if HAWK.skin == "bat":
+			# Morcego-Rei: luta das lamparinas (Ep2Bosses)
+			Ep2Bosses.bat_setup(HAWK, L)
 	if L.has("fish"):
 		var f: Dictionary = L.fish
 		FISH = {"x0": f.x0, "x1": f.x1, "y0": f.y0, "y1": f.y1, "trig": f.trig, "maxhp": f.hp, "hp": f.hp,
 			"st": "wait", "x": f.x1 - 160.0, "y": (f.y0 + f.y1) / 2.0, "vx": 0.0, "dir": -1, "t": 0, "red": 0,
 			"active": false, "done": false, "cyc": 0, "mud": 0.0, "mouth": 0.0, "scales": [true, true, true, true], "al": 1.0,
 			"skin": str(f.get("skin", "fish"))}
+		if FISH.skin == "frog":
+			# Sapo-Rei: luta da língua e das colmeias (Ep2Bosses)
+			Ep2Bosses.frog_setup(FISH, L)
 
 func active() -> bool:
 	return (not HAWK.is_empty() and HAWK.active and not HAWK.done) or (not FISH.is_empty() and FISH.active and not FISH.done) or bear_on()
@@ -113,6 +119,9 @@ func bat_drop() -> float:
 	return 80.0 * min(1.0, HAWK.t / 20.0)
 
 func _hawk() -> void:
+	if HAWK.get("skin", "") == "bat":
+		Ep2Bosses.bat_step(g, self)
+		return
 	if HAWK.is_empty() or HAWK.done:
 		return
 	var h: Dictionary = HAWK
@@ -757,6 +766,9 @@ func fish_weak() -> bool:
 	return not FISH.is_empty() and FISH.st == "tired"
 
 func _fish() -> void:
+	if FISH.get("skin", "") == "frog":
+		Ep2Bosses.frog_step(g, self)
+		return
 	if FISH.is_empty() or FISH.done:
 		return
 	var f: Dictionary = FISH
@@ -918,7 +930,7 @@ func _tired(f: Dictionary, n: int) -> void:
 
 ## o arpão acertou alguma coisa do bagre?
 func harpoon_hit(hp: Dictionary) -> bool:
-	if FISH.is_empty() or FISH.done or not FISH.active or FISH.st == "down":
+	if FISH.is_empty() or FISH.done or not FISH.active or FISH.st == "down" or FISH.get("skin", "") == "frog":
 		return false
 	var f: Dictionary = FISH
 	var tip := Vector2(hp.x, hp.y)
@@ -989,7 +1001,7 @@ func cine_step(c: Dictionary) -> void:
 		"bagre", "sapo":
 			# sai de trás do muro nadando devagar até o meio da arena (a cena "intro" continua depois)
 			var f: Dictionary = FISH
-			if f.is_empty():
+			if f.is_empty() or f.get("skin", "") == "frog":
 				return
 			f.dir = -1
 			f.x = lerpf(f.x, f.x1 - 170.0, .035)
@@ -1029,9 +1041,9 @@ func cine_end(id: String) -> void:
 		"bagre":
 			g.tip("Com o capacete você não perde fôlego. Fuja das investidas e use o arpão (GOLPE) nas escamas brilhantes.", 220)
 		"sapo":
-			g.tip("Com o capacete você não perde fôlego. Fuja das investidas e da língua; quando ele cansar, arpão (GOLPE) nas pintas que brilham.", 240)
+			g.flash_tut("Faça a língua grudar nas colmeias!", "Quando a mira brilhar em você, fique na frente de uma colmeia e desvie no último instante (pule!): a língua gruda na colmeia, as abelhas atacam o Sapo-Rei e ele fica tonto. Aí, pule na cabeça dele! 3 colmeias.", 300)
 		"morcego":
-			g.tip("Fuja da sombra! Se ele errar, as garras prendem no chão: acerte com a picareta. O facho (segure ✦) ofusca os olhos dele.", 240)
+			g.flash_tut("Acenda as 3 lamparinas!", "No escuro o Morcego-Rei some e ataca (o chiado e os olhos vermelhos avisam o rasante). Suba nas plataformas e acenda as 3 lamparinas com ✦ USAR: na luz ele não chega perto.", 300)
 
 func reset_on_respawn() -> void:
 	# já vencido (fugindo ou caído): não revive — conta como derrotado
@@ -1086,6 +1098,8 @@ func reset_on_respawn() -> void:
 		_zero(FISH)
 		_gate("fishL", false, Rect2())
 		_gate("fishR", false, Rect2())
+	# Ep. 2: lamparinas apagam, colmeias voltam, o sapo volta para a vitória-régia
+	Ep2Bosses.on_respawn(g, self)
 
 ## zera velocidades e estados de movimento que ficaram da luta anterior
 func _zero(B: Dictionary) -> void:

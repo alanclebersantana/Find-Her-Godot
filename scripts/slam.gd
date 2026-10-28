@@ -190,10 +190,12 @@ func on_slam(cx: float, feet: float) -> void:
 		if abs(e.x - cx) < WAVE_R and abs(e.y - feet) < 60:
 			e.stun = max(e.stun, 170)
 			e.dizzyT = 170
+	# Brutus: o mergulho na argola prende a corrente
+	Ep2Bosses.brutus_slam(g, cx, feet)
 	# Javali-Rei atordoado: o mergulho perto dele vale uma batida extra
 	if g.X and g.X.boss_active():
 		var b: Dictionary = g.X.BOSS
-		if b.st == "stun" and b.get("bang", false) and abs(b.x - cx) < 170:
+		if b.get("skin", "") != "dog" and b.st == "stun" and b.get("bang", false) and abs(b.x - cx) < 170:
 			b.bang = false
 			g.X.boss_damage(true)
 	# 5) sacudir a natureza: arbustos de frutas soltam as frutas

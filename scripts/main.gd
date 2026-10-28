@@ -362,7 +362,7 @@ func _process(_d: float) -> void:
 			tb.modulate = Color(lum, lum, lum * .9, tb.modulate.a)
 		elif tb.get_meta("k") == "G":
 			# na luta do Bagre-Rei a picareta vira arpão
-			var fish: bool = game.K and not game.K.FISH.is_empty() and game.K.FISH.active and not game.K.FISH.done
+			var fish: bool = game.K and not game.K.FISH.is_empty() and game.K.FISH.active and not game.K.FISH.done and game.K.FISH.get("skin", "") != "frog"
 			var want_t: Texture2D = tex_harpoon if fish else tex_golpe
 			if tb.texture_normal != want_t:
 				tb.texture_normal = want_t

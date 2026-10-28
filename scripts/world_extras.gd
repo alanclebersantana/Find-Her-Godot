@@ -372,6 +372,13 @@ static func _log(x: float, y: float) -> void:
 # ---------------------------------------------------------------- Javali-Rei
 static func boss(g: Game, T: int) -> void:
 	var b: Dictionary = g.X.BOSS
+	if not b.is_empty() and b.get("skin", "") == "dog" and b.has("stake"):
+		# Brutus na corrente: estaca, argolas e corrente sempre à vista; o cão de guarda também
+		# (antes da luta, parado; depois, deitado do lado da estaca)
+		WorldEp2.yard(g, b, T)
+		if not b.done or b.get("sulk", false):
+			_brutus(b, T, Spr.edist(b))
+		return
 	if b.is_empty() or b.done or b.st == "wait":
 		return
 	var fr := 0
@@ -529,11 +536,14 @@ static func _brutus(b: Dictionary, T: int, bd: float = 0.0) -> void:
 			fr = 6
 		"intro":
 			fr = 7
+		"taut":
+			# esticado no fim da corrente, latindo
+			fr = 5 if b.get("barkT", 0) > 0 else 4
 	var tint := Color(1, .45, .4, 1) if b.red > 0 and (T / 3) % 2 == 0 else Color(1, 1, 1, 1)
 	tint = tint * Polish.fury(int(b.hp))   # última vida: pulsa avermelhado
 	var a: float = 1.0
 	var dx: float = 0.0
-	if b.st == "down":
+	if b.st == "down" and not b.get("sulk", false):
 		# foge correndo para fora do quintal
 		dx = b.dir * -min(float(b.t) * 6.0, 900.0)
 		fr = [0, 1, 2, 3][(T / 3) % 4]
@@ -561,6 +571,11 @@ static func _brutus(b: Dictionary, T: int, bd: float = 0.0) -> void:
 		box = -b.dir * 6.0 * pk
 	elif b.st == "idle":
 		bsy = 1.0 + sin(T * .09) * .015
+	elif b.st == "taut":
+		# puxando a corrente: o corpo inclina para a frente e treme
+		box = b.dir * 4.0 + sin(T * .9) * 1.5
+		bsx = 1.04
+		bsy = .96
 	elif b.st == "stun":
 		Spr.save()
 		Spr.translate(b.x, b.y)
@@ -571,7 +586,7 @@ static func _brutus(b: Dictionary, T: int, bd: float = 0.0) -> void:
 	Spr.scale(tw * bsx, bsy * Spr.tsy(b))
 	if b.st in ["charge", "trot"]:
 		Spr.sheet_cycle("cao", bd / (14.0 if b.st == "charge" else 15.0), 4, 0, 200, 150, 0, 0, 210.0, flip, Color(tint.r, tint.g, tint.b, a))
-	elif b.st == "down":
+	elif b.st == "down" and not b.get("sulk", false):
 		Spr.sheet_cycle("cao", T / 3.0, 4, 0, 200, 150, 0, 0, 210.0, flip, Color(tint.r, tint.g, tint.b, a))
 	else:
 		Spr.sheet("cao", fr, 200, 150, 0, 0, 210.0, flip, Color(tint.r, tint.g, tint.b, a))

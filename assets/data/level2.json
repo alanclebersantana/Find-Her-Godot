@@ -518,9 +518,9 @@
   {
    "t": "rockw",
    "x": 14960,
-   "y": -420,
+   "y": -620,
    "w": 900,
-   "h": 310
+   "h": 290
   },
   {
    "t": "dirt",
@@ -1147,14 +1147,21 @@
   },
   {
    "t": "plat",
-   "x": 23256,
+   "x": 23260,
    "y": 400,
    "w": 140,
    "trestle": 1
   },
   {
    "t": "plat",
-   "x": 23656,
+   "x": 23490,
+   "y": 400,
+   "w": 140,
+   "trestle": 1
+  },
+  {
+   "t": "plat",
+   "x": 23720,
    "y": 400,
    "w": 140,
    "trestle": 1
@@ -1209,9 +1216,23 @@
   },
   {
    "t": "plat",
+   "x": 25440,
+   "y": 385,
+   "w": 130,
+   "trestle": 1
+  },
+  {
+   "t": "plat",
    "x": 25826,
    "y": 400,
    "w": 120,
+   "trestle": 1
+  },
+  {
+   "t": "plat",
+   "x": 26190,
+   "y": 385,
+   "w": 130,
    "trestle": 1
   },
   {
@@ -1418,7 +1439,45 @@
    "pit": 1
   }
  ],
- "lily": [],
+ "lily": [
+  {
+   "x": 14790,
+   "y": -145,
+   "w": 72,
+   "keep": 1
+  },
+  {
+   "x": 14960,
+   "y": -145,
+   "w": 72,
+   "keep": 1
+  },
+  {
+   "x": 15160,
+   "y": -145,
+   "w": 72,
+   "keep": 1
+  },
+  {
+   "x": 15360,
+   "y": -145,
+   "w": 72,
+   "keep": 1
+  },
+  {
+   "x": 15910,
+   "y": -145,
+   "w": 72,
+   "keep": 1
+  },
+  {
+   "x": 15560,
+   "y": -147,
+   "w": 230,
+   "keep": 1,
+   "big": 1
+  }
+ ],
  "mud": [],
  "climb": [
   {
@@ -3709,7 +3768,7 @@
   {
    "a": 14600,
    "b": 14720,
-   "t": "Lago fundo! Lá embaixo, na prateleira de pedra, o velho equipamento de mergulho do moinheiro.",
+   "t": "Lago fundo! Lá embaixo, na prateleira de pedra, o velho equipamento de mergulho do moinheiro. E lá na frente... colmeias penduradas sobre as vitórias-régias.",
    "yl": -120
   },
   {
@@ -3751,7 +3810,7 @@
   {
    "a": 22986,
    "b": 23186,
-   "t": "O quintal do vigia-chefe... e o cachorro dele. Suba nas bancas quando ele vier e faça ele bater no portão!"
+   "t": "O quintal do vigia-chefe... e o cachorro dele, preso numa corrente. Prenda a corrente nas argolas do chão para ele não alcançar o portão!"
   },
   {
    "a": 24186,
@@ -3761,7 +3820,7 @@
   {
    "a": 25166,
    "b": 25406,
-   "t": "Uma caverna enorme... algo grande dorme pendurado lá no alto."
+   "t": "Uma caverna enorme e escura... algo grande dorme pendurado lá no alto. Ali tem lamparinas apagadas."
   },
   {
    "a": 26326,
@@ -4107,13 +4166,33 @@
   }
  ],
  "fish": {
-  "x0": 15000,
+  "x0": 14720,
   "x1": 15880,
-  "y0": -60,
-  "y1": 460,
-  "trig": 15060,
-  "hp": 4,
-  "skin": "frog"
+  "y0": -130,
+  "y1": 470,
+  "trig": 14800,
+  "hp": 3,
+  "skin": "frog",
+  "pad": [
+   15560,
+   230,
+   -147
+  ],
+  "hives": [
+   [
+    14996,
+    -152
+   ],
+   [
+    15196,
+    -152
+   ],
+   [
+    15396,
+    -152
+   ]
+  ],
+  "hang": -330
  },
  "currents": [
   {
@@ -4209,14 +4288,28 @@
   "x0": 23026,
   "x1": 24026,
   "trig": 23186,
-  "spawn": 23806,
+  "spawn": 23895,
   "hp": 3,
   "item": [
    23526,
    470
   ],
   "skin": "dog",
-  "open": "plazaR"
+  "open": "plazaR",
+  "chain": {
+   "stake": 23985,
+   "rings": [
+    23440,
+    23670,
+    23900
+   ],
+   "len": [
+    705,
+    475,
+    245,
+    60
+   ]
+  }
  },
  "hawk": {
   "x0": 25346,
@@ -4224,7 +4317,21 @@
   "y": 500,
   "trig": 25486,
   "hp": 4,
-  "skin": "bat"
+  "skin": "bat",
+  "lamps": [
+   [
+    25505,
+    385
+   ],
+   [
+    25886,
+    400
+   ],
+   [
+    26255,
+    385
+   ]
+  ]
  },
  "sled": {
   "x": 26626,
