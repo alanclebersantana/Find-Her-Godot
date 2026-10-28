@@ -65,6 +65,12 @@ func _ready() -> void:
 		Save.setv("opt", "tps44n", true)
 		Save.setv("opt", "tps", 44)
 	Engine.physics_ticks_per_second = int(Save.getv("opt", "tps", 44))
+	# posição padrão nova dos botões (mais para dentro da tela): quem tinha arrastado os botões para
+	# chegar nela recomeça do padrão novo uma vez só (senão o arrasto antigo empurraria ainda mais)
+	if not Save.getv("opt", "btnpos2", false):
+		Save.setv("opt", "btnpos2", true)
+		for k in ["J", "A", "G", "bag", "dog", "stick"]:
+			Save.setv("opt", "pos_" + k, [0, 0])
 	# o analógico de madeira passa a ser o controle padrão (uma vez só; depois vale a escolha nas opções)
 	if not Save.getv("opt", "stick_an1", false):
 		Save.setv("opt", "stick_an1", true)
@@ -102,11 +108,20 @@ func _ready() -> void:
 	screen_layer = CanvasLayer.new()
 	screen_layer.layer = 3
 	add_child(screen_layer)
+	# faixa de comemoração das corridas ("CHEGADA!", "POUSO PERFEITO!"): por cima da escuridão, dos
+	# efeitos de tela e do contorno (senão o traço preto cortava o letreiro), embaixo do HUD
+	var cheer_layer := CanvasLayer.new()
+	cheer_layer.layer = 4
+	cheer_layer.follow_viewport_enabled = true
+	add_child(cheer_layer)
+	var cheer := _CheerNode.new()
+	cheer.game = game
+	cheer_layer.add_child(cheer)
 	hud_layer = CanvasLayer.new()
-	hud_layer.layer = 4
+	hud_layer.layer = 5
 	add_child(hud_layer)
 	ui_layer = CanvasLayer.new()
-	ui_layer.layer = 5
+	ui_layer.layer = 6
 	add_child(ui_layer)
 	var sky := preload("res://scripts/sky_fx.gd").new()
 	sky.game = game
@@ -957,9 +972,10 @@ func _layout() -> void:
 		var sz: float = float(b.get_meta("base_sc", b.scale.x)) * b.texture_normal.get_width()
 		var pos := Vector2.ZERO
 		match k:
-			"J": pos = Vector2(vs.x - 18 - sz, vs.y - 34 - sz)
-			"A": pos = Vector2(vs.x - 18 - js - 30 - sz, vs.y - 52 - sz)
-			"G": pos = Vector2(vs.x - 18 - (js + sz) / 2, vs.y - 34 - js - 18 - sz)
+			# (distância da borda medida na tela que o Alan aprovou: os botões mais para dentro)
+			"J": pos = Vector2(vs.x - 52 - sz, vs.y - 37 - sz)
+			"A": pos = Vector2(vs.x - 52 - js - 30 - sz, vs.y - 55 - sz)
+			"G": pos = Vector2(vs.x - 58 - (js + sz) / 2, vs.y - 39 - js - 18 - sz)
 		if left:
 			pos.x = vs.x - pos.x - sz
 		var off: Array = Save.getv("opt", "pos_" + k, [0, 0])
@@ -2782,6 +2798,15 @@ func _sync_world_vp() -> void:
 		# traço de ~2,5 px na tela de base (540 linhas), proporcional nas telas maiores
 		olm.set_shader_parameter("px", clamp(2.5 * float(real.y) / max(vis.y, 1.0), 1.8, 7.0))
 		olm.set_shader_parameter("texel", Vector2(1.0 / float(real.x), 1.0 / float(real.y)))
+
+class _CheerNode extends Node2D:
+	var game: Game
+	func _process(_d: float) -> void:
+		queue_redraw()
+	func _draw() -> void:
+		if game and game.L and game.VH:
+			Spr.begin(self)
+			WorldVehicles._cheer(game, game.VH, game.T)
 
 class _WorldShow extends Node2D:
 	var vp: SubViewport

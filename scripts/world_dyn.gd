@@ -73,10 +73,12 @@ func __draw_raw() -> void:
 		else:
 			WS.branch(so)
 		Spr.restore()
+	var __q_mvvl := Time.get_ticks_usec()
 	if g.MV:
 		g.MV.draw(T)
 	if g.VL:
 		g.VL.draw(T)
+	Spr.pt("d_mvvl", __q_mvvl)
 	var __d__deco := Time.get_ticks_usec()
 	_deco(g)
 	Polish.draw_back(g, T)
@@ -138,14 +140,19 @@ func __draw_raw() -> void:
 		var f: int = (T / max(3, int(10 - v.get("spd", 3.3)))) % 2
 		Spr.A("lia_scared", v.x + 44, v.y - 58, .5)
 		Spr.A("vg_cart1" if f else "vg_cart2", v.x, v.y + 2, 1)
+	var __q_levhint := Time.get_ticks_usec()
 	_levers(g)
 	_hints(g)
+	Spr.pt("d_levhint", __q_levhint)
+	var __q_vinespr := Time.get_ticks_usec()
 	for v in g.VINES:
 		if v.x + v.len < cx0 or v.x - v.len > cx1:
 			continue
 		_vine(v)
 	for s in g.SPR:
 		_glow_mush(s.x, s.y, s.t)
+	Spr.pt("d_vinespr", __q_vinespr)
+	var __q_fircrit := Time.get_ticks_usec()
 	for c in g.CHK:
 		if c.x < cx0 or c.x > cx1:
 			continue
@@ -154,6 +161,7 @@ func __draw_raw() -> void:
 		if not c.dead and c.t != "push" and c.x > cx0 and c.x < cx1:
 			_crate(c)
 	Critters.draw(g, T)
+	Spr.pt("d_fircrit", __q_fircrit)
 	var __d_Extras_tocas := Time.get_ticks_usec()
 	WorldExtras.tocas(g, T)
 	Spr.pt("d_Extras_tocas", __d_Extras_tocas)
@@ -165,8 +173,10 @@ func __draw_raw() -> void:
 		Spr.restore()
 	else:
 		WorldExtras.dog(g, T)
+	var __q_refl := Time.get_ticks_usec()
 	if not g.low_fx:
 		_reflection(g)
+	Spr.pt("d_refl", __q_refl)
 	# o Tomé é desenhado num nó só dele (com o sombreado de volume) e o que fica na frente dele
 	# (capim, faíscas, poeira) num terceiro nó por cima
 	en_node.queue_redraw()

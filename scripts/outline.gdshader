@@ -14,8 +14,13 @@ void fragment() {
 	vec2 uv = SCREEN_UV;
 	float a0 = texture(world_tex, uv).a;
 	float e = 0.0;
-	if (amt > 0.0 && a0 < 0.985) {
-		vec2 o = texel * px;
+	vec2 o = texel * px;
+	// atalho (a maior parte da tela): longe de qualquer borda, 4 leituras bastam para saber que não
+	// tem traço ali — só perto do desenho faz as 24 leituras
+	float q = texture(world_tex, uv + vec2(o.x, 0.0)).a + texture(world_tex, uv - vec2(o.x, 0.0)).a
+		+ texture(world_tex, uv + vec2(0.0, o.y)).a + texture(world_tex, uv - vec2(0.0, o.y)).a;
+	bool near_edge = abs(q - a0 * 4.0) > 0.02 || a0 > 0.02;
+	if (amt > 0.0 && a0 < 0.985 && near_edge) {
 		float s1 = 0.0;
 		float s2 = 0.0;
 		float mx = a0;

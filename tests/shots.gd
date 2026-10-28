@@ -87,6 +87,8 @@ func _initialize() -> void:
 					for gt in g.M.GATES:
 						gt.open = 1.0
 						gt.force_open = true
+				elif k == "cheer":
+					g.VH.cheer("CHEGADA!", "1 batida", 190)
 				elif k == "low":
 					g.low_fx = true
 				elif k == "dark":

@@ -364,7 +364,10 @@ func emitter(parent: Node, name_: String, pos: Vector2, vol: float, dist: float)
 	if not ResourceLoader.exists(path):
 		return
 	var e := AudioStreamPlayer2D.new()
-	e.stream = _loop(load(path))
+	# o mesmo laço para todas as fogueiras/riachos (antes cada uma ganhava uma cópia do som)
+	if not _loops.has(path):
+		_loops[path] = _loop(load(path))
+	e.stream = _loops[path]
 	e.position = pos
 	e.volume_db = vol
 	e.max_distance = dist
@@ -372,6 +375,28 @@ func emitter(parent: Node, name_: String, pos: Vector2, vol: float, dist: float)
 	e.autoplay = true
 	e.bus = "Mundo"
 	parent.add_child(e)
+	emitters.append(e)
+
+## fogueiras e riachos longe (fora do alcance do som) ficam pausados: o mixer não processa dezenas de
+## laços tocando em silêncio pela fase inteira
+var emitters: Array = []
+var _em_t := 0
+var _loops := {}
+func _pause_far_emitters() -> void:
+	_em_t += 1
+	if _em_t % 12 != 0:
+		return
+	emitters = emitters.filter(func(e): return is_instance_valid(e))
+	if emitters.is_empty():
+		return
+	var cam := get_viewport().get_camera_2d()
+	if cam == null:
+		return
+	var c: Vector2 = cam.get_screen_center_position()
+	for e in emitters:
+		var far: bool = e.global_position.distance_to(c) > e.max_distance * 1.15 + 400.0
+		if e.stream_paused != far:
+			e.stream_paused = far
 
 func set_rain(v: float) -> void:
 	rain_target = v
@@ -379,6 +404,7 @@ func set_rain(v: float) -> void:
 		rain.play()
 
 func _process(_d: float) -> void:
+	_pause_far_emitters()
 	# fora do jogo o Mundo some suave; os tambores do perigo também saem
 	world_gain = move_toward(world_gain, 1.0 if world_on else 0.0, _d * 3.0)
 	AudioServer.set_bus_volume_db(bus_world, linear_to_db(max(world_gain, .0001)))

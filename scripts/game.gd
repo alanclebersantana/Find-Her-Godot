@@ -1074,6 +1074,9 @@ func step() -> void:
 		_camera()
 		return
 	T += 1
+	# faixa "CHEGADA!" que ficou de uma corrida/salto: some sozinha também fora do veículo
+	if VH:
+		VH.tick_cheer()
 	if ZN == null or ZN.zone == null:
 		max_x = max(max_x, player.x + 300)
 	if shake > 0:
@@ -1667,8 +1670,9 @@ func step() -> void:
 		Audio.play("door")
 	Spr.pt("s_enem", __m); __m = Time.get_ticks_usec()
 	_tick_fx()
+	Spr.pt("s_fx", __m); __m = Time.get_ticks_usec()
 	_camera()
-	Spr.pt("s_fxcam", __m)
+	Spr.pt("s_cam", __m)
 
 func _tick_fx() -> void:
 	Polish.g = self
@@ -2036,7 +2040,7 @@ func base_ground(px: float, feet: float) -> float:
 			if w is Dictionary and w.has("x") and w.has("y"):
 				waters.append(w)
 	var cover := {}
-	for s in L.solids:
+	for s in near_solids(x0, x1):
 		if s.get("deco") or not str(s.get("t", "")) in ["ground", "dirt"]:
 			continue
 		var sy: float = float(s.y)
@@ -2083,7 +2087,7 @@ func tall_zoom(base_h: float) -> float:
 	# no chão ou subindo pelo paredão (pulando nas paredes, escada): o topo aparece a subida toda
 	if gy < 90000.0 and gy > feet - 10.0:
 		var top := 99999.0
-		for s in L.solids:
+		for s in near_solids(px - 160.0, px + 430.0):
 			if s.get("deco") or not str(s.get("t", "")) in ["cliff", "wall", "stone", "damwall", "hill"]:
 				continue
 			var sx: float = float(s.x)
@@ -3574,12 +3578,41 @@ func _piranha(e: Dictionary) -> void:
 
 ## topo do chão firme logo abaixo de (x, y) (guardado em faixas de 16 px: os sólidos fixos não mudam)
 var _floor_cache := {}
+## índice dos sólidos da fase por faixas de 256 px (a câmera e o chão olhavam a lista inteira, centenas
+## de peças, toda vez que o Tomé andava um pouco): devolve só as peças que cruzam [x0, x1], sem repetir
+var _sx_idx := {}
+var _sx_n := -1
+var _sx_L = null
+var _sx_stamp := 0
+func near_solids(x0: float, x1: float) -> Array:
+	var sol: Array = L.solids
+	if _sx_n != sol.size() or not is_same(_sx_L, L):
+		_sx_idx = {}
+		_sx_n = sol.size()
+		_sx_L = L
+		for o in sol:
+			var a := int(floor(float(o.x) / 256.0))
+			var b := int(floor((float(o.x) + float(o.get("w", 0))) / 256.0))
+			for k in range(a, b + 1):
+				if not _sx_idx.has(k):
+					_sx_idx[k] = []
+				_sx_idx[k].append(o)
+	_sx_stamp += 1
+	var out: Array = []
+	for k in range(int(floor(x0 / 256.0)), int(floor(x1 / 256.0)) + 1):
+		for o in _sx_idx.get(k, []):
+			if int(o.get("_sxq", -1)) == _sx_stamp:
+				continue
+			o["_sxq"] = _sx_stamp
+			out.append(o)
+	return out
+
 func floor_under(x: float, y: float) -> float:
 	var key := Vector2i(int(floor(x / 16.0)), int(floor(y / 16.0)))
 	if _floor_cache.has(key):
 		return _floor_cache[key]
 	var best := 99999.0
-	for s in L.solids:
+	for s in near_solids(x, x):
 		# tábuas, galhos e ilhas são de mão única (em L.solids ainda não têm "oneway")
 		if s.get("deco") or s.get("oneway") or s.get("t", "") in ["plat", "branch", "island"]:
 			continue
