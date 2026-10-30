@@ -730,9 +730,14 @@ static func mole(e: Dictionary, T: int) -> void:
 
 # ---------------------------------------------------------------- Pipoca e as tocas
 static func tocas(g: Game, T: int) -> void:
+	_coolers(g, T)
+	_heat_meter(g, T)
 	var p: Dictionary = g.player
 	for tc in g.X.TOCAS:
 		if tc.x < g.cam - 100 or tc.x > g.cam + g.W + 100:
+			continue
+		if tc.get("dig"):
+			_dig_mound(g, tc, T)
 			continue
 		Spr.ellipse(tc.x, tc.y - 10, 34, 18, Color("#6a5e52"))
 		Spr.ellipse(tc.x - 10, tc.y - 18, 16, 9, Color("#857868"))
@@ -743,6 +748,84 @@ static func tocas(g: Game, T: int) -> void:
 		if not tc.done and near:
 			var lbl := "✦ BUSCA, PIPOCA!" if g.X.dog_free() else "?"
 			Spr.text(lbl, tc.x, tc.y - 46 + sin(T * .15) * 3, 15, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
+
+## barris d'água da fundição: um cano pinga e solta névoa fria (passar por ela esfria o Tomé)
+static func _coolers(g: Game, T: int) -> void:
+	for c in g.L.get("coolers", []):
+		var x: float = float(c.x)
+		var y: float = float(c.y)
+		if x < g.cam - 120 or x > g.cam + g.W + 120:
+			continue
+		# barril
+		Spr.rr(x - 26, y - 62, 52, 62, 10, Color("#2a1a10"))
+		Spr.rr(x - 23, y - 59, 46, 56, 8, Color("#7a4e2a"))
+		for k in 3:
+			Spr.rect(x - 24, y - 54 + k * 20, 48, 5, Color("#4a4c52"))
+		Spr.ellipse(x, y - 60, 22, 6, Color("#3a7ab8"))
+		Spr.ellipse(x - 4, y - 61, 10, 2, Color(.8, .92, 1, .7))
+		# cano por cima, pingando
+		Spr.rect(x - 4, y - 150, 8, 80, Color("#4a4c52"))
+		Spr.rect(x - 4, y - 150, 30, 8, Color("#4a4c52"))
+		Spr.rect(x + 18, y - 150, 8, 14, Color("#4a4c52"))
+		for k in 3:
+			var u: float = fposmod(T * .03 + k * .33, 1.0)
+			Spr.ellipse(x + 22, y - 140 + u * 78, 2.5, 3.5, Color(.7, .88, 1, .9))
+		# névoa fria
+		for k in 4:
+			var u2: float = fposmod(T * .006 + k * .25, 1.0)
+			Spr.circle(x + sin(T * .02 + k) * 22, y - 70 - u2 * 70, 16 + u2 * 16, Color(.8, .92, 1, .14 * (1.0 - u2)))
+
+## termômetro em cima da cabeça do Tomé quando ele está esquentando
+static func _heat_meter(g: Game, T: int) -> void:
+	var h: float = g.HEAT
+	if h < 4.0 or g.player.dyingT > 0:
+		return
+	var p: Dictionary = g.player
+	var x: float = p.x + p.w / 2
+	var y: float = p.y - 46
+	var a: float = clamp(h / 15.0, 0.0, 1.0)
+	var hot: bool = h > 70.0 and T % 20 < 10
+	Spr.rr(x - 30, y - 6, 60, 12, 6, Color(0, 0, 0, .6 * a))
+	var col := Color(1, .8, .2).lerp(Color(1, .2, .1), clamp((h - 40.0) / 50.0, 0.0, 1.0))
+	if hot:
+		col = Color(1, 1, .9)
+	Spr.rr(x - 28, y - 4, 56 * h / 100.0, 8, 4, Color(col.r, col.g, col.b, a))
+	Spr.circle(x - 34, y, 8, Color(0, 0, 0, .6 * a))
+	Spr.circle(x - 34, y, 6, Color(col.r, col.g, col.b, a))
+	Spr.rect(x - 35.5, y - 14, 3, 10, Color(col.r, col.g, col.b, a))
+
+## monte de terra revirada onde tem alguma coisa enterrada: cheiro subindo e pegadas em volta;
+## depois que o Pipoca cava, fica o buraco
+static func _dig_mound(g: Game, tc: Dictionary, T: int) -> void:
+	var x: float = tc.x
+	var y: float = tc.y
+	if tc.done:
+		Spr.ellipse(x, y - 3, 30, 7, Color("#1e140c"))
+		Spr.ellipse(x - 30, y - 6, 14, 8, Color("#7a5a3a"))
+		Spr.ellipse(x + 30, y - 6, 12, 7, Color("#6a4c30"))
+		return
+	Spr.ellipse(x, y - 8, 36, 16, Color("#2a1c12"))
+	Spr.ellipse(x, y - 9, 33, 13, Color("#7a5a3a"))
+	Spr.ellipse(x - 8, y - 15, 18, 8, Color("#93704a"))
+	for k in 5:
+		Spr.circle(x - 24 + k * 12, y - 6 - (k % 2) * 6, 3.5, Color("#5a4028"))
+	# pegadas de cachorro chegando no monte
+	for k in 3:
+		var px: float = x - 70 - k * 26
+		var py: float = y - 3 - (k % 2) * 5
+		Spr.ellipse(px, py, 5, 3, Color(0, 0, 0, .35))
+		for j in 3:
+			Spr.circle(px - 4 + j * 4, py - 5, 1.6, Color(0, 0, 0, .35))
+	# o cheiro subindo (só o faro do Pipoca acha)
+	for k in 3:
+		var u: float = fposmod(T * .012 + k * .33, 1.0)
+		var wx: float = x - 10 + k * 10 + sin(T * .05 + k * 2.0) * 8
+		Spr.ring(wx, y - 24 - u * 50, 5 + u * 4, Color(.95, .9, .7, .5 * (1.0 - u)), 2.0, PI * .2, PI * 1.1)
+	var p: Dictionary = g.player
+	var near: bool = abs(p.x + p.w / 2 - x) < 80 and abs(p.y + p.h - y) < 50
+	if near:
+		var lbl := "✦ FAREJA, PIPOCA!" if g.X.dog_free() else "?"
+		Spr.text(lbl, x, y - 52 + sin(T * .15) * 3, 15, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
 
 static func dog(g: Game, T: int) -> void:
 	var d: Dictionary = g.X.DOG

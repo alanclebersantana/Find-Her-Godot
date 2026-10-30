@@ -343,6 +343,21 @@
    "trestle": 1
   },
   {
+   "t": "bars",
+   "x": 10560,
+   "y": 380,
+   "w": 24,
+   "h": 120,
+   "id": "crb1"
+  },
+  {
+   "t": "rockw",
+   "x": 10540,
+   "y": -620,
+   "w": 70,
+   "h": 1000
+  },
+  {
    "t": "ground",
    "x": 17200,
    "y": 500,
@@ -939,20 +954,6 @@
   },
   {
    "t": "plat",
-   "x": 31820,
-   "y": 320,
-   "w": 110,
-   "trestle": 1
-  },
-  {
-   "t": "plat",
-   "x": 31970,
-   "y": 380,
-   "w": 110,
-   "trestle": 1
-  },
-  {
-   "t": "plat",
    "x": 32120,
    "y": 440,
    "w": 110,
@@ -1078,8 +1079,42 @@
  ],
  "entrances": [],
  "bushes": [],
- "items": [],
- "locks": [],
+ "items": [
+  {
+   "x": 23081,
+   "y": 470,
+   "id": "engrenagem",
+   "toca": 2
+  },
+  {
+   "x": 31020,
+   "y": 470,
+   "id": "ima"
+  }
+ ],
+ "locks": [
+  {
+   "x": 23351,
+   "y": 380,
+   "w": 120,
+   "h": 120,
+   "id": "gear1",
+   "kind": "mill",
+   "need": "engrenagem",
+   "parts": [
+    "engrenagem"
+   ],
+   "short": "a engrenagem gigante",
+   "where": {
+    "engrenagem": "enterrada na rua da cidade (o Pipoca fareja onde)"
+   },
+   "pre": "A engrenagem gigante está parada: falta a engrenagem pequena do eixo.",
+   "place": "Vá até a engrenagem gigante e toque em ✦ USAR.",
+   "use": "Toque em ✦ USAR para encaixar a engrenagem no eixo.",
+   "hint": "A engrenagem gigante está parada: falta a engrenagem pequena do eixo. O Pipoca está farejando alguma coisa na rua...",
+   "msg": "A engrenagem encaixou! A roda gigante voltou a girar: suba numa tábua."
+  }
+ ],
  "clues": [
   {
    "x": 1150,
@@ -1149,6 +1184,12 @@
    "x": 3945,
    "y": 346,
    "txt": "Um desenho da Isis: o papai de capacete, passando pelo fogo sem medo."
+  },
+  {
+   "x": 9580,
+   "y": 470,
+   "toca": 1,
+   "txt": "Um desenho da Isis, enterrado pelo Pipoca? Não... ela escondeu aqui: o Pipoca de capa de herói, farejando o caminho."
   },
   {
    "x": 22366,
@@ -2467,6 +2508,16 @@
    "t": "Episódio 3 · O covil do Vargas. Aqui ele derrete o ouro roubado. Siga os trilhos e os lápis da Isis!"
   },
   {
+   "a": 800,
+   "b": 1300,
+   "t": "O Pipoca veio junto! Perto de um monte de terra revirada, toque ✦ USAR: ele fareja e cava o que estiver enterrado."
+  },
+  {
+   "a": 1300,
+   "b": 1480,
+   "t": "Que calor! Perto do metal derretido o Tomé esquenta (veja o termômetro). Passe pela névoa dos barris d'água para esfriar."
+  },
+  {
    "a": 1300,
    "b": 1520,
    "t": "Metal derretido! Não encoste: pule de pilar em pilar."
@@ -2507,7 +2558,12 @@
    "t": "Água correndo dentro da rocha... um rio subterrâneo! Os trilhos acabam aqui: o resto é de barco."
   },
   {
-   "a": 10300,
+   "a": 10280,
+   "b": 10540,
+   "t": "Uma grade... e um cristal lá no alto. Segure ✦ USAR para concentrar a luz da lanterna. Perto do espelho, ✦ USAR vira o espelho."
+  },
+  {
+   "a": 10600,
    "b": 10700,
    "t": "Um barco velho amarrado na margem! Chegue nele para descer o rio."
   },
@@ -2538,7 +2594,7 @@
   {
    "a": 23151,
    "b": 23451,
-   "t": "A engrenagem gigante ainda gira! Pule numa tábua dos dentes e vá lá para cima.",
+   "t": "Uma engrenagem gigante, parada... falta uma peça no eixo. Pipoca, fareja!",
    "yl": 100
   },
   {
@@ -2547,8 +2603,19 @@
    "t": "O portão do cofre: puxe as duas alavancas (USAR)."
   },
   {
-   "a": 30980,
-   "b": 31120,
+   "a": 30960,
+   "b": 31040,
+   "t": "Um ímã de ferro enorme! Ele gruda em ferro... como naquelas vigas lá na frente."
+  },
+  {
+   "a": 31580,
+   "b": 31760,
+   "t": "Vigas de ferro sobre o ouro derretido: pule nelas e vá pendurado pelo ímã. No fim, solte (↓) em cima da prateleira.",
+   "yl": -120
+  },
+  {
+   "a": 31060,
+   "b": 31130,
    "t": "Ouro derretido no chão do cofre! Vá pelas prateleiras — cuidado com a podre."
   },
   {
@@ -2582,8 +2649,26 @@
   ]
  ],
  "water": [],
- "mirrors": [],
- "crystals": [],
+ "mirrors": [
+  {
+   "x": 10462,
+   "y": 474,
+   "s": 1
+  },
+  {
+   "x": 10462,
+   "y": 150,
+   "s": 0,
+   "ceil": 1
+  }
+ ],
+ "crystals": [
+  {
+   "x": 10524,
+   "y": 150,
+   "door": "crb1"
+  }
+ ],
  "ghost": [],
  "secrets": [],
  "chalk": [],
@@ -2692,6 +2777,12 @@
    "x0": 21365,
    "x1": 21883,
    "y": 252
+  },
+  {
+   "x0": 31790,
+   "x1": 32200,
+   "y": 236,
+   "mag": 1
   }
  ],
  "oil": [
@@ -2741,12 +2832,58 @@
    "a0": 0.7853981633974483,
    "tower": 300,
    "gy": 500,
-   "gear": 1
+   "gear": 1,
+   "lock": "gear1"
   }
  ],
  "comics": [],
  "relics": [],
  "fireflies": [],
+ "tocas": [
+  {
+   "x": 9580,
+   "y": 500,
+   "id": 1,
+   "dig": 1
+  },
+  {
+   "x": 23081,
+   "y": 500,
+   "id": 2,
+   "dig": 1
+  }
+ ],
+ "coolers": [
+  {
+   "x": 1380,
+   "y": 500
+  },
+  {
+   "x": 2080,
+   "y": 500
+  },
+  {
+   "x": 4330,
+   "y": 500
+  },
+  {
+   "x": 5015,
+   "y": 420
+  },
+  {
+   "x": 5705,
+   "y": 380
+  },
+  {
+   "x": 6200,
+   "y": 500
+  }
+ ],
+ "dog": {
+  "x": 120,
+  "y": 500,
+  "free": 1
+ },
  "raft": {
   "x": 10760,
   "x0": 10640,

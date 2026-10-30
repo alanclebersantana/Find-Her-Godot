@@ -201,14 +201,16 @@ func _wheel(o: Dictionary, T: int) -> void:
 	var cx: float = float(o.x)
 	var cy: float = float(o.y)
 	var r: float = float(o.r)
+	if o.get("gear"):
+		_gear_wheel(o, cx, cy, r)
 	# a torre do moinho (o eixo das pás fica no círculo de cima da pintura)
-	if o.has("tower"):
+	elif o.has("tower"):
 		var tw: float = float(o.tower)
 		Spr.P("moinho", cx, float(o.get("gy", 500)) + 6, tw)
 	# as pás giram (velas rasgadas até o Tomé consertar)
 	var nm: String = "p_moinho_pas" if o.on else "p_moinho_pasr"
 	var rr = Spr.AR.get(nm)
-	if rr != null:
+	if rr != null and not o.get("gear"):
 		var sz: float = r * 2.0 * 1.12
 		Spr.save()
 		Spr.translate(cx, cy)
@@ -231,6 +233,54 @@ func _wheel(o: Dictionary, T: int) -> void:
 		Spr.circle(tx, ty, 6, Color("#2a1a0c"))
 		Spr.circle(tx, ty, 4, Color("#8a8e96"))
 		_plank(s)
+
+## a engrenagem gigante da cidade velha: cavalete de ferro, roda dentada com raios e, no eixo,
+## o encaixe da engrenagem pequena que faltava (sem ela a roda fica parada)
+func _gear_wheel(o: Dictionary, cx: float, cy: float, r: float) -> void:
+	var gy: float = float(o.get("gy", 500))
+	var ink := Color("#1a1612")
+	var iron := Color("#5a4a40")
+	var rust := Color("#8a4a2a")
+	# cavalete em A
+	for sx in [-1.0, 1.0]:
+		Spr.ci.draw_line(Vector2(cx + sx * 150, gy), Vector2(cx + sx * 14, cy), ink, 22)
+		Spr.ci.draw_line(Vector2(cx + sx * 150, gy), Vector2(cx + sx * 14, cy), iron, 14)
+	Spr.ci.draw_line(Vector2(cx - 95, gy - 140), Vector2(cx + 95, gy - 140), ink, 12)
+	Spr.ci.draw_line(Vector2(cx - 95, gy - 140), Vector2(cx + 95, gy - 140), iron, 6)
+	var a0: float = float(o.ang)
+	var rr: float = r - 30.0
+	# dentes
+	var n := 28
+	for k in n:
+		var a: float = a0 + k * TAU / n
+		var d := Vector2(cos(a), sin(a))
+		var t := Vector2(-d.y, d.x)
+		var p0: Vector2 = Vector2(cx, cy) + d * (rr - 4)
+		var pts := PackedVector2Array([p0 - t * 13, p0 + d * 26 - t * 8, p0 + d * 26 + t * 8, p0 + t * 13])
+		Spr.poly(pts, rust)
+		Spr.ci.draw_polyline(pts, ink, 3)
+	# aro
+	Spr.ring(cx, cy, rr, ink, 24)
+	Spr.ring(cx, cy, rr, rust, 17)
+	Spr.ring(cx, cy, rr - 5, Color(1, .7, .4, .25), 3)
+	# raios
+	for k in 6:
+		var a2: float = a0 + k * TAU / 6.0
+		var e := Vector2(cx, cy) + Vector2(cos(a2), sin(a2)) * (rr - 8)
+		Spr.ci.draw_line(Vector2(cx, cy), e, ink, 18)
+		Spr.ci.draw_line(Vector2(cx, cy), e, iron, 11)
+	# cubo e o encaixe da engrenagem pequena
+	Spr.circle(cx, cy, 40, ink)
+	Spr.circle(cx, cy, 34, iron)
+	if o.on:
+		for k in 10:
+			var a3: float = -a0 * 2.0 + k * TAU / 10.0
+			Spr.circle(cx + cos(a3) * 30, cy + sin(a3) * 30, 6, Color("#c9a24a"))
+		Spr.circle(cx, cy, 26, Color("#b08a3a"))
+		Spr.circle(cx, cy, 8, ink)
+	else:
+		Spr.circle(cx, cy, 24, Color("#120e0a"))
+		Spr.circle(cx, cy, 7, Color("#6a6a70"))
 
 func _lift(o: Dictionary, T: int) -> void:
 	var s: Dictionary = o.plats[0]

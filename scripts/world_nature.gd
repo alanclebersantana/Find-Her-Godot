@@ -219,6 +219,9 @@ static func draw(g: Game, T: int) -> void:
 	for b in NT.BARS:
 		if b.x0 > x1 or b.x1 < x0:
 			continue
+		if b.get("mag"):
+			_iron_beam(g, b)
+			continue
 		for px in ([] if b.get("clothes") else [b.x0 - 14, b.x1 + 6]):
 			Spr.rect(px, b.y - 30, 12, 1150 - b.y, Color("#5a3d22"))
 			Spr.rect(px + 2, b.y - 30, 3, 1150 - b.y, Color(1, 1, 1, .08))
@@ -530,3 +533,33 @@ static func horse(x: float, y: float, g: float, run: float, st: String, T: int) 
 				var bx: float = x - 44 + j * 15
 				Spr.seg(bx - 3, wy - 3, bx + 3, wy + 4, Color(.4, .4, .44), 1.4)
 		Spr.text("!", x + 50, y - 150 + sin(T * .2) * 3, 26, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
+
+## viga de ferro rebitada presa no teto por correntes (com o ímã o Tomé vai pendurado nela)
+static func _iron_beam(g: Game, b: Dictionary) -> void:
+	var x0: float = float(b.x0) - 10
+	var x1: float = float(b.x1) + 10
+	var y: float = float(b.y) - 8
+	var k: float = x0 + 40
+	while k < x1 - 20:
+		Spr.rect(k - 2, -700, 4, y + 700, Color("#2a2a2e"))
+		var cy: float = y - 30
+		while cy > y - 260:
+			Spr.ring(k, cy, 4, Color("#5a5c62"), 2.0)
+			cy -= 14
+		k += 160.0
+	Spr.rr(x0 - 2, y - 2, x1 - x0 + 4, 18, 3, Color("#1c1c20"))
+	Spr.rr(x0, y, x1 - x0, 14, 2, Color("#6a6e78"))
+	Spr.rect(x0, y + 3, x1 - x0, 3, Color(1, 1, 1, .18))
+	var r: float = x0 + 10
+	while r < x1 - 6:
+		Spr.circle(r, y + 7, 2.2, Color("#3a3c42"))
+		r += 22.0
+	var p: Dictionary = g.player
+	if p.get("bar") == b:
+		# o ímã na mão do Tomé, grudado na viga, com faíscas azuis
+		var hx: float = p.x + p.w / 2
+		Spr.rr(hx - 12, y + 12, 24, 12, 4, Color("#c8302a"))
+		Spr.rect(hx - 12, y + 18, 7, 8, Color("#d8dce4"))
+		Spr.rect(hx + 5, y + 18, 7, 8, Color("#d8dce4"))
+		if g.T % 6 < 3:
+			Spr.circle(hx + randf_range(-10, 10), y + 14, 1.6, Color(.6, .85, 1))

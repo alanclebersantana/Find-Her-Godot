@@ -82,6 +82,11 @@ func pre() -> void:
 			if b == skip_bar:
 				continue
 			if pcx > b.x0 + 6 and pcx < b.x1 - 6 and p.y > b.y - 16 and p.y < b.y + 18:
+				if b.get("mag") and not g.has_item("ima"):
+					if not told.has("mag"):
+						told.mag = 1
+						g.tip("Uma viga de ferro lisa: não tem onde segurar. Com um ímã bem forte, daria para ir pendurado nela...", 240)
+					continue
 				p.bar = b
 				# pega a corda sem tranco: guarda o embalo e vai encaixando as mãos aos poucos
 				p.vx *= .45
@@ -107,6 +112,8 @@ func bar_y(b: Dictionary, x: float) -> float:
 	var x1: float = float(b.x1) + 12
 	var u: float = clamp((x - x0) / (x1 - x0), 0.0, 1.0)
 	var y: float = float(b.y) + sin(u * PI) * 10.0
+	if b.get("mag"):
+		return float(b.y)   # viga de ferro: não cede
 	var p: Dictionary = g.player
 	if p.get("bar") == b:
 		var pcx: float = p.x + p.w / 2

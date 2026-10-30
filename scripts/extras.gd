@@ -123,6 +123,10 @@ func load_level() -> void:
 	if L.has("dog"):
 		DOG = {"x": float(L.dog.x), "y": float(L.dog.y), "x0": float(L.dog.x), "st": "tied", "face": -1, "i": 0, "t": 0,
 			"hop": 0.0, "hy": 0.0, "anim": 0.0, "bark": 0, "carry": false, "mole": null, "toca": null, "moving": false}
+		if L.dog.get("free"):
+			# (Episódio 3) o Pipoca já chega junto com o Tomé
+			DOG.st = "follow"
+			TRAIL = [Vector2(DOG.x, DOG.y)]
 	TOCAS = []
 	for tc in L.get("tocas", []):
 		var o: Dictionary = tc.duplicate()
@@ -987,6 +991,11 @@ func restore(d: Dictionary) -> void:
 		for tc in TOCAS:
 			if tc.get("id", 1) == id:
 				tc.done = true
+				for it in g.ITEMS:
+					if it.get("hidden") and it.get("toca") == id:
+						it.hidden = false
+						it.x = float(tc.x)
+						it.y = float(tc.y) - 30
 	if d.get("dog", false) and not DOG.is_empty():
 		DOG.st = "follow"
 		DOG.x = -9999.0   # aparece perto do Tomé no primeiro passo
@@ -1029,6 +1038,11 @@ func _deliver_toca() -> void:
 			d.hidden = false
 			d.x = p.x + p.w / 2
 			d.y = p.y + 10
+	for it in g.ITEMS:
+		if it.get("hidden") and it.get("toca") == tc.get("id", 1):
+			it.hidden = false
+			it.x = p.x + p.w / 2
+			it.y = p.y + 10
 
 func _use_toca() -> bool:
 	var p: Dictionary = g.player
@@ -1036,7 +1050,7 @@ func _use_toca() -> bool:
 		if tc.done or abs(p.x + p.w / 2 - tc.x) > 80 or abs(p.y + p.h - tc.y) > 50:
 			continue
 		if not dog_free():
-			g.flash("Uma toca estreita, cheirando a cachorro. O Tomé não cabe aí...", 200)
+			g.flash("Uma toca estreita, cheirando a cachorro. O Tomé não cabe aí..." if not tc.get("dig") else "A terra está revirada aqui... um faro de cachorro acharia o que tem embaixo.", 200)
 		elif DOG.st in ["follow", "sit", "stay"]:
 			DOG.st = "to_toca"
 			DOG.toca = tc
@@ -1109,10 +1123,29 @@ func _dog() -> void:
 			_look_for_moles()
 		"to_toca":
 			var tc: Dictionary = DOG.toca
-			if _run_to(tc.x, tc.y, 5.5):
-				DOG.st = "in_toca"
+			if _run_to(tc.x - (18 if tc.get("dig") else 0), tc.y, 5.5):
+				DOG.st = "sniff" if tc.get("dig") else "in_toca"
 				DOG.t = 0
+				DOG.face = 1
 				g.burst(tc.x, tc.y - 6, 12, Color("#7a5a3a"))
+		"sniff":
+			# fareja o monte, late e cava com as patas da frente até achar o que está enterrado
+			if DOG.t < 40:
+				DOG.hy = -abs(sin(DOG.t * .3)) * 2.0
+				if DOG.t % 10 == 0:
+					g.PARTS.append({"x": DOG.x + 16, "y": DOG.y - 14, "vx": randf_range(-.4, .4), "vy": -.8, "life": 22, "col": Color(.95, .9, .75, .7)})
+			elif DOG.t < 120:
+				DOG.hy = 0.0
+				if DOG.t % 4 == 0:
+					g.PARTS.append({"x": DOG.x + 10, "y": DOG.y - 4, "vx": -(2 + randf() * 2.5), "vy": -2 - randf() * 2.5, "life": 18, "col": Color("#7a5a3a")})
+			if DOG.t == 40:
+				_bark()
+			if DOG.t > 120:
+				DOG.st = "return"
+				DOG.carry = true
+				DOG.toca.done = true
+				g.burst(DOG.toca.x, DOG.toca.y - 8, 16, Color("#8a6a42"))
+				Audio.play("item")
 		"in_toca":
 			if DOG.t % 8 == 0:
 				g.PARTS.append({"x": DOG.toca.x + (randf() - .5) * 20, "y": DOG.toca.y - 6, "vx": (randf() - .5) * 4, "vy": -2 - randf() * 2, "life": 20, "col": Color("#7a5a3a")})

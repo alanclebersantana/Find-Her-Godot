@@ -138,9 +138,20 @@ func _initialize() -> void:
 	S("fogueira 1", walk_to(8830))
 	S("descansou 1", rests.has(1))
 	# ---------------- B · O RIO SUBTERRÂNEO
+	S("monte de terra", walk_to(9200 + 330))
+	S("Pipoca segue o Tomé", g.X.dog_free() and g.X.DOG.st in ["follow", "sit"])
+	use()
+	var dz: Dictionary = g.DRWS.filter(func(d): return d.get("toca") == 1)[0]
+	S("Pipoca cavou o desenho", until({}, func(): return dz.got, 600))
 	S("cavalete do amarelo", walk_to(9200 + 980) and jump_to(9200 + 1100))
 	hop("R", 0)
 	S("amarelo", spec("amarelo"))
+	S("até o espelho", walk_to(10462))
+	use()
+	S("virou o espelho", int(g.X.MIRRORS[0].s) == 0)
+	walk_to(10380)
+	frame({"R": true})
+	S("a luz abre a grade", until({"A": true}, func(): return g.X.CRYSTALS[0].on, 300))
 	S("sobe no barco", until({"R": true}, func(): return g.VH.mode == "raft", 600))
 	S("corredeira", ride_raft())
 	S("barco sem virar", g.VH.tries == 0)
@@ -194,6 +205,15 @@ func _initialize() -> void:
 	for o in g.MV.MV:
 		if o.k == "wheel":
 			wh = o
+	S("engrenagem parada", not wh.on)
+	S("monte da rua", walk_to(float(wh.x) - 520 + 60))
+	use()
+	S("Pipoca achou a engrenagem", until({}, func(): return g.has_item("engrenagem"), 600))
+	var gl: Dictionary = g.LOCKS.filter(func(l): return l.get("id", "") == "gear1")[0]
+	walk_to(float(gl.x) + 60)
+	use()
+	S("encaixou a engrenagem", gl.done)
+	S("a roda gira", until({}, func(): return wh.on and float(wh.spin) > .005, 400))
 	S("embaixo da engrenagem", walk_to(float(wh.x)))
 	var HI0: float = float(wh.x) + 380.0
 	S("sobe pela engrenagem", mill_ride(HI0, -150))
@@ -224,10 +244,17 @@ func _initialize() -> void:
 	S("martelo", cross_swing(trap_at("axe", D0 + 3060), D0 + 3200))
 	S("pista 17", walk_to(D0 + 3300) and n_clues() == 5)
 	walk_to(D0 + 3500)
-	for t in [D0 + 3555, D0 + 3695, D0 + 3850, D0 + 4060, D0 + 4275, D0 + 4425, D0 + 4575]:
+	S("ímã", g.has_item("ima"))
+	for t in [D0 + 3555, D0 + 3695, D0 + 3850, D0 + 4060]:
 		var r = jump_to(t, t == D0 + 4060)
 		S("prateleira %d" % int(t - D0), r is bool and r and P.y < 440)
 	S("desenho do cofre", g.DRWS.filter(func(d): return absf(float(d.x) - (D0 + 4060)) < 5)[0].got)
+	walk_to(D0 + 4140)
+	jump_to(D0 + 4240)
+	S("pendurado na viga (ímã)", P.get("bar") != null and P.bar.get("mag"))
+	S("vai pela viga", until({"R": true}, func(): return px() > D0 + 4570, 600))
+	hold({"S": true}, 4)
+	S("solta na prateleira", wait_ground() and P.get("bar") == null and P.y > 380 and P.y < 440)
 	S("chão depois do ouro", jump_to(D0 + 4700))
 	walk_to(D0 + 4840)
 	var cr2: Dictionary = {}

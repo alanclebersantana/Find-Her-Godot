@@ -168,7 +168,7 @@ func __draw_raw() -> void:
 			Spr.A("drawing", 0, 0, .6)
 			Spr.restore()
 	for it in g.ITEMS:
-		if it.got or it.x < x0 - 60 or it.x > x1 + 60:
+		if it.got or it.get("hidden") or it.x < x0 - 60 or it.x > x1 + 60:
 			continue
 		_ground_obj("it_" + it.id, it, .6, Color(1, .94, .74, .5), false)
 	for c in g.CLUES:

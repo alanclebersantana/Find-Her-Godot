@@ -46,6 +46,7 @@ L = {
     "checks": [], "hints": [], "pits": [], "water": [], "mirrors": [], "crystals": [], "ghost": [],
     "secrets": [], "chalk": [], "plates": [], "traps": [], "decor": [], "bars": [], "oil": [],
     "cranks": [], "movers": [], "comics": [], "relics": [], "fireflies": [],
+    "tocas": [], "coolers": [], "dog": {"x": 120, "y": 500, "free": 1},
 }
 S = L["solids"]
 
@@ -132,6 +133,10 @@ L["oil"].append([760, 468])
 coins_line(260, 1000, 470)
 L["clues"].append({"x": 1150, "y": 470, "id": 13})
 hint(0, 700, "Episódio 3 · O covil do Vargas. Aqui ele derrete o ouro roubado. Siga os trilhos e os lápis da Isis!")
+hint(800, 1300, "O Pipoca veio junto! Perto de um monte de terra revirada, toque ✦ USAR: ele fareja e cava o que estiver enterrado.")
+L["coolers"] += [{"x": 1380, "y": 500}, {"x": 2080, "y": 500}, {"x": 4330, "y": 500}, {"x": 5015, "y": 420},
+                 {"x": 5705, "y": 380}, {"x": 6200, "y": 500}]
+hint(1300, 1480, "Que calor! Perto do metal derretido o Tomé esquenta (veja o termômetro). Passe pela névoa dos barris d'água para esfriar.")
 check(1300)
 
 # A2 · os primeiros poços de metal derretido: pilares de pedra e o vapor que sobe
@@ -158,6 +163,7 @@ coins_line(2800, 2980, 470)
 coins_line(3420, 3600, 470)
 plat(3880, 380, 130, trestle=1)
 L["drawings"].append({"x": 3945, "y": 346, "txt": "Um desenho da Isis: o papai de capacete, passando pelo fogo sem medo."})
+L["drawings"].append({"x": 9580, "y": 470, "toca": 1, "txt": "Um desenho da Isis, enterrado pelo Pipoca? Não... ela escondeu aqui: o Pipoca de capa de herói, farejando o caminho."})
 bat(4150, 120, [3950, 4350], -60)
 hint(2800, 3000, "Prensas! Elas batem no ritmo: passe quando estiverem lá em cima.")
 hint(3600, 3700, "O martelo da fundição balança: passe quando ele for para o outro lado.")
@@ -219,6 +225,13 @@ bat(B0 + 700, 100, [B0 + 500, B0 + 900], -40)
 L["specials"].append({"x": B0 + 1100, "y": 380, "c": "amarelo"})
 plat(B0 + 1040, 420, 120, trestle=1)
 L["oil"].append([B0 + 1300, 468])
+# a grade de ferro antes do barco: abre quando a luz da lanterna chega no cristal lá no alto
+S.append({"t": "bars", "x": 10560, "y": 380, "w": 24, "h": 120, "id": "crb1"})
+rock(10540, 10610, -620, 380)
+L["mirrors"] += [{"x": 10462, "y": 474, "s": 1}, {"x": 10462, "y": 150, "s": 0, "ceil": 1}]
+L["crystals"].append({"x": 10524, "y": 150, "door": "crb1"})
+hint(10280, 10540, "Uma grade... e um cristal lá no alto. Segure ✦ USAR para concentrar a luz da lanterna. Perto do espelho, ✦ USAR vira o espelho.")
+L["tocas"].append({"x": B0 + 380, "y": 500, "id": 1, "dig": 1})
 check(B0 + 150)
 check(B0 + 1200)
 L["raft"] = {"x": 10760, "x0": 10640, "x1": 17200, "y": 530, "spd": 5.2, "falls": [12900, 15300], "cave": 1,
@@ -227,7 +240,7 @@ L["raft"] = {"x": 10760, "x0": 10640, "x1": 17200, "y": 530, "spd": 5.2, "falls"
                      {"k": "log", "x": 14550}, {"k": "rock", "x": 15800}, {"k": "net", "x": 16250},
                      {"k": "log", "x": 16600}, {"k": "rock", "x": 16950}],
              "cps": [13150, 15550]}
-hint(10300, 10700, "Um barco velho amarrado na margem! Chegue nele para descer o rio.")
+hint(10600, 10700, "Um barco velho amarrado na margem! Chegue nele para descer o rio.")
 ground(17200, B1)
 rock(17200, B1, -620, -40, True)
 L["clues"].append({"x": 17700, "y": 470, "id": 15})
@@ -356,10 +369,19 @@ for i, u in [(2, .3), (5, .5), (8, .7)]:
 GEAR_X = CITY_END + 520
 GEAR_HUB = 120
 L["movers"].append({"k": "wheel", "x": GEAR_X, "y": GEAR_HUB, "r": 300, "n": 4, "w": 96, "spd": .0075,
-                    "a0": math.pi / 4, "tower": 300, "gy": GY, "gear": 1})
+                    "a0": math.pi / 4, "tower": 300, "gy": GY, "gear": 1, "lock": "gear1"})
+L["locks"].append({"x": GEAR_X - 160, "y": 380, "w": 120, "h": 120, "id": "gear1", "kind": "mill", "need": "engrenagem",
+                   "parts": ["engrenagem"], "short": "a engrenagem gigante",
+                   "where": {"engrenagem": "enterrada na rua da cidade (o Pipoca fareja onde)"},
+                   "pre": "A engrenagem gigante está parada: falta a engrenagem pequena do eixo.",
+                   "place": "Vá até a engrenagem gigante e toque em ✦ USAR.", "use": "Toque em ✦ USAR para encaixar a engrenagem no eixo.",
+                   "hint": "A engrenagem gigante está parada: falta a engrenagem pequena do eixo. O Pipoca está farejando alguma coisa na rua...",
+                   "msg": "A engrenagem encaixou! A roda gigante voltou a girar: suba numa tábua."})
+L["tocas"].append({"x": CITY_END + 90, "y": 500, "id": 2, "dig": 1})
+L["items"].append({"x": CITY_END + 90, "y": 470, "id": "engrenagem", "toca": 2})
 S.append({"t": "ground", "x": CITY_END + 200, "y": GY, "w": 700, "h": 140, "street": 1})
 check(CITY_END + 260)
-hint(CITY_END + 160, CITY_END + 460, "A engrenagem gigante ainda gira! Pule numa tábua dos dentes e vá lá para cima.", yl=100)
+hint(CITY_END + 160, CITY_END + 460, "Uma engrenagem gigante, parada... falta uma peça no eixo. Pipoca, fareja!", yl=100)
 PY = -150
 HI0 = GEAR_X + 380
 S.append({"t": "ground", "x": HI0, "y": PY, "w": 27600 - HI0, "h": 650})
@@ -403,15 +425,19 @@ L["clues"].append({"x": D0 + 3300, "y": 470, "id": 17})
 check(D0 + 3250)
 
 # D3 · prateleiras do ouro (algumas podres) até o alto, e a descida
+L["items"].append({"x": D0 + 3420, "y": 470, "id": "ima"})
+L["bars"].append({"x0": D0 + 4190, "x1": D0 + 4600, "y": 236, "mag": 1})
+hint(D0 + 3360, D0 + 3440, "Um ímã de ferro enorme! Ele gruda em ferro... como naquelas vigas lá na frente.")
+hint(D0 + 3980, D0 + 4160, "Vigas de ferro sobre o ouro derretido: pule nelas e vá pendurado pelo ímã. No fim, solte (↓) em cima da prateleira.", yl=-120)
 for x, y, w, kw in [(3500, 440, 110, {}), (3640, 380, 110, {}), (3780, 320, 140, {"crumble": 1}),
-                    (3960, 280, 200, {}), (4220, 320, 110, {}), (4370, 380, 110, {}), (4520, 440, 110, {})]:
+                    (3960, 280, 200, {}), (4520, 440, 110, {})]:
     d = {"t": "plat", "x": D0 + x, "y": y, "w": w, "trestle": 1}
     d.update(kw)
     S.append(d)
 lava(D0 + 3560, 1040)          # ouro derretido escorrendo pelo chão do cofre
 coins_line(D0 + 3980, D0 + 4140, 250, 40)
 L["drawings"].append({"x": D0 + 4060, "y": 246, "txt": "Um desenho da Isis: uma montanha de ouro, e ela e o papai indo embora de mãos dadas, sem olhar para trás."})
-hint(D0 + 3380, D0 + 3520, "Ouro derretido no chão do cofre! Vá pelas prateleiras — cuidado com a podre.")
+hint(D0 + 3460, D0 + 3530, "Ouro derretido no chão do cofre! Vá pelas prateleiras — cuidado com a podre.")
 check(D0 + 4700)
 
 # D4 · o caixote e a placa do último portão

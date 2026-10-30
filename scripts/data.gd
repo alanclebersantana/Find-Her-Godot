@@ -8,6 +8,7 @@ const ITEM_INFO := {
 	"picareta": ["Picareta", "⛏️"],
 	"lona": ["Lona velha", "🧺"], "vela": ["Vela de moinho", "⛵"],
 	"chave_a": ["Metade de chave", "🗝️"], "chave_b": ["Outra metade", "🗝️"], "chave": ["Chave da porteira", "🗝️"],
+	"ima": ["Ímã de ferro", "🧲"],
 }
 const RECIPES := [
 	["corda", "gancho", "gancho_corda", "Você amarrou a corda no gancho!"],

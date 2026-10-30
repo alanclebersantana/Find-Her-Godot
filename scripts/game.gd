@@ -99,6 +99,9 @@ var flash_t := 0
 var lantern_lit := true
 ## óleo da lanterna (0..1): cresce ao pegar frascos, gasta devagar no escuro; fuel_vis segue aos poucos
 var FUEL := .55
+## calor da fundição (0..100): sobe perto do metal derretido, desce longe dele e na névoa dos barris d'água
+var HEAT := 0.0
+var heat_warn := 0
 var fuel_vis := .55
 var OIL: Array = []
 var oil_seen := false
@@ -160,6 +163,7 @@ func _ready() -> void:
 #  CARREGAR
 # ======================================================================
 func load_level(i: int) -> void:
+	HEAT = 0.0
 	Polish.reset(self)
 	DIPS = []
 	_floor_cache = {}
@@ -340,6 +344,7 @@ func _p1_load() -> void:
 	for it in L.get("items", []):
 		var o: Dictionary = it.duplicate()
 		o.got = false
+		o.hidden = it.has("toca")
 		ITEMS.append(o)
 	LOCKS = []
 	for l in L.get("locks", []):
@@ -1510,6 +1515,7 @@ func step() -> void:
 
 	Spr.pt("s_phys", __m); __m = Time.get_ticks_usec()
 	_p1_post(pcx, pcy)
+	_heat_step(pcx, pcy)
 	Spr.pt("s_post", __m); __m = Time.get_ticks_usec()
 	for d in DRWS:
 		if not d.got and not d.get("hidden") and abs(d.x - pcx) < 80 and hit(player, R(d.x - 22, d.y - 22, 44, 44)):
@@ -2897,7 +2903,7 @@ func _p1_post(pcx: float, _pcy: float) -> void:
 			return
 	# itens, pistas, lápis especiais
 	for it in ITEMS:
-		if not it.got and abs(it.x - pcx) < 80 and hit(player, R(it.x - 20, it.y - 20, 40, 40)):
+		if not it.got and not it.get("hidden") and abs(it.x - pcx) < 80 and hit(player, R(it.x - 20, it.y - 20, 40, 40)):
 			it.got = true
 			give_item(it.id)
 			burst(it.x, it.y, 18, Color("#ffe9a0"))
@@ -3925,7 +3931,45 @@ func _back_to_fire() -> void:
 	_tick_fx()
 	flash("De volta à fogueira.")
 
+## calor da fundição: perto do metal derretido o Tomé esquenta; cheio, perde um coração.
+## Longe do fogo ele esfria aos poucos; na névoa de um barril d'água esfria rápido.
+func _heat_step(pcx: float, pcy: float) -> void:
+	if not L.has("coolers") and HEAT <= 0.0:
+		return
+	var feet: float = player.y + player.h
+	var rate := -.35
+	# só a fundição esquenta (o trecho com "forge")
+	var forge := false
+	for sc in L.get("sections", []):
+		if float(sc.x) <= pcx:
+			forge = sc.get("forge", 0) == 1
+	if forge and player.dyingT == 0 and (VH == null or VH.mode == ""):
+		for sw in SWAMP:
+			if not sw.get("lava"):
+				continue
+			var dx: float = max(0.0, max(float(sw.x) - pcx, pcx - float(sw.x) - float(sw.w)))
+			if dx < 150 and feet > float(sw.y) - 330 and feet < float(sw.y) + 40:
+				# quanto mais perto e mais baixo (logo acima do metal), mais quente
+				var k: float = (1.0 - dx / 150.0) * clamp(1.0 - (float(sw.y) - feet) / 330.0, .25, 1.0)
+				rate = max(rate, .06 + .2 * k)
+	for c in L.get("coolers", []):
+		if abs(pcx - float(c.x)) < 56 and abs(feet - float(c.y)) < 90:
+			rate = -3.0
+			if T % 6 == 0:
+				PARTS.append({"x": float(c.x) + randf_range(-30, 30), "y": float(c.y) - 60 - randf() * 30, "vx": randf_range(-.5, .5), "vy": .6, "life": 24, "col": Color(.75, .9, 1, .7)})
+	HEAT = clamp(HEAT + rate, 0.0, 100.0)
+	if heat_warn > 0:
+		heat_warn -= 1
+	if HEAT > 70.0 and heat_warn == 0:
+		heat_warn = 400
+		tip("Calor demais! Saia de perto do metal derretido ou passe pela névoa de um barril d'água para esfriar.", 220)
+	if HEAT >= 100.0 and player.dyingT == 0:
+		HEAT = 55.0
+		hurt(1, pcx - player.face * 10)
+		flash("O calor da fundição tirou um coração!", 160)
+
 func respawn() -> void:
+	HEAT = 0.0
 	var msg: String = player.dieMsg
 	if lives < 0:
 		running = false
