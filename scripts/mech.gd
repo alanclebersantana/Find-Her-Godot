@@ -269,7 +269,7 @@ func on_block(from_x: float) -> void:
 func dog_action() -> void:
 	var p: Dictionary = g.player
 	var X = g.X
-	if g.TR.dog_bite(p):
+	if g.TR.dog_bite(p) or g.VH.dog_bite(p):
 		return
 	for tc in X.TOCAS:
 		if not tc.done and abs(p.x + p.w / 2 - tc.x) < 50 and abs(p.y + p.h - tc.y) < 40:
@@ -279,6 +279,8 @@ func dog_action() -> void:
 			Audio.play("bark", -6)
 			return
 	X._bark()
+	if g.VL:
+		g.VL.lure(p.x + p.w / 2)
 	for e in g.EN:
 		if e.dead:
 			continue

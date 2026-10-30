@@ -1161,9 +1161,22 @@ static func _cart_world(g: Game, VH: Vehicles, T: int) -> void:
 	var gy: float = float(SL.y)
 	if VH.mode != "sled" and not VH.sled_done:
 		_cart(float(SL.x), gy)
+		if SL.has("rope"):
+			# o poste e a corda que prende o trole (o Pipoca rói)
+			var r: Array = SL.rope
+			var px: float = float(r[0])
+			var py: float = float(r[1])
+			Spr.rect(px - 7, py - 56, 14, 56, Color("#1a120c"))
+			Spr.rect(px - 5, py - 54, 10, 54, Color("#6b4524"))
+			if VH.tied:
+				Spr.seg(px, py - 36, float(SL.x) - 40, gy - 30, Color("#1a120c"), 5)
+				Spr.seg(px, py - 36, float(SL.x) - 40, gy - 30, Color("#c9a86a"), 3)
+				Spr.ring(px, py - 36, 7, Color("#c9a86a"), 3)
+			else:
+				Spr.seg(px, py - 36, px - 14, py - 6, Color("#c9a86a"), 3)
 		var p: Dictionary = g.player
 		if abs(p.x + p.w / 2 - float(SL.x)) < 120 and (T / 20) % 2 == 0:
-			Spr.text("✦ TROLE" if int(SL.get("train", 0)) == 1 else "✦ CARRINHO", float(SL.x), gy - 84 + sin(T * .15) * 3, 16, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
+			Spr.text(("TROLE AMARRADO" if VH.tied else "✦ TROLE") if int(SL.get("train", 0)) == 1 else "✦ CARRINHO", float(SL.x), gy - 84 + sin(T * .15) * 3, 16, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
 	elif VH.sled_done and VH.mode != "sled":
 		_cart(float(SL.x1) - 40, gy)
 

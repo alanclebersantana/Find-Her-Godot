@@ -43,6 +43,7 @@ func _initialize() -> void:
 			b.done = true
 		_at(28700 + 5800, 500)
 		S("o trem partiu", walk_to(float(g.L.door.x) - 100) and g.VH.dep_t >= 0)
+		g.VH.tied = false
 		S("sobe no trole", until({"R": true}, func(): return g.VH.mode == "sled", 500))
 		var VH = g.VH
 		for i in 5000:

@@ -270,20 +270,27 @@ L["items"].append({"x": 10100, "y": 470, "id": "chave", "toca": 1})
 L["clues"].append({"x": 9800, "y": 470, "id": 16})
 hint(9800, 10050, "Terra revirada no jardim... Pipoca, fareja!")
 # vigia 2 (o lampião vira mais rápido) e mais esconderijos
-L["watchmen"].append({"x0": 10500, "x1": 11700, "spd": 1.3})
-for hx, k in [(10700, "barrel"), (11050, "crate"), (11420, "barrel")]:
+L["watchmen"].append({"x0": 10500, "x1": 11600, "spd": 1.3})
+for hx, k in [(10700, "barrel"), (11050, "crate"), (11380, "barrel")]:
     L["hides"].append({"x": hx, "w": 66 if k == "crate" else 46, "k": k, "h": 48 if k == "crate" else 54})
 coins_line(10400, 11900, 470, 70)
 check(10300)
+# B4 · a guarita: um vigia parado na frente da porta dos porões, de olho no pátio. O Tomé não passa...
+#      mas o Pipoca (o vigia não liga para cachorro) chega perto e LATE: o vigia vai ver o que é,
+#      e o Tomé passa por trás dele até a porta
+L["watchmen"].append({"x0": 12360, "x1": 12360, "post": 1, "spd": 1.6})
+hint(11880, 12060, "Um vigia de guarita na frente da porta dos porões! Troque para o Pipoca (botão do cachorro) — o vigia não liga "
+                   "para cachorro. Leve o Pipoca para trás do Tomé (para a esquerda) e LATA (✦): o vigia sai do posto para ver. "
+                   "Quando ele passar, volte para o Tomé e corra até a porta.", yl=-120)
 # a porta dos porões (trancada: a chave que o Pipoca achou)
-S.append({"t": "pgate", "id": "dg1", "x": 12320, "y": -700, "w": 22, "h": 1200, "crank": 1})
-wall(12290, 12380, -620, 380)
-L["locks"].append({"x": 12200, "y": 380, "w": 90, "h": 120, "id": "dg1", "kind": "gate", "gate": "dg1", "need": "chave",
+S.append({"t": "pgate", "id": "dg1", "x": 12520, "y": -700, "w": 22, "h": 1200, "crank": 1})
+wall(12490, 12580, -620, 380)
+L["locks"].append({"x": 12400, "y": 380, "w": 90, "h": 120, "id": "dg1", "kind": "gate", "gate": "dg1", "need": "chave",
                    "parts": ["chave"], "short": "a porta dos porões",
                    "where": {"chave": "enterrada no jardim do pátio (o Pipoca fareja onde)"},
                    "pre": "A porta dos porões está trancada.", "place": "Vá até a porta dos porões e toque em ✦ USAR.",
                    "use": "Toque em ✦ USAR na porta para destrancar.", "msg": "A chave girou! A porta dos porões está subindo..."})
-check(12000, GY, 2)
+check(11960, GY, 2)
 
 # ======================================================================
 #  C · OS PORÕES  (12600 .. 21000)   — labirinto de três andares
@@ -306,9 +313,14 @@ wall(12600, 14300, F1, F1 + 40)        # piso do andar do meio (por cima das pas
 bat(13450, F1 + 140, [13350, 13560], F1 + 40)
 coins_line(12900, 14000, 487, 70)
 check(12720)
+# a grade do térreo com portinhola de cachorro: o Pipoca passa e segura a placa do outro lado
+S.append({"t": "pgate", "id": "pg3", "x": 14110, "y": F1 + 40, "w": 22, "h": GY - F1 - 40, "dogpass": 1})
+L["plates"].append({"x": 14190, "y": GY, "w": 60, "gate": "pg3"})
+hint(13950, 14100, "Uma grade com portinhola de cachorro! Troque para o Pipoca, passe por ela e pare na placa: "
+                   "a grade sobe. Depois volte para o Tomé (o Pipoca fica segurando).", yl=-60)
 # a escada para o andar do meio
 ladder(14370, F1, GY)
-check(14250)
+check(14290)
 # térreo continua: o beco do Pipoca (desenho enterrado) e espinhos
 wall(14400, 17870, F1, F1 + 40)        # piso do meio
 spikes(14700, 100, per=140)
@@ -491,9 +503,11 @@ hint(E0 + 4300, E0 + 4500, "Que barulho de ferro é esse?...")
 F0 = E0 + 6000
 L["door"] = {"x": F0 + 400, "y": 410, "kind": "station", "lock": 1}
 hint(F0 - 250, F0 + 500, "A estação velha! O trem do Vargas está saindo... Pule no trole dos trilhos e vá atrás dele!")
+hint(F0 + 560, F0 + 800, "O trole está amarrado no poste! Troque para o Pipoca e toque ✦ perto do poste: ele rói a corda.", yl=-120)
 check(F0 - 120)
 TRK = 6400
 L["sled"] = {"x": F0 + 760, "x1": F0 + 900, "y": GY, "tx0": 60000, "len": TRK, "skin": "cart", "train": 1,
+             "rope": [F0 + 640, GY],
              "endMsg": "O trole alcançou o trem!",
              "pts": [[0, 430], [800, 440], [1600, 455], [2400, 465], [3200, 480], [4000, 490], [4800, 500], [5600, 506], [TRK, 510]],
              "obs": [{"k": "rock", "u": 900, "barrel": 1}, {"k": "branch", "u": 1700}, {"k": "crack", "u": 2400, "w": 90},

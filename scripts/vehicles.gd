@@ -38,6 +38,9 @@ func load_level() -> void:
 	RA = g.L.get("raft", {}).duplicate(true)
 	SL = g.L.get("sled", {}).duplicate(true)
 	sled_done = false
+	tied = SL.has("rope")
+	tied_note = 0
+	dep_t = -1
 	PL = g.L.get("plane", {}).duplicate(true)
 	RAFT_SOL = {}
 	if not RA.is_empty():
@@ -174,6 +177,12 @@ func check_sled() -> void:
 	if auto_cd > 0:
 		auto_cd -= 1
 		return
+	if tied:
+		if near_sled() and g.player.onGround and tied_note <= 0 and not g.player.get("dog"):
+			tied_note = 400
+			g.flash_tut("O trole está amarrado!", "Uma corda grossa prende o trole no poste. O Tomé não consegue soltar o nó... mas o Pipoca rói! Troque para o Pipoca (botão do cachorro) e toque ✦ perto do poste.", 280)
+		tied_note -= 1
+		return
 	# só quando ele anda até o trenó (voltando da fogueira parado ao lado, não parte sozinho)
 	if near_sled() and g.player.onGround and g.player.dyingT == 0 and abs(g.player.vx) > .5 and (g.kd("R") or g.kd("L")) \
 			and abs(float(g.player.x + g.player.w / 2) - float(SL.x)) < 40:
@@ -239,6 +248,9 @@ func near_sled() -> bool:
 	return abs(p.x + p.w / 2 - float(SL.x)) < 90 and abs(p.y + p.h - float(SL.y)) < 50 and not p.get("dog")
 
 func use() -> bool:
+	if near_sled() and tied:
+		tied_note = 0
+		return false
 	if near_sled():
 		if is_cart():
 			g.want_comic("carrinho")
@@ -307,6 +319,22 @@ var vg_t0 := -1        # carrinho: quadro em que o Vargas parou no fim dos trilh
 const VG_STOP := 850.0  # o Vargas chega ao fim dos trilhos quando o Tomé ainda está esta distância atrás
 const SBOARD := 40
 var dep_t := -1          # trem do Vargas (Ep. 3): quadro em que ele começou a sair da estação
+var tied := false        # o trole preso com uma corda grossa no poste (só o Pipoca rói)
+var tied_note := 0
+
+## o Pipoca rói a corda que prende o trole (✦ com o Pipoca perto do poste)
+func dog_bite(d: Dictionary) -> bool:
+	if not tied:
+		return false
+	var r: Array = SL.rope
+	if abs(d.x + d.w / 2 - float(r[0])) < 50 and abs(d.y + d.h - float(r[1])) < 40:
+		tied = false
+		Audio.play("bark", -4)
+		Audio.play("unlock", -6, .8)
+		g.burst(float(r[0]), float(r[1]) - 20, 14, Color("#c9b48a"))
+		g.flash("O Pipoca roeu a corda: o trole está solto! Volte para o Tomé e suba nele.", 220)
+		return true
+	return false
 const KICK_LEN := 80.0  # comprimento da rampa de neve (kick) antes da beirada
 var hits := 0          # batidas neste passeio (para a nota da chegada)
 var cp_i := -1         # último marco do passeio que já passou

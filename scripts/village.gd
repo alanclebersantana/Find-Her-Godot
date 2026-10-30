@@ -47,6 +47,12 @@ func load_level() -> void:
 		o.dir = 1
 		o.wait = 0
 		o.t = 0
+		if o.get("post"):
+			# vigia de guarita (Ep. 3): fica parado no posto, de olho para a esquerda; o latido do
+			# Pipoca tira ele de lá por um tempo
+			o.x = float(o.x0)
+			o.dir = -1
+			o.lt = 0
 		WATCH.append(o)
 	DOGS = []
 	for d in g.L.get("dogs", []):
@@ -89,6 +95,46 @@ func hot_phase(h: Dictionary) -> int:
 		return 1
 	return 2
 
+## vigia de guarita: vai até onde o Pipoca latiu, fica olhando para lá e depois volta ao posto
+func _post_step(w: Dictionary) -> void:
+	var home: float = float(w.x0)
+	var spd: float = float(w.get("spd", 1.5))
+	if int(w.lt) > 0:
+		w.lt -= 1
+		var tx: float = float(w.lx)
+		if abs(w.x - tx) > 4:
+			var nd: int = 1 if tx > w.x else -1
+			if nd != int(w.dir):
+				w.dir = nd
+				w.turnT = TURN_T
+			w.x += nd * spd
+	elif abs(w.x - home) > 2:
+		# voltando ao posto (olhando para a frente, para o posto)
+		var nd2: int = 1 if home > w.x else -1
+		if nd2 != int(w.dir):
+			w.dir = nd2
+			w.turnT = TURN_T
+		w.x += nd2 * spd
+	elif int(w.dir) != -1:
+		w.dir = -1
+		w.turnT = TURN_T
+
+## o Pipoca latiu em x: o vigia de guarita mais perto vai ver o que é (se estiver perto o bastante)
+func lure(x: float) -> bool:
+	var got := false
+	for w in WATCH:
+		if not w.get("post") or abs(float(w.x) - x) > 720:
+			continue
+		w.lx = x + (60.0 if x < float(w.x) else -60.0)
+		w.lt = 420
+		got = true
+		if not told.has("lure"):
+			told.lure = 1
+			g.flash_tut("— Quem está aí?!", "O vigia saiu do posto para ver o latido! Volte para o Tomé (botão do cachorro) e passe por trás dele.", 260)
+		else:
+			g.flash("Vigia: — Quem está aí?! Cachorro sem-vergonha...", 140)
+	return got
+
 func _street(p: Dictionary) -> bool:
 	return p.y + p.h > 430.0
 
@@ -120,7 +166,9 @@ func post() -> void:
 			g.tip("Um vigia da vila aqui embaixo: o Vargas subornou os vigias para guardar o esconderijo!", 300)
 		if int(w.get("turnT", 0)) > 0:
 			w.turnT -= 1
-		if w.wait > 0:
+		if w.get("post"):
+			_post_step(w)
+		elif w.wait > 0:
 			w.wait -= 1
 			if w.wait == 0:
 				w.dir = -w.dir
