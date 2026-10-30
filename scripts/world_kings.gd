@@ -359,7 +359,7 @@ static func _fish(g: Game, K: Kings, T: int) -> void:
 			fr = 5
 		"down":
 			fr = 6
-	var a: float = f.al * (clamp(1.0 - f.t / 160.0, 0, 1) if f.st == "down" else 1.0)
+	var a: float = f.al * (clamp(1.0 - max(0.0, f.t - 30.0) / 60.0, 0, 1) if f.st == "down" and f.get("skin", "fish") == "frog" else (clamp(1.0 - f.t / 160.0, 0, 1) if f.st == "down" else 1.0))
 	var tint := Color(1, .55, .5) if f.red > 0 and (T / 3) % 2 == 0 else Color(1, 1, 1)
 	tint = tint * Polish.fury(int(f.hp))   # última vida: pulsa avermelhado
 	# nada com o corpo: inclina para onde sobe/desce, estica no bote, encolhe ao mirar e achata ao bater

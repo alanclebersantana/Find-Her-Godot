@@ -372,11 +372,9 @@ static func _log(x: float, y: float) -> void:
 # ---------------------------------------------------------------- Javali-Rei
 static func boss(g: Game, T: int) -> void:
 	var b: Dictionary = g.X.BOSS
-	if not b.is_empty() and b.get("skin", "") == "dog" and b.has("stake"):
-		# Brutus na corrente: estaca, argolas e corrente sempre à vista; o cão de guarda também
-		# (antes da luta, parado; depois, deitado do lado da estaca)
-		WorldEp2.yard(g, b, T)
-		if not b.done or b.get("sulk", false):
+	if not b.is_empty() and b.get("skin", "") == "dog":
+		# o Brutus fica à vista no quintal (antes da luta, de guarda; depois, foge)
+		if not b.done:
 			_brutus(b, T, Spr.edist(b))
 		return
 	if b.is_empty() or b.done or b.st == "wait":
@@ -536,9 +534,10 @@ static func _brutus(b: Dictionary, T: int, bd: float = 0.0) -> void:
 			fr = 6
 		"intro":
 			fr = 7
-		"taut":
-			# esticado no fim da corrente, latindo
-			fr = 5 if b.get("barkT", 0) > 0 else 4
+		"bite":
+			fr = 5 if b.t >= 8 else 4
+		"hurt":
+			fr = 6
 	var tint := Color(1, .45, .4, 1) if b.red > 0 and (T / 3) % 2 == 0 else Color(1, 1, 1, 1)
 	tint = tint * Polish.fury(int(b.hp))   # última vida: pulsa avermelhado
 	var a: float = 1.0
@@ -571,11 +570,11 @@ static func _brutus(b: Dictionary, T: int, bd: float = 0.0) -> void:
 		box = -b.dir * 6.0 * pk
 	elif b.st == "idle":
 		bsy = 1.0 + sin(T * .09) * .015
-	elif b.st == "taut":
-		# puxando a corrente: o corpo inclina para a frente e treme
-		box = b.dir * 4.0 + sin(T * .9) * 1.5
-		bsx = 1.04
-		bsy = .96
+	elif b.st == "bite":
+		# dá o bote: estica para a frente
+		var bk: float = clamp(1.0 - abs(b.t - 12) / 8.0, 0, 1)
+		box = b.dir * 18.0 * bk
+		bsx = 1.0 + .06 * bk
 	elif b.st == "stun":
 		Spr.save()
 		Spr.translate(b.x, b.y)

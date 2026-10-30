@@ -68,8 +68,8 @@ func tinted(g: Game) -> Color:
 	# da escuridão nunca troca num estalo na passagem de um trecho para outro
 	var night: float = clamp(float(g.AMB.get("night", 0.0)), 0.0, 1.0)
 	var w: Dictionary = FxClock.nw(g)
-	var blue: float = FxClock.wsum(w, ["noite", "vila", "cidade", "caverna"]) * night
-	var amber: float = FxClock.wsum(w, ["mina", "esconderijo", "fundicao", "cofre"]) * night
+	var blue: float = FxClock.wsum(w, ["noite", "vila", "cidade", "caverna", "muralha", "patio"]) * night
+	var amber: float = FxClock.wsum(w, ["mina", "esconderijo", "fundicao", "cofre", "poroes"]) * night
 	var lift: float = .38 * (1.0 - night) * clamp((a.r - .4) / .15, 0.0, 1.0)
 	a = a.lerp(Color(.97, 1.0, .98), lift)
 	a = a.lerp(Color(a.r * .97, a.g, min(1.0, a.b * 1.14 + .03)), blue)

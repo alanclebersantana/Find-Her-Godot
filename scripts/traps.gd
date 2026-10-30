@@ -373,6 +373,8 @@ func _flower(o: Dictionary, p: Dictionary, pcx: float, feet: float) -> void:
 	o.sol.y = o.y - 18 + o.get("pad", 0.0) * 12
 
 func spike_h(o: Dictionary) -> float:
+	if o.get("always"):
+		return 26.0
 	var per: int = o.get("per", 140)
 	var u: int = (g.T + int(o.get("ph", 0))) % per
 	var up: int = per / 2

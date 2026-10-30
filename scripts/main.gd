@@ -1326,7 +1326,7 @@ func _confirm_wipe(next: Callable, back: Callable) -> void:
 
 ## escolher o episódio (aparece depois de terminar o primeiro)
 const EPISODES := [["EPISÓDIO 1 · O BOSQUE", "Do bosque até a boca da mina."], ["EPISÓDIO 2 · AS PROFUNDEZAS DA MINA", "Túneis, o moinho, os telhados da vila, o carrinho nos trilhos e a fuga da Isis."],
-	["EPISÓDIO 3 · O COVIL DO VARGAS", "A fundição, o rio subterrâneo, a cidade abandonada, o cofre e a fuga ao amanhecer."]]
+	["EPISÓDIO 3 · O COVIL DO VARGAS", "A fortaleza na serra: a trilha, o pátio dos vigias, os porões, as forjas e as torres."]]
 func _choose_episode() -> void:
 	var vb := _overlay(.9)
 	vb.add_child(_label("ESCOLHA O EPISÓDIO", 30, GOLD, Spr.font_title))
@@ -1837,12 +1837,72 @@ func _pause_menu() -> void:
 		else:
 			game.keys["Bp"] = true))
 	vb.add_child(_button("MAPA DA FASE", func(): show_map(true)))
+	if OS.has_feature("teste"):
+		vb.add_child(_button("⏩ PULAR PARA... (TESTE)", _warp_menu))
 	vb.add_child(_button("OPÇÕES", func(): show_options(true)))
 	# sair para o menu perde o que foi feito desde a última fogueira: pergunta antes
 	vb.add_child(_button("MENU INICIAL", func():
 		_confirm("VOLTAR AO MENU INICIAL?", "O que você fez depois da última fogueira acesa não fica salvo.", "IR PARA O MENU", show_title, _pause_menu)))
 	panel.set_meta("ok", close_panel)
 	panel.set_meta("back", close_panel)
+
+## APK de teste: ir direto para qualquer ponto da fase (trechos, fogueiras, chefes, veículos, fim)
+func _warp_menu() -> void:
+	var vb := _overlay(.82)
+	vb.add_child(_label("PULAR PARA...", 30, GOLD, Spr.font_title))
+	vb.add_child(_label("Versão de teste: o Tomé vai direto para o ponto escolhido (vira a fogueira de volta).", 13, Color("#e8dcc0"), Spr.font_i))
+	var pts: Array = _warp_points()
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 8)
+	for pt in pts:
+		var b := _button(str(pt[0]), func():
+			close_panel()
+			game.debug_warp(float(pt[1]), float(pt[2])))
+		b.custom_minimum_size = Vector2(300, 46)
+		b.add_theme_font_size_override("font_size", 15)
+		grid.add_child(b)
+	vb.add_child(grid)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 16)
+	row.add_child(_button("PEGAR TODOS OS ITENS", func():
+		game.debug_items()
+		close_panel()))
+	row.add_child(_button("VOLTAR", _pause_menu))
+	vb.add_child(row)
+	panel.set_meta("ok", _pause_menu)
+	panel.set_meta("back", _pause_menu)
+
+func _warp_points() -> Array:
+	var L: Dictionary = game.L
+	var out: Array = []
+	var per: Array = L.get("periods", [])
+	var secs: Array = L.get("sections", [])
+	for i in secs.size():
+		var nm: String = per[int(secs[i].get("per", i))] if int(secs[i].get("per", i)) < per.size() else "Trecho %d" % (i + 1)
+		out.append([str(i + 1) + ". " + nm, float(secs[i].x) + 80.0, -1.0])
+	var k := 0
+	for c in game.CHK:
+		k += 1
+		var lbl: String = ("Fogueira %d" % int(c.rest)) if c.get("rest") else ("Ponto %d" % k)
+		out.append([lbl + "  (x %d)" % int(c.x), float(c.x), float(c.y)])
+	if L.has("boss"):
+		out.append(["Chefe: " + ("Brutus" if L.boss.get("skin", "") == "dog" else "Javali-Rei"), float(L.boss.x0) + 60.0, 500.0])
+	if L.has("hawk"):
+		out.append(["Chefe: " + ("Morcego-Rei" if L.hawk.has("lamps") else "Gavião-Rei"), float(L.hawk.get("x0", L.hawk.get("x", 0))) - 80.0, -1.0])
+	if L.has("fish"):
+		out.append(["Chefe: " + ("Sapo-Rei" if L.fish.get("skin", "") == "frog" else "Bagre-Rei"), float(L.fish.x0) - 40.0, -1.0])
+	if L.has("raft"):
+		out.append(["Barco / jangada", float(L.raft.x) - 120.0, -1.0])
+	if L.has("sled"):
+		out.append(["Trenó / carrinho", float(L.sled.x) - 120.0, -1.0])
+	if L.has("isisPart"):
+		out.append(["Trecho da Isis", float(L.isisPart.x0) + 60.0, -1.0])
+	out.append(["Fim da fase", float(L.door.x) - 160.0, -1.0])
+	out.sort_custom(func(a, b): return float(a[1]) < float(b[1]))
+	return out
 
 # ---------- mochila ----------
 func open_bag(l = null) -> void:

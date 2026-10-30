@@ -315,7 +315,7 @@ func _caught(w: Dictionary) -> void:
 	if p.get("isis"):
 		g.flash("Um vigia subornado pelo Vargas viu a Isis! Ela voltou correndo para trás. Abaixe-se atrás dos caixotes quando a luz vier.", 260)
 	else:
-		g.flash("Um vigia te pegou com o lampião! Você foi levado de volta. Fique longe da rua: vá pelos telhados.", 260)
+		g.flash(str(g.L.get("watchMsg", "Um vigia te pegou com o lampião! Você foi levado de volta. Fique longe da rua: vá pelos telhados.")), 260)
 
 # ======================================================================
 #  DESENHO
@@ -377,7 +377,7 @@ func draw_front(T: int) -> void:
 		else:
 			Spr.PR("crate", x, 500 - hh, w, hh, Color(1, 1, 1, a))
 		if behind and p.crouch:
-			Spr.text("escondida", x + w / 2, 500 - hh - 12, 12, Color(.85, 1, .85, .9), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_i, 2)
+			Spr.text("escondida" if p.get("isis") else "escondido", x + w / 2, 500 - hh - 12, 12, Color(.85, 1, .85, .9), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_i, 2)
 
 ## a saída do esconderijo: o luar entrando por uma abertura na rocha
 func _exit(ex: float) -> void:

@@ -615,6 +615,17 @@ func _entrances(g: Game) -> void:
 			Spr.PV("ladder", cx - 20, top, 40, 200)
 			Spr.text("⬆ SAIR", cx, e.y - 24 + sin(T * .15) * 4, 22, Color(1, .91, .66, .6 + sin(T * .12) * .35), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
 			continue
+		if e.get("look", "") == "drain":
+			# bueiro: grade de ferro no chão, com o escuro lá embaixo
+			var bx: float = e.x
+			var by: float = e.y + e.h
+			Spr.rr(bx - 4, by - 10, e.w + 8, 16, 4, Color("#1a1612"))
+			Spr.rect(bx, by - 8, e.w, 10, Color("#08060a"))
+			var gx: float = bx + 6
+			while gx < bx + e.w - 2:
+				Spr.rect(gx, by - 9, 4, 12, Color("#5a5c62"))
+				gx += 11.0
+			Spr.rect(bx, by - 9, e.w, 3, Color("#6a6c72"))
 		var de: float = abs(p.x + p.w / 2 - (e.x + e.w / 2))
 		if e.get("label", "") != "" and p.nearE != e and de < 320 and abs(p.y + p.h - (e.y + e.h)) < 80:
 			Spr.text("⬇", e.x + e.w / 2, e.y - 62 + sin(T * .15) * 6, 34, Color(1, .93, .67, .55 + sin(T * .12) * .35), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 5)

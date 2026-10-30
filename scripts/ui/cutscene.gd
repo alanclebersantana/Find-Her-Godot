@@ -70,14 +70,14 @@ func _ready() -> void:
 		"ep3":
 			shots = [
 				{"d": _s_ep3_card, "txt": "Episódio 3: O Covil do Vargas.", "dur": 4.0},
-				{"d": _pic("cut_ep2fim", true), "txt": "A porta de ferro rangeu e cedeu. Lá dentro, o calor de uma fornalha e o cheiro de metal derretido.", "dur": 5.5},
-				{"d": _pic("cut_ep3_a", true), "txt": "Era ali que o Vargas derretia o ouro roubado da mina. E, no chão, mais um lápis da Isis.", "dur": 6.0},
-				{"d": _pic("cut_ep3_b", false), "txt": "Longe dali, o trem do Vargas cruzava a serra no escuro, levando a Isis para a estação velha.", "dur": 6.5},
-				{"d": _pic("cut_ep3_a", false), "txt": "— Pode correr, Vargas. Eu sigo os lápis da minha filha até o fim do mundo.", "dur": 5.0},
+				{"d": _pic("cut_ep2fim", true), "txt": "A porta de ferro rangeu e cedeu. Atrás dela, um túnel subia por dentro da montanha.", "dur": 5.5},
+				{"d": _pic("cut_ep3_fort", true), "txt": "Lá no alto da serra, a fortaleza do Vargas. E na trilha, mais um lápis da Isis.", "dur": 6.5},
+				{"d": _pic("cut_ep3_b", false), "txt": "Do outro lado da fortaleza, o trem esperava na estação velha, com a Isis na janela.", "dur": 6.5},
+				{"d": _pic("cut_ep3_fort", false), "txt": "— Vamos, Pipoca. Hoje a gente traz a Isis para casa.", "dur": 5.0},
 			]
 		"ep3fim":
 			shots = [
-				{"d": _pic("cut_ep3_c", true), "txt": "Ao amanhecer, o carrinho saiu da montanha. Lá embaixo, a fumaça do trem na estação velha.", "dur": 6.0},
+				{"d": _pic("cut_ep3_b", true), "txt": "Do alto da ponte, o Tomé viu o trem do Vargas soltando fumaça na estação velha...", "dur": 6.0},
 				{"d": _s_ep3_card, "txt": "Continua: o final do Episódio 3 chega nas próximas versões.", "dur": 5.0},
 			]
 		"mina":

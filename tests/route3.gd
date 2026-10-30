@@ -1,9 +1,15 @@
 extends "res://tests/route2.gd"
-## Teste automático do Episódio 3 (O Covil do Vargas): joga a fase inteira, da fundição até a
-## estação velha, pegando as 6 pistas, os 6 lápis especiais e os desenhos.
+## Teste automático do Episódio 3 (O Covil do Vargas · a fortaleza na serra): joga a fase inteira, da
+## trilha da serra até a estação velha, pegando as 6 pistas, os 6 lápis especiais e os desenhos, e
+## passando pelos dois caminhos onde há escolha (o de cima e o de baixo).
 ##   godot --headless --path . -s tests/route3.gd
 
-## espera a tábua que vai e vem (k "path") chegar perto de x e pula nela
+func S(name: String, r) -> void:
+	super.S(name, r)
+	if OS.get_environment("DBG") != "":
+		print(log_lines[-1])
+
+## espera a tábua que vai e vem (k "path") chegar perto da ponta e pula nela
 func board_path(o: Dictionary, at_start: bool):
 	var s: Dictionary = o.plats[0]
 	var x_end: float = float(o.x0) if at_start else float(o.x1)
@@ -26,7 +32,6 @@ func board_path(o: Dictionary, at_start: bool):
 			return "state"
 	return "não subiu na tábua y=%d" % int(P.y)
 
-## vai em cima da tábua até a outra ponta
 func ride_path(o: Dictionary, to_end: bool):
 	var s: Dictionary = o.plats[0]
 	var x_end: float = float(o.x1) if to_end else float(o.x0)
@@ -45,7 +50,7 @@ func ride_path(o: Dictionary, to_end: bool):
 		frame(d)
 	return "timeout"
 
-## sobe no vapor segurando PULAR até a condição (ou até pousar)
+## sobe no vapor segurando PULAR até a condição
 func steam_to(x: float, cond: Callable, mx: int = 400):
 	press("J")
 	var used := false
@@ -66,16 +71,97 @@ func steam_to(x: float, cond: Callable, mx: int = 400):
 		frame(d)
 	return "timeout@%d,%d" % [int(px()), int(P.y)]
 
-func S(name: String, r) -> void:
-	super.S(name, r)
-	if OS.get_environment("DBG") != "":
-		print(log_lines[-1])
-
-func path_mover(x0: float) -> Dictionary:
+func mover(k: String, x: float) -> Dictionary:
 	for o in g.MV.MV:
-		if o.k == "path" and absf(float(o.x0) - x0) < 5:
+		if o.k == k and absf(float(o.get("x0", o.get("x", 0))) - x) < 5:
 			return o
 	return {}
+
+## anda até x pulando as pedras que rolam na direção do Tomé
+func dodge_to(x: float, mx: int = 1500):
+	var hold_j := 0
+	for i in mx:
+		P = g.player
+		if not ok():
+			return "state"
+		var ahead := false
+		for o in g.TR.T:
+			if o.k == "roll" and o.st in ["idle", "go"] and float(o.get("bx", o.x)) > px() - 40 and absf(float(o.x) - px()) < 900:
+				ahead = true
+		if px() >= x and P.onGround and not ahead:
+			return true
+		for o in g.TR.T:
+			if o.k == "roll" and o.st == "go" and P.onGround and hold_j <= 0:
+				var dx: float = float(o.get("bx", o.x)) - px()
+				if dx > 0 and dx < 16.0 * (4.3 + absf(float(o.get("vx", 0.0)))) + 24.0:
+					press("J")
+					hold_j = 18
+		hold_j -= 1
+		var go_r: bool = px() < x or (ahead and px() < x + 40)
+		frame({"R": go_r, "J": hold_j > 0})
+	return "timeout@%d" % int(px())
+
+## anda pela passarela no vento: quando a rajada sopra, abaixa e espera
+func gust_walk(x: float):
+	for i in 2000:
+		P = g.player
+		if not ok():
+			return "state"
+		if px() >= x and P.onGround:
+			return true
+		var blowing := false
+		for o in g.TR.T:
+			if o.k == "gust" and g.TR.gust_state(o) == 2 and px() > o.x - 40 and px() < o.x + o.w + 40:
+				blowing = true
+		frame({"S": true} if blowing else {"R": true})
+	return "timeout@%d" % int(px())
+
+## passa pelo vigia: espera abaixado atrás de um caixote/barril; quando ele já passou indo para a
+## esquerda (de costas para o Tomé), corre para a direita
+func sneak_past(w: Dictionary, x_end: float):
+	var V = g.VL
+	var spot: Dictionary = {}
+	for i in 5000:
+		P = g.player
+		if not ok():
+			return "state"
+		if px() >= x_end:
+			return true
+		var wx: float = float(w.x)
+		if float(w.dir) < 0 and int(w.wait) == 0 and wx < px() - 60:
+			# ele está de costas, indo embora para a esquerda: corre
+			spot = {}
+			frame({"R": true})
+			continue
+		# escolhe o esconderijo: o mais à direita que fique bem atrás dele (ou o mais perto, se ele vem)
+		if spot.is_empty() or (float(w.dir) > 0 and int(w.wait) == 0):
+			var best: Dictionary = {}
+			for h in V.HIDES:
+				var hc: float = float(h.x) + float(h.w) / 2
+				if hc < wx - 300 and (best.is_empty() or hc > float(best.x)):
+					best = h
+			if best.is_empty():
+				var bd := 1e9
+				for h in V.HIDES:
+					var hc3: float = float(h.x) + float(h.w) / 2
+					if absf(hc3 - px()) < bd:
+						bd = absf(hc3 - px())
+						best = h
+			spot = best
+		var hc2: float = float(spot.x) + float(spot.w) / 2
+		if absf(px() - hc2) > 6:
+			frame({"R": true} if hc2 > px() else {"L": true})
+		else:
+			frame({"S": true})
+	return "timeout@%d" % int(px())
+
+func lift_up(o: Dictionary):
+	var s: Dictionary = o.plats[0]
+	var r = walk_to(float(s.x) + float(s.w) / 2)
+	if not (r is bool and r):
+		return "até o elevador: " + str(r)
+	use()
+	return until({}, func(): return float(o.pos) == 0.0 and float(o.goal) == 0.0, 900)
 
 func _initialize() -> void:
 	g = load("res://scripts/game.gd").new()
@@ -90,213 +176,202 @@ func _initialize() -> void:
 		print("REST ", n, " T=", g.T)
 		g.running = true)
 	var L: Dictionary = g.L
-	# ---------------- A · A FUNDIÇÃO
-	walk_to(480)
-	S("pula a caixa", jump_to(660))
-	S("pista 13", walk_to(1150) and n_clues() == 1)
-	walk_to(1480)
-	S("pilar 1", jump_to(1635))
-	S("pilar 2", jump_to(1795))
-	S("chão depois do poço", jump_to(1960))
-	walk_to(2180)
-	S("vapor: vermelho", steam_to(2455, func(): return spec("vermelho")))
-	S("plana até o chão", glide_to(2800))
-	walk_to(2990)
-	S("prensa 1", cross_spikes(trap_at("spikes", 3020), 3200))
-	S("prensa 2", cross_spikes(trap_at("spikes", 3280), 3460))
-	S("martelo", cross_swing(trap_at("axe", 3760), 3880))
-	S("cavalete do desenho", jump_to(3945))
-	S("desce", walk_to(4100))
-	walk_to(4380)
-	var m1: Dictionary = path_mover(4430)
-	var m2: Dictionary = path_mover(5100)
-	S("tábua 1", board_path(m1, true))
-	S("vai na tábua 1", ride_path(m1, true))
-	S("pilar do laranja", jump_to(5015))
+	# ---------------- A · A TRILHA DA SERRA
+	S("Pipoca junto", g.X.dog_free())
+	walk_to(1060)
+	S("degrau 1", jump_to(1170))
+	S("degrau 2", jump_to(1310))
+	S("degrau 3", jump_to(1450))
+	S("em cima do penhasco", walk_to(1970) and P.y < 250)
+	S("tábua do vermelho", jump_to(2050))
+	hop("R", 0)
+	S("vermelho", spec("vermelho"))
+	S("desce do penhasco", until({"R": true}, func(): return P.onGround and P.y > 400, 300))
+	hold({}, 24)
+	walk_to(2620)
+	S("passagem baixa (de volta, abaixado)", crawl(2200))
+	S("pista 18 no túnel", n_clues() == 1)
+	S("sai do túnel", crawl(2620))
+	S("pedras rolando", dodge_to(3200))
+	walk_to(3240)
+	walk_to(3300)
+	S("ponte podre 1", jump_to(3375))
+	S("ponte podre 2", jump_to(3470))
+	S("ponte podre 3", jump_to(3565))
+	S("ponte podre 4", jump_to(3660))
+	S("outro lado", jump_to(3780))
+	S("pé da muralha", walk_to(4420))
+	S("sobe entre as paredes", crevice_climb())
+	if P.y + P.h > -250:
+		jump_to(4540, true)
+	S("no alto da muralha", P.onGround and P.y + P.h <= -255)
+	S("passarela com vento", gust_walk(5300))
+	# volta e desce para entrar pelo bueiro (o desenho fica no túnel)
+	walk_to(4500)
+	until({"L": true}, func(): return P.onGround and P.y > 400, 300)
+	S("até o bueiro", walk_to(4215))
+	down()
+	S("entrou no bueiro", until({}, func(): return P.y > 800 and P.onGround, 200))
+	walk_to(4680)
+	S("passagem baixa do túnel", crawl(4990))
+	S("desenho do túnel", walk_to(5500))
+	walk_to(5725)
+	press("U")
+	S("saiu no pátio", until({}, func(): return P.y < 600 and P.onGround, 200))
+	S("fogueira 1", walk_to(5810))
+	S("descansou 1", rests.has(1))
+	# ---------------- B · O PÁTIO DOS VIGIAS
+	walk_to(6465)
+	S("sobe para a passarela", climb_to("U", func(): return P.onGround and P.y + P.h <= 252, 400))
+	walk_to(6700)
+	S("tábua 2", jump_to(6880))
+	walk_to(7000)
+	S("tábua podre", jump_to(7170))
+	S("tábua do laranja", jump_to(7420, true))
 	hop("R", 0)
 	S("laranja", spec("laranja"))
-	walk_to(5040)
-	S("tábua 2", board_path(m2, true))
-	S("vai na tábua 2", ride_path(m2, true))
-	S("pilar do vapor", jump_to(5705))
-	S("vapor até o chão", glide_to(6200))
-	S("manivela", walk_to(6560))
-	for i in 8:
-		if not g.CRANKS[0].done:
-			use()
-	S("porta da manivela abriu", g.CRANKS[0].done)
-	S("passa a porta", walk_to(6800))
-	walk_to(7080)
-	var cr: Dictionary = {}
-	for c in g.M.PUSH:
-		if absf(float(c.x) - 7140) < 5:
-			cr = c
-	S("caixa no buraco da placa", until({"R": true}, func(): return float(cr.x) >= 7419 and float(cr.y) >= 449, 900))
-	S("portão gf1 abriu", until({}, func(): return g.M.GATES.filter(func(gt): return gt.get("id", "") == "gf1")[0].open > .85, 200))
-	S("pula a caixa", jump_to(7540, true))
-	S("pista 14", walk_to(8420) and n_clues() == 2)
-	S("fogueira 1", walk_to(8830))
-	S("descansou 1", rests.has(1))
-	# ---------------- B · O RIO SUBTERRÂNEO
-	S("monte de terra", walk_to(9200 + 330))
-	S("Pipoca segue o Tomé", g.X.dog_free() and g.X.DOG.st in ["follow", "sit"])
+	walk_to(7560)
+	S("última tábua", jump_to(7740))
+	walk_to(8060)
+	S("vigia não pegou", g.VL.caught_n == 0)
+	S("andaime 1", jump_to(8200))
+	S("andaime 2", jump_to(8420, true))
+	S("andaime 3", jump_to(8730, true))
+	S("andaime 4", jump_to(9000, true))
+	S("andaime 5", jump_to(9220, true))
+	S("desce longe do cão", until({"R": true}, func(): return P.onGround and P.y > 400 and px() > 9300, 300))
+	S("pista 16", walk_to(9800) and n_clues() == 2)
+	S("jardim", walk_to(10080))
 	use()
-	var dz: Dictionary = g.DRWS.filter(func(d): return d.get("toca") == 1)[0]
+	S("Pipoca achou a chave", until({}, func(): return g.has_item("chave"), 600))
+	walk_to(10400)
+	S("passa pelo vigia 2", sneak_past(g.VL.WATCH[1], 12000))
+	S("vigia 2 não pegou", g.VL.caught_n == 0)
+	S("fogueira 2", rests.has(2) or walk_to(12010))
+	S("descansou 2", rests.has(2))
+	walk_to(12245)
+	use()
+	var dl: Dictionary = g.LOCKS.filter(func(l): return l.get("id", "") == "dg1")[0]
+	S("destrancou a porta", dl.done)
+	S("entra nos porões", until({"R": true}, func(): return px() > 12500, 400))
+	# ---------------- C · OS PORÕES
+	walk_to(12880)
+	S("passagem baixa 1", crawl(13320))
+	walk_to(13580)
+	S("passagem baixa 2", crawl(14020))
+	# térreo: o beco com o desenho enterrado e o amarelo
+	walk_to(14650)
+	S("espinhos 1", cross_spikes(trap_at("spikes", 14700), 14850))
+	walk_to(15050)
+	S("espinhos 2", cross_spikes(trap_at("spikes", 15100), 15250))
+	walk_to(15680)
+	use()
+	var dz: Dictionary = g.DRWS.filter(func(d): return d.get("toca") == 2)[0]
 	S("Pipoca cavou o desenho", until({}, func(): return dz.got, 600))
-	S("cavalete do amarelo", walk_to(9200 + 980) and jump_to(9200 + 1100))
+	walk_to(15990)
+	S("cavalete do amarelo", jump_to(16100))
 	hop("R", 0)
 	S("amarelo", spec("amarelo"))
-	S("até o espelho", walk_to(10462))
+	walk_to(15250)
+	S("espinhos 2 (volta)", cross_spikes(trap_at("spikes", 15100), 15050))
+	walk_to(14850)
+	S("espinhos 1 (volta)", cross_spikes(trap_at("spikes", 14700), 14650))
+	S("escada do térreo", walk_to(14385))
+	S("sobe para o meio", climb_to("U", func(): return P.ladder == null and P.y + P.h <= 282, 500))
+	hold({"R": true}, 10)
+	# andar do meio: escada para o beco de cima (pista 15)
+	S("escada do meio", walk_to(14745))
+	S("sobe para cima", climb_to("U", func(): return P.ladder == null and P.y + P.h <= 62, 500))
+	jump_to(14650)
+	S("pista 15 no beco de cima", walk_to(13300) and n_clues() == 3)
+	S("desce pelo buraco da escada", walk_to(14745) and P.y + P.h > 250)
+	# espelhos e cristal
+	S("até o espelho", walk_to(15560))
 	use()
 	S("virou o espelho", int(g.X.MIRRORS[0].s) == 0)
-	walk_to(10380)
+	walk_to(15470)
 	frame({"R": true})
 	S("a luz abre a grade", until({"A": true}, func(): return g.X.CRYSTALS[0].on, 300))
-	S("sobe no barco", until({"R": true}, func(): return g.VH.mode == "raft", 600))
-	S("corredeira", ride_raft())
-	S("barco sem virar", g.VH.tries == 0)
-	S("pista 15", walk_to(17700) and n_clues() == 3)
-	S("fogueira 2", walk_to(18010))
-	S("descansou 2", rests.has(2))
-	# ---------------- C · A CIDADE ABANDONADA
-	var HS := house_list()
-	S("%d casas" % HS.size(), HS.size() == 9)
-	var ld: Dictionary = L.climb[0]
-	S("até a escada", walk_to(float(ld.x) + float(ld.w) / 2))
-	S("sobe a escada", climb_to("U", func(): return P.onGround and P.y + P.h < float(ld.y) + 4, 600))
-	for i in HS.size():
-		var hs: Dictionary = HS[i]
-		var w: Dictionary = hs.walk
-		for o in g.SPECS + g.DRWS + g.CLUES:
-			if not o.got and o.x > w.x and o.x < w.x + w.w:
-				roof_walk(o.x, hs.chims)
-				if o.y < w.y - 50:
-					hop("R", 0)
-		var endx: float = w.x + w.w - 14
-		for c in hs.chims:
-			if float(c.x) + float(c.w) > endx - 40:
-				endx = float(c.x) - 24
-		S("telhado %d" % i, roof_walk(endx, hs.chims))
-		if i + 1 < HS.size():
-			var nw: Dictionary = HS[i + 1].walk
-			var gap: float = nw.x - px()
-			var land: float = nw.x + 40
-			for c in HS[i + 1].chims:
-				if float(c.x) < land + 30 and float(c.x) + float(c.w) > nw.x:
-					land = float(c.x) + float(c.w) + 30
-			var r2 = jump_to(land, true) if gap < 250 else glide_to(land + 20)
-			P = g.player
-			if P.get("bar") != null:
-				var bb: Dictionary = P.bar
-				until({"R": true}, func(): return px() > float(bb.x1) - 40, 600)
-				press("J")
-				r2 = jump_to(land)
-			var gs = P.get("_g")
-			if gs is Dictionary and gs.get("tile"):
-				r2 = jump_to(nw.x + 40)
-			var hn: Dictionary = HS[i + 1].h
-			S("pula para o telhado %d (vão %d)" % [i + 1, int(gap)], r2 is bool and r2 and P.onGround and px() > hn.x and px() < hn.x + hn.w and P.y + P.h < 400)
+	S("passa a grade", walk_to(16240))
+	press("G")
+	hold({}, 26)
+	S("quebrou a parede rachada", g.X.broken.has("cr1"))
+	S("pista 17", walk_to(16700) and n_clues() == 4)
+	S("escada para cima", walk_to(17585))
+	S("sobe", climb_to("U", func(): return P.ladder == null and P.y + P.h <= 62, 500))
+	hold({"R": true}, 10)
+	walk_to(17980)
+	var hp_rope: int = P.hp
+	jump_to(18120)
+	S("pendurado na corda", P.get("bar") != null)
+	S("vai pela corda", until({"R": true}, func(): return px() > 18640, 600))
+	hold({"S": true}, 4)
 	S("verde", spec("verde"))
-	S("pista 16", n_clues() == 4)
-	var hl: Dictionary = HS[HS.size() - 1]
-	roof_walk(float(hl.walk.x) + float(hl.walk.w) - 10, hl.chims)
-	S("desce para a rua", until({"R": true}, func(): return P.onGround and P.y > 400, 300))
-	var wh: Dictionary = {}
-	for o in g.MV.MV:
-		if o.k == "wheel":
-			wh = o
-	S("engrenagem parada", not wh.on)
-	S("monte da rua", walk_to(float(wh.x) - 520 + 60))
-	use()
-	S("Pipoca achou a engrenagem", until({}, func(): return g.has_item("engrenagem"), 600))
-	var gl: Dictionary = g.LOCKS.filter(func(l): return l.get("id", "") == "gear1")[0]
-	walk_to(float(gl.x) + 60)
-	use()
-	S("encaixou a engrenagem", gl.done)
-	S("a roda gira", until({}, func(): return wh.on and float(wh.spin) > .005, 400))
-	S("embaixo da engrenagem", walk_to(float(wh.x)))
-	var HI0: float = float(wh.x) + 380.0
-	S("sobe pela engrenagem", mill_ride(HI0, -150))
-	S("no alto", P.onGround and P.y < -150)
-	S("cavalete do azul", jump_to(HI0 + 300))
-	if P.y > -260:
-		jump_to(HI0 + 300)
-	hop("R", 0)
-	S("azul", spec("azul"))
-	S("fogueira 3", walk_to(27310))
+	S("solta depois dos espinhos", wait_ground() and px() > 18620 and P.hp == hp_rope)
+	walk_to(19040)
+	S("desce para a cisterna", until({"R": true}, func(): return P.onGround and P.y > 400, 300))
+	walk_to(19380)
+	S("pilar 1", jump_to(19605, true))
+	S("pilar 2", jump_to(19845, true))
+	S("pilar 3", jump_to(20105, true))
+	S("pilar 4", jump_to(20345, true))
+	S("desenho da cisterna", g.DRWS.filter(func(d): return absf(float(d.x) - 20345) < 5)[0].got)
+	S("margem", jump_to(20580, true))
+	S("fogueira 3", walk_to(20710))
 	S("descansou 3", rests.has(3))
-	# ---------------- D · O COFRE
-	var D0 := 27600.0
-	S("desce os degraus", walk_to(D0 + 1100))
-	S("chão do cofre", P.onGround and P.y > 400)
-	walk_to(D0 + 1700)
-	use()
-	walk_to(D0 + 1780)
-	use()
-	S("portão das alavancas", until({}, func(): return g.EV.GATE.lift >= g.EV.GATE.h - 8, 200))
-	S("passa o portão", walk_to(D0 + 2300))
-	S("prensa 1", cross_spikes(trap_at("spikes", D0 + 2400), D0 + 2540))
-	S("cavalete do roxo", jump_to(D0 + 2565, true) and P.y < 380)
+	# ---------------- D · AS FORJAS
+	var D0 := 21000.0
+	walk_to(D0 + 580)
+	S("pilar 1", jump_to(D0 + 735))
+	S("pilar 2", jump_to(D0 + 895))
+	S("chão", jump_to(D0 + 1080))
+	S("pista 13", walk_to(D0 + 1300) and n_clues() == 5)
+	walk_to(D0 + 1380)
+	S("vapor: azul", steam_to(D0 + 1655, func(): return spec("azul")))
+	S("plana até o chão", glide_to(D0 + 2000))
+	walk_to(D0 + 2170)
+	S("prensa 1", cross_spikes(trap_at("spikes", D0 + 2200), D0 + 2380))
+	S("prensa 2", cross_spikes(trap_at("spikes", D0 + 2450), D0 + 2620))
+	S("martelo", cross_swing(trap_at("axe", D0 + 2850), D0 + 2950))
+	walk_to(D0 + 2980)
+	var m1: Dictionary = mover("path", D0 + 3030)
+	var m2: Dictionary = mover("path", D0 + 3740)
+	S("tábua 1", board_path(m1, true))
+	S("vai na tábua 1", ride_path(m1, true))
+	S("pilar do barril", jump_to(D0 + 3655))
+	S("tábua 2", board_path(m2, true))
+	S("vai na tábua 2", ride_path(m2, true))
+	S("pilar do fim", jump_to(D0 + 4425))
+	S("chão depois do tanque", jump_to(D0 + 4600))
+	S("ímã", walk_to(D0 + 4800) and g.has_item("ima"))
+	walk_to(D0 + 4930)
+	S("cavalete", jump_to(D0 + 5010, true))
+	jump_to(D0 + 5150)
+	S("pendurado na viga (ímã)", P.get("bar") != null and P.bar.get("mag"))
+	S("vai pela viga", until({"R": true}, func(): return px() > D0 + 5830, 700))
+	hold({"S": true}, 4)
+	S("solta no chão", wait_ground() and P.y > 400)
+	S("sem queimar", P.hp == 5)
+	S("pista 14", walk_to(D0 + 6100) and n_clues() == 6)
+	S("fogueira 4", walk_to(D0 + 6310))
+	S("descansou 4", rests.has(4))
+	# ---------------- E · AS TORRES
+	var E0 := 27600.0
+	var lf: Dictionary = mover("lift", E0 + 640)
+	S("sobe de elevador", lift_up(lf))
+	S("alto da torre", walk_to(E0 + 1100) and P.y + P.h <= -255)
+	walk_to(E0 + 1600)
+	S("pilar", jump_to(E0 + 1670, true))
+	S("torre de cima", jump_to(E0 + 1850, true))
 	hop("R", 0)
 	S("roxo", spec("roxo"))
-	S("desce", walk_to(D0 + 2600))
-	S("prensa 2", cross_spikes(trap_at("spikes", D0 + 2620), D0 + 2800))
-	S("martelo", cross_swing(trap_at("axe", D0 + 3060), D0 + 3200))
-	S("pista 17", walk_to(D0 + 3300) and n_clues() == 5)
-	walk_to(D0 + 3500)
-	S("ímã", g.has_item("ima"))
-	for t in [D0 + 3555, D0 + 3695, D0 + 3850, D0 + 4060]:
-		var r = jump_to(t, t == D0 + 4060)
-		S("prateleira %d" % int(t - D0), r is bool and r and P.y < 440)
-	S("desenho do cofre", g.DRWS.filter(func(d): return absf(float(d.x) - (D0 + 4060)) < 5)[0].got)
-	walk_to(D0 + 4140)
-	jump_to(D0 + 4240)
-	S("pendurado na viga (ímã)", P.get("bar") != null and P.bar.get("mag"))
-	S("vai pela viga", until({"R": true}, func(): return px() > D0 + 4570, 600))
-	hold({"S": true}, 4)
-	S("solta na prateleira", wait_ground() and P.get("bar") == null and P.y > 380 and P.y < 440)
-	S("chão depois do ouro", jump_to(D0 + 4700))
-	walk_to(D0 + 4840)
-	var cr2: Dictionary = {}
-	for c in g.M.PUSH:
-		if absf(float(c.x) - (D0 + 4900)) < 5:
-			cr2 = c
-	S("caixa na placa do cofre", until({"R": true}, func(): return float(cr2.x) >= D0 + 5199 and float(cr2.y) >= 449, 900))
-	S("portão gc1 abriu", until({}, func(): return g.M.GATES.filter(func(gt): return gt.get("id", "") == "gc1")[0].open > .85, 200))
-	S("pula a caixa", jump_to(D0 + 5320, true))
-	S("pista 18", walk_to(D0 + 5600) and n_clues() == 6)
-	S("fogueira 4", walk_to(D0 + 6260))
-	S("descansou 4", rests.has(4))
-	# ---------------- E · A FUGA AO AMANHECER
-	var SLd: Dictionary = L.sled
-	S("chega no carrinho e parte sozinho", until({"R": true} if px() < float(SLd.x) else {"L": true}, func(): return g.VH.mode == "sled", 600))
-	S("subiu no carrinho", g.VH.mode == "sled")
-	var VH = g.VH
-	var done_cart = "timeout"
-	for i in 4000:
-		if VH.mode == "":
-			done_cart = true
-			break
-		var d := {}
-		var ground: bool = VH.hy >= VH.sled_y(VH.su) - 1
-		for o in VH.OBS:
-			var dx: float = o.x - VH.hx
-			if o.hit or o.k == "bump" or dx < -140 or dx > 300:
-				continue
-			if o.k in ["rock", "log"] and ground and dx < VH.spd * 9.0 + 24 and dx > 30:
-				press("J")
-			if o.k == "crack" and ground and dx < 40 and dx > -5:
-				press("J")
-			if o.k == "branch" and dx < 110 and dx > -100:
-				d["S"] = true
-			break
-		frame(d)
-	S("carrinho chegou", done_cart)
-	var hk := []
-	for o in VH.OBS:
-		if o.hit:
-			hk.append(o.k + "@" + str(o.u))
-	S("carrinho sem batidas " + str(hk), VH.tries == 0)
+	S("ventania", gust_walk(E0 + 2380))
+	var br: Dictionary = trap_at("bridge", E0 + 2400)
+	S("a ponte que desaba", bridge_run(br))
+	S("outra torre", P.onGround and P.y + P.h <= -435)
+	walk_to(E0 + 4060)
+	S("desce da torre", until({"R": true}, func(): return P.onGround and P.y > 400, 300))
+	S("desenho da estação", walk_to(E0 + 4600))
 	walk_to(float(L.door.x) + 30)
 	var sa = until({}, func(): return not g.running, 300)
 	S("estação velha (fim)", sa is String and sa == "state")

@@ -642,7 +642,11 @@ func _gate_on(on: bool) -> void:
 			if g.K:
 				g.K.sink_gate(s)
 	if on:
-		g.SOL.append({"t": "bossgate", "x": BOSS.x0 - 24, "y": 280, "w": 24, "h": 220, "id": "bossgate"})
+		if BOSS.get("skin", "") == "dog":
+			# o quintal do Brutus: portão alto (não dá para pular por cima e fugir da luta)
+			g.SOL.append({"t": "bossgate", "x": BOSS.x0 - 24, "y": -380, "w": 24, "h": 880, "id": "bossgate"})
+		else:
+			g.SOL.append({"t": "bossgate", "x": BOSS.x0 - 24, "y": 280, "w": 24, "h": 220, "id": "bossgate"})
 
 func _boss() -> void:
 	if BOSS.is_empty() or BOSS.done:
@@ -677,11 +681,11 @@ func _boss() -> void:
 					# voltou da fogueira: sem a apresentação de novo, a luta recomeça direto
 					b.st = "idle"
 					b.t = 0
-					g.flash("O Brutus de novo: prenda a corrente nas argolas!", 140)
+					g.flash("O Brutus de novo: pule a investida e, com ele tonto no muro, pule na cabeça!", 160)
 				elif b.skin == "dog":
 					b.seen = true
 					g.start_cine("brutus", b.spawn - 60, 420, 260,
-						[[165, 250, "TOMÉ", "O cão do Vargas, preso numa corrente! Se eu prender a corrente nas argolas do chão, ele não chega mais no portão.", "tome"]],
+						[[165, 250, "TOMÉ", "O cão do Vargas! Quando ele raspar a pata, vem a investida: eu pulo por cima, ele bate no muro... e aí eu pulo na cabeça dele!", "tome"]],
 						[75, 160, "BRUTUS", "o cão de guarda do Vargas"])
 				else:
 					g.start_cine("boss", b.spawn - 60, 420, 260,
@@ -866,15 +870,10 @@ func boss_finish_silent() -> void:
 	BOSS.done = true
 	BOSS.active = false
 	if BOSS.get("skin", "") == "dog":
-		# o Brutus fica deitado do lado da estaca, com a corrente presa nas argolas
-		BOSS.sulk = true
+		# o Brutus já fugiu do quintal
+		BOSS.sulk = false
 		BOSS.st = "down"
 		BOSS.t = 999
-		BOSS.x = float(BOSS.get("stake", BOSS.spawn)) - 46.0
-		BOSS.hooked = BOSS.get("rings", []).size()
-		for r in BOSS.get("rings", []):
-			r.on = true
-		BOSS.len = float(BOSS.lens.back()) if BOSS.has("lens") else 60.0
 	# chefe vencido num jogo salvo: o portão do outro lado da arena e a escada ficam como na vitória
 	if str(BOSS.get("open", "")) != "":
 		for so in g.SOL.duplicate():

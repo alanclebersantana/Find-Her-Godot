@@ -3912,6 +3912,34 @@ func die(msg: String) -> void:
 	hit_stop = 8
 
 ## "Voltar à fogueira": como renascer, mas sem perder vida nem coração
+## APK de teste: leva o Tomé até (x, y) (y < 0: acha o chão embaixo) e faz dali a fogueira de volta
+func debug_warp(x: float, y: float) -> void:
+	var fy: float = y
+	if fy < 0.0:
+		fy = 99999.0
+		for s in SOL:
+			if s.get("deco") or s.get("ceil") or s.get("oneway") or s.t in ["plat", "branch", "island", "bars", "pgate", "bossgate"]:
+				continue
+			if x >= s.x and x <= s.x + s.w and float(s.y) > -700.0 and float(s.y) < fy:
+				fy = float(s.y)
+		if fy > 9000.0:
+			fy = 500.0
+	player.spawnX = x - player.w / 2
+	player.spawnY = fy - player.h
+	_back_to_fire()
+	max_x = max(max_x, x)
+	flash("Pulou para x %d." % int(x), 120)
+
+## APK de teste: todos os itens da fase vão para a mochila
+func debug_items() -> void:
+	for it in ITEMS:
+		if not it.got:
+			it.got = true
+			it.hidden = false
+			if not INV.has(it.id):
+				INV.append(it.id)
+	flash("Todos os itens da fase na mochila.", 140)
+
 func _back_to_fire() -> void:
 	var hp: int = int(player.hp)
 	var armor: int = int(player.armor)
@@ -3966,7 +3994,7 @@ func _heat_step(pcx: float, pcy: float) -> void:
 	if HEAT >= 100.0 and player.dyingT == 0:
 		HEAT = 55.0
 		hurt(1, pcx - player.face * 10)
-		flash("O calor da fundição tirou um coração!", 160)
+		flash("O calor das forjas tirou um coração!", 160)
 
 func respawn() -> void:
 	HEAT = 0.0

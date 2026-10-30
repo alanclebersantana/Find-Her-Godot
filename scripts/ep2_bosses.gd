@@ -1,10 +1,9 @@
 extends RefCounted
 class_name Ep2Bosses
 ## Os chefes do Episódio 2, com mecânicas próprias (nada repetido do Ep. 1):
-##  - BRUTUS (quintal da vila): preso por uma corrente comprida numa estaca perto do portão. Ele investe
-##    até o fim da corrente e leva um tranco. O Pipoca late do canto para provocar a investida (o Tomé no
-##    chão também serve de isca). Com a corrente esticada no chão, um MERGULHO na argola que brilha
-##    prende um elo: a corrente encurta. Na 3ª argola ele não alcança mais nada, deita e desiste.
+##  - BRUTUS (quintal da vila): late e raspa a pata (aviso) e investe reto até o muro; o Tomé pula por
+##    cima (ou sobe numa banca). Bateu no muro, fica tonto: pulo na cabeça. Acordado, morde quem chega
+##    perto ou pula nele. 4 pulos na cabeça e ele foge.
 ##  - MORCEGO-REI (caverna da mina): no escuro ele some; só ataca quando o Tomé está longe da luz
 ##    (chiado e olhos vermelhos avisam o rasante). O Tomé sobe nas plataformas e acende as 3 lamparinas
 ##    (✦ USAR perto delas). Cada uma acesa encolhe o escuro; com as 3 acesas ele fica ofuscado e cai.
@@ -15,219 +14,172 @@ class_name Ep2Bosses
 ## As funções são estáticas: o estado fica nos dicionários de sempre (X.BOSS, K.HAWK, K.FISH).
 
 # ======================================================================
-#  BRUTUS: a corrente
+#  BRUTUS: investe, bate no muro, fica tonto -> pulo na cabeça (4 vezes)
 # ======================================================================
-const BR_HOME := 90.0      # de guarda: quantos px à frente da estaca
-const BR_TAUT := 132       # quadros com a corrente esticada no chão (a janela do mergulho)
-const BR_RING_R := 54.0    # o mergulho prende a argola se cair até aqui dela
+const BR_HITS := 4
 
 static func brutus_setup(b: Dictionary, L: Dictionary) -> void:
-	var c: Dictionary = L.boss.get("chain", {})
-	b.stake = float(c.get("stake", float(b.x1) - 40.0))
-	b.rings = []
-	for rx in c.get("rings", []):
-		b.rings.append({"x": float(rx), "on": false})
-	b.lens = c.get("len", [700.0, 470.0, 240.0, 60.0])
-	b.hooked = 0
-	b.len = float(b.lens[0])
-	b.maxhp = b.rings.size()
-	b.hp = b.maxhp
-	b.lureT = 0
-	b.lure_x = 0.0
-	b.chained = true
+	b.maxhp = BR_HITS
+	b.hp = BR_HITS
+	b.cd = 70
 	b.sulk = false
 
-static func brutus_reach_l(b: Dictionary) -> float:
-	return max(float(b.x0) + 80.0, float(b.stake) - float(b.len))
-
-## caixa de dano: o corpo do cão (baixa o bastante para quem está em cima de uma banca não ser pego)
+## caixa de dano: o corpo do cão
 static func brutus_box(g, b: Dictionary) -> Dictionary:
-	return g.R(b.x - 70, b.y - 100, 140, 100)
+	return g.R(b.x - 70, b.y - 88, 140, 88)
 
-## a próxima argola (a mais longe da estaca que ainda está solta)
-static func brutus_ring(b: Dictionary):
-	var k: int = int(b.get("hooked", 0))
-	if k < b.get("rings", []).size():
-		return b.rings[k]
-	return null
+## a cabeça (onde o pulo vale)
+static func brutus_head(g, b: Dictionary) -> Dictionary:
+	return g.R(b.x - 80, b.y - 112, 160, 50)
 
 static func brutus_step(g, X) -> void:
 	var b: Dictionary = X.BOSS
 	var p: Dictionary = g.player
 	var pcx: float = p.x + p.w / 2
 	var feet: float = p.y + p.h
-	var on_floor: bool = p.onGround and feet >= 494 and pcx > b.x0 and pcx < b.x1 and not p.get("dog")
 	if b.red > 0:
 		b.red -= 1
 	for k in ["hitT", "landT"]:
 		if b.get(k, 0) > 0:
 			b[k] -= 1
-	if b.get("lureT", 0) > 0:
-		b.lureT -= 1
-	var home: float = float(b.stake) - BR_HOME
-	var lim_l: float = brutus_reach_l(b)
+	var fury: int = BR_HITS - int(b.hp)       # a cada pulo levado ele fica mais rápido
+	var wall_l: float = float(b.x0) + 90.0
+	var wall_r: float = float(b.x1) - 90.0
 	match b.st:
 		"idle":
 			b.t += 1
-			if abs(b.x - home) > 4:
-				# volta para perto da estaca (guarda o portão), sem pressa
-				b.dir = 1 if home > b.x else -1
-				b.x = move_toward(b.x, home, 1.4)
-			else:
-				b.dir = 1 if pcx > b.x else -1
-			var tgt := -1.0
-			if on_floor:
-				tgt = pcx
-			elif b.lureT > 0:
-				tgt = float(b.lure_x)
-			if tgt > 0 and b.t > 26:
+			b.cd -= 1
+			b.dir = 1 if pcx > b.x else -1
+			# perto e na frente dele, no chão: tenta morder
+			if p.dyingT == 0 and abs(pcx - b.x) < 150 and feet > b.y - 60 and b.cd < 40 and sign(pcx - b.x) == float(b.dir):
+				b.st = "bite"
+				b.t = 0
+			elif b.cd <= 0 and p.dyingT == 0:
 				b.st = "paw"
 				b.t = 0
-				b.tx = tgt
-				b.dir = 1 if tgt > b.x else -1
-			elif b.t > 420 and not on_floor and X.DOG.get("st", "") != "bait":
-				b.t = 0
-				g.tip("Desça ao chão longe do Brutus para provocar: ele corre até o fim da corrente!", 200)
-		"paw":
+		"bite":
 			b.t += 1
+			if b.t == 12:
+				Audio.play("bark", -2)
+				b.barkT = 10
+				# a mordida: na frente da boca
+				var mb: Dictionary = g.R(b.x + b.dir * 40 - 50, b.y - 110, 100, 90)
+				if p.dyingT == 0 and Game.hit(p, mb):
+					g.hurt(1, b.x)
+			if b.get("barkT", 0) > 0:
+				b.barkT -= 1
+			if b.t > 30:
+				b.st = "paw"
+				b.t = 0
+		"paw":
+			# raspa a pata e late: AVISO da investida (hora de se preparar para pular)
+			b.t += 1
+			b.dir = 1 if pcx > b.x else -1
 			if b.t % 9 == 0:
 				g.fx("fx_dust", b.x - b.dir * 50, 494, 16, .14, -.3)
 				Audio.play("slide", -12)
 			if b.t % 14 == 1:
 				Audio.play("bark", -6)
-			if b.t > 40:
+			if b.t > 40 - fury * 4:
 				b.st = "charge"
 				b.t = 0
 				b.spd = 2.0
 				Audio.play("roar", -14)
 				Polish.roar(b.x + b.dir * 60, b.y - 60)
 		"charge":
+			# corre reto até o muro do quintal (não freia): o Tomé pula por cima
 			b.t += 1
-			b.spd = min(b.spd + .42, 8.0)
+			b.spd = min(b.spd + .45 + fury * .05, 8.5 + fury * .6)
 			b.x += b.dir * b.spd
 			if g.T % 4 == 0:
 				g.fx("fx_dust", b.x - b.dir * 60, 494, 14, .16, -.25)
-			if b.dir < 0 and b.x <= lim_l:
-				b.x = lim_l
-				_brutus_snap(g, b)
-			elif b.dir > 0 and b.x >= min(float(b.x1) - 80.0, float(b.stake) - 30.0):
-				b.x = min(float(b.x1) - 80.0, float(b.stake) - 30.0)
-				b.st = "trot"
+			if (b.dir < 0 and b.x <= wall_l) or (b.dir > 0 and b.x >= wall_r):
+				b.x = clamp(b.x, wall_l, wall_r)
+				b.st = "stun"
 				b.t = 0
-			elif b.dir < 0 and b.x < float(b.tx) - 70.0 and float(b.tx) > lim_l + 20.0:
-				# o alvo estava ao alcance e ele passou direto (o Tomé pulou): freia e volta
-				b.st = "trot"
-				b.t = 0
-		"taut":
-			# esticado no fim da corrente: puxa, late, raspa as patas (a corrente fica reta no chão)
-			b.t += 1
-			b.x = lim_l + sin(b.t * .55) * 2.0 + 4.0 * clamp(1.0 - b.t / 10.0, 0.0, 1.0)
-			b.dir = -1
-			if b.t % 26 == 6:
-				Audio.play("bark", -4)
-				b.barkT = 14
-			if b.get("barkT", 0) > 0:
-				b.barkT -= 1
-			if b.t > BR_TAUT:
-				b.st = "trot"
-				b.t = 0
+				b.hitT = 16
+				g.shake = max(g.shake, 14)
+				Audio.play("stomp", -2)
+				Audio.vib(80)
+				g.burst(b.x + b.dir * 70, b.y - 60, 16, Color("#b7a77f"))
+				if not g.L.get("_br_tonto", false):
+					g.L["_br_tonto"] = true
+					g.flash_tut("Bateu no muro! PULE NA CABEÇA!", "O Brutus bateu no muro e ficou tonto: pule na cabeça dele agora!", 200)
 		"stun":
-			# a corrente encurtou com um tranco: gane, sacode a cabeça e volta para a estaca
+			# tonto, com estrelinhas: a janela do pulo na cabeça
+			b.t += 1
+			if b.t > 170 - fury * 15:
+				b.st = "idle"
+				b.t = 0
+				b.cd = 50 - fury * 6
+		"hurt":
 			b.t += 1
 			var kb: float = b.get("kb", 0.0)
 			if kb > .1:
-				b.x = min(b.x + kb, float(b.stake) - 30.0)
+				b.x = clamp(b.x + kb, wall_l, wall_r)
 				b.kb = kb * .86
-			if b.t > 70:
-				b.st = "trot"
-				b.t = 0
-		"trot":
-			b.t += 1
-			b.dir = 1 if home > b.x else -1
-			var tv: float = min(min(3.2, float(b.get("tv", 0.0)) + .14), abs(home - b.x) * .08 + .35)
-			b.tv = tv
-			b.x += b.dir * tv
-			if abs(home - b.x) < 3:
+			if b.t > 50:
 				b.st = "idle"
 				b.t = 0
-				b.tv = 0.0
+				b.cd = 95 - fury * 8
 		"down":
-			# desistiu: deita do lado da estaca, de orelhas baixas
 			b.t += 1
-			b.x = move_toward(b.x, float(b.stake) - 46.0, 2.0)
 			if b.t == 1:
 				Audio.play("bark", -10, .7)
 			if b.t > 150:
 				b.done = true
 				b.active = false
-	# contato: só a investida machuca (de cima das bancas o Tomé fica a salvo)
-	if b.st == "charge" and p.dyingT == 0 and not p.get("dog"):
-		var bb := brutus_box(g, b)
-		if Game.hit(p, bb):
-			if p.vy > 0.5 and feet - bb.y < 30:
-				p.vy = -8.5
-				p.y = bb.y - p.h - 1
-				p.cutOk = false
-				Audio.play("spring", -8)
-				g.tip("Pular no Brutus não adianta: prenda a corrente nas argolas do chão!")
-			else:
-				g.hurt(1, b.x)
+	if p.dyingT > 0 or p.get("dog") or b.st == "down":
+		return
+	var hb := brutus_head(g, b)
+	var bb := brutus_box(g, b)
+	# pulo na cabeça
+	if p.vy > .5 and Game.hit(p, hb) and feet - hb.y < 34:
+		p.y = hb.y - p.h - 1
+		p.cutOk = false
+		if b.st == "stun":
+			p.vy = -9.0
+			_brutus_hit(g, X, b)
+		else:
+			# acordado ele não deixa: abocanha para cima
+			p.vy = -7.0
+			b.barkT = 10
+			Audio.play("bark", -2)
+			g.hurt(1, b.x)
+			if not g.L.get("_br_bite", false):
+				g.L["_br_bite"] = true
+				g.tip("Acordado o Brutus morde quem pula nele! Espere ele bater no muro e ficar tonto.", 220)
+		return
+	if b.st in ["charge"] and Game.hit(p, bb):
+		g.hurt(1, b.x)
 
-## chegou ao fim da corrente: tranco, a corrente estica reta no chão
-static func _brutus_snap(g, b: Dictionary) -> void:
-	b.st = "taut"
-	b.t = 0
-	b.hitT = 10
-	g.shake = max(g.shake, 12)
-	g.shake_dir = Vector2(1, 0)
-	Audio.play("unlock", -2, .7)
-	Audio.play("stomp", -8)
-	Audio.vib(70)
-	g.burst(b.x - 40, b.y - 70, 10, Color("#9aa0a6"))
-	if not g.L.get("_br_taut", false):
-		g.L["_br_taut"] = true
-		g.flash_tut("A corrente esticou! MERGULHO na argola!", "A corrente esticou no chão! Agora: MERGULHO (pule e aperte ↓) bem em cima da argola que brilha.", 220)
-
-## mergulho do Tomé no chão do quintal (chamado pelo Slam): prende a corrente na argola
-static func brutus_slam(g, cx: float, feet: float) -> bool:
-	var X = g.X
-	if X == null or not X.boss_active():
-		return false
-	var b: Dictionary = X.BOSS
-	if b.get("skin", "") != "dog" or b.st == "down" or abs(feet - 500.0) > 14.0:
-		return false
-	var r = brutus_ring(b)
-	if r == null or abs(cx - float(r.x)) > BR_RING_R:
-		return false
-	if b.st != "taut":
-		g.note("A corrente precisa estar esticada no chão: deixe o Brutus correr até o fim dela!")
-		return true
-	r.on = true
-	b.hooked += 1
+static func _brutus_hit(g, X, b: Dictionary) -> void:
 	b.hp -= 1
-	b.len = float(b.lens[min(b.hooked, b.lens.size() - 1)])
 	b.red = 30
-	b.st = "stun"
-	b.t = 0
-	b.kb = 6.0
+	b.hitT = 16
 	g.hit_stop = 6
-	g.shake = max(g.shake, 14)
-	Audio.play("unlock", 0, .6)
-	Audio.play("door", -6)
+	g.shake = max(g.shake, 12)
+	Audio.play("stomp", 0)
+	Audio.play("bark", -4, 1.4)
 	Audio.vib(110)
-	g.burst(float(r.x), 494, 22, Color("#ffd76a"))
-	g.fx("fx_pieces", float(r.x), 486, 14, .25, -.4)
-	if b.hooked >= b.rings.size():
+	g.burst(b.x, b.y - 100, 18, Color("#ffd76a"))
+	if b.hp <= 0:
 		_brutus_win(g, X, b)
-	else:
-		var n: int = b.rings.size() - b.hooked
-		g.flash("Clanc! A corrente ficou mais curta. Falta%s %d argola%s." % ["m" if n > 1 else "", n, "s" if n > 1 else ""], 180)
-	return true
+		return
+	b.st = "hurt"
+	b.t = 0
+	b.kb = -b.dir * 5.0
+	var n: int = int(b.hp)
+	g.flash("Toma! Falta%s %d pulo%s na cabeça." % ["m" if n > 1 else "", n, "s" if n > 1 else ""], 150)
+
+## (o mergulho no chão do quintal não faz mais nada na luta)
+static func brutus_slam(g, cx: float, feet: float) -> bool:
+	return false
 
 static func _brutus_win(g, X, b: Dictionary) -> void:
 	b.st = "down"
 	b.t = 0
-	b.sulk = true
+	b.sulk = false
 	b.hp = 0
 	Polish.final_blow()
 	Polish.loot_arc(b.x, b.y - 80, 12, 500.0)
@@ -242,7 +194,7 @@ static func _brutus_win(g, X, b: Dictionary) -> void:
 	for i in 12:
 		g.gain_coin(b.item[0], b.item[1] - 20, true)
 	Audio.play("door", -4)
-	g.flash("Com a corrente curtinha, o Brutus não alcança mais o portão: deitou e desistiu! O portão do quintal abriu.", 280)
+	g.flash("O Brutus desistiu e fugiu com o rabo entre as pernas! O portão do quintal abriu.", 280)
 	if X.DOG.get("st", "") == "bait":
 		X.DOG.st = "follow"
 		X._resync()
@@ -251,22 +203,15 @@ static func _brutus_win(g, X, b: Dictionary) -> void:
 static func pipoca_bait(g, X) -> void:
 	var D: Dictionary = X.DOG
 	var b: Dictionary = X.BOSS
-	var spot: float = float(b.x0) + 50.0
+	# fica do lado de fora do portão do quintal, latindo para o Brutus (torcendo pelo Tomé)
+	var spot: float = float(b.x0) - 80.0
 	var arrived: bool = X._run_to(spot, 500.0, 5.5)
 	if not arrived:
 		return
 	D.face = 1
 	D.moving = false
-	var p: Dictionary = g.player
-	var on_floor: bool = p.onGround and p.y + p.h >= 494
-	# late quando o Brutus está parado de guarda e o Tomé está a salvo (em cima de uma banca)
-	if b.st == "idle" and b.t > 70 and not on_floor and int(D.t) % 120 == 0:
+	if int(D.t) % 150 == 0:
 		X._bark()
-		b.lureT = 30
-		b.lure_x = D.x
-		if not g.L.get("_br_lure", false):
-			g.L["_br_lure"] = true
-			g.note("Au! Au! O Pipoca está provocando o Brutus lá do canto!")
 
 # ======================================================================
 #  MORCEGO-REI: as lamparinas
@@ -664,11 +609,11 @@ static func frog_step(g, K) -> void:
 				f.x -= f.dir * 3.0
 				f.y = float(f.pd[2]) - sin(f.t / 30.0 * PI) * 70.0
 			else:
-				f.y += 2.2
+				f.y += .6
 			if f.t == 30:
 				Audio.play("splash")
 				g.burst(f.x, float(f.y0), 20, Color(.7, .85, .9))
-			if f.t > 160:
+			if f.t > 90:
 				f.done = true
 				f.active = false
 	# contato: encostar no sapo (sem estar tonto) machuca; tonto, um pulo na cabeça vale um golpe

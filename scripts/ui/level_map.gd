@@ -5,8 +5,9 @@ extends Control
 var game: Game
 const BANDS := {"manha": Color(.36, .55, .3), "tarde": Color(.66, .45, .22), "chuva": Color(.22, .38, .36), "neve": Color(.62, .7, .82), "noite": Color(.16, .19, .36), "perseguicao": Color(.34, .14, .14), "ceu": Color(.45, .62, .82), "rio": Color(.2, .42, .55),
 	"mina": Color(.3, .2, .12), "moinho": Color(.72, .55, .25), "vila": Color(.18, .2, .4), "isis": Color(.45, .2, .32),
-	"fundicao": Color(.55, .25, .08), "cidade": Color(.2, .22, .42), "cofre": Color(.5, .4, .15), "amanhecer": Color(.8, .5, .45)}
-const NAMES := {"manha": "Manhã", "tarde": "Tarde", "chuva": "Pântano", "neve": "Neve", "noite": "Noite", "perseguicao": "Fuga", "ceu": "Céu", "rio": "Corredeira", "mina": "Mina", "moinho": "Moinho", "vila": "Vila", "isis": "Isis", "fundicao": "Fundição", "cidade": "Cidade", "cofre": "Cofre", "amanhecer": "Amanhecer"}
+	"fundicao": Color(.55, .25, .08), "cidade": Color(.2, .22, .42), "cofre": Color(.5, .4, .15), "amanhecer": Color(.8, .5, .45),
+	"muralha": Color(.2, .22, .45), "patio": Color(.3, .3, .5), "poroes": Color(.25, .28, .32)}
+const NAMES := {"manha": "Manhã", "tarde": "Tarde", "chuva": "Pântano", "neve": "Neve", "noite": "Noite", "perseguicao": "Fuga", "ceu": "Céu", "rio": "Corredeira", "mina": "Mina", "moinho": "Moinho", "vila": "Vila", "isis": "Isis", "fundicao": "Fundição", "cidade": "Cidade", "cofre": "Cofre", "amanhecer": "Amanhecer", "muralha": "Serra", "patio": "Pátio", "poroes": "Porões"}
 
 func _init() -> void:
 	custom_minimum_size = Vector2(880, 250)

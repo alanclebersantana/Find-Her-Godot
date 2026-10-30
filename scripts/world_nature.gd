@@ -223,8 +223,9 @@ static func draw(g: Game, T: int) -> void:
 			_iron_beam(g, b)
 			continue
 		for px in ([] if b.get("clothes") else [b.x0 - 14, b.x1 + 6]):
-			Spr.rect(px, b.y - 30, 12, 1150 - b.y, Color("#5a3d22"))
-			Spr.rect(px + 2, b.y - 30, 3, 1150 - b.y, Color(1, 1, 1, .08))
+			var pb: float = float(b.get("floor", 1150))
+			Spr.rect(px, b.y - 30, 12, pb - b.y + 30, Color("#5a3d22"))
+			Spr.rect(px + 2, b.y - 30, 3, pb - b.y + 30, Color(1, 1, 1, .08))
 			Spr.ellipse(px + 6, b.y - 30, 9, 4, Color("#7a5532"))
 		var pts := PackedVector2Array()
 		var p: Dictionary = g.player

@@ -1,105 +1,11 @@
 extends RefCounted
 class_name WorldEp2
-## Desenho das lutas novas do Episódio 2 (Ep2Bosses): corrente, estaca e argolas do Brutus;
+## Desenho das lutas novas do Episódio 2 (Ep2Bosses):
 ## lamparinas e olhos do Morcego-Rei; colmeias, língua e mira do Sapo-Rei.
 
 const IRON := Color("#4a4d52")
 const IRON_HI := Color("#9aa0a6")
 const OL := Color("#1a1410")
-
-# ======================================================================
-#  BRUTUS: estaca, argolas e corrente (antes do cão, que fica por cima)
-# ======================================================================
-static func yard(g: Game, b: Dictionary, T: int) -> void:
-	if b.is_empty() or not b.has("stake"):
-		return
-	var S: float = b.stake
-	var gy := 500.0
-	# argolas no chão: a próxima brilha (forte com a corrente esticada: hora do mergulho)
-	var nxt = Ep2Bosses.brutus_ring(b)
-	for r in b.rings:
-		var rx: float = r.x
-		Spr.ellipse(rx, gy - 1, 15, 4, Color(0, 0, 0, .35))
-		Spr.rect(rx - 9, gy - 4, 18, 5, OL)
-		Spr.rect(rx - 8, gy - 3, 16, 3, IRON)
-		var hot: bool = r == nxt and b.get("active", false) and not b.get("done", false)
-		var taut: bool = hot and b.st == "taut"
-		if hot:
-			var pul: float = .5 + .5 * sin(T * (.35 if taut else .12))
-			Spr.glow(rx, gy - 10, 34 if taut else 22, Color(1, .82, .3, (.55 if taut else .22) * (.6 + .4 * pul)))
-		Spr.ring(rx, gy - 5, 10, OL, 5.0, PI, TAU)
-		Spr.ring(rx, gy - 5, 10, Color("#ffd76a") if hot else IRON_HI, 2.4, PI, TAU)
-		if r.on:
-			# elo preso: um pedaço de corrente dobrado na argola
-			for k in 3:
-				Spr.ci.draw_arc(Vector2(rx - 6 + k * 6, gy - 9), 4.0, 0, TAU, 8, OL, 2.6, true)
-				Spr.ci.draw_arc(Vector2(rx - 6 + k * 6, gy - 9), 4.0, 0, TAU, 8, IRON_HI, 1.2, true)
-		if taut:
-			var by: float = gy - 44 + sin(T * .3) * 5
-			Spr.text("↓", rx, by, 30, Color("#ffe27a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 5)
-	# marcas no chão onde a corrente segura o Brutus (o alcance dele): terra raspada
-	if b.get("active", false) and not b.get("done", false) and b.st != "down":
-		var ex: float = Ep2Bosses.brutus_reach_l(b) - 74.0
-		for k in 5:
-			var xx: float = ex + k * 7.0
-			Spr.seg(xx, gy - 1, xx - 9, gy + 3, Color(.18, .12, .06, .55), 2.0)
-	# estaca de madeira com a argola grande no alto
-	Spr.ellipse(S, gy + 1, 16, 4, Color(0, 0, 0, .35))
-	Spr.poly(PackedVector2Array([Vector2(S - 9, gy + 2), Vector2(S - 8, gy - 52), Vector2(S, gy - 60), Vector2(S + 8, gy - 52), Vector2(S + 9, gy + 2)]), OL)
-	Spr.poly(PackedVector2Array([Vector2(S - 6, gy), Vector2(S - 5, gy - 50), Vector2(S, gy - 56), Vector2(S + 5, gy - 50), Vector2(S + 6, gy)]), Color("#7a5434"))
-	Spr.rect(S - 4, gy - 50, 3, 48, Color(1, .9, .7, .25))
-	Spr.rect(S - 7, gy - 40, 14, 5, IRON)
-	# corrente: da estaca até a coleira do cão
-	var collar := Vector2(b.x + b.dir * 40.0, b.y - 84.0)
-	if b.st == "down" or b.get("sulk", false):
-		collar = Vector2(b.x + 34.0, b.y - 30.0)
-	var pts := PackedVector2Array()
-	pts.append(Vector2(S - 2, gy - 38))
-	pts.append(Vector2(S - 10, gy - 4))
-	var fx: float = collar.x + (24.0 if collar.x < S else -24.0)
-	var slack: float = max(0.0, float(b.len) - abs(S - b.x))
-	var taut2: bool = b.st == "taut"
-	# no chão: reta quando esticada; com folga, faz curvas deitadas no chão
-	var n: int = int(abs(fx - (S - 10)) / 16.0) + 1
-	for i in range(1, n):
-		var u: float = i / float(n)
-		var xx: float = lerpf(S - 10, fx, u)
-		var wv: float = 0.0 if taut2 else sin(u * TAU * 2.0 + float(b.get("stake", 0))) * min(slack * .03, 7.0) * sin(u * PI)
-		pts.append(Vector2(xx, gy - 3 + wv * .25))
-	pts.append(Vector2(fx, gy - 3))
-	pts.append(collar)
-	_chain(pts, taut2)
-
-## corrente de elos (alternando de frente e de lado) ao longo da linha
-static func _chain(pts: PackedVector2Array, taut: bool) -> void:
-	var step := 7.0
-	var carry := 0.0
-	var k := 0
-	for i in range(1, pts.size()):
-		var a: Vector2 = pts[i - 1]
-		var c: Vector2 = pts[i]
-		var d: Vector2 = c - a
-		var l: float = d.length()
-		if l < .01:
-			continue
-		var dir: Vector2 = d / l
-		var s := carry
-		while s <= l:
-			var q: Vector2 = a + dir * s
-			Spr.save()
-			Spr.translate(q.x, q.y)
-			Spr.rotate(dir.angle())
-			if k % 2 == 0:
-				Spr.ellipse(0, 0, 4.4, 2.8, OL)
-				Spr.ellipse(0, 0, 3.2, 1.7, Color("#8a8f96") if taut else Color("#6a6e74"))
-				Spr.ellipse(0, -.6, 2.0, .7, Color(1, 1, 1, .25))
-			else:
-				Spr.rect(-4, -1.6, 8, 3.2, OL)
-				Spr.rect(-3, -.7, 6, 1.4, Color("#5c6066"))
-			Spr.restore()
-			k += 1
-			s += step
-		carry = s - l
 
 # ======================================================================
 #  MORCEGO-REI: lamparinas nos postes das plataformas
