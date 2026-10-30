@@ -13,9 +13,9 @@ Trechos (cada um termina numa fogueira grande, menos o último):
   C  Os porões            12600 .. 21000 labirinto de três andares: passagens baixas, escadas, becos sem
                                           saída com prêmio, rachaduras para a picareta, espelhos e cristal,
                                           corda sobre os espinhos, e a cisterna
-  D  As forjas            21000 .. 27600 calor, metal derretido, vapor, barris d'água, tábuas que andam,
+  D  As forjas            21000 .. 28700 calor, metal derretido, vapor, barris d'água, tábuas que andam,
                                           prensas, martelo, o ímã e as vigas de ferro
-  E  As torres            27600 ..       a torre ao amanhecer: elevador, saltos entre paredes, ventania,
+  E  As torres            28700 ..       a torre ao amanhecer: elevador, saltos entre paredes, ventania,
                                           a ponte que desaba, e a descida até a estação velha
 
 Rodar:  python3 tools/gen_level3.py
@@ -53,7 +53,7 @@ L = {
     "secrets": [], "chalk": [], "plates": [], "traps": [], "decor": [], "bars": [], "oil": [],
     "cranks": [], "movers": [], "comics": [], "relics": [], "fireflies": [],
     "tocas": [], "coolers": [], "dog": {"x": 120, "y": 500, "free": 1},
-    "watchmen": [], "dogs": [], "hides": [],
+    "watchmen": [], "dogs": [], "hides": [], "bosses3": [],
     "watchMsg": "Um vigia te pegou com o lampião! Você foi levado de volta. Abaixe (↓) atrás dos caixotes e barris, ou vá pelas passarelas lá em cima.",
 }
 S = L["solids"]
@@ -371,15 +371,18 @@ for sx in [19560, 19800, 20060, 20300]:
 ground(C0, 19400)
 ground(20500, C1)
 coins_line(19450, 20450, 360, 60)
-hint(19200, 19400, "A cisterna dos porões. Vá pelos pilares (ou nade).")
 L["drawings"].append({"x": 20345, "y": 370, "txt": "Um desenho da Isis: um peixe enorme de cristal, sorrindo para o papai."})
+# CHEFE: a Enguia de Cristal mora na cisterna (borbulha embaixo do pilar do Tomé e salta em cima dele)
+L["bosses3"].append({"id": "enguia", "x0": 19330, "x1": 20560, "y": GY, "home": 19950, "trig": 19470, "hp": 3,
+                     "surf": 430, "ptop": 400, "pw": 90, "pillars": [19560, 19800, 20060, 20300], "gateTop": -150})
+hint(19200, 19400, "A cisterna dos porões... alguma coisa brilha debaixo da água.")
 check(19250)
 check(20700, GY, 3)
 
 # ======================================================================
 #  D · AS FORJAS  (21000 .. 27600)   — o calor da fortaleza
 # ======================================================================
-D0, D1 = C1, 27600
+D0, D1 = C1, 28700
 L["sections"].append({"x": D0, "song": "tunel", "bg": "fundicao", "gt": "mina", "night": 1, "dark": .4, "per": 3,
                       "tint": "rgba(255,110,30,.07)", "forge": 1})
 L["darkZones"].append({"x": D0, "w": D1 - D0, "dark": .55})
@@ -432,11 +435,19 @@ L["bars"].append({"x0": D0 + 5060, "x1": D0 + 5860, "y": 236, "mag": 1})
 ground(D0 + 4500, D0 + 5100)
 plat(D0 + 4960, 340, 110, trestle=1)
 hint(D0 + 4950, D0 + 5080, "Vigas de ferro sobre o metal: pule nelas e vá pendurado pelo ímã. No fim, solte (↓).", yl=-120)
-L["clues"].append({"x": D0 + 6100, "y": 470, "id": 14})
+L["clues"].append({"x": D0 + 6000, "y": 470, "id": 14})
 coins_line(D0 + 5100, D0 + 5800, 300, 60)
 ground(D0 + 5800, D1)
 check(D0 + 5900)
-check(D0 + 6300, GY, 4)
+# D6 · CHEFE: a sala das caixas d'água e a Salamandra de Fogo
+SA0, SA1 = D0 + 6200, D0 + 7300
+hint(D0 + 6050, D0 + 6250, "Uma sala com caixas d'água penduradas no teto... e um bafo quente lá dentro.")
+TK = [SA0 + 250, SA0 + 550, SA0 + 850]
+for tx in TK:
+    plat(tx - 180, 340, 120, trestle=1)             # o balcão com a corrente
+L["bosses3"].append({"id": "salamandra", "x0": SA0, "x1": SA1, "y": GY, "home": SA0 + 700, "trig": SA0 + 120, "hp": 3,
+                     "tanks": TK, "tankY": 220, "balcY": 340, "ceil": -200, "gateTop": -190})
+check(D0 + 7400, GY, 4)
 
 # ======================================================================
 #  E · AS TORRES  (27600 .. )   — ao amanhecer, até a estação velha
@@ -469,15 +480,27 @@ check(E0 + 3600, -440)
 # E4 · a descida pela escada e o caminho até a estação
 ladder(E0 + 4110, -440, GY)
 ground(E0 + 4100, E0 + 7200)
-L["drawings"].append({"x": E0 + 4600, "y": 470, "txt": "Um desenho da Isis: a estação de trem, e o papai chegando correndo com o Pipoca."})
-enemy("crow", E0 + 5200, -100, cy=-100, r=[E0 + 4800, E0 + 5600])
-coins_line(E0 + 4200, E0 + 6500, 470, 70)
-check(E0 + 4300)
-F0 = E0 + 5600
-L["door"] = {"x": F0 + 1100, "y": 410, "kind": "station"}
-hint(F0, F0 + 900, "A estação velha... e o trem do Vargas parado nos trilhos. Vá até lá!")
-check(F0 + 60)
-L["spanX"] = F0 + 1400
+L["drawings"].append({"x": E0 + 4350, "y": 470, "txt": "Um desenho da Isis: a estação de trem, e o papai chegando correndo com o Pipoca."})
+coins_line(E0 + 4200, E0 + 6200, 470, 70)
+check(E0 + 4250)
+# E5 · CHEFE: o Guardião de Ferro, o porteiro da estação
+L["bosses3"].append({"id": "guardiao", "x0": E0 + 4500, "x1": E0 + 5700, "y": GY, "home": E0 + 5350, "trig": E0 + 4640, "hp": 4,
+                     "gateTop": 100})
+hint(E0 + 4300, E0 + 4500, "Que barulho de ferro é esse?...")
+# E6 · a estação velha: o trem do Vargas parte, e o Tomé vai atrás no trole
+F0 = E0 + 6000
+L["door"] = {"x": F0 + 400, "y": 410, "kind": "station", "lock": 1}
+hint(F0 - 250, F0 + 500, "A estação velha! O trem do Vargas está saindo... Pule no trole dos trilhos e vá atrás dele!")
+check(F0 - 120)
+TRK = 6400
+L["sled"] = {"x": F0 + 760, "x1": F0 + 900, "y": GY, "tx0": 60000, "len": TRK, "skin": "cart", "train": 1,
+             "endMsg": "O trole alcançou o trem!",
+             "pts": [[0, 430], [800, 440], [1600, 455], [2400, 465], [3200, 480], [4000, 490], [4800, 500], [5600, 506], [TRK, 510]],
+             "obs": [{"k": "rock", "u": 900, "barrel": 1}, {"k": "branch", "u": 1700}, {"k": "crack", "u": 2400, "w": 90},
+                     {"k": "rock", "u": 3100, "barrel": 1}, {"k": "log", "u": 3800}, {"k": "branch", "u": 4500},
+                     {"k": "crack", "u": 5100, "w": 100}, {"k": "rock", "u": 5700, "barrel": 1}],
+             "cps": [2000, 4000]}
+L["spanX"] = F0 + 1000
 
 # ----------------------------------------------------------------------
 assert sorted(c["id"] for c in L["clues"]) == [13, 14, 15, 16, 17, 18]

@@ -18,6 +18,7 @@ var ICI: Array = []      # pingentes da laje da rocha (caem com o rugido)
 var CROWNS: Array = []   # coroas caídas esperando o Tomé (e as que ele está erguendo)
 var TOOK := {}           # coroas que o Tomé já pegou nesta partida
 var DROPPED := {}        # coroas que já saltaram da cabeça do rei nesta partida
+var B3: Ep3Bosses        # os chefes do Episódio 3 (enguia, salamandra, guardião)
 
 func _init(game) -> void:
 	g = game
@@ -32,6 +33,8 @@ func load_level() -> void:
 	TOOK = {}
 	DROPPED = {}
 	var L: Dictionary = g.L
+	B3 = Ep3Bosses.new(g)
+	B3.load_level()
 	if L.has("bear"):
 		var b: Dictionary = L.bear
 		BEAR = {"x0": b.x0, "x1": b.x1, "gy": b.y, "trig": b.trig, "maxhp": b.hp, "hp": b.hp, "st": "wait", "den": b.den,
@@ -69,7 +72,7 @@ func load_level() -> void:
 			Ep2Bosses.frog_setup(FISH, L)
 
 func active() -> bool:
-	return (not HAWK.is_empty() and HAWK.active and not HAWK.done) or (not FISH.is_empty() and FISH.active and not FISH.done) or bear_on()
+	return (B3 != null and B3.active()) or (not HAWK.is_empty() and HAWK.active and not HAWK.done) or (not FISH.is_empty() and FISH.active and not FISH.done) or bear_on()
 
 func bear_on() -> bool:
 	return not BEAR.is_empty() and BEAR.active and not BEAR.done
@@ -94,6 +97,8 @@ func _gate(id: String, on: bool, r: Rect2) -> void:
 		g.SOL.append({"t": "kinggate", "x": r.position.x, "y": r.position.y, "w": r.size.x, "h": r.size.y, "id": id})
 
 func post() -> void:
+	if B3:
+		B3.post()
 	_hawk()
 	_fish()
 	_bear()
@@ -257,6 +262,8 @@ func hawk_shadow() -> Vector2:
 
 ## golpe de picareta (Mech chama com a caixa do golpe)
 func swing_hits(hb: Dictionary) -> void:
+	if B3:
+		B3.swing_hits(hb)
 	if HAWK.is_empty() or HAWK.done or HAWK.st != "stuck" or HAWK.red > 0:
 		return
 	if not Game.hit(hb, hawk_box()):
@@ -1046,6 +1053,8 @@ func cine_end(id: String) -> void:
 			g.flash_tut("Acenda as 3 lamparinas!", "No escuro o Morcego-Rei some e ataca (o chiado e os olhos vermelhos avisam o rasante). Suba nas plataformas e acenda as 3 lamparinas com ✦ USAR: na luz ele não chega perto.", 300)
 
 func reset_on_respawn() -> void:
+	if B3:
+		B3.on_respawn()
 	# já vencido (fugindo ou caído): não revive — conta como derrotado
 	for B in [HAWK, BEAR, FISH]:
 		if not B.is_empty() and not B.done and B.active and (B.hp <= 0 or B.st in ["flee", "down"]):
@@ -1114,7 +1123,7 @@ func save_data() -> Dictionary:
 	for c in CROWNS:
 		if c.st in ["fall", "rest"]:
 			cr.append({"id": c.id, "x": c.get("to", c.x) if c.has("to") else c.x, "y": c.fy if c.st == "fall" else c.y, "water": c.water})
-	return {"hawk": _beaten(HAWK), "fish": _beaten(FISH), "bear": _beaten(BEAR), "crowns": cr, "took": TOOK.keys()}
+	return {"hawk": _beaten(HAWK), "fish": _beaten(FISH), "bear": _beaten(BEAR), "crowns": cr, "took": TOOK.keys(), "b3": B3.save_data() if B3 else []}
 
 ## vencido conta mesmo se ainda estiver fugindo/caindo no instante do salvamento
 func _beaten(B: Dictionary) -> bool:
@@ -1123,6 +1132,8 @@ func _beaten(B: Dictionary) -> bool:
 	return B.get("done", false) or (B.get("active", false) and (int(B.get("hp", 1)) <= 0 or B.get("st", "") in ["flee", "down"]))
 
 func restore(d: Dictionary) -> void:
+	if B3:
+		B3.restore(d.get("b3", []))
 	if d.get("hawk", false) and not HAWK.is_empty():
 		HAWK.done = true
 	if d.get("fish", false) and not FISH.is_empty():

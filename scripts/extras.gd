@@ -272,7 +272,7 @@ func post() -> void:
 			g.keys.Ap = false
 			g.M.dog_action()
 	elif g.keys.get("Ap", false):
-		if g.RD.use() or g.VH.use() or g.EV.use() or (g.K and Ep2Bosses.use_lamp(g, g.K)) or _use_dog() or _use_toca() or _use_crack() or _use_mirror():
+		if g.RD.use() or g.VH.use() or g.EV.use() or (g.K and Ep2Bosses.use_lamp(g, g.K)) or (g.K and g.K.B3 and g.K.B3.use()) or _use_dog() or _use_toca() or _use_crack() or _use_mirror():
 			g.keys.Ap = false
 			focus_block = true
 	if not g.kd("A"):

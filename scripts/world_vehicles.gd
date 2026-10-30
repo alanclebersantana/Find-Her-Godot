@@ -17,7 +17,7 @@ static func draw(g: Game, T: int) -> void:
 	if not VH.SL.is_empty():
 		if VH.is_cart():
 			_cart_world(g, VH, T)
-			if VH.mode == "sled":
+			if VH.mode == "sled" or (int(VH.SL.get("train", 0)) == 1 and VH.sled_done and g.player.exitT > 0):
 				_cart_track(g, VH, T)
 		else:
 			_sled_world(g, VH, T)
@@ -1163,7 +1163,7 @@ static func _cart_world(g: Game, VH: Vehicles, T: int) -> void:
 		_cart(float(SL.x), gy)
 		var p: Dictionary = g.player
 		if abs(p.x + p.w / 2 - float(SL.x)) < 120 and (T / 20) % 2 == 0:
-			Spr.text("✦ CARRINHO", float(SL.x), gy - 84 + sin(T * .15) * 3, 16, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
+			Spr.text("✦ TROLE" if int(SL.get("train", 0)) == 1 else "✦ CARRINHO", float(SL.x), gy - 84 + sin(T * .15) * 3, 16, Color("#ffecaa"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4)
 	elif VH.sled_done and VH.mode != "sled":
 		_cart(float(SL.x1) - 40, gy)
 
@@ -1294,6 +1294,7 @@ static func _cart_track(g: Game, VH: Vehicles, T: int) -> void:
 	var ROCK := Color("#2a1d14")
 	var ROCK2 := Color("#140d08")
 	var WOOD := Color("#5a3a1e")
+	var open_sky: bool = int(VH.SL.get("train", 0)) == 1
 	# teto da galeria (rocha escura) acompanhando os trilhos, com pontas
 	var ceil := PackedVector2Array([Vector2(a - 12, topc)])
 	var x: float = floor(a / 24.0) * 24.0
@@ -1302,9 +1303,26 @@ static func _cart_track(g: Game, VH: Vehicles, T: int) -> void:
 		ceil.push_back(Vector2(x, cy))
 		x += 24
 	ceil.push_back(Vector2(b + 24, topc))
-	Spr.poly(ceil, ROCK2)
+	if not open_sky:
+		Spr.poly(ceil, ROCK2)
 	# escoras de madeira (dois postes e uma viga) a cada 320 px
 	var su0: float = floor((a - t0) / 320.0) * 320.0
+	if open_sky:
+		# na serra: postes do telégrafo ao lado da linha, com o fio
+		var pu: float = floor((a - t0) / 420.0) * 420.0
+		var prev := Vector2.ZERO
+		while t0 + pu < b + 200:
+			var pgy: float = VH.sled_y(pu)
+			var ppx: float = t0 + pu
+			Spr.rect(ppx - 5, pgy - 190, 10, 186, Color("#3a2614"))
+			Spr.rect(ppx - 26, pgy - 184, 52, 7, Color("#3a2614"))
+			Spr.circle(ppx - 20, pgy - 188, 3, Color("#d8d0c0"))
+			Spr.circle(ppx + 20, pgy - 188, 3, Color("#d8d0c0"))
+			if prev != Vector2.ZERO:
+				Spr.seg(prev.x, prev.y, ppx - 20, pgy - 186, Color(0, 0, 0, .55), 1.5)
+			prev = Vector2(ppx - 20, pgy - 186)
+			pu += 420.0
+		su0 = 1e9
 	while t0 + su0 < b + 100:
 		var gy: float = VH.sled_y(su0)
 		var px: float = t0 + su0
@@ -1398,7 +1416,9 @@ static func _cart_track(g: Game, VH: Vehicles, T: int) -> void:
 					Spr.line(PackedVector2Array([Vector2(ax - 12, ay + 9), Vector2(ax, ay), Vector2(ax + 12, ay + 9)]), Color(.25, .95, .35, sin(u * PI) * .95), 5)
 		match o.k:
 			"rock":
-				if ft >= 0:
+				if o.get("barrel"):
+					_barrel(g, VH, o, oy, ft, T)
+				elif ft >= 0:
 					for k in 4:
 						Spr.P("peb%d" % (k % 3), o.x - 22 + k * 15, oy + 3, 14, false, 0.0, Color(.6, .55, .5))
 				else:
@@ -1460,9 +1480,13 @@ static func _cart_track(g: Game, VH: Vehicles, T: int) -> void:
 	# para no fim dos trilhos, salta com a Isis e entra pela porta de ferro, que bate antes de o Tomé chegar
 	if VH.SL.get("vargas") and VH.mode == "sled":
 		_vargas_run(g, VH, T, t0, ln, a, b)
+	if open_sky and (VH.mode == "sled" or g.player.exitT > 0):
+		_train_ahead(g, VH, T, t0)
 	# a porta de ferro no fim dos trilhos (o Vargas passa por ela e ela bate)
 	if VH.SL.get("vargas"):
 		_end_door(VH, T, t0 + ln + VG_DOOR, VH.sled_y(ln - 10))
+	if open_sky:
+		return
 	# para-choque de madeira no fim dos trilhos
 	var ex: float = t0 + ln - 10
 	var eyy: float = VH.sled_y(ln - 10)
@@ -1647,3 +1671,104 @@ static func _cheer(g: Game, VH: Vehicles, T: int) -> void:
 			var an: float = TAU * i / 8.0 + T * .02
 			var r: float = fw * .55 + sin(T * .1 + i) * 10.0
 			Spr.text("✦", cx + cos(an) * r, cy + sin(an) * r * .35 + 8, 18, Color(1, .9, .5, a * (.5 + .5 * sin(T * .2 + i))), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b)
+
+
+# ======================================================================
+#  O TREM DO VARGAS (fim do Episódio 3)
+# ======================================================================
+const TRAIN_W := 1000.0
+
+## o trem desenhado com a parte de trás em (x, y do trilho); inclina um pouco com a subida
+static func _train_img(x: float, gy: float, ang: float, T: int, moving: bool) -> void:
+	var t: Texture2D = Spr.opt("trem3")
+	if t == null:
+		return
+	var h: float = TRAIN_W * t.get_height() / float(t.get_width())
+	var bob: float = sin(T * .5) * 1.2 if moving else 0.0
+	Spr.save()
+	Spr.translate(x, gy - 6 + bob)
+	Spr.rotate(ang)
+	Spr.ci.draw_texture_rect(t, Rect2(0, -h, TRAIN_W, h), false, Color(1, 1, 1, Spr.alpha))
+	# fumaça saindo da chaminé, ficando para trás
+	var cx: float = TRAIN_W * .905
+	for pf in 6:
+		var ph: float = fmod(T * (2.0 if moving else .9) + pf * 30.0, 180.0) / 180.0
+		var px: float = cx - ph * (260.0 if moving else 120.0)
+		var py: float = -h * .82 - ph * 120.0
+		Spr.circle(px, py, 14 + ph * 30, Color(.9, .9, .88, .5 * (1.0 - ph)))
+	Spr.glow(TRAIN_W * .99, -h * .62, 70, Color(1, .9, .5, .35))
+	Spr.restore()
+
+## o Vargas na plataforma de trás do último vagão
+static func _vargas_back(x: float, gy: float, T: int, throw: float) -> void:
+	Spr.save()
+	Spr.translate(x + 30, gy - 40)
+	Spr.rotate(-.15 * throw)
+	Spr.sheet("vargas_pe", 0 if throw <= 0.0 else 3, 200, 200, 0, 0, 118.0, true)
+	Spr.restore()
+
+## na estação: o trem parado (e depois saindo) à direita da casinha
+static func station_train(g: Game, cx: float, gy: float, T: int) -> void:
+	var VH: Vehicles = g.VH
+	if VH.mode == "sled" or VH.sled_done:
+		return
+	var off: float = VH.train_dep()
+	var x: float = cx + 240 + off
+	if x > g.cam + g.W + 200:
+		return
+	_train_img(x, gy, 0.0, T, VH.dep_t >= 0)
+	# a Isis na janela do último vagão e o Vargas atrás
+	_vargas_back(x, gy, T, 0.0)
+	Spr.sheet("isis2", 0, 150, 150, x + 110, gy - 120, 58.0, false)
+
+## durante a perseguição: o trem lá na frente; o Vargas joga barris da plataforma de trás
+static func _train_ahead(g: Game, VH: Vehicles, T: int, t0: float) -> void:
+	var ru: float = VH.train_rear()
+	var x: float = t0 + ru
+	var y0: float = VH.sled_y(ru)
+	var y1: float = VH.sled_y(ru + TRAIN_W)
+	var ang: float = atan2(y1 - y0, TRAIN_W)
+	var ln: float = float(VH.SL.get("len", 4650))
+	var moving: bool = ru < ln - 45.0
+	# jogando barril: perto da hora em que ele passa por cima de um barril
+	var thr: float = 0.0
+	for o in VH.OBS:
+		if o.get("barrel"):
+			var dd: float = ru - float(o.u)
+			if dd > -60 and dd < 40:
+				thr = 1.0 - abs(dd + 10) / 50.0
+	_train_img(x, y0, ang, T, moving)
+	_vargas_back(x, y0, T, thr)
+	Spr.save()
+	Spr.translate(x, y0)
+	Spr.rotate(ang)
+	Spr.sheet("isis2", (T / 12) % 2, 150, 150, 110, -120, 58.0, false)
+	Spr.restore()
+
+## barril de madeira que o Vargas jogou nos trilhos (aparece quando o trem passa por ali)
+static func _barrel(g: Game, VH: Vehicles, o: Dictionary, oy: float, ft: int, T: int) -> void:
+	var ru: float = VH.train_rear() if VH.mode == "sled" else 1e9
+	var since: float = ru - float(o.u)
+	if since < 0:
+		return
+	var by: float = oy
+	var rot: float = 0.0
+	if since < 60:
+		# ainda caindo do vagão
+		var u: float = since / 60.0
+		by = oy - sin(u * PI) * 60.0 - (1.0 - u) * 40.0
+		rot = u * 3.0
+	if ft >= 0:
+		for k in 5:
+			var a: float = k * 1.2
+			Spr.rr(o.x - 30 + k * 13, oy - 8 - (k % 2) * 4, 16, 6, 2, Color("#7a5232"))
+		return
+	Spr.save()
+	Spr.translate(o.x, by - 26)
+	Spr.rotate(rot)
+	Spr.rr(-22, -27, 44, 54, 12, Color("#1a120c"))
+	Spr.rr(-19, -24, 38, 48, 10, Color("#8a5a32"))
+	for ry in [-14, 10]:
+		Spr.rect(-21, ry, 42, 6, Color("#3a3a40"))
+	Spr.rect(-2, -24, 3, 48, Color("#6a4224"))
+	Spr.restore()

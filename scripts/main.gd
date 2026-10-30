@@ -436,6 +436,8 @@ func _process(_d: float) -> void:
 			song = "bagre"
 		if game.K and game.K.bear_on():
 			song = "urso"
+		if game.K and game.K.B3 and game.K.B3.active():
+			song = "gaviao"
 		# na neve, a canção da Lia toca com vento de fundo
 		if song == "tema" and game.AMB.get("snow", 0.0) > .2:
 			song = "neve"
@@ -506,6 +508,8 @@ func _danger_level() -> float:
 	var g := game
 	if g.X and g.X.boss_active():
 		return 1.0
+	if g.K and g.K.B3 and g.K.B3.active():
+		return 1.0
 	if g.K and (g.K.bear_on() or (not g.K.HAWK.is_empty() and g.K.HAWK.active and not g.K.HAWK.done) or (not g.K.FISH.is_empty() and g.K.FISH.active and not g.K.FISH.done)):
 		return 1.0
 	if g.TR:
@@ -533,6 +537,8 @@ func _zoom_target() -> float:
 	# perseguição do urso: abre mais para mostrar o urso correndo atrás
 	if g.K and g.K.bear_chase():
 		return .8
+	if g.K and g.K.B3 and g.K.B3.active():
+		return .82
 	if g.K and (g.K.bear_on() or (not g.K.HAWK.is_empty() and g.K.HAWK.active and not g.K.HAWK.done) or (not g.K.FISH.is_empty() and g.K.FISH.active and not g.K.FISH.done)):
 		return .88
 	if g.VIL and g.VIL.go and not g.VIL.gone:
@@ -1326,7 +1332,7 @@ func _confirm_wipe(next: Callable, back: Callable) -> void:
 
 ## escolher o episódio (aparece depois de terminar o primeiro)
 const EPISODES := [["EPISÓDIO 1 · O BOSQUE", "Do bosque até a boca da mina."], ["EPISÓDIO 2 · AS PROFUNDEZAS DA MINA", "Túneis, o moinho, os telhados da vila, o carrinho nos trilhos e a fuga da Isis."],
-	["EPISÓDIO 3 · O COVIL DO VARGAS", "A fortaleza na serra: a trilha, o pátio dos vigias, os porões, as forjas e as torres."]]
+	["EPISÓDIO 3 · O COVIL DO VARGAS", "A fortaleza na serra: a trilha, o pátio dos vigias, os porões, as forjas, as torres... e a perseguição do trem com a Isis."]]
 func _choose_episode() -> void:
 	var vb := _overlay(.9)
 	vb.add_child(_label("ESCOLHA O EPISÓDIO", 30, GOLD, Spr.font_title))
@@ -1894,10 +1900,12 @@ func _warp_points() -> Array:
 		out.append(["Chefe: " + ("Morcego-Rei" if L.hawk.has("lamps") else "Gavião-Rei"), float(L.hawk.get("x0", L.hawk.get("x", 0))) - 80.0, -1.0])
 	if L.has("fish"):
 		out.append(["Chefe: " + ("Sapo-Rei" if L.fish.get("skin", "") == "frog" else "Bagre-Rei"), float(L.fish.x0) - 40.0, -1.0])
+	for b3 in L.get("bosses3", []):
+		out.append(["Chefe: " + Ep3Bosses.NAMES.get(str(b3.id), str(b3.id)).capitalize(), float(b3.x0) - 60.0, -1.0])
 	if L.has("raft"):
 		out.append(["Barco / jangada", float(L.raft.x) - 120.0, -1.0])
 	if L.has("sled"):
-		out.append(["Trenó / carrinho", float(L.sled.x) - 120.0, -1.0])
+		out.append(["Trenó / carrinho / trole", float(L.sled.x) - 120.0, -1.0])
 	if L.has("isisPart"):
 		out.append(["Trecho da Isis", float(L.isisPart.x0) + 60.0, -1.0])
 	out.append(["Fim da fase", float(L.door.x) - 160.0, -1.0])
@@ -2369,7 +2377,7 @@ func play_cut(id: String, after: Callable) -> void:
 	elif id in ["ep2", "ep2fim", "ep3"]:
 		Audio.set_song("tunel")
 	elif id == "ep3fim":
-		Audio.set_song("tema")
+		Audio.set_song("vitoria")
 	elif id in ["isis", "isis_fim"]:
 		Audio.set_song("noite")
 	var c := preload("res://scripts/ui/cutscene.gd").new(id)

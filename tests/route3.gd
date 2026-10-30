@@ -71,6 +71,130 @@ func steam_to(x: float, cond: Callable, mx: int = 400):
 		frame(d)
 	return "timeout@%d,%d" % [int(px()), int(P.y)]
 
+## Enguia de Cristal: sai do pilar que borbulha; com ela tonta no pilar, pula na cabeça
+func eel_fight():
+	var B3 = g.K.B3
+	var b: Dictionary = B3.boss("enguia")
+	for it in 6000:
+		if OS.get_environment("DBG") != "" and it % 20 == 0:
+			print("EEL it=%d st=%s t=%d hp=%d bx=%d px=%d py=%d php=%d lives=%d" % [it, b.st, b.t, b.hp, int(b.x), int(px()), int(P.y + P.h), P.hp, g.lives])
+		P = g.player
+		if not ok():
+			return "state"
+		if b.done or b.st == "down":
+			hold({}, 30)
+			return true
+		var on: int = B3._on_pillar(b)
+		if P.onGround and on < 0:
+			jump_to(B3._pc(b, B3._pillar_of(px(), b)), true)
+			continue
+		if b.st == "warn" and on >= 0 and absf(B3._pc(b, on) - float(b.tx)) < 5 and P.onGround:
+			var nx: int = on + 1 if on + 1 < b.pillars.size() else on - 1
+			jump_to(B3._pc(b, nx), true)
+			continue
+		if b.st == "stun" and b.t > 8 and P.onGround and on >= 0 and absf(B3._pc(b, on) - b.x) > 5:
+			jump_to(b.x, true)
+			continue
+		frame()
+	return "timeout st=%s hp=%d" % [b.st, b.hp]
+
+## Salamandra de Fogo: espera no balcão da 1ª caixa; vira a água quando ela passa embaixo; apagada,
+## pula em cima dela e volta para o balcão
+func sal_fight():
+	var B3 = g.K.B3
+	var b: Dictionary = B3.boss("salamandra")
+	var t0: Dictionary = B3.TANKS[0]
+	walk_to(float(b.trig) + 40)
+	jump_to(float(t0.lever), true)
+	for it in 8000:
+		if OS.get_environment("DBG") != "" and (it % 20 == 0 or (OS.get_environment("DBG") == "2" and b.st in ["cool", "hurt", "flee"])):
+			print("SAL it=%d st=%s t=%d hp=%d bx=%d px=%d py=%d php=%d lives=%d" % [it, b.st, b.t, b.hp, int(b.x), int(px()), int(P.y + P.h), P.hp, g.lives])
+		P = g.player
+		if not ok():
+			return "state"
+		if b.done or b.st == "down":
+			hold({}, 30)
+			return true
+		var on_balc: bool = P.onGround and absf(P.y + P.h - float(t0.py)) < 6
+		if b.st == "cool" and b.t > 10 and b.t < 170:
+			# pula do balcão em cima dela; acertou, volta direto para o balcão
+			press("J")
+			for k in 120:
+				P = g.player
+				if b.st != "cool" or (P.onGround and k > 6):
+					break
+				frame({"R" if b.x > px() else "L": true, "J": k < 10})
+			continue
+		if P.onGround and not on_balc:
+			# no chão: pula a bola de fogo que vem rente ao chão, senão volta para o balcão
+			var fire_near := false
+			for sh in B3.SHOTS:
+				if sh.k == "fire" and absf(sh.x - px()) < 110 and signf(px() - sh.x) == signf(sh.vx):
+					fire_near = true
+			if fire_near:
+				press("J")
+				hold({"J": true}, 14)
+				continue
+			jump_to(float(t0.lever), true)
+			continue
+		if on_balc and absf(px() - float(t0.lever)) > 8:
+			frame({"R" if float(t0.lever) > px() else "L": true})
+			continue
+		if t0.st == "full" and b.st == "walk" and absf(b.x - float(t0.x)) < 60:
+			use()
+			continue
+		frame()
+	return "timeout st=%s hp=%d" % [b.st, b.hp]
+
+## Guardião de Ferro: fica longe; pula as ondas; com os punhos presos, picareta nele (2 golpes) e
+## passa para o lado onde há mais espaço
+func gua_fight():
+	var B3 = g.K.B3
+	var b: Dictionary = B3.boss("guardiao")
+	walk_to(float(b.trig) + 30)
+	var side := -1.0
+	for it in 9000:
+		if OS.get_environment("DBG") != "" and it % 20 == 0:
+			print("GUA it=%d st=%s t=%d hp=%d bx=%d px=%d py=%d php=%d lives=%d" % [it, b.st, b.t, b.hp, int(b.x), int(px()), int(P.y + P.h), P.hp, g.lives])
+		P = g.player
+		if not ok():
+			return "state"
+		if b.done or b.st == "down":
+			hold({}, 30)
+			return true
+		var pcx: float = px()
+		var wave := false
+		for sh in B3.SHOTS:
+			if sh.k == "wave" and absf(sh.x - pcx) < 80 and signf(pcx - sh.x) == signf(sh.vx):
+				wave = true
+		if wave and P.onGround:
+			press("J")
+			hold({"J": true}, 14)
+			continue
+		if b.st == "stuck":
+			var gx: float = b.x + side * 92.0
+			if absf(pcx - gx) > 10:
+				frame({"R" if gx > pcx else "L": true})
+				continue
+			if (b.x > pcx) != (P.face > 0):
+				frame({"R" if b.x > pcx else "L": true})
+				continue
+			press("G")
+			hold({}, 24)
+			continue
+		if b.st == "hurt":
+			# passa por ele (preso/tonto não machuca) para o lado com mais espaço
+			side = -1.0 if (b.x - float(b.x0)) > (float(b.x1) - b.x) else 1.0
+		var want: float = clampf(b.x + side * 270.0, float(b.x0) + 40, float(b.x1) - 40)
+		if absf(want - b.x) < 200:
+			side = -side
+			want = clampf(b.x + side * 270.0, float(b.x0) + 40, float(b.x1) - 40)
+		if absf(pcx - want) > 24 and b.st in ["walk", "hurt", "fight0", "stuck"]:
+			frame({"R" if want > pcx else "L": true})
+		else:
+			frame()
+	return "timeout st=%s hp=%d" % [b.st, b.hp]
+
 func mover(k: String, x: float) -> Dictionary:
 	for o in g.MV.MV:
 		if o.k == k and absf(float(o.get("x0", o.get("x", 0))) - x) < 5:
@@ -312,9 +436,11 @@ func _initialize() -> void:
 	S("desce para a cisterna", until({"R": true}, func(): return P.onGround and P.y > 400, 300))
 	walk_to(19380)
 	S("pilar 1", jump_to(19605, true))
-	S("pilar 2", jump_to(19845, true))
-	S("pilar 3", jump_to(20105, true))
-	S("pilar 4", jump_to(20345, true))
+	S("vence a Enguia de Cristal", eel_fight())
+	for pc in [19605.0, 19845.0, 20105.0, 20345.0]:
+		if pc > px() + 20:
+			jump_to(pc, true)
+	S("pilar 4", absf(px() - 20345) < 20 and P.onGround)
 	S("desenho da cisterna", g.DRWS.filter(func(d): return absf(float(d.x) - 20345) < 5)[0].got)
 	S("margem", jump_to(20580, true))
 	S("fogueira 3", walk_to(20710))
@@ -352,11 +478,12 @@ func _initialize() -> void:
 	hold({"S": true}, 4)
 	S("solta no chão", wait_ground() and P.y > 400)
 	S("sem queimar", P.hp == 5)
-	S("pista 14", walk_to(D0 + 6100) and n_clues() == 6)
-	S("fogueira 4", walk_to(D0 + 6310))
+	S("pista 14", walk_to(D0 + 6000) and n_clues() == 6)
+	S("vence a Salamandra de Fogo", sal_fight())
+	S("fogueira 4", walk_to(D0 + 7410))
 	S("descansou 4", rests.has(4))
 	# ---------------- E · AS TORRES
-	var E0 := 27600.0
+	var E0 := 28700.0
 	var lf: Dictionary = mover("lift", E0 + 640)
 	S("sobe de elevador", lift_up(lf))
 	S("alto da torre", walk_to(E0 + 1100) and P.y + P.h <= -255)
@@ -371,10 +498,38 @@ func _initialize() -> void:
 	S("outra torre", P.onGround and P.y + P.h <= -435)
 	walk_to(E0 + 4060)
 	S("desce da torre", until({"R": true}, func(): return P.onGround and P.y > 400, 300))
-	S("desenho da estação", walk_to(E0 + 4600))
-	walk_to(float(L.door.x) + 30)
+	S("desenho da estação", walk_to(E0 + 4350))
+	S("vence o Guardião de Ferro", gua_fight())
+	S("o trem partiu", walk_to(float(L.door.x) - 100) and g.VH.dep_t >= 0)
+	S("sobe no trole", until({"R": true}, func(): return g.VH.mode == "sled", 500))
+	var VH = g.VH
+	var done_cart = "timeout"
+	for i in 5000:
+		if VH.mode == "" or not g.running:
+			done_cart = true
+			break
+		var d := {}
+		var ground: bool = VH.hy >= VH.sled_y(VH.su) - 1
+		for o in VH.OBS:
+			var dx: float = o.x - VH.hx
+			if o.hit or o.k == "bump" or dx < -140 or dx > 300:
+				continue
+			if o.k in ["rock", "log"] and ground and dx < VH.spd * 9.0 + 24 and dx > 30:
+				press("J")
+			if o.k == "crack" and ground and dx < 40 and dx > -5:
+				press("J")
+			if o.k == "branch" and dx < 110 and dx > -100:
+				d["S"] = true
+			break
+		frame(d)
+	S("alcançou o trem", done_cart)
+	var hk := []
+	for o in VH.OBS:
+		if o.hit:
+			hk.append(o.k + "@" + str(o.u))
+	S("trole sem batidas " + str(hk), hk.is_empty())
 	var sa = until({}, func(): return not g.running, 300)
-	S("estação velha (fim)", sa is String and sa == "state")
+	S("fim do episódio", sa is String and sa == "state")
 	var nd: int = g.DRWS.filter(func(d): return d.got).size()
 	print("desenhos: ", g.DRWS.map(func(d): return [int(d.x), int(d.y), d.got]))
 	S("final: pistas=%d esp=%d des=%d lápis=%d/%d" % [n_clues(), g.SPECGOT.size(), nd, g.STATS.pen, g.STATS.penTotal], n_clues() == 6 and g.SPECGOT.size() == 6 and nd == g.DRWS.size())

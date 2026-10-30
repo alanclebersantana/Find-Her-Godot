@@ -252,7 +252,7 @@ func load_level(i: int) -> void:
 		o.hidden = d.has("toca") and not o.got
 		DRWS.append(o)
 		di += 1
-	DOOR = {"x": L.door.x, "y": L.door.y, "w": 60, "h": 90, "locked": false}
+	DOOR = {"x": L.door.x, "y": L.door.y, "w": 60, "h": 90, "locked": int(L.door.get("lock", 0)) == 1}
 	# troncos de assento das fogueiras grandes: só onde há chão firme embaixo; são degraus baixos
 	for c in CHK:
 		if not c.has("rest"):

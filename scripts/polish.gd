@@ -541,6 +541,8 @@ static func bosses() -> Array:
 		if not f.is_empty() and f.get("active", false) and not f.get("done", false) and f.st != "wait":
 			out.append({"name": "SAPO-REI" if f.get("skin", "") == "frog" else "BAGRE-REI", "hp": f.hp, "max": f.maxhp, "x": f.x, "y": f.y,
 				"ref": f, "kind": "fish", "weak": f.st == "tired", "fast": f.st == "charge" and abs(float(f.get("vx", 0.0))) > 5.0, "dir": f.dir, "gy": f.y})
+		if g.K.B3:
+			out.append_array(g.K.B3.bars())
 	return out
 
 ## C2 fúria na última vida: o chefe pulsa avermelhado

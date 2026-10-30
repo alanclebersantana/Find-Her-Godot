@@ -165,6 +165,12 @@ func check_plane() -> void:
 ## chegou no trenó / carrinho: abre o quadrinho (só na primeira vez) e já parte, sem botão
 var auto_cd := 0
 func check_sled() -> void:
+	# Ep. 3: o Tomé chegando na estação, o trem do Vargas apita e começa a sair
+	if SL.get("train") and dep_t < 0 and mode == "" and not sled_done and g.player.x > g.DOOR.x - 650 and g.player.dyingT == 0:
+		dep_t = g.T
+		Audio.play("special", -4, .7)
+		g.shake = max(g.shake, 4)
+		g.flash_tut("O trem está partindo!", "O Vargas está fugindo com a Isis no trem! Corra até o trole dos trilhos e vá atrás dele.", 240)
 	if auto_cd > 0:
 		auto_cd -= 1
 		return
@@ -300,6 +306,7 @@ var sfin := 0          # chegou no monte de neve: a tela fecha antes de voltar p
 var vg_t0 := -1        # carrinho: quadro em que o Vargas parou no fim dos trilhos e saltou com a Isis
 const VG_STOP := 850.0  # o Vargas chega ao fim dos trilhos quando o Tomé ainda está esta distância atrás
 const SBOARD := 40
+var dep_t := -1          # trem do Vargas (Ep. 3): quadro em que ele começou a sair da estação
 const KICK_LEN := 80.0  # comprimento da rampa de neve (kick) antes da beirada
 var hits := 0          # batidas neste passeio (para a nota da chegada)
 var cp_i := -1         # último marco do passeio que já passou
@@ -409,7 +416,7 @@ func _sled_step() -> void:
 	var C: Array = SL.get("cps", [])
 	if cp_i + 1 < C.size() and su > float(C[cp_i + 1]):
 		cp_i += 1
-		cheer("MARCO %d" % (cp_i + 1), "Se o trenó capotar, recomeça daqui.", 110, true)
+		cheer("MARCO %d" % (cp_i + 1), "Se o carrinho descarrilar, recomeça daqui." if is_cart() else "Se o trenó capotar, recomeça daqui.", 110, true)
 		Audio.play("unlock", -8, 1.2)
 	# chegada (trenó): a faixa com a nota da descida
 	if not is_cart() and not fin_cheer and su > ln - 520.0:
@@ -424,6 +431,9 @@ func _sled_step() -> void:
 	var slope: float = (sled_y(su + 4.0) - sled_y(su - 4.0)) / 8.0
 	if on_ground:
 		spd += .3 * sin(atan(slope)) - .004 * spd
+		if SL.get("train") and su < ln - 260:
+			# o trole: o Tomé bombeia a alavanca e ele corre firme atrás do trem
+			spd += (6.2 - spd) * .03
 		if lean:
 			spd += .045
 		if brake:
@@ -632,8 +642,35 @@ func _hurt_sled(o: Dictionary = {}) -> void:
 		g.set_cam(hx - g.W * .26, hy * .6 + sled_y(su + 300.0) * .4 - g.H * .56)
 		g.flash("O trenó capotou! De volta ao marco — PULAR salta, ↓ abaixa, ← freia." if cp_i >= 0 else "O trenó capotou! De novo do alto — PULAR salta, ↓ abaixa, ← freia.", 220)
 
+## o trem da estação (Ep. 3): quanto já andou desde que começou a sair
+func train_dep() -> float:
+	if dep_t < 0:
+		return 0.0
+	var e: float = float(g.T - dep_t)
+	return e * e * .01
+
+## na perseguição: onde fica o fim do último vagão (na trilha). Começa bem à frente e o trole vai
+## alcançando; no fim o trem para e o trole chega encostado nele
+func train_rear() -> float:
+	var ln: float = float(SL.get("len", 4650))
+	var k: float = clamp(su / max(ln - 400.0, 1.0), 0.0, 1.0)
+	k = k * k * (3.0 - 2.0 * k)
+	var lead: float = lerpf(950.0, 90.0, k) + sin(g.T * .02) * 30.0 * (1.0 - k)
+	return min(su + lead, ln - 40.0)
+
 func _finish_sled() -> void:
 	var p: Dictionary = g.player
+	if SL.get("train"):
+		# alcançou o trem: o Tomé pula no último vagão e a história continua na cena final
+		mode = ""
+		sled_done = true
+		p.hp = max(p.hp, 1)
+		g.DOOR.x = p.x + 30
+		g.DOOR.y = p.y + p.h - 90
+		p.exitT = 50
+		Audio.play("jump", -2)
+		g.flash(str(SL.get("endMsg", "Alcançou o trem!")), 200)
+		return
 	mode = ""
 	sled_done = true
 	p.x = float(SL.x1) + 6

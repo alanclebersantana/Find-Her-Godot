@@ -77,8 +77,12 @@ func _ready() -> void:
 			]
 		"ep3fim":
 			shots = [
-				{"d": _pic("cut_ep3_b", true), "txt": "Do alto da ponte, o Tomé viu o trem do Vargas soltando fumaça na estação velha...", "dur": 6.0},
-				{"d": _s_ep3_card, "txt": "Continua: o final do Episódio 3 chega nas próximas versões.", "dur": 5.0},
+				{"d": _pic("cut_ep3_c", true), "txt": "O trole voou pelos trilhos da serra, com o sol nascendo. Lá na frente, o trem do Vargas.", "dur": 6.0},
+				{"d": _pic("cut_ep3_d", false), "txt": "Barril atrás de barril, o Vargas tentou parar o Tomé. — Acabou, Vargas! Devolve a minha filha!", "dur": 6.5},
+				{"d": _pic("cut_ep3_e", true), "txt": "Foi o Pipoca quem resolveu: puxou a barra da calça do Vargas, que escorregou... direto no vagão de carvão.", "dur": 7.0},
+				{"d": _pic("cut_ep3_f", false), "txt": "— PAPAI! — Isis! Eu segui os seus lápis, filha. Todos eles. Eu sabia que você estava me esperando.", "dur": 7.5},
+				{"d": _pic("cut_ep3_g", true), "txt": "Naquela tarde, na varanda, a Isis desenhou a família inteira. E o pai voltou da mina antes da sombra.", "dur": 7.5},
+				{"d": _s_credits, "txt": "", "dur": 16.0},
 			]
 		"mina":
 			shots = [
@@ -578,6 +582,42 @@ func _s_train(W: float, H: float, k: float) -> void:
 		Spr.restore()
 		Spr.glow(px2, py2, 24 + sin(t * 4) * 4, Color(1, .9, .4, .5))
 	_vignette(W, H, .55)
+
+## créditos finais: o título, a família e os nomes subindo devagar
+const CREDITS := [
+	["FIM", 56, "t"], ["", 20, ""], ["ENCONTRE-A", 40, "t"], ["Uma aventura de lápis de cor", 22, "i"], ["", 40, ""],
+	["Criação, história e direção", 18, "i"], ["Alan Correa", 30, "b"], ["", 30, ""],
+	["Tomé", 24, "b"], ["o pai que nunca desistiu", 18, "i"], ["", 14, ""],
+	["Isis", 24, "b"], ["a menina que marcou o caminho", 18, "i"], ["", 14, ""],
+	["Pipoca", 24, "b"], ["o melhor faro da serra", 18, "i"], ["", 14, ""],
+	["Ademar Vargas", 24, "b"], ["agora limpando carvão", 18, "i"], ["", 40, ""],
+	["Episódio 1 · O Bosque", 20, "i"], ["Episódio 2 · As Profundezas da Mina", 20, "i"], ["Episódio 3 · O Covil do Vargas", 20, "i"], ["", 40, ""],
+	["Obrigado por jogar!", 32, "t"],
+]
+
+func _s_credits(W: float, H: float, k: float) -> void:
+	Spr.vgrad(0, 0, W, H, Color(.07, .05, .04), Color(0, 0, 0))
+	var total := 0.0
+	for c in CREDITS:
+		total += float(c[1]) + 18.0
+	# sobe da parte de baixo até o "Obrigado" parar no meio da tela
+	var y0: float = lerpf(H * .95, H * .5 - total + 40.0, clamp(k / .9, 0.0, 1.0))
+	var y: float = y0
+	for c in CREDITS:
+		var sz: int = int(c[1])
+		y += sz + 18.0
+		if str(c[0]) == "" or y < -40 or y > H + 40:
+			continue
+		var f: Font = Spr.font_title if c[2] == "t" else (Spr.font_i if c[2] == "i" else Spr.font_b)
+		var col := Color(.95, .82, .55) if c[2] == "t" else (Color(.85, .8, .7) if c[2] == "i" else Color(1, .95, .85))
+		var a: float = clamp(min(y / 120.0, (H - 92 - y) / 120.0), 0.0, 1.0)
+		Spr.text(str(c[0]), W / 2, y, sz, Color(col.r, col.g, col.b, a), HORIZONTAL_ALIGNMENT_CENTER, f, 4)
+	# lápis coloridos enfeitando as bordas
+	var cols := [Color("#e0463a"), Color("#f59a2a"), Color("#f2d33a"), Color("#4fae4a"), Color("#3a7ad8"), Color("#8a4ac8")]
+	for i in 6:
+		var px: float = 60.0 + i * 26.0
+		Spr.rr(px, H - 150 - i * 6, 12, 70, 3, cols[i])
+		Spr.rr(W - 72 - i * 26.0, H - 150 - i * 6, 12, 70, 3, cols[5 - i])
 
 func _s_ep3_card(W: float, H: float, k: float) -> void:
 	Spr.rect(0, 0, W, H, Color(0, 0, 0))

@@ -116,6 +116,31 @@ func _initialize() -> void:
 					g.player.vine = g.VINES[0]
 					g.player.vr = 150.0
 					g.VINES[0].om = .03
+				elif k.begins_with("sled_"):
+					# trenó/carrinho/trole já andando em u: sled_<u>
+					g.VH._start_sled()
+					g.VH.sboard = 0
+					g.VH._sled_place(float(k.substr(5)), 6.0)
+					g.snap_camera()
+				elif k == "dep":
+					g.VH.dep_t = g.T - int(y)
+				elif k.begins_with("b3_"):
+					# chefe do Ep. 3 num estado: b3_<id>_<estado>[_<x>]
+					var pr: PackedStringArray = k.split("_")
+					var bb: Dictionary = g.K.B3.boss(pr[1])
+					bb.active = true
+					bb.st = pr[2]
+					bb.t = 20
+					if pr.size() > 3:
+						bb.x = float(pr[3])
+					bb.tx = bb.x
+					bb.sx = bb.x - 150
+					if pr[1] == "enguia" and pr[2] in ["swim", "warn"]:
+						bb.y = float(bb.surf) + 46
+					for t3 in g.K.B3.TANKS:
+						if pr.size() > 4 and pr[4] == "pour":
+							t3.st = "pour"
+							t3.t = 20
 				elif k.begins_with("w_"):
 					g.X.weather = k.substr(2)
 				elif k == "dog":
