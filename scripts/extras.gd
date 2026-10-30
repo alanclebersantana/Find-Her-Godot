@@ -277,7 +277,7 @@ func post() -> void:
 			focus_block = true
 	if not g.kd("A"):
 		focus_block = false
-	focus = g.kd("A") and not focus_block and not g.M.is_dog() and g.lantern_lit and p.nearL == null and p.ladder == null and p.vine == null and not p.swim and p.dyingT == 0
+	focus = g.kd("A") and not focus_block and p.get("act", "") != "crank" and g.near_crank() == null and not g.M.is_dog() and g.lantern_lit and p.nearL == null and p.ladder == null and p.vine == null and not p.swim and p.dyingT == 0
 	if focus and a_notes < 1:
 		a_notes = 1
 		g.tip("Facho concentrado: espanta corujas e morcegos e revela o que está escondido no escuro.")

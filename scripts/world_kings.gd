@@ -23,7 +23,7 @@ static func _crown(x: float, y: float, s: float, rot: float = 0.0) -> void:
 #  Origem no meio da base (onde assenta na cabeça); sobe uns 30 px (escala 1).
 # ======================================================================
 const CROWN_IDS := ["javali", "gaviao", "bagre", "urso"]
-const CROWN_NAME := {"javali": "Coroa de Folhas", "gaviao": "Coroa de Penas", "bagre": "Coroa de Pérolas", "urso": "Coroa de Gelo"}
+const CROWN_NAME := {"javali": "Coroa de Folhas", "gaviao": "Coroa de Rubi", "bagre": "Coroa de Pérolas", "urso": "Coroa de Gelo"}
 const CROWN_KING := {"javali": "Javali-Rei", "gaviao": "Gavião-Rei", "bagre": "Bagre-Rei", "urso": "Urso-Pardo-Rei"}
 const _OL := Color("#24160c")
 
@@ -96,6 +96,13 @@ static func _crown_leaf() -> void:
 		Spr.circle(bx - .9, by - .9, .9, Color(1, 1, 1, .8))
 
 static func _crown_feather() -> void:
+	# a coroa do quadrinho: ouro com o rubi (recortada da mesma pintura do Gavião-Rei)
+	var ct: Texture2D = Spr.opt("coroa_gaviao")
+	if ct:
+		var cw := 36.0
+		var ch: float = cw * ct.get_height() / float(ct.get_width())
+		Spr.ci.draw_texture_rect(ct, Rect2(-cw / 2, 2 - ch, cw, ch), false, Color(1, 1, 1, Spr.alpha))
+		return
 	var angs := [-.62, -.32, 0.0, .32, .62]
 	var lens := [20.0, 26.0, 31.0, 26.0, 20.0]
 	for j in [0, 4, 1, 3, 2]:
@@ -312,16 +319,30 @@ static func _hawk(g: Game, K: Kings, T: int) -> void:
 		Spr.translate(h.x, y)
 		Spr.rotate(rot)
 		Spr.scale(hfs * sc * hsx, sc * hsy * Spr.tsy(h))
-		if h.st == "dive":
-			Spr.ci.draw_texture_rect_region(Spr.tex.gaviao, Rect2(-66, -96, 132, 124), Rect2(fr * 132, 0, 132, 124), Color(tint.r, tint.g, tint.b, Spr.alpha))
+		# o Gavião-Rei do quadrinho (pintura recortada; asas giradas no ombro em 4 quadros + mergulho)
+		var grt: Texture2D = Spr.opt("gaviao_rei")
+		var GW := 180.0
+		var GH: float = GW * 234.0 / 300.0
+		var gdst := Rect2(-.52 * GW, -.76 * GH, GW, GH)
+		var gcol := Color(tint.r, tint.g, tint.b, Spr.alpha)
+		if grt == null:
+			if h.st == "dive":
+				Spr.ci.draw_texture_rect_region(Spr.tex.gaviao, Rect2(-66, -96, 132, 124), Rect2(fr * 132, 0, 132, 124), gcol)
+			else:
+				Spr.region_mix(Spr.tex.gaviao, Rect2(-66, -96, 132, 124), 132, 124, [0, 1, 2], T / 5.0, gcol)
+		elif h.st == "dive":
+			Spr.ci.draw_texture_rect_region(grt, gdst, Rect2(4 * 300, 0, 300, 234), gcol)
 		else:
 			# asas: preso no chão bate rápido, mirando bate médio, voando bate devagar
-			var hsp: float = 3.0 if h.st == "stuck" else (4.0 if h.st == "mark" else 5.0)
-			Spr.region_mix(Spr.tex.gaviao, Rect2(-66, -96, 132, 124), 132, 124, [0, 1, 2], T / hsp, Color(tint.r, tint.g, tint.b, Spr.alpha))
+			var hsp: float = 2.0 if h.st == "stuck" else (2.6 if h.st == "mark" else 3.4)
+			Spr.region_mix(grt, gdst, 300, 234, [0, 1, 2, 3, 2, 1], T / hsp, gcol)
 		# coroa presa no alto da cabeça (no mesmo transform do corpo: acompanha o mergulho, a virada e o
 		# achatar); balança a cada golpe recebido e cai na derrota
 		if h.st != "flee":
-			crown_art("gaviao", 26, -49, .62, sin(float(h.red) * .7) * .4 * float(h.red) / 30.0, T)
+			if grt:
+				crown_art("gaviao", gdst.position.x + .5593 * GW, gdst.position.y + .4075 * GH + 1.0, 18.5 / 36.0, sin(float(h.red) * .7) * .4 * float(h.red) / 30.0, T)
+			else:
+				crown_art("gaviao", 26, -49, .62, sin(float(h.red) * .7) * .4 * float(h.red) / 30.0, T)
 		Spr.restore()
 	if h.st == "stuck":
 		# garras presas na madeira

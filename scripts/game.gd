@@ -3137,7 +3137,13 @@ func crank_tap(c: Dictionary) -> void:
 	c.idle = 0
 	player.face = 1 if float(c.get("x", player.x)) >= player.x else -1
 	player.act = "crank"
-	player.actT = 14
+	player.actT = 16
+	player.crankC = c
+	# encosta no poste: a mão alcança a manivela
+	var hub: Vector2 = crank_hub(c)
+	var want: float = hub.x - player.face * 14.0 - player.w / 2
+	if abs(player.x - want) < 90 and player.onGround:
+		player.x = move_toward(player.x, want, 20.0)
 	Audio.play("climb", -2, .8 + c.turn * .4)
 	Audio.vib(25)
 	shake = max(shake, 1.5)
@@ -3154,9 +3160,18 @@ func crank_tap(c: Dictionary) -> void:
 
 func _cranks_step(nearL) -> void:
 	var nc = near_crank()
-	if nc != null and keys.get("Ap", false):
+	if nc != null and (keys.get("Ap", false) or (kd("A") and player.get("act", "") == "crank" and int(player.actT) <= 1)):
 		keys.Ap = false
 		crank_tap(nc)
+	# segurando USAR na comporta (manivela da trava): continua girando
+	if nearL != null and nearL.get("crank") and not nearL.done and has_item(nearL.need) and kd("A") \
+			and player.get("act", "") == "crank" and int(player.actT) <= 1:
+		crank_tap(nearL)
+	for c in CRANKS + LOCKS:
+		if c.get("crank") or CRANKS.has(c):
+			# a manivela desenhada gira de verdade, uma volta por toque (sem pular de uma vez)
+			c.vang = move_toward(float(c.get("vang", 0.0)), float(c.turn) * TAU * 6.0, TAU / 15.0)
+	_crank_hand()
 	for c in CRANKS:
 		_crank_decay(c)
 		var gt = crank_gate(c)
@@ -3168,6 +3183,23 @@ func _cranks_step(nearL) -> void:
 	for l in LOCKS:
 		if l.get("crank"):
 			_crank_decay(l)
+
+## centro da engrenagem da manivela (poste pintado: o eixo fica a ~41 px do chão)
+func crank_hub(c: Dictionary) -> Vector2:
+	if CRANKS.has(c):
+		return Vector2(float(c.x), float(c.y) - 41.0)
+	# manivela de trava (a comporta): o poste fica 10 px antes da trava
+	return Vector2(float(c.x) - 10.0, 500.0 - 41.0)
+
+## a mão do Tomé na ponta da manivela (para o desenho do braço girando junto)
+func _crank_hand() -> void:
+	var c = player.get("crankC")
+	if c == null or player.get("act", "") != "crank" or int(player.actT) <= 0:
+		player.crankTip = null
+		return
+	var a: float = float(c.get("vang", 0.0))
+	player.crankTip = crank_hub(c) + Vector2(27.3, -9.9).rotated(a)
+	player.crankA = a
 
 ## largou a manivela no meio: a porta vai descendo devagar
 func _crank_decay(c: Dictionary) -> void:

@@ -559,7 +559,7 @@ func _locks(g: Game) -> void:
 			var lift: float = 0.0 if l.done else float(l.get("turn", 0.0)) * 70.0
 			Spr.A("sw_gate_open" if l.done else "sw_gate", l.x + l.w + 25, 503 - lift, 1)
 			if l.done or g.has_item(l.need) or float(l.get("turn", 0.0)) > 0.0:
-				crank_post(l.x - 10, 500, float(l.get("turn", 0.0)) * TAU * 3.0 if not l.done else 0.0, T)
+				crank_post(l.x - 10, 500, float(l.get("vang", 0.0)), T)
 		if not l.done and g.player.nearL == l:
 			var b := sin(T * .15) * 3
 			var um: String = g.use_mode()
@@ -569,7 +569,7 @@ func _locks(g: Game) -> void:
 	for c in g.CRANKS:
 		if float(c.x) < g.cam - 200 or float(c.x) > g.cam + g.W + 200:
 			continue
-		crank_post(float(c.x), float(c.y), float(c.turn) * TAU * 3.0, T)
+		crank_post(float(c.x), float(c.y), float(c.get("vang", 0.0)), T)
 
 ## poste com engrenagem e a manivela girando (ângulo a)
 static func crank_post(x: float, gy: float, a: float, T: int) -> void:
@@ -584,7 +584,7 @@ static func crank_post(x: float, gy: float, a: float, T: int) -> void:
 		# centro da engrenagem na pintura: (237, 275) de 455x696
 		var hub := Vector2(left + 237.0 / 455.0 * pw, top + 275.0 / 696.0 * rp[3] * k)
 		var ra: Array = Spr.AR["p_crankarm"]
-		var ka: float = 62.0 / ra[2]
+		var ka: float = 36.0 / ra[2]
 		Spr.save()
 		Spr.translate(hub.x, hub.y)
 		Spr.rotate(a)
@@ -1976,10 +1976,13 @@ func _player_draw(g: Game) -> void:
 			key = "cheer"
 		elif p.onGround and p.get("pushT", 0) > 0 and abs(p.vx) > .2 and Spr.anim.has("push"):
 			key = "push"
+		elif p.get("crankTip") != null and Spr.anim.has("push"):
+			# girando a manivela: o corpo vai e vem junto com a volta da manivela
+			key = "crank"
 		elif p.onGround and abs(p.vx) > 1.2 and p._g is Dictionary and str(p._g.get("t", "")) == "ice" and not g.kd("L") and not g.kd("R") and Spr.anim.has("ice"):
 			key = "ice"
-		if Spr.anim.has(key):
-			var a: Dictionary = Spr.anim[key]
+		if key == "crank" or Spr.anim.has(key):
+			var a: Dictionary = Spr.anim["push" if key == "crank" else key]
 			var n: int = a.n
 			# deslizando na parede: de costas para ela, braços abertos, a mão de trás apoiada na parede
 			var wsl: bool = key == "fall" and p.get("wslide", false)
@@ -2006,6 +2009,12 @@ func _player_draw(g: Game) -> void:
 					f = 0 if wsl else int(clamp(p.vy / 10.0, 0, .999) * n)
 				"land":
 					f = min(n - 1, int((1 - p.landT / 8.0) * n))
+				"crank":
+					var cu: float = fposmod(float(p.get("crankA", 0.0)) / TAU, 1.0)
+					var ff2: float = (.5 - .5 * cos(cu * TAU)) * (n - 1)
+					f = int(ff2)
+					fnext = min(n - 1, f + 1)
+					fmix = ff2 - floor(ff2)
 			var sz: float = a.s
 			var k2 := 78.0 / sz
 			var air3: float = clamp(1 - abs(p.vy) / 16.0, .35, 1) if not p.onGround else 1.0
@@ -2112,6 +2121,8 @@ func _player_draw(g: Game) -> void:
 			Spr.restore()
 			if not front_t:
 				_turn_other(p, tst, tx3, src3, dst3, cx3, by, rot3, sx3, sy3)
+			if key == "crank":
+				_crank_arm(p, cx, by)
 			_armor(p, cx, by)
 			return
 	# folhas de sprites antigas (parado, andar, pulo, planar, mergulho)
@@ -2809,3 +2820,29 @@ func _vault(cx: float, gy: float) -> void:
 		var a2: float = k * PI / 4 + .3
 		Spr.seg(wx - cos(a2) * 20, cy + 10 - sin(a2) * 20, wx + cos(a2) * 20, cy + 10 + sin(a2) * 20, Color("#2a2c30"), 4)
 	Spr.circle(wx, cy + 10, 5, Color("#8a8e96"))
+
+## o braço do Tomé esticado até o cabo da manivela, girando junto com ela
+func _crank_arm(p: Dictionary, cx: float, by: float) -> void:
+	var tip = p.get("crankTip")
+	if tip == null:
+		return
+	var sh := Vector2(cx + p.face * 6.0, by - 37.0)
+	var hand: Vector2 = tip
+	# braço de dois segmentos (ombro-cotovelo-mão), o cotovelo dobra para baixo
+	var L := 18.0
+	var d: Vector2 = hand - sh
+	var dl: float = min(d.length(), L * 2 - .5)
+	if d.length() > dl:
+		hand = sh + d.normalized() * dl
+	var h: float = sqrt(max(0.0, L * L - dl * dl / 4.0))
+	var nrm := Vector2(-d.y, d.x).normalized()
+	if nrm.y < 0:
+		nrm = -nrm
+	var el: Vector2 = sh.lerp(hand, .5) + nrm * h
+	var ink := Color(.06, .05, .04)
+	var pts := PackedVector2Array([sh, el, hand])
+	Spr.ci.draw_polyline(pts, ink, 6.4, true)
+	Spr.ci.draw_polyline(pts, Color("#5e2219"), 3.8, true)
+	Spr.circle(el.x, el.y, 1.9, Color("#5e2219"))
+	Spr.circle(hand.x, hand.y, 4.0, ink)
+	Spr.circle(hand.x, hand.y, 2.8, Color("#e9b58e"))

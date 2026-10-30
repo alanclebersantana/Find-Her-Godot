@@ -8,6 +8,7 @@ uniform float flash = 0.0;        // 0..1 relâmpago
 uniform vec3 haze_col = vec3(0.8, 0.88, 0.95);
 uniform float haze_amt = 0.0;     // 0..~.2
 uniform float desat = 0.0;        // 0..~.2
+uniform float punch = 0.0;        // 0..~.3 mais contraste e cor (tira o esbranquiçado da pintura)
 
 float hash(vec2 p) {
 	return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
@@ -24,6 +25,11 @@ void fragment() {
 	// perspectiva atmosférica: o alto/longe da pintura mais apagado que a base (mais perto)
 	float depth = 1.0 - smoothstep(0.62, 0.98, UV.y);
 	float l = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+	if (punch > 0.0) {
+		c.rgb = mix(vec3(l), c.rgb, 1.0 + punch * 0.9);
+		c.rgb = clamp((c.rgb - 0.42) * (1.0 + punch) + 0.42 - punch * 0.05, 0.0, 1.0);
+		l = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+	}
 	c.rgb = mix(c.rgb, vec3(l), desat * depth);
 	c.rgb = mix(c.rgb, haze_col, haze_amt * depth);
 	// relâmpago: o que é claro (céu, bordas iluminadas) acende mais

@@ -86,8 +86,10 @@ func _update_mat() -> void:
 	var sky: Color = FxClock.blend(_w, SKY, Color(.8, .85, .9))
 	mat.set_shader_parameter("t", FxClock.ft)
 	mat.set_shader_parameter("haze_col", Vector3(sky.r, sky.g, sky.b))
-	mat.set_shader_parameter("haze_amt", hz.x + .05 * rain)
-	mat.set_shader_parameter("desat", hz.y + .05 * rain)
+	var hk: float = .45 if game.level_idx == 0 else 1.0
+	mat.set_shader_parameter("haze_amt", (hz.x + .05 * rain) * hk)
+	mat.set_shader_parameter("desat", (hz.y + .05 * rain) * hk)
+	mat.set_shader_parameter("punch", .14 if game.level_idx == 0 else 0.0)
 	var sh: float = FxClock.wsum(_w, ["tarde"]) + .6 * float(_w.get("moinho", 0.0))
 	mat.set_shader_parameter("shimmer", sh * clamp(1.0 - rain * 2.0, 0, 1))
 	mat.set_shader_parameter("flash", clamp(game.lightning / 12.0, 0.0, 1.0))
@@ -198,14 +200,17 @@ func _atmos(nw: Dictionary, w: float, oy: float, bh: float) -> void:
 	var H: float = game.H
 	var inside: float = FxClock.wsum(nw, ["mina", "esconderijo", "caverna", "fundicao", "cidade", "cofre", "poroes"])
 	var fc: Color = FxClock.blend(nw, FOGC, Color(.9, .9, .9)).lerp(FxClock.blend(nw, SKY, Color(.9, .9, .9)), .3)
-	# névoa de distância na base do fundo
-	Spr.vgrad(0, H * .5, w, H * .5, Color(fc.r, fc.g, fc.b, 0), Color(fc.r, fc.g, fc.b, .32))
+	# névoa de distância na base do fundo (no Ep. 1 mais leve: o fundo pintado já é claro e a névoa
+	# deixava tudo esbranquiçado); a neblina do clima engrossa aqui, atrás do Tomé
+	var e1: bool = game.level_idx == 0
+	var fz: float = float(game.AMB.get("fog", 0.0))
+	Spr.vgrad(0, H * .5, w, H * .5, Color(fc.r, fc.g, fc.b, 0), Color(fc.r, fc.g, fc.b, (.14 if e1 else .32) + .3 * fz))
 	if inside > .99:
 		return
 	var out: float = 1.0 - inside
 	# faixa de névoa no horizonte (perspectiva atmosférica)
 	var hy: float = oy + bh * .44
-	var ha: float = .11 * out
+	var ha: float = (.05 if e1 else .11) * out + .12 * fz
 	Spr.vgrad(0, hy - bh * .14, w, bh * .14, Color(fc.r, fc.g, fc.b, 0), Color(fc.r, fc.g, fc.b, ha))
 	Spr.vgrad(0, hy, w, bh * .16, Color(fc.r, fc.g, fc.b, ha), Color(fc.r, fc.g, fc.b, 0))
 	if game.low_fx:

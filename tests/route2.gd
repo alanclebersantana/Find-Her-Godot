@@ -234,7 +234,16 @@ func lily_hop(x: float):
 		if not ok():
 			return "state"
 		if P.swim:
-			return "caiu na água"
+			# caiu (a vitória-régia afundou no meio do pulo): nada até a mais perto e sobe nela
+			var bl: float = x
+			var bdd := 1e9
+			for l in g.LILY:
+				var lc: float = float(l.x) + float(l.w) / 2
+				if abs(lc - px()) < bdd and int(l.get("st", 0)) == 0 and not l.get("big"):
+					bdd = abs(lc - px())
+					bl = lc
+			surface_to_lily(bl)
+			continue
 		if abs(px() - x) < 14 and P.onGround:
 			return true
 		var dir: float = 1.0 if x > px() else -1.0
@@ -243,7 +252,7 @@ func lily_hop(x: float):
 		for l in g.LILY:
 			var cx: float = float(l.x) + float(l.w) / 2
 			var dd: float = (cx - px()) * dir
-			if dd > 20 and dd < 230 and dd < best and (cx - x) * dir <= 1:
+			if dd > 20 and dd < 230 and dd < best and (cx - x) * dir <= 1 and int(l.get("st", 0)) == 0:
 				best = dd
 				nx = cx
 		if best >= 1e9:

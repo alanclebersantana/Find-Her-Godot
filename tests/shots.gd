@@ -167,6 +167,11 @@ func _initialize() -> void:
 					g.RD._start()
 					g.RD.hx = x
 					g.RD.spd = 5.2
+				elif k == "crank":
+					g.keys["Ap"] = true
+					g.keys["A"] = true
+					if not g.INV.has("manivela"):
+						g.INV.append("manivela")
 				elif k == "duck":
 					g.keys["S"] = true
 				elif k == "bar":

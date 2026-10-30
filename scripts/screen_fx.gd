@@ -141,7 +141,7 @@ func __draw_raw() -> void:
 		r = 0.0
 	if r > .05 and game.running:
 		# chuva tira um pouco da cor da cena (véu cinza-azulado bem leve)
-		draw_rect(Rect2(Vector2.ZERO, vs), Color(.55, .6, .63, .07 * clamp(r, 0, 1)))
+		draw_rect(Rect2(Vector2.ZERO, vs), Color(.55, .6, .63, (.035 if game.level_idx == 0 else .07) * clamp(r, 0, 1)))
 		var n := int(rain.size() * clamp(r, 0, 1))
 		var sl: float = _slant()
 		var rc := Color(.78, .84, .9, .45)

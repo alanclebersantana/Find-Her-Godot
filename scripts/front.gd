@@ -413,10 +413,12 @@ func __draw_raw() -> void:
 	if fa2 > 0:
 		var fc := Color(.85, .88, .9).lerp(Color(.35, .4, .55), dark)
 		fc = fc.lerp(_sky, .25)
-		draw_rect(Rect2(Vector2.ZERO, vs), Color(fc.r, fc.g, fc.b, .2 * fa2))
+		# por cima de tudo só um véu leve (a neblina grossa fica atrás, no fundo: não lava a cena
+		# nem as cores do Tomé e dos bichos)
+		draw_rect(Rect2(Vector2.ZERO, vs), Color(fc.r, fc.g, fc.b, .05 * fa2))
 		if not low:
 			for f in fog:
-				draw_texture_rect(Spr.glow_tex, Rect2(f.x, f.y - g.rcam_y * .05, f.w, f.h), false, Color(fc.r, fc.g, fc.b, .6 * f.a * fa2))
+				draw_texture_rect(Spr.glow_tex, Rect2(f.x, f.y - g.rcam_y * .05, f.w, f.h), false, Color(fc.r, fc.g, fc.b, .2 * f.a * fa2))
 
 ## folha: elipse pontuda girando no plano (r) e virando de lado (fx = cos do giro: mostra a borda e o avesso)
 func _leaf(x: float, y: float, r: float, s: float, c: Color, fx: float = 1.0) -> void:
