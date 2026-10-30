@@ -14,18 +14,18 @@ const GL := 600.0
 ## cor do céu de cada cenário (névoa de distância, perspectiva atmosférica)
 const SKY := {"bosque": Color(.80, .90, .97), "tarde": Color(1, .78, .55), "pantano": Color(.5, .7, .63),
 	"noite": Color(.15, .2, .44), "neve": Color(.88, .92, 1), "mina": Color(.3, .19, .09), "moinho": Color(1, .84, .66),
-	"vila": Color(.16, .21, .46), "esconderijo": Color(.28, .17, .08)}
+	"vila": Color(.16, .21, .46), "esconderijo": Color(.28, .17, .08), "caverna": Color(.07, .14, .2)}
 ## névoa de distância na base do fundo
 # (névoas com cor: verde-água no pântano, azul de luar à noite, âmbar de lamparina na mina — cinza
 # e marrom-escuro lavavam a cena)
 const FOGC := {"bosque": Color(.86, .94, .82), "tarde": Color(1, .78, .5), "pantano": Color(.46, .7, .6),
 	"noite": Color(.2, .27, .55), "neve": Color(.92, .95, 1), "mina": Color(.36, .22, .1), "moinho": Color(1, .82, .6),
-	"vila": Color(.18, .24, .52), "esconderijo": Color(.32, .19, .09)}
+	"vila": Color(.18, .24, .52), "esconderijo": Color(.32, .19, .09), "caverna": Color(.1, .2, .28)}
 ## quanto o fundo puxa para a cor do céu (x) e perde cor (y) com a distância (pouca perda de cor: a
 ## distância vem da névoa colorida, não de deixar o fundo cinza)
 ## (metade do que era: o fundo longe ainda some no ar, mas sem lavar as cores)
 const HAZE := {"bosque": Vector2(.05, .02), "tarde": Vector2(.04, .01), "pantano": Vector2(.06, .02), "noite": Vector2(.03, .02),
-	"neve": Vector2(.05, .02), "mina": Vector2(0, .01), "moinho": Vector2(.04, .01), "vila": Vector2(.03, .02), "esconderijo": Vector2(0, .01)}
+	"neve": Vector2(.05, .02), "mina": Vector2(0, .01), "moinho": Vector2(.04, .01), "vila": Vector2(.03, .02), "esconderijo": Vector2(0, .01), "caverna": Vector2(0, .01)}
 ## onde está o sol pintado (pixels da pintura) e a força do brilho
 const SUN := {"tarde": Vector3(686, 322, 1.0), "moinho": Vector3(900, 224, .6)}
 
@@ -190,7 +190,7 @@ func _shooting_star(al: float, w: float, oy: float) -> void:
 ## faixa de névoa no horizonte, névoa na base, vapor dos vales de manhã e cortinas de chuva
 func _atmos(nw: Dictionary, w: float, oy: float, bh: float) -> void:
 	var H: float = game.H
-	var inside: float = FxClock.wsum(nw, ["mina", "esconderijo"])
+	var inside: float = FxClock.wsum(nw, ["mina", "esconderijo", "caverna"])
 	var fc: Color = FxClock.blend(nw, FOGC, Color(.9, .9, .9)).lerp(FxClock.blend(nw, SKY, Color(.9, .9, .9)), .3)
 	# névoa de distância na base do fundo
 	Spr.vgrad(0, H * .5, w, H * .5, Color(fc.r, fc.g, fc.b, 0), Color(fc.r, fc.g, fc.b, .32))

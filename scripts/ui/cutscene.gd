@@ -65,7 +65,19 @@ func _ready() -> void:
 				{"d": _s_vargas_plan, "txt": "— Então vamos para onde ele não alcança. Antes do amanhecer, o trem de carga leva você para as montanhas.", "dur": 6.5},
 				{"d": _pic("cut_ep2fim", false), "txt": "Do outro lado, o Tomé encostou o ouvido na porta de ferro. Lá dentro, bem longe, um apito de trem.", "dur": 6.0},
 				{"d": _s_train, "txt": "O trem saiu da mina pela passagem secreta. E da janela do último vagão, um lápis caiu nos trilhos.", "dur": 7.0},
-				{"d": _s_ep3_card, "txt": "A trilha continua. Episódio 3 — em breve.", "dur": 5.0},
+				{"d": _s_ep3_card, "txt": "A trilha continua. Episódio 3: O Covil do Vargas.", "dur": 5.0},
+			]
+		"ep3":
+			shots = [
+				{"d": _s_ep3_card, "txt": "Episódio 3: O Covil do Vargas.", "dur": 4.0},
+				{"d": _pic("cut_ep2fim", true), "txt": "A porta de ferro rangeu e cedeu. Lá dentro, o calor de uma fornalha e o cheiro de metal derretido.", "dur": 6.0},
+				{"d": _s_train, "txt": "Os trilhos seguiam por dentro da montanha. O trem do Vargas levava a Isis para a estação velha da serra.", "dur": 6.0},
+				{"d": _pic("cut_ep2_b", false), "txt": "— Pode correr, Vargas. Eu sigo os lápis da minha filha até o fim do mundo.", "dur": 5.0},
+			]
+		"ep3fim":
+			shots = [
+				{"d": _s_train, "txt": "Na estação velha da serra, o trem do Vargas soltava fumaça, pronto para partir...", "dur": 6.0},
+				{"d": _s_ep3_card, "txt": "Continua: o final do Episódio 3 chega nas próximas versões.", "dur": 5.0},
 			]
 		"mina":
 			shots = [

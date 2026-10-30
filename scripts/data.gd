@@ -29,6 +29,12 @@ const CLUE_INFO := {
 	10: ["O livro verdadeiro", "As contas de verdade da mina: tudo o que o Vargas desviou, anotado com a letra dele."],
 	11: ["Relógio de bolso", "Um relógio com um V gravado, parado nas seis horas: a hora em que a Isis sumiu."],
 	12: ["Chave do cofre", "Uma chave grande de latão com o brasão do Vargas. Ela abre alguma porta lá no fundo da mina."],
+	13: ["Luva de fundidor", "Uma luva de couro chamuscada, pequena demais para um homem. Enfiado no dedo, um lápis de cor: ela passou por aqui."],
+	14: ["Molde de lingote", "Um molde de ferro com a marca da companhia raspada. O Vargas derrete o ouro roubado e faz barras sem nome."],
+	15: ["Passagem de trem", "\"Carga especial — estação velha da serra, ao amanhecer\". Carimbada e assinada: A. Vargas."],
+	16: ["Bilhete da Isis", "Escrito com lápis de cor, letra torta: \"PAPAI, ELE VAI ME LEVAR NO TREM. EU DEIXO OS LÁPIS. TE AMO.\""],
+	17: ["Recibo do ouro", "Um recibo de um comprador da capital: tantas barras de ouro, pagas adiantado. O Vargas vai fugir para longe."],
+	18: ["Mapa da serra", "O caminho do trem até a estação velha, marcado a lápis. No canto, um desenho de coração: foi a Isis."],
 }
 const PEN_LIST := ["vermelho", "laranja", "amarelo", "verde", "azul", "roxo"]
 const PEN_COL := {

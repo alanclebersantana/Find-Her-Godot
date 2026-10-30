@@ -2885,10 +2885,15 @@ func _p1_post(pcx: float, _pcy: float) -> void:
 		if s.get("drain") and s.y < s.y2:
 			s.y = min(s.y2, s.y + 1.2)
 		if player.y + player.h > s.y + 14 and player.y < s.y0 + s.h and pcx > s.x and pcx < s.x + s.w and player.dyingT == 0:
-			WV.splash(pcx, s.y, 8.0)
-			Audio.play("splash")
-			burst(pcx, s.y, 14, Color("#9ab08a"))
-			die("Você afundou no brejo.")
+			if s.get("lava"):
+				Audio.play("splash")
+				burst(pcx, s.y, 18, Color("#ffb040"))
+				die("Você caiu no metal derretido.")
+			else:
+				WV.splash(pcx, s.y, 8.0)
+				Audio.play("splash")
+				burst(pcx, s.y, 14, Color("#9ab08a"))
+				die("Você afundou no brejo.")
 			return
 	# itens, pistas, lápis especiais
 	for it in ITEMS:

@@ -226,7 +226,11 @@ func post() -> void:
 				_flower(o, p, pcx, feet)
 			"wind":
 				if pcx > o.x and pcx < o.x + o.w and p.y + p.h > o.y and p.y < o.y + o.h and not p.vine and not p.ladder:
-					if p.puff:
+					if o.get("steam") and not p.onGround and (g.kd("J") or g.kd("P") or p.puff):
+						# vapor da fundição: segurando PULAR, sobe forte até perto do alto da coluna e fica boiando lá
+						var lift: float = clamp((p.y - float(o.y)) / 90.0, 0.0, 1.0)
+						p.vy = max(p.vy - float(o.pow) * (.35 + .9 * lift), -6.5 * lift - .4)
+					elif p.puff:
 						p.vy = max(p.vy - o.pow, -6.5)
 					elif not p.onGround:
 						p.vy -= o.pow * .3

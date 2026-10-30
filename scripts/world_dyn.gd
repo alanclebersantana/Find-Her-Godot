@@ -495,6 +495,9 @@ func _deco(g: Game) -> void:
 		if g.L.door.get("kind", "") == "vault":
 			if gx > cam - 300 and gx < cam + g.W + 300:
 				_vault(g.DOOR.x + 30, 500)
+		elif g.L.door.get("kind", "") == "station":
+			if gx > cam - 700 and gx < cam + g.W + 300:
+				_station(g.DOOR.x + 30, 500, float(g.T))
 		elif g.L.door.get("kind", "") == "exit":
 			# saída do túnel: o luar entrando por uma abertura na rocha
 			var ex: float = g.DOOR.x
@@ -2693,6 +2696,87 @@ func _armor(p: Dictionary, cx: float, by: float) -> void:
 
 
 ## porta redonda de ferro do cofre do Vargas (fim do Episódio 2), com o V gravado
+## a estação velha no fim do Episódio 3: a plataforma, a casinha com a placa e o trem do Vargas parado,
+## soltando fumaça (desenho provisório até a arte pintada)
+func _station(cx: float, gy: float, T: float) -> void:
+	# trilhos atrás da plataforma, até sumir à direita
+	Spr.rect(cx - 260, gy - 14, 1300, 6, Color("#3c2c20"))
+	var tk: float = cx - 250
+	while tk < cx + 1040:
+		Spr.rect(tk, gy - 12, 8, 12, Color("#5a4030"))
+		tk += 34.0
+	# a locomotiva e dois vagões (à direita da casinha)
+	var lx: float = cx + 220
+	for wg in 2:
+		var vx: float = lx + 330 + wg * 250
+		Spr.rr(vx, gy - 150, 230, 120, 8, Color("#4a3a2c"))
+		Spr.rr(vx + 6, gy - 144, 218, 108, 6, Color("#7a2e22"))
+		for jn in 3:
+			Spr.rr(vx + 18 + jn * 70, gy - 128, 48, 36, 4, Color("#f2c46a") if (wg + jn) % 2 == 0 else Color("#2a1e18"))
+		Spr.rect(vx - 2, gy - 158, 234, 10, Color("#2a201a"))
+		for wh in 2:
+			Spr.circle(vx + 46 + wh * 138, gy - 26, 22, Color("#1e1a18"))
+			Spr.circle(vx + 46 + wh * 138, gy - 26, 9, Color("#8a7a60"))
+	# cabine
+	Spr.rr(lx + 190, gy - 210, 120, 180, 6, Color("#2a201a"))
+	Spr.rr(lx + 198, gy - 200, 104, 170, 4, Color("#8c2a20"))
+	Spr.rr(lx + 214, gy - 186, 70, 56, 6, Color("#f6d27a"))
+	Spr.rect(lx + 180, gy - 226, 140, 22, Color("#2a201a"))
+	# caldeira
+	Spr.rr(lx, gy - 160, 210, 110, 50, Color("#1c1816"))
+	Spr.rr(lx + 6, gy - 152, 200, 94, 46, Color("#34302c"))
+	for rb in 3:
+		Spr.rect(lx + 50 + rb * 52, gy - 156, 8, 102, Color("#c09a4a"))
+	Spr.circle(lx + 8, gy - 105, 40, Color("#1c1816"))
+	Spr.circle(lx + 8, gy - 105, 30, Color("#5c5650"))
+	Spr.circle(lx + 8, gy - 105, 12, Color("#ffe9a0"))
+	Spr.glow(lx - 10, gy - 105, 120, Color(1, .85, .5, .3))
+	# chaminé e fumaça subindo
+	Spr.rect(lx + 40, gy - 230, 36, 76, Color("#1c1816"))
+	Spr.rect(lx + 30, gy - 244, 56, 18, Color("#1c1816"))
+	for pf in 7:
+		var ph: float = fmod(T * .9 + pf * 34.0, 238.0) / 238.0
+		var px: float = lx + 58 - ph * 140 + sin(T * .05 + pf) * 10
+		var py: float = gy - 260 - ph * 260
+		Spr.circle(px, py, 18 + ph * 46, Color(.92, .9, .88, .55 * (1.0 - ph)))
+	# limpa-trilhos e rodas grandes
+	Spr.poly(PackedVector2Array([Vector2(lx - 40, gy - 6), Vector2(lx + 10, gy - 60), Vector2(lx + 30, gy - 6)]), Color("#7a2e22"))
+	for wh in 3:
+		var wx: float = lx + 50 + wh * 76
+		Spr.circle(wx, gy - 34, 34, Color("#1e1a18"))
+		Spr.circle(wx, gy - 34, 26, Color("#a8241c"))
+		Spr.circle(wx, gy - 34, 8, Color("#1e1a18"))
+		var aa: float = T * .06 + wh
+		Spr.seg(wx, gy - 34, wx + cos(aa) * 24, gy - 34 + sin(aa) * 24, Color("#1e1a18"), 5)
+	Spr.seg(lx + 50 + cos(T * .06) * 18, gy - 34 + sin(T * .06) * 18, lx + 202 + cos(T * .06 + 2) * 18, gy - 34 + sin(T * .06 + 2) * 18, Color("#c8c0b0"), 6)
+	# plataforma de pedra
+	Spr.rect(cx - 250, gy - 34, 440, 34, Color("#2a2420"))
+	Spr.rect(cx - 246, gy - 30, 432, 26, Color("#8a8076"))
+	var st: float = cx - 246
+	while st < cx + 180:
+		Spr.rect(st, gy - 30, 3, 26, Color("#5a524a"))
+		st += 54.0
+	# casinha da estação
+	Spr.rect(cx - 210, gy - 250, 300, 220, Color("#2a1e16"))
+	Spr.rect(cx - 202, gy - 242, 284, 208, Color("#d8b98a"))
+	for pl in 9:
+		Spr.rect(cx - 202 + pl * 32, gy - 242, 3, 208, Color("#b8986a"))
+	Spr.poly(PackedVector2Array([Vector2(cx - 240, gy - 244), Vector2(cx - 60, gy - 340), Vector2(cx + 120, gy - 244)]), Color("#2a1e16"))
+	Spr.poly(PackedVector2Array([Vector2(cx - 226, gy - 250), Vector2(cx - 60, gy - 330), Vector2(cx + 106, gy - 250)]), Color("#9c3a26"))
+	Spr.rr(cx - 120, gy - 168, 70, 134, 6, Color("#2a1e16"))
+	Spr.rr(cx - 114, gy - 162, 58, 128, 4, Color("#6a4224"))
+	Spr.rr(cx - 20, gy - 190, 70, 60, 6, Color("#2a1e16"))
+	Spr.rr(cx - 14, gy - 184, 58, 48, 4, Color("#f6d27a"))
+	# a placa
+	Spr.rr(cx - 166, gy - 300, 212, 40, 6, Color("#2a1e16"))
+	Spr.rr(cx - 162, gy - 296, 204, 32, 4, Color("#efe2c0"))
+	Spr.text("ESTAÇÃO VELHA", cx - 60, gy - 272, 20, Color("#3a2414"), HORIZONTAL_ALIGNMENT_CENTER)
+	# lampião
+	Spr.rect(cx + 150, gy - 230, 6, 200, Color("#2a201a"))
+	Spr.rr(cx + 140, gy - 252, 26, 30, 4, Color("#2a201a"))
+	Spr.rr(cx + 144, gy - 248, 18, 22, 3, Color("#ffd98a"))
+	Spr.glow(cx + 153, gy - 237, 90, Color(1, .8, .4, .35))
+
 func _vault(cx: float, gy: float) -> void:
 	var cy: float = gy - 118
 	Spr.rect(cx - 150, gy - 250, 300, 250, Color("#3a3530"))

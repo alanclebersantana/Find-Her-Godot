@@ -136,6 +136,10 @@ class _Memory extends Control:
 			11: _bedroom(w, h, t)
 			12: _mill(w, h, t)
 			13: _stars(w, h, t)
+			21: _stove(w, h, t)
+			22: _boats(w, h, t)
+			23: _boxcity(w, h, t)
+			24: _treasure(w, h, t)
 		# bordas esfumaçadas
 		for i in 6:
 			var k: float = i / 6.0
@@ -291,6 +295,70 @@ class _Memory extends Control:
 		_lia(0, w * .36, h * .86, _kid(h))
 		var c: int = int(t / 50.0) % 9 + 1
 		Spr.text(str(c), w * .36, h * .3, 16, Color(.45, .25, .15), HORIZONTAL_ALIGNMENT_CENTER)
+
+	## Ep. 3 · lembrança 1: acendendo o fogão de lenha, ela soprando as brasas
+	func _stove(w: float, h: float, t: float) -> void:
+		Spr.vgrad(0, 0, w, h, Color("#5a3a24"), Color("#2a1a10"))
+		_ground(w, h, Color("#6b4a2a"))
+		var sx: float = w * .62
+		var sb: float = h * .78
+		Spr.rect(sx - 70, sb - 70, 140, 70, Color("#3a3a40"))
+		Spr.rect(sx - 70, sb - 76, 140, 8, Color("#55555c"))
+		Spr.rect(sx - 30, sb - 50, 60, 34, Color("#1a0e08"))
+		var fl: float = .7 + .3 * sin(t * .3)
+		Spr.glow(sx, sb - 34, 60 * fl, Color(1, .6, .2, .5))
+		for k in 3:
+			Spr.circle(sx - 14 + k * 14, sb - 26 - 6 * sin(t * .2 + k), 6 + 2 * fl, Color(1, .55 + .1 * k, .15, .9))
+		Spr.rect(sx + 40, sb - 140, 14, 64, Color("#2a2a30"))
+		for k in 3:
+			var u: float = fmod(t * .01 + k * .33, 1.0)
+			Spr.circle(sx + 47 + sin(u * 6.0) * 6, sb - 150 - u * 60, 6 + u * 10, Color(.8, .8, .8, .4 * (1.0 - u)))
+		Spr.frame(Spr.tex.pai, 0, 170, 160, 85, 156, w * .3, h * .86, _dad(h), false)
+		_lia(0, w * .46, h * .86, _kid(h))
+		# as bochechas cheias soprando: o arzinho chegando nas brasas
+		var u2: float = fmod(t * .03, 1.0)
+		Spr.circle(w * .5 + u2 * (sx - 30 - w * .5), h * .62, 3, Color(1, 1, 1, .6 * (1.0 - u2)))
+
+	## Ep. 3 · lembrança 2: barquinhos de papel no riacho depois da chuva
+	func _boats(w: float, h: float, t: float) -> void:
+		Spr.vgrad(0, 0, w, h * .7, Color("#a8c8e0"), Color("#e8eef0"))
+		_ground(w, h, Color("#7aa060"))
+		Spr.rect(0, h * .72, w, h * .1, Color("#6aa0c8"))
+		for k in 2:
+			var bx: float = fmod(t * (.6 + k * .25) + k * 120.0, w + 80) - 40
+			var by: float = h * .74 + sin(t * .1 + k) * 2
+			Spr.poly(PackedVector2Array([Vector2(bx - 18, by), Vector2(bx + 18, by), Vector2(bx + 12, by + 8), Vector2(bx - 12, by + 8)]), Color(1, 1, 1))
+			Spr.poly(PackedVector2Array([Vector2(bx - 8, by), Vector2(bx, by - 16), Vector2(bx + 8, by)]), Color(.95, .95, .9) if k == 0 else Color(1, .85, .8))
+		Spr.frame(Spr.tex.pai, 0, 170, 160, 85, 156, w * .22, h * .72, _dad(h), false)
+		_lia(0, w * .34, h * .72, _kid(h))
+
+	## Ep. 3 · lembrança 3: a cidade de caixas de fósforo no chão do quintal
+	func _boxcity(w: float, h: float, t: float) -> void:
+		Spr.vgrad(0, 0, w, h * .8, Color("#f0d8a8"), Color("#f8ecd0"))
+		_ground(w, h, Color("#c8a878"))
+		var cols := [Color("#d85a40"), Color("#4a8ad0"), Color("#e8c040"), Color("#5aa050"), Color("#a060c0")]
+		for k in 7:
+			var bx: float = w * .4 + k * 26
+			var bh: float = 18 + fmod(k * 13.0, 22.0)
+			Spr.rect(bx, h * .78 - bh, 22, bh, cols[k % cols.size()])
+			Spr.rect(bx + 6, h * .78 - bh + 5, 6, 6, Color(1, 1, .8))
+		Spr.frame(Spr.tex.pai, 0, 170, 160, 85, 156, w * .2, h * .86, _dad(h), false)
+		_lia(0, w * .32, h * .86, _kid(h))
+
+	## Ep. 3 · lembrança 4: a lata de biscoito com os tesouros dela
+	func _treasure(w: float, h: float, t: float) -> void:
+		Spr.vgrad(0, 0, w, h, Color("#e8c890"), Color("#c8a070"))
+		_ground(w, h, Color("#8a6040"))
+		var lx: float = w * .6
+		var ly: float = h * .78
+		Spr.ellipse(lx, ly - 4, 50, 10, Color("#4a6aa0"))
+		Spr.rect(lx - 50, ly - 34, 100, 30, Color("#5a7ab0"))
+		Spr.ellipse(lx, ly - 34, 50, 10, Color("#7a9ad0"))
+		for k in 5:
+			var a: float = k * 1.3 + t * .01
+			Spr.circle(lx - 30 + k * 15, ly - 40 - abs(sin(a)) * 4, 5, [Color("#e04a3a"), Color("#f2cc2e"), Color("#f6f0e0"), Color("#4caf50"), Color("#8e4ec6")][k])
+		Spr.frame(Spr.tex.pai, 0, 170, 160, 85, 156, w * .24, h * .86, _dad(h), false)
+		_lia(0, w * .38, h * .86, _kid(h))
 
 	## lembrança 3: no telhado do galpão vendo as estrelas
 	func _stars(w: float, h: float, t: float) -> void:

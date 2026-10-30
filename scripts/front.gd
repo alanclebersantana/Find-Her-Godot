@@ -22,7 +22,7 @@ const LZ_P := [.18, .35, .9]
 ## cor das silhuetas da frente em cada cenário (misturada pelos pesos: sem salto na troca)
 const SIL := {"bosque": Color(.07, .13, .05), "tarde": Color(.14, .08, .04), "moinho": Color(.13, .09, .04),
 	"pantano": Color(.04, .09, .07), "noite": Color(.02, .03, .06), "vila": Color(.02, .03, .06),
-	"neve": Color(.55, .62, .78), "mina": Color(.05, .035, .025), "esconderijo": Color(.05, .035, .025)}
+	"neve": Color(.55, .62, .78), "mina": Color(.05, .035, .025), "esconderijo": Color(.05, .035, .025), "caverna": Color(.02, .04, .06)}
 ## folhas de cada cenário
 const LEAF_C := {
 	"bosque": [Color(.42, .6, .2), Color(.55, .7, .3), Color(.36, .52, .2), Color(.48, .66, .24), Color(.85, .75, .25)],

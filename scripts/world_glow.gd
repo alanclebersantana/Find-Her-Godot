@@ -35,6 +35,45 @@ func _draw() -> void:
 	__draw_raw()
 	Spr.pt("glow", __t)
 
+## metal derretido (Ep. 3): laranja incandescente, crosta escura boiando, bolhas grossas que estouram,
+## faíscas subindo e o calor iluminando tudo em volta (desenhado acima da escuridão: ele brilha)
+func _lava(a: float, b: float, s: Dictionary, depth: float, T: int) -> void:
+	var y: float = float(s.y)
+	Spr.vgrad(a, y, b - a, depth, Color(1.0, .62, .14), Color(.55, .08, .02))
+	Spr.rect(a, y, b - a, 5, Color(1, .92, .55))
+	# placas de crosta escura indo devagar para um lado
+	var ck: float = floor((a - fmod(T * .25, 140.0)) / 140.0) * 140.0
+	while ck < b + 140.0:
+		var cx: float = ck + fmod(T * .25, 140.0) + WorldExtras.h(ck, 31) * 50.0
+		var cw: float = 30.0 + WorldExtras.h(ck, 32) * 36.0
+		if cx - cw > a and cx + cw < b and cx > s.x + 20 and cx < s.x + s.w - 20:
+			Spr.ellipse(cx, y + 7, cw, 4.5, Color(.35, .08, .02, .75))
+			Spr.ellipse(cx - cw * .3, y + 6, cw * .35, 1.6, Color(1, .7, .3, .5))
+		ck += 140.0
+	# bolhas grossas
+	var bx: float = floor(a / 58.0) * 58.0
+	while bx < b:
+		var ph: float = fmod(T * .009 + bx * .0173, 1.0)
+		var px: float = bx + sin(bx * .9) * 16
+		if px > a + 6 and px < b - 6:
+			var r: float = 4.0 + fmod(bx * .41, 5.0)
+			if ph < .7:
+				var by: float = y + 30 - ph / .7 * 30
+				Spr.circle(px, by, r, Color(1, .8, .3, .7))
+			else:
+				var u: float = (ph - .7) / .3
+				Spr.ring(px, y - 2, r + u * 10, Color(1, .85, .4, .8 * (1.0 - u)), 2)
+				Spr.circle(px + u * 6, y - 4 - u * 20, 2, Color(1, .9, .5, 1.0 - u))
+		bx += 58.0
+	# brilho do calor por cima e faíscas subindo
+	Spr.vgrad(a, y - 70, b - a, 70, Color(1, .45, .1, 0), Color(1, .5, .12, .28))
+	for k in 6:
+		var fx: float = s.x + fposmod(k * 97.0 + T * .7, max(20.0, float(s.w)))
+		if fx < a or fx > b:
+			continue
+		var u2: float = fposmod(T * .012 + k * .31, 1.0)
+		Spr.circle(fx + sin(T * .05 + k) * 8, y - u2 * 140.0, 1.8, Color(1, .8, .35, 1.0 - u2))
+
 func __draw_raw() -> void:
 	if game == null or not game.L:
 		return
@@ -153,6 +192,9 @@ func __draw_raw() -> void:
 		if b5 <= a:
 			continue
 		var depth: float = max(30, s.y0 + s.h - s.y)
+		if s.get("lava"):
+			_lava(a, b5, s, depth, T)
+			continue
 		# água tóxica (verde ácido): aqui o Tomé afunda — bem diferente da água azul onde dá para nadar
 		_water(g, a, b5, s.y, depth, Color(.42, .86, .16, .9), Color(.08, .26, .04, .97), T, false, 0.0, "s%d" % g.SWAMP.find(s), s.x, s.x + s.w)
 		if not s.get("fumes"):

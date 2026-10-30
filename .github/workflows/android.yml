@@ -75,6 +75,9 @@ jobs:
       - name: Teste automático (Episódio 2 do começo ao fim)
         run: ~/godot/godot --headless --path . -s tests/route2.gd
 
+      - name: Teste automático (Episódio 3 do começo ao fim)
+        run: ~/godot/godot --headless --path . -s tests/route3.gd
+
       - name: Teste automático (Epílogo do Episódio 2 — a fuga da Isis)
         run: ~/godot/godot --headless --path . -s tests/isis_test.gd
 

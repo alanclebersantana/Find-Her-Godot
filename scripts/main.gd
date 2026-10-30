@@ -251,6 +251,13 @@ func _build_world() -> void:
 		lights.append({"n": _light(Color(1, .7, .35), 140), "chk": c})
 	for s in game.SPR:
 		lights.append({"n": _light(Color(.45, .75, 1), 110), "pos": Vector2(s.x, s.y - 30)})
+	# metal derretido (Ep. 3): o calor ilumina em volta, laranja
+	for sw in game.SWAMP:
+		if sw.get("lava"):
+			var lx: float = float(sw.x) + 90.0
+			while lx < float(sw.x) + float(sw.w):
+				lights.append({"n": _light(Color(1, .5, .16), 170), "pos": Vector2(lx, float(sw.y) - 10)})
+				lx += 220.0
 	lights.append({"n": _light(Color(1, .8, .5), 150), "pos": Vector2(game.DOOR.x + 30, game.DOOR.y + 20), "door": true})
 	lights.append({"n": _light(Color(1, .85, .55), 100), "vil": true})
 	# cone de luz quente da lanterna, para o lado em que o Tomé olha
@@ -1250,7 +1257,7 @@ func show_title() -> void:
 	panel.move_child(img, 0)
 	vb.add_child(_label("ENCONTRE-A", 68, Color("#f2d28a"), Spr.font_title))
 	var eps: int = int(Save.getv("prog", "eps", 1))
-	vb.add_child(_label("EPISÓDIO 1 · O BOSQUE" if eps < 2 else "EPISÓDIOS 1 E 2", 22, Color("#e8c98a"), Spr.font_title))
+	vb.add_child(_label("EPISÓDIO 1 · O BOSQUE" if eps < 2 else ("EPISÓDIOS 1 E 2" if eps < 3 else "EPISÓDIOS 1, 2 E 3"), 22, Color("#e8c98a"), Spr.font_title))
 	if OS.has_feature("teste"):
 		vb.add_child(_label("VERSÃO DE TESTE · todos os episódios liberados", 13, Color("#ffb070"), Spr.font_b))
 	vb.add_child(_label("Levaram a Isis. Siga a trilha dos lápis de cor.", 18, Color("#e8dcc0"), Spr.font_i))
@@ -1318,7 +1325,8 @@ func _confirm_wipe(next: Callable, back: Callable) -> void:
 	_confirm("COMEÇAR DE NOVO?", "O progresso salvo na última fogueira será apagado. Isso não tem volta.", "APAGAR E COMEÇAR", next, back)
 
 ## escolher o episódio (aparece depois de terminar o primeiro)
-const EPISODES := [["EPISÓDIO 1 · O BOSQUE", "Do bosque até a boca da mina."], ["EPISÓDIO 2 · AS PROFUNDEZAS DA MINA", "Túneis, o moinho, os telhados da vila, o carrinho nos trilhos e a fuga da Isis."]]
+const EPISODES := [["EPISÓDIO 1 · O BOSQUE", "Do bosque até a boca da mina."], ["EPISÓDIO 2 · AS PROFUNDEZAS DA MINA", "Túneis, o moinho, os telhados da vila, o carrinho nos trilhos e a fuga da Isis."],
+	["EPISÓDIO 3 · O COVIL DO VARGAS", "A fundição, o rio subterrâneo, a cidade abandonada, o cofre e a fuga ao amanhecer."]]
 func _choose_episode() -> void:
 	var vb := _overlay(.9)
 	vb.add_child(_label("ESCOLHA O EPISÓDIO", 30, GOLD, Spr.font_title))
@@ -1609,7 +1617,7 @@ func start_level(cont: bool, lvl: int = 0) -> void:
 	if cont:
 		show_intro(true)
 	else:
-		var cut: String = "abertura" if game.level_idx == 0 else "ep2"
+		var cut: String = ["abertura", "ep2", "ep3"][clampi(game.level_idx, 0, 2)]
 		if game.level_idx > 0 and Save.getv("opt", "tut_asked", false):
 			play_cut(cut, func(): show_intro(false))
 		else:
@@ -1693,7 +1701,7 @@ func _on_rest(n: int) -> void:
 		if d.got:
 			found += 1
 	sc.show_dog = game.L.has("dog")
-	sc.setup(n + (10 if game.level_idx == 1 else 0), found)
+	sc.setup(n + 10 * game.level_idx, found)
 	root.add_child(sc)
 	var info: Array = REST_INFO.get(n, REST_INFO[1])
 	var lr: Dictionary = game.L.get("rests", {})
@@ -2298,8 +2306,10 @@ func play_cut(id: String, after: Callable) -> void:
 		Audio.set_song("vitoria")
 	elif id == "posfinal":
 		Audio.set_song("tunel")
-	elif id in ["ep2", "ep2fim"]:
+	elif id in ["ep2", "ep2fim", "ep3"]:
 		Audio.set_song("tunel")
+	elif id == "ep3fim":
+		Audio.set_song("tema")
 	elif id in ["isis", "isis_fim"]:
 		Audio.set_song("noite")
 	var c := preload("res://scripts/ui/cutscene.gd").new(id)
@@ -2312,7 +2322,7 @@ func _on_level_end() -> void:
 		# fim da fuga da Isis (último trecho do Episódio 2): o Vargas a pegou — gancho para o Episódio 3
 		play_cut("isis_fim", _on_results)
 		return
-	play_cut("mina" if game.level_idx == 0 else "ep2fim", _on_results)
+	play_cut(["mina", "ep2fim", "ep3fim"][clampi(game.level_idx, 0, 2)], _on_results)
 
 ## Episódio 2: o Tomé chegou à porta de ferro. Cena da porta, cena da Isis do outro lado,
 ## e o último trecho do episódio é jogado com ela
@@ -2499,11 +2509,11 @@ func show_gallery(ep: int = 1) -> void:
 	vb.add_child(cl)
 	var best := Save.best(ep - 1)
 	if not best.is_empty():
-		vb.add_child(_label("Melhor resultado %s: %s   ·   lápis %d   ·   pistas %d/6" % ["no Bosque" if ep == 1 else "na Mina", "★".repeat(int(best.get("stars", 0))), int(best.get("pen", 0)), int(best.get("clues", 0))], 14, Color("#ffd76a")))
+		vb.add_child(_label("Melhor resultado %s: %s   ·   lápis %d   ·   pistas %d/6" % [["no Bosque", "na Mina", "no Covil"][clampi(ep - 1, 0, 2)], "★".repeat(int(best.get("stars", 0))), int(best.get("pen", 0)), int(best.get("clues", 0))], 14, Color("#ffd76a")))
 	var b := HBoxContainer.new()
 	b.alignment = BoxContainer.ALIGNMENT_CENTER
 	b.add_theme_constant_override("separation", 10)
-	var rb := _button("REVER ABERTURA", func(): play_cut("abertura" if ep == 1 else "ep2", show_title))
+	var rb := _button("REVER ABERTURA", func(): play_cut(["abertura", "ep2", "ep3"][clampi(ep - 1, 0, 2)], show_title))
 	rb.custom_minimum_size = Vector2(200, 44)
 	b.add_child(rb)
 	var back := func():
@@ -2629,6 +2639,8 @@ func _on_results() -> void:
 	var story := "Agora eu sei: foi Ademar Vargas, o gerente que roubava a mina. Ele levou a Isis para se vingar. Vou atrás dele — mina adentro." if nc == 6 else "Ele fugiu para a mina. Ainda faltam pistas para ter certeza de quem é... (%d/6)" % nc
 	if lvl == 1:
 		story = "O ouro roubado, o livro-caixa, a chave do cofre... Vargas está escondendo a Isis no fundo da mina. Eu vou buscá-la." if nc == 6 else "Ele desceu ainda mais fundo. Ainda faltam pistas... (%d/6)" % nc
+	elif lvl == 2:
+		story = "A passagem do trem, o recibo do ouro, o bilhete dela... Agora eu sei para onde o Vargas está indo. Ele não vai escapar." if nc == 6 else "O trem do Vargas está logo ali. Ainda faltam pistas... (%d/6)" % nc
 	vb.add_child(_label(story, 15, Color("#e8dcc0"), Spr.font_i, 700))
 	var cont: Callable
 	if lvl == 0:
@@ -2636,11 +2648,16 @@ func _on_results() -> void:
 		Save.setv("prog", "eps", max(2, int(Save.getv("prog", "eps", 1))))
 		cont = func(): play_cut("posfinal", func(): start_level(false, 1))
 		vb.add_child(_button("CONTINUAR", cont))
+	elif lvl == 1:
+		# o Episódio 3 fica liberado e começa logo depois
+		Save.setv("prog", "eps", max(3, int(Save.getv("prog", "eps", 1))))
+		cont = func(): start_level(false, 2)
+		vb.add_child(_button("CONTINUAR", cont))
 	else:
 		var brow := HBoxContainer.new()
 		brow.alignment = BoxContainer.ALIGNMENT_CENTER
 		brow.add_theme_constant_override("separation", 16)
-		brow.add_child(_label("O Episódio 3 chega em breve.", 13, Color(.75, .7, .6), Spr.font_i))
+		brow.add_child(_label("Versão de teste do Episódio 3: o final chega nas próximas versões.", 13, Color(.75, .7, .6), Spr.font_i))
 		cont = show_title
 		brow.add_child(_button("CONTINUAR", cont))
 		vb.add_child(brow)
@@ -2658,6 +2675,9 @@ class _FinalDrawing extends Control:
 	func _draw() -> void:
 		if ep == 2:
 			_draw_mill()
+			return
+		if ep == 3:
+			_draw_train()
 			return
 		var w := 300.0
 		var h := 170.0
@@ -2717,6 +2737,46 @@ class _FinalDrawing extends Control:
 			draw_polyline(PackedVector2Array([b[0], b[1], b[2], b[0]]), ink, 3)
 		draw_line(Vector2(w * .42 + 8, h * .6 - 10), Vector2(w * .52 - 8, h * .6 - 6), ink, 3)
 		var txt := "\"O moinho do domingo\" — Isis" if specs.size() == 6 else "Faltam cores: %d" % (6 - specs.size())
+		draw_string(Spr.font_i, Vector2(10, h - 8), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, ink)
+
+	## desenho do Episódio 3: o trem saindo da montanha ao amanhecer, e os dois na estação
+	func _draw_train() -> void:
+		var w := 300.0
+		var h := 170.0
+		var ink := Color("#3a2a1a")
+		draw_rect(Rect2(-3, -3, w + 6, h + 6), Color("#6b4a2a"))
+		draw_rect(Rect2(0, 0, w, h * .64), colr("laranja"))
+		draw_rect(Rect2(0, h * .64, w, h * .36), colr("verde"))
+		draw_line(Vector2(0, h * .64), Vector2(w, h * .64), ink, 3)
+		# o sol nascendo atrás da montanha
+		draw_circle(Vector2(w * .78, h * .5), 26, colr("amarelo"))
+		draw_arc(Vector2(w * .78, h * .5), 26, PI, TAU, 24, ink, 3)
+		var mt := PackedVector2Array([Vector2(w * .55, h * .64), Vector2(w * .82, h * .22), Vector2(w * 1.02, h * .64)])
+		draw_colored_polygon(mt, colr("roxo"))
+		draw_polyline(PackedVector2Array([mt[0], mt[1], mt[2]]), ink, 3)
+		# trilhos e o trem
+		draw_line(Vector2(0, h * .74), Vector2(w, h * .74), ink, 2)
+		for k in 12:
+			draw_line(Vector2(k * 26 + 4, h * .71), Vector2(k * 26 + 4, h * .77), ink, 2)
+		draw_rect(Rect2(w * .08, h * .5, 70, 30), colr("vermelho"))
+		draw_rect(Rect2(w * .08, h * .5, 70, 30), ink, false, 3)
+		draw_rect(Rect2(w * .08 + 48, h * .38, 16, 14), colr("azul"))
+		draw_rect(Rect2(w * .08 + 48, h * .38, 16, 14), ink, false, 3)
+		for cx in [w * .08 + 14, w * .08 + 54]:
+			draw_circle(Vector2(cx, h * .72), 8, Color("#2a2018"))
+		for k in 3:
+			draw_circle(Vector2(w * .08 + 60 + k * 10, h * .3 - k * 9), 6 + k * 2, Color(1, 1, 1, .8))
+		# os dois de mãos dadas
+		for f in [[w * .5, 1.3, "azul"], [w * .6, .95, "vermelho"]]:
+			var x: float = f[0]
+			var sc: float = f[1]
+			draw_circle(Vector2(x, h * .62 - 30 * sc), 10 * sc, colr(f[2]))
+			draw_arc(Vector2(x, h * .62 - 30 * sc), 10 * sc, 0, TAU, 24, ink, 3)
+			var b := PackedVector2Array([Vector2(x, h * .62 - 20 * sc), Vector2(x - 14 * sc, h * .62 + 18 * sc), Vector2(x + 14 * sc, h * .62 + 18 * sc)])
+			draw_colored_polygon(b, colr(f[2]))
+			draw_polyline(PackedVector2Array([b[0], b[1], b[2], b[0]]), ink, 3)
+		draw_line(Vector2(w * .5 + 8, h * .62 - 10), Vector2(w * .6 - 8, h * .62 - 6), ink, 3)
+		var txt := "\"Indo para casa\" — Isis" if specs.size() == 6 else "Faltam cores: %d" % (6 - specs.size())
 		draw_string(Spr.font_i, Vector2(10, h - 8), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, ink)
 
 # ---------- fim de jogo ----------

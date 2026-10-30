@@ -93,9 +93,20 @@ func _initialize() -> void:
 	await process_frame
 	if not _press("CONTINUAR"):
 		fails.append("sem CONTINUAR no fim do Ep. 2")
+	for i in 6:
+		await process_frame
+		_end_cuts()
+	await process_frame
+	# o fim do Ep. 2 libera o Ep. 3, que começa em seguida (depois da abertura dele)
+	if int(Sv.getv("prog", "eps", 1)) < 3:
+		fails.append("o Ep. 3 não ficou liberado")
+	if m.game.level_idx != 2:
+		fails.append("depois do Ep. 2 não começou o Ep. 3 (nível %d)" % m.game.level_idx)
+	m.game.running = false
+	m.show_title()
 	await process_frame
 	if m.state != m.S.TITLE:
-		fails.append("depois do Ep. 2 não voltou ao início (estado %d)" % m.state)
+		fails.append("não voltou ao início (estado %d)" % m.state)
 	if not _press("ESCOLHER EPISÓDIO"):
 		fails.append("sem ESCOLHER EPISÓDIO no início")
 	await process_frame
@@ -104,5 +115,18 @@ func _initialize() -> void:
 	await process_frame
 	if m.game.level_idx != 1:
 		fails.append("escolha do Ep. 2 não abriu a fase")
+	m.game.running = false
+	m.show_title()
+	await process_frame
+	_press("ESCOLHER EPISÓDIO")
+	await process_frame
+	if not _press("EPISÓDIO 3"):
+		fails.append("sem botão do Episódio 3")
+	for i in 6:
+		await process_frame
+		_end_cuts()
+	await process_frame
+	if m.game.level_idx != 2:
+		fails.append("escolha do Ep. 3 não abriu a fase")
 	print("EP FALHAS: ", fails.size(), " ", fails)
 	quit(1 if fails.size() > 0 else 0)
