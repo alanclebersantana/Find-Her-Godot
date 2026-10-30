@@ -58,12 +58,12 @@
   {
    "x": 0,
    "song": "tunel",
-   "bg": "mina",
+   "bg": "fundicao",
    "gt": "mina",
    "dark": 0.4,
    "night": 1,
    "per": 0,
-   "tint": "rgba(255,110,30,.20)",
+   "tint": "rgba(255,110,30,.07)",
    "forge": 1
   },
   {
@@ -80,7 +80,7 @@
   {
    "x": 18400,
    "song": "noite",
-   "bg": "vila",
+   "bg": "cidade",
    "gt": "vila",
    "night": 1,
    "dark": 0.45,
@@ -92,7 +92,7 @@
   {
    "x": 27600,
    "song": "tunel",
-   "bg": "esconderijo",
+   "bg": "cofre",
    "gt": "mina",
    "dark": 0.45,
    "night": 1,
@@ -102,9 +102,9 @@
   {
    "x": 33800,
    "song": "tema",
-   "bg": "bosque",
+   "bg": "amanhecer",
    "per": 4,
-   "tint": "rgba(255,140,110,.22)",
+   "tint": "rgba(255,170,130,.08)",
    "dawn": 1
   }
  ],

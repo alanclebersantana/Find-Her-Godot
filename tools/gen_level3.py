@@ -115,8 +115,8 @@ def steam(x, w=80, top=-40, pow_=1.0):
 #  A · A FUNDIÇÃO  (0 .. 9200)
 # ======================================================================
 A1 = 9200
-L["sections"].append({"x": 0, "song": "tunel", "bg": "mina", "gt": "mina", "dark": .4, "night": 1, "per": 0,
-                      "tint": "rgba(255,110,30,.20)", "forge": 1})
+L["sections"].append({"x": 0, "song": "tunel", "bg": "fundicao", "gt": "mina", "dark": .4, "night": 1, "per": 0,
+                      "tint": "rgba(255,110,30,.07)", "forge": 1})
 L["darkZones"].append({"x": 0, "w": A1, "dark": .62})
 rock(-200, 1500, -620, -40, True)
 rock(1500, 2750, -620, -160, True)
@@ -239,7 +239,7 @@ check(18000, GY, 2)
 #  C · A CIDADE ABANDONADA  (18400 .. 27600)
 # ======================================================================
 C0 = B1
-L["sections"].append({"x": C0, "song": "noite", "bg": "vila", "gt": "vila", "night": 1, "dark": .45, "per": 2,
+L["sections"].append({"x": C0, "song": "noite", "bg": "cidade", "gt": "vila", "night": 1, "dark": .45, "per": 2,
                       "tint": "rgba(25,30,60,.42)", "leaves": 4, "flock": "bats"})
 L["darkZones"].append({"x": C0, "w": 9200, "dark": .55})
 rock(C0, C0 + 9200, -620, -500, True)          # o teto da caverna enorme, lá no alto
@@ -373,7 +373,7 @@ check(27300, PY, 3)
 #  D · O COFRE  (27600 .. 33800)
 # ======================================================================
 D0, D1 = 27600, 33800
-L["sections"].append({"x": D0, "song": "tunel", "bg": "esconderijo", "gt": "mina", "dark": .45, "night": 1, "per": 3,
+L["sections"].append({"x": D0, "song": "tunel", "bg": "cofre", "gt": "mina", "dark": .45, "night": 1, "per": 3,
                       "tint": "rgba(110,80,20,.18)"})
 L["darkZones"].append({"x": D0, "w": D1 - D0, "dark": .6})
 # o salão do cofre fica lá no alto: a entrada desce em degraus do barranco até o chão
@@ -429,7 +429,7 @@ check(D0 + 5480)
 #  E · A FUGA AO AMANHECER  (o carrinho atrás do trem)
 # ======================================================================
 E0 = D1
-L["sections"].append({"x": E0, "song": "tema", "bg": "bosque", "per": 4, "tint": "rgba(255,140,110,.22)", "dawn": 1})
+L["sections"].append({"x": E0, "song": "tema", "bg": "amanhecer", "per": 4, "tint": "rgba(255,170,130,.08)", "dawn": 1})
 CART_X = E0 + 200
 ground(D1, CART_X + 400)
 check(E0 + 60, GY, 4)

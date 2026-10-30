@@ -11,7 +11,8 @@ var grade: Node2D
 ## acerto de cor por cenário (multiplica a tela; 1 = sem mudança). Bem de leve.
 const GRADE := {"bosque": Color(1, .995, .965), "tarde": Color(1, .965, .9), "pantano": Color(.94, .975, .955),
 	"noite": Color(.9, .93, 1), "neve": Color(.965, .98, 1), "mina": Color(1, .95, .88), "moinho": Color(1, .965, .9),
-	"vila": Color(.9, .93, 1), "esconderijo": Color(1, .95, .88), "caverna": Color(.92, .97, 1)}
+	"vila": Color(.9, .93, 1), "esconderijo": Color(1, .95, .88), "caverna": Color(.92, .97, 1),
+	"fundicao": Color(1, .94, .86), "cidade": Color(.9, .93, 1), "cofre": Color(1, .96, .88), "amanhecer": Color(1, .97, .94)}
 
 class _Sub extends Node2D:
 	var cb: Callable

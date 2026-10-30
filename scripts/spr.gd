@@ -79,7 +79,7 @@ func _ready() -> void:
 			tex[k] = load(ep)
 	for k in ["pai", "pai2", "javali", "chao", "tronco", "galho", "filha", "vigia", "cao", "vargas_pe", "isis2", "pai_climb", "pai_rope_a", "pai_rope_b", "pai_vine_a", "pai_vine_b", "gaviao", "bagre"]:
 		tex[k] = load("res://assets/sprites/%s.png" % k)
-	for k in ["bosque", "tarde", "pantano", "noite", "neve", "mina", "moinho", "vila", "esconderijo", "caverna"]:
+	for k in ["bosque", "tarde", "pantano", "noite", "neve", "mina", "moinho", "vila", "esconderijo", "caverna", "fundicao", "cidade", "cofre", "amanhecer"]:
 		tex["bg_" + k] = load("res://assets/bg/%s.jpg" % k)
 		# cenário em camadas pintadas (opcional): assets/bg/<trecho>/1_ceu.jpg, 2_longe.png, 3_meio.png, 4_perto.png
 		var layers: Array = []

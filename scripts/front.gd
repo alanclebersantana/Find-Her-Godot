@@ -22,7 +22,8 @@ const LZ_P := [.18, .35, .9]
 ## cor das silhuetas da frente em cada cenário (misturada pelos pesos: sem salto na troca)
 const SIL := {"bosque": Color(.07, .13, .05), "tarde": Color(.14, .08, .04), "moinho": Color(.13, .09, .04),
 	"pantano": Color(.04, .09, .07), "noite": Color(.02, .03, .06), "vila": Color(.02, .03, .06),
-	"neve": Color(.55, .62, .78), "mina": Color(.05, .035, .025), "esconderijo": Color(.05, .035, .025), "caverna": Color(.02, .04, .06)}
+	"neve": Color(.55, .62, .78), "mina": Color(.05, .035, .025), "esconderijo": Color(.05, .035, .025), "caverna": Color(.02, .04, .06),
+	"fundicao": Color(.06, .03, .02), "cidade": Color(.02, .03, .06), "cofre": Color(.05, .035, .02), "amanhecer": Color(.1, .08, .12)}
 ## folhas de cada cenário
 const LEAF_C := {
 	"bosque": [Color(.42, .6, .2), Color(.55, .7, .3), Color(.36, .52, .2), Color(.48, .66, .24), Color(.85, .75, .25)],
@@ -30,9 +31,10 @@ const LEAF_C := {
 	"moinho": [Color(.93, .66, .24), Color(.85, .45, .18), Color(.95, .8, .35), Color(.6, .62, .25)],
 	"pantano": [Color(.3, .38, .2), Color(.4, .42, .22), Color(.46, .36, .2)],
 	"noite": [Color(.3, .34, .2), Color(.4, .3, .16)], "vila": [Color(.4, .3, .16), Color(.3, .34, .2)],
-	"neve": [Color(.55, .42, .28), Color(.62, .5, .32)]}
+	"neve": [Color(.55, .42, .28), Color(.62, .5, .32)],
+	"amanhecer": [Color(.42, .6, .2), Color(.55, .7, .3), Color(.9, .6, .3)]}
 ## quantas folhas de cada cenário (sem vento)
-const LEAF_N := {"bosque": 10.0, "tarde": 14.0, "moinho": 12.0, "pantano": 6.0, "noite": 4.0, "vila": 4.0, "neve": 3.0}
+const LEAF_N := {"bosque": 10.0, "tarde": 14.0, "moinho": 12.0, "pantano": 6.0, "noite": 4.0, "vila": 4.0, "neve": 3.0, "amanhecer": 8.0}
 const SHADOW_C := {"bosque": Color(0, .02, .08), "tarde": Color(.12, .02, .1), "moinho": Color(.1, .03, .08), "neve": Color(0, .05, .2)}
 
 var _hide := false        # debaixo da terra, dentro da mina/túnel ou com a cabeça na água
@@ -362,7 +364,7 @@ func __draw_raw() -> void:
 	# folhas (e flocos de neve) — longe, meio e perto
 	var snowing: bool = snow > .3
 	var fall: float = g.AMB.get("snowfall", snow)
-	var night: float = FxClock.wsum(nw, ["noite", "vila"])
+	var night: float = FxClock.wsum(nw, ["noite", "vila", "cidade"])
 	var rain: float = clamp(g.AMB.rain, 0, 1)
 	for zi in 3:
 		for l in leaves:
