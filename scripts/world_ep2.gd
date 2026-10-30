@@ -14,6 +14,19 @@ static func lamps(g: Game, h: Dictionary, T: int) -> void:
 	if h.is_empty() or not h.has("lamps"):
 		return
 	var near = Ep2Bosses.near_lamp(g, g.K)
+	# estalactites caindo (com sombra no chão durante o aviso)
+	for st in h.get("stal", []):
+		var sx: float = float(st.x)
+		var sy: float = float(st.y)
+		if st.st == "warn":
+			var sk: float = clamp(st.t / 46.0, 0, 1)
+			Spr.ellipse(sx, float(h.gy) + 1, 10 + 16 * sk, 4, Color(0, 0, 0, .25 + .3 * sk))
+			sx += sin(T * 1.3) * 1.5 * sk
+		Spr.poly(PackedVector2Array([Vector2(sx - 15, sy - 4), Vector2(sx + 15, sy - 4), Vector2(sx, sy + 46)]), OL)
+		Spr.poly(PackedVector2Array([Vector2(sx - 11, sy - 2), Vector2(sx + 11, sy - 2), Vector2(sx, sy + 40)]), Color("#8a7e6e"))
+		Spr.poly(PackedVector2Array([Vector2(sx - 4, sy - 2), Vector2(sx + 3, sy - 2), Vector2(sx - 1, sy + 30)]), Color("#b0a492"))
+	# o morcego soprando a lamparina: a chama tremendo
+	var blowing: Dictionary = h.get("tl", {}) if h.st == "snuff" and int(h.get("blow", 0)) > 0 else {}
 	for l in h.lamps:
 		var x: float = l.x
 		var y: float = l.y
@@ -31,6 +44,8 @@ static func lamps(g: Game, h: Dictionary, T: int) -> void:
 		Spr.seg(lx, y - 88, lx + sw, ly - 12, OL, 2)
 		Spr.rr(lx + sw - 9, ly - 12, 18, 24, 3, OL)
 		var k: float = float(l.k)
+		if not blowing.is_empty() and blowing == l:
+			k *= .45 + .55 * abs(sin(T * .7))
 		var glass := Color(.18, .16, .12).lerp(Color(1, .86, .5), k)
 		Spr.rr(lx + sw - 7, ly - 10, 14, 19, 2, glass)
 		Spr.rect(lx + sw - 9, ly - 14, 18, 4, IRON)

@@ -137,6 +137,23 @@ func _initialize() -> void:
 					bb.sx = bb.x - 150
 					if pr[1] == "enguia" and pr[2] in ["swim", "warn"]:
 						bb.y = float(bb.surf) + 46
+					if pr[1] == "enguia":
+						bb.tp = 0
+						bb.hits_now = 0
+						bb.side = -1
+						bb.hx = bb.x
+						bb.hy = bb.y
+						var gx0: float = float(pr[3]) if pr.size() > 3 else 19515.0
+						if pr[2] == "warn":
+							bb.x = gx0
+							bb.y = float(bb.surf) - 6
+							bb.hx = bb.x
+							bb.hy = bb.y - 30
+						elif pr[2] == "stuck":
+							bb.x = gx0
+							bb.hx = gx0 + 93.0
+							bb.tp = 1
+							bb.hy = float(bb.ptop) - 18
 					for t3 in g.K.B3.TANKS:
 						if pr.size() > 4 and pr[4] == "pour":
 							t3.st = "pour"

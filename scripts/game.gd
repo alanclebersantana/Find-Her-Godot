@@ -7,6 +7,7 @@ signal clue_opened(id: int)
 signal bag_wanted(l: Dictionary)   # perto de uma trava com as peças soltas: abrir a mochila para juntar
 signal results_ready
 signal isis_start      # Episódio 2: o Tomé chegou à porta de ferro — agora se joga com a Isis
+signal isis_done       # Episódio 3: a Isis puxou o freio do trem — volta o Tomé, para a luta com o Vargas
 signal game_over
 signal level_won
 signal rest_reached(n: int)
@@ -163,6 +164,7 @@ func _ready() -> void:
 #  CARREGAR
 # ======================================================================
 func load_level(i: int) -> void:
+	brakeT = -1
 	HEAT = 0.0
 	Polish.reset(self)
 	DIPS = []
@@ -249,7 +251,7 @@ func load_level(i: int) -> void:
 		var o: Dictionary = d.duplicate()
 		o.i = di
 		o.got = DRAWN.has("%d:%d" % [level_idx, di])
-		o.hidden = d.has("toca") and not o.got
+		o.hidden = (d.has("toca") or d.has("crack")) and not o.got
 		DRWS.append(o)
 		di += 1
 	DOOR = {"x": L.door.x, "y": L.door.y, "w": 60, "h": 90, "locked": int(L.door.get("lock", 0)) == 1}
@@ -344,7 +346,7 @@ func _p1_load() -> void:
 	for it in L.get("items", []):
 		var o: Dictionary = it.duplicate()
 		o.got = false
-		o.hidden = it.has("toca")
+		o.hidden = it.has("toca") or it.has("crack")
 		ITEMS.append(o)
 	LOCKS = []
 	for l in L.get("locks", []):
@@ -401,6 +403,56 @@ func _p1_load() -> void:
 	look_y = 0
 	STATS = {"pen": 0, "penTotal": L.get("coins", []).size(), "pdeath": [0, 0, 0, 0, 0, 0]}
 
+## o trecho da Isis (Ep. 2: depois da porta de ferro; Ep. 3: dentro do trem, que tem fim: x1)
+func in_isis_part(x: float) -> bool:
+	if L == null or not L.has("isisPart"):
+		return false
+	return x >= float(L.isisPart.x0) and x < float(L.isisPart.get("x1", 1e9))
+
+## Episódio 3: a alavanca do freio na cabine da locomotiva (a Isis, de pé perto dela)
+var brakeT := -1
+func near_brake() -> bool:
+	if not L.has("isisBrake") or brakeT >= 0 or not player.get("isis") or not player.onGround:
+		return false
+	return abs(player.x + player.w / 2 - float(L.isisBrake.x)) < 56
+
+func use_brake() -> bool:
+	if not near_brake():
+		return false
+	brakeT = 0
+	player.vx = 0.0
+	player.face = 1
+	player.cheerT = 60
+	Audio.play("unlock", 0, .6)
+	Audio.play("slide", 0, .5)
+	Audio.vib(200)
+	shake = 18
+	flash("A Isis puxou o FREIO! Os trilhos soltam faíscas... o trem vai parando em cima da ponte.", 200)
+	return true
+
+func _brake_step() -> void:
+	if brakeT < 0:
+		return
+	brakeT += 1
+	keys.clear()
+	player.vx = 0.0
+	if brakeT % 6 == 0:
+		shake = max(shake, 6.0 * (1.0 - brakeT / 140.0))
+	if brakeT == 140:
+		running = false
+		isis_done.emit()
+
+## Episódio 3: depois do freio, o Tomé em cima dos vagões parados na ponte, para a luta com o Vargas
+func begin_vargas() -> void:
+	var sp: Array = L.vargasSpawn
+	brakeT = -1
+	_reset_player(float(sp[0]) - 14, float(sp[1]) - 34)
+	VH.mode = ""
+	flash_t = 0
+	snap_camera()
+	iris_t = 30
+	running = true
+
 ## Episódio 2: depois da porta de ferro, a fuga da Isis (o último trecho do episódio)
 func begin_isis() -> void:
 	var sp: Array = L.isisPart.spawn
@@ -413,7 +465,7 @@ func begin_isis() -> void:
 
 func _reset_player(x: float, y: float, adjust: bool = true) -> void:
 	player = make_body(x, y)
-	if L and (L.get("isis") or (L.has("isisPart") and x >= float(L.isisPart.x0))):
+	if L and (L.get("isis") or in_isis_part(x)):
 		# fase da Isis: ela é menor (cabe nos buracos) e pula mais baixo
 		player.isis = true
 		player.w = 20.0
@@ -888,6 +940,12 @@ func use_available() -> bool:
 		return true
 	if EV and EV.near_lever() != null:
 		return true
+	if K and K.B3 and not K.B3.near_lever().is_empty():
+		return true
+	if near_brake():
+		return true
+	if VL and VL.near_pebble():
+		return true
 	return X.near_use() or X.beam_useful()
 
 ## nome do período do dia em que o Tomé está (a fase é uma só, dividida pelas fogueiras grandes)
@@ -1034,6 +1092,10 @@ func step() -> void:
 			respawn()
 		return
 	_comic_check()
+	if brakeT >= 0:
+		_brake_step()
+		if not running:
+			return
 	if not player.get("warp", {}).is_empty():
 		T += 1
 		_warp_step()

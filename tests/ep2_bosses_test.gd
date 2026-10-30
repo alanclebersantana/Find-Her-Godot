@@ -35,7 +35,7 @@ func _initialize() -> void:
 	# ---- Morcego-Rei
 	if only == "" or only == "morcego":
 		g.lantern_lit = true
-		_at(25300, 500)
+		_at(float(g.L.hawk.x0) - 100, 500)
 		S("entra na caverna", until({"R": true}, func(): return g.K.HAWK.active, 400))
 		S("vence o Morcego-Rei", bat_fight())
 	# ---- Sapo-Rei

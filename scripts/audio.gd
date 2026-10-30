@@ -315,7 +315,9 @@ func set_amb(n: String) -> void:
 			amb.stream = s
 			amb.volume_db = -40
 			amb.play()
-			tw.tween_property(amb, "volume_db", -13.0, 2.0)
+			# grilos: bem baixinho e só de vez em quando (o _process faz o cricrilar ir e voltar)
+			tw.tween_property(amb, "volume_db", -60.0 if n == "grilos" else -13.0, 2.0)
+			cri_t = randf_range(4.0, 9.0)
 		else:
 			amb.stop()
 	else:
@@ -403,8 +405,22 @@ func set_rain(v: float) -> void:
 	if v > 0.01 and not rain.playing:
 		rain.play()
 
+var cri_t := 0.0     # grilos: tempo até o próximo cricrilar (ou até acabar o atual)
+var cri_on := false
+func _crickets(d: float) -> void:
+	if amb_name != "grilos" or not amb.playing or (_amb_tw and _amb_tw.is_running()):
+		return
+	cri_t -= d
+	if cri_t > 0.0:
+		return
+	cri_on = not cri_on
+	cri_t = randf_range(2.5, 4.5) if cri_on else randf_range(14.0, 30.0)
+	var tw := create_tween()
+	tw.tween_property(amb, "volume_db", -29.0 if cri_on else -60.0, 1.2)
+
 func _process(_d: float) -> void:
 	_pause_far_emitters()
+	_crickets(_d)
 	# fora do jogo o Mundo some suave; os tambores do perigo também saem
 	world_gain = move_toward(world_gain, 1.0 if world_on else 0.0, _d * 3.0)
 	AudioServer.set_bus_volume_db(bus_world, linear_to_db(max(world_gain, .0001)))

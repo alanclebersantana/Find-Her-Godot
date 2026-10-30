@@ -50,8 +50,14 @@ static func brutus_step(g, X) -> void:
 			b.t += 1
 			b.cd -= 1
 			b.dir = 1 if pcx > b.x else -1
+			# o Tomé no ar logo acima: abocanha para cima (não deixa pular na cabeça acordado)
+			if int(b.get("snapcd", 0)) > 0:
+				b.snapcd -= 1
+			if p.dyingT == 0 and not p.onGround and int(b.get("snapcd", 0)) <= 0 and abs(pcx - b.x) < 120 and feet < b.y - 60 and feet > b.y - 260 and p.vy > -3.0:
+				b.st = "snap"
+				b.t = 0
 			# perto e na frente dele, no chão: tenta morder
-			if p.dyingT == 0 and abs(pcx - b.x) < 150 and feet > b.y - 60 and b.cd < 40 and sign(pcx - b.x) == float(b.dir):
+			elif p.dyingT == 0 and abs(pcx - b.x) < 150 and feet > b.y - 60 and b.cd < 40 and sign(pcx - b.x) == float(b.dir):
 				b.st = "bite"
 				b.t = 0
 			elif b.cd <= 0 and p.dyingT == 0:
@@ -71,6 +77,27 @@ static func brutus_step(g, X) -> void:
 			if b.t > 30:
 				b.st = "paw"
 				b.t = 0
+		"snap":
+			# salta abocanhando para cima
+			b.t += 1
+			if b.t == 6:
+				Audio.play("bark", -2, 1.2)
+				b.barkT = 10
+				b.hop = 1.0
+			if b.t >= 6 and b.t <= 16:
+				var sb: Dictionary = g.R(b.x - 60, b.y - 230, 120, 140)
+				if p.dyingT == 0 and p.iframe == 0 and Game.hit(p, sb):
+					g.hurt(1, b.x)
+					p.vy = -6.0
+					p.vx = 7.0 if pcx > b.x else -7.0
+			if b.get("barkT", 0) > 0:
+				b.barkT -= 1
+			b.hop = max(0.0, float(b.get("hop", 0.0)) - .08)
+			if b.t > 26:
+				b.st = "idle"
+				b.t = 0
+				b.cd = max(int(b.cd), 20)
+				b.snapcd = 50
 		"paw":
 			# raspa a pata e late: AVISO da investida (hora de se preparar para pular)
 			b.t += 1
@@ -80,10 +107,12 @@ static func brutus_step(g, X) -> void:
 				Audio.play("slide", -12)
 			if b.t % 14 == 1:
 				Audio.play("bark", -6)
-			if b.t > 40 - fury * 4:
+			if b.t > 26 - fury * 3:
 				b.st = "charge"
 				b.t = 0
 				b.spd = 2.0
+				# às vezes é finta: freia antes do muro e volta (a partir do 1º pulo levado)
+				b.fake = fury >= 1 and randf() < .35 + fury * .08
 				Audio.play("roar", -14)
 				Polish.roar(b.x + b.dir * 60, b.y - 60)
 		"charge":
@@ -93,6 +122,12 @@ static func brutus_step(g, X) -> void:
 			b.x += b.dir * b.spd
 			if g.T % 4 == 0:
 				g.fx("fx_dust", b.x - b.dir * 60, 494, 14, .16, -.25)
+			var to_wall: float = (wall_r - b.x) if b.dir > 0 else (b.x - wall_l)
+			if b.get("fake", false) and to_wall < 190:
+				# FINTA: crava as patas e para antes do muro, já virando para o Tomé
+				b.st = "skid"
+				b.t = 0
+				Audio.play("slide", -4, .7)
 			if (b.dir < 0 and b.x <= wall_l) or (b.dir > 0 and b.x >= wall_r):
 				b.x = clamp(b.x, wall_l, wall_r)
 				b.st = "stun"
@@ -105,10 +140,24 @@ static func brutus_step(g, X) -> void:
 				if not g.L.get("_br_tonto", false):
 					g.L["_br_tonto"] = true
 					g.flash_tut("Bateu no muro! PULE NA CABEÇA!", "O Brutus bateu no muro e ficou tonto: pule na cabeça dele agora!", 200)
-		"stun":
-			# tonto, com estrelinhas: a janela do pulo na cabeça
+		"skid":
 			b.t += 1
-			if b.t > 170 - fury * 15:
+			b.spd = max(0.0, b.spd - 1.1)
+			b.x = clamp(b.x + b.dir * b.spd, wall_l, wall_r)
+			if g.T % 3 == 0:
+				g.fx("fx_dust", b.x + b.dir * 40, 494, 16, .18, -.3)
+			if b.t > 18:
+				b.st = "idle"
+				b.t = 0
+				b.cd = 16
+				b.dir = 1 if pcx > b.x else -1
+				if not g.L.get("_br_fake", false):
+					g.L["_br_fake"] = true
+					g.tip("Finta! O Brutus freou antes do muro. Só pule na cabeça quando ele BATER e ficar tonto.", 220)
+		"stun":
+			# tonto, com estrelinhas: a janela do pulo na cabeça (cada vez mais curta)
+			b.t += 1
+			if b.t > 110 - fury * 22:
 				b.st = "idle"
 				b.t = 0
 				b.cd = 50 - fury * 6
@@ -118,10 +167,10 @@ static func brutus_step(g, X) -> void:
 			if kb > .1:
 				b.x = clamp(b.x + kb, wall_l, wall_r)
 				b.kb = kb * .86
-			if b.t > 50:
+			if b.t > 34:
 				b.st = "idle"
 				b.t = 0
-				b.cd = 95 - fury * 8
+				b.cd = 40 - fury * 6
 		"down":
 			b.t += 1
 			if b.t == 1:
@@ -139,10 +188,14 @@ static func brutus_step(g, X) -> void:
 		p.cutOk = false
 		if b.st == "stun":
 			p.vy = -9.0
+			# o pulo o joga para o lado do meio do quintal (não fica quicando em cima dele)
+			p.vx = 6.0 if b.dir < 0 else -6.0
 			_brutus_hit(g, X, b)
+			b.snapcd = 60
 		else:
 			# acordado ele não deixa: abocanha para cima
 			p.vy = -7.0
+			p.vx = 7.0 if pcx > b.x else -7.0
 			b.barkT = 10
 			Audio.play("bark", -2)
 			g.hurt(1, b.x)
@@ -150,7 +203,7 @@ static func brutus_step(g, X) -> void:
 				g.L["_br_bite"] = true
 				g.tip("Acordado o Brutus morde quem pula nele! Espere ele bater no muro e ficar tonto.", 220)
 		return
-	if b.st in ["charge"] and Game.hit(p, bb):
+	if b.st in ["charge", "skid"] and Game.hit(p, bb):
 		g.hurt(1, b.x)
 
 static func _brutus_hit(g, X, b: Dictionary) -> void:
@@ -225,7 +278,10 @@ static func bat_setup(h: Dictionary, L: Dictionary) -> void:
 		h.lamps.append({"x": float(l[0]), "y": float(l[1]), "lit": false, "k": 0.0, "dot": null})
 	h.maxhp = max(1, h.lamps.size())
 	h.hp = h.maxhp
-	h.cd = 120
+	h.cd = 100
+	h.snuffs = 0
+	h.stal = []
+	h.stalT = 160
 	h.gx = (float(h.x0) + float(h.x1)) / 2.0
 	h.gyy = float(h.gy) - 300.0
 
@@ -268,13 +324,21 @@ static func bat_step(g, K) -> void:
 	for l in h.lamps:
 		if not l.lit:
 			unlit += 1
+	if int(h.get("snuffT", 0)) > 0:
+		h.snuffT -= 1
+	_stalactites(g, h, pc)
 	match h.st:
 		"wait":
 			if pc.x > h.trig and pc.x < h.x1 and feet <= gy + 4 and feet > gy - 300 and p.dyingT == 0:
 				h.active = true
 				h.st = "lurk"
 				h.t = 0
-				h.cd = 150
+				h.cd = 100
+				h.snuffs = 0
+				h.stal = []
+				h.stalT = 160
+				for l0 in h.lamps:
+					l0.lit = false
 				h.x = h.x1 - 160.0
 				h.y = gy - 330.0 + BAT_OFF
 				h.hp = h.maxhp
@@ -311,19 +375,33 @@ static func bat_step(g, K) -> void:
 				h.gyy = best.y
 			var c := bat_center(h)
 			var to := Vector2(h.gx, h.gyy + sin(h.t * .05) * 14.0)
-			var nc: Vector2 = c + (to - c).limit_length(2.6)
+			var nc: Vector2 = c + (to - c).limit_length(3.6)
 			if abs(nc.x - c.x) > .3:
 				h.dir = 1 if nc.x > c.x else -1
 			h.x = nc.x
 			h.y = nc.y + BAT_OFF
 			if h.cd <= 0 and p.dyingT == 0:
-				if not lit_at(h, pc):
+				var lit_l: Array = h.lamps.filter(func(o): return o.lit)
+				if lit_at(h, pc) and not lit_l.is_empty() and int(h.snuffs) < 2 and int(h.get("snuffT", 0)) <= 0:
+					# o Tomé está na luz: vai APAGAR a lamparina acesa mais longe dele
+					var far: Dictionary = lit_l[0]
+					for o in lit_l:
+						if abs(float(o.x) - pc.x) > abs(float(far.x) - pc.x):
+							far = o
+					h.st = "snuff"
+					h.t = 0
+					h.tl = far
+					Audio.play("roar", -8, 2.0)
+					if not g.L.get("_bat_snuff", false):
+						g.L["_bat_snuff"] = true
+						g.flash_tut("Ele vai APAGAR a lamparina!", "O Morcego-Rei vai soprar uma lamparina acesa com as asas! Corra até ela para espantá-lo.", 220)
+				elif not lit_at(h, pc):
 					h.st = "warn"
 					h.t = 0
 					Audio.play("roar", -8, 2.4)
 					Audio.vib(20)
 				else:
-					h.cd = 70
+					h.cd = 50
 					if not g.L.get("_bat_light", false):
 						g.L["_bat_light"] = true
 						g.note("Na luz das lamparinas o Morcego-Rei não chega perto!")
@@ -331,7 +409,7 @@ static func bat_step(g, K) -> void:
 			# chiado e olhos vermelhos: ele vai dar o rasante
 			h.t += 1
 			h.dir = 1 if pc.x > h.x else -1
-			var wt: int = 34 if unlit <= 1 else 44
+			var wt: int = 22 if unlit <= 1 else 30
 			if h.t == wt:
 				var c2 := bat_center(h)
 				h.s0 = c2
@@ -343,7 +421,7 @@ static func bat_step(g, K) -> void:
 				Audio.play("slide", -2, .8)
 		"swoop":
 			h.t += 1
-			var n: float = 40.0 if unlit <= 1 else 46.0
+			var n: float = 30.0 if unlit <= 1 else 36.0
 			var u: float = clamp(h.t / n, 0.0, 1.0)
 			var s0: Vector2 = h.s0
 			var s1: Vector2 = h.s1
@@ -366,7 +444,50 @@ static func bat_step(g, K) -> void:
 			if u >= 1.0 and h.st == "swoop":
 				h.st = "lurk"
 				h.t = 0
-				h.cd = 90 if unlit <= 1 else 130
+				h.cd = 50 if unlit <= 1 else 75
+				# às vezes emenda um segundo rasante
+				if randf() < .35:
+					h.cd = 12
+		"snuff":
+			# voa até a lamparina e bate as asas em cima dela: se o Tomé chegar perto, foge
+			h.t += 1
+			var tl: Dictionary = h.tl
+			var lc: Vector2 = lamp_light(tl) + Vector2(0, -70)
+			var c3 := bat_center(h)
+			var nc3: Vector2 = c3 + (lc - c3).limit_length(7.0)
+			h.dir = 1 if lc.x > c3.x else -1
+			h.x = nc3.x
+			h.y = nc3.y + BAT_OFF
+			if c3.distance_to(lc) < 20:
+				h.blow = int(h.get("blow", 0)) + 1
+				if g.T % 6 == 0:
+					g.PARTS.append({"x": lc.x + (randf() - .5) * 60, "y": lc.y + 40, "vx": (randf() - .5) * 3, "vy": 1.5 + randf(), "life": 24, "col": Color(.8, .75, .6, .7)})
+			if pc.distance_to(lamp_light(tl)) < 150.0 and p.dyingT == 0:
+				h.st = "recoil"
+				h.t = 0
+				h.blow = 0
+				h.snuffT = 200
+				Audio.play("roar", -10, 2.8)
+				g.note("Você espantou o Morcego-Rei da lamparina!")
+			elif int(h.get("blow", 0)) > 80:
+				tl.lit = false
+				h.blow = 0
+				h.snuffs = int(h.snuffs) + 1
+				h.snuffT = 260
+				h.hp = 0
+				for o in h.lamps:
+					if not o.lit:
+						h.hp += 1
+				Audio.play("slide", -4, .5)
+				g.burst(lamp_light(tl).x, lamp_light(tl).y, 10, Color(.5, .5, .5))
+				g.flash("O Morcego-Rei APAGOU uma lamparina! Acenda de novo.", 180)
+				h.st = "lurk"
+				h.t = 0
+				h.cd = 60
+			elif h.t > 400:
+				h.st = "lurk"
+				h.t = 0
+				h.cd = 60
 		"recoil":
 			h.t += 1
 			h.y -= 4.0
@@ -374,7 +495,7 @@ static func bat_step(g, K) -> void:
 			if h.t > 26:
 				h.st = "lurk"
 				h.t = 0
-				h.cd = 100
+				h.cd = 60
 		"dazzle":
 			# tudo aceso: ofuscado, bate as asas sem rumo e despenca
 			h.t += 1
@@ -414,6 +535,43 @@ static func bat_step(g, K) -> void:
 				h.done = true
 				h.active = false
 				Polish.smoke_cloud(h.x, h.y - 40)
+
+## estalactites que despencam do teto da caverna perto do Tomé (com aviso: poeira e sombra)
+static func _stalactites(g, h: Dictionary, pc: Vector2) -> void:
+	var st: Array = h.get("stal", [])
+	var fight: bool = h.st in ["lurk", "warn", "swoop", "recoil", "snuff"]
+	if fight:
+		h.stalT = int(h.get("stalT", 160)) - 1
+		if int(h.stalT) <= 0:
+			h.stalT = 120 + randi() % 70
+			var sx: float = clamp(pc.x + (randf() - .5) * 120.0, float(h.x0) + 40.0, float(h.x1) - 40.0)
+			st.append({"x": sx, "y": float(h.gy) - 470.0, "vy": 0.0, "t": 0, "st": "warn"})
+			h.stal = st
+	var p: Dictionary = g.player
+	for s in st.duplicate():
+		s.t += 1
+		if s.st == "warn":
+			if s.t % 5 == 0:
+				g.PARTS.append({"x": s.x + (randf() - .5) * 16, "y": s.y + 30, "vx": 0.0, "vy": 2.0, "life": 30, "col": Color(.6, .55, .48)})
+			if s.t > 46:
+				s.st = "fall"
+		elif s.st == "fall":
+			s.vy = min(float(s.vy) + .7, 16.0)
+			s.y += s.vy
+			if p.dyingT == 0 and p.iframe == 0 and Game.hit(p, g.R(s.x - 12, s.y - 10, 24, 46)):
+				g.hurt(1, s.x)
+				s.st = "gone"
+			# para nas plataformas ou no chão
+			var land: float = float(h.gy)
+			for so in g.SOL:
+				if so.t == "plat" and s.x > so.x and s.x < so.x + so.w and float(so.y) >= s.y - 4 and float(so.y) < land:
+					land = float(so.y)
+			if s.y + 40 >= land:
+				s.st = "gone"
+				g.burst(s.x, land - 4, 10, Color(.62, .58, .52))
+				Audio.play("stomp", -14, 1.4)
+		if s.st == "gone" or not fight:
+			st.erase(s)
 
 ## luz das lamparinas no mapa de luz (acende aos poucos e tremula)
 static func _lamp_lights(g, h: Dictionary) -> void:

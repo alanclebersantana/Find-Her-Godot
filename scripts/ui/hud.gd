@@ -595,8 +595,11 @@ func _cine(W: float, H: float) -> void:
 		Spr.save()
 		Spr.translate(W / 2, y)
 		Spr.scale(sc, sc)
-		Spr.text(c.title[2], 0, 0, 54, Color(1, .85, .55, k), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_title, 8, Color(0, 0, 0, .85 * k))
-		Spr.text(c.title[3], 0, 38, 20, Color(.95, .9, .8, k), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_i, 4, Color(0, 0, 0, .8 * k))
+		# faixa escura atrás do nome (legível em qualquer fundo)
+		Spr.glow(0, 10, W * .36, Color(0, 0, 0, .55 * k))
+		Spr.rr(-W * .34, -52, W * .68, 112, 26, Color(0, 0, 0, .42 * k))
+		Spr.text(c.title[2], 0, 0, 54, Color(1, .85, .55, k), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_title, 12, Color(.08, .04, .02, k))
+		Spr.text(c.title[3], 0, 38, 22, Color(1, .96, .88, k), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_i, 7, Color(.08, .04, .02, k))
 		Spr.restore()
 	var l = game.cine_line()
 	if l != null:

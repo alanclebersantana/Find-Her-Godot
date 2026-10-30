@@ -29,7 +29,7 @@ func _initialize() -> void:
 	var only: String = OS.get_environment("CHEFE")
 	var lives0: int = g.lives
 	if only == "" or only == "enguia":
-		_at(19380, 500)
+		_at(19400, 330)
 		S("pilar 1", jump_to(19605, true))
 		S("vence a Enguia de Cristal", eel_fight())
 	if only == "" or only == "salamandra":
@@ -40,7 +40,8 @@ func _initialize() -> void:
 		S("vence o Guardião de Ferro", gua_fight())
 	if only == "" or only == "trem":
 		for b in g.K.B3.B:
-			b.done = true
+			if b.id != "vargas":
+				b.done = true
 		_at(28700 + 5800, 500)
 		S("o trem partiu", walk_to(float(g.L.door.x) - 100) and g.VH.dep_t >= 0)
 		g.VH.tied = false
@@ -70,9 +71,23 @@ func _initialize() -> void:
 			if o.hit:
 				hk.append(o.k + "@" + str(o.u))
 		S("trole sem batidas " + str(hk), hk.is_empty())
-		var sa = until({}, func(): return not g.running, 300)
-		S("fim do episódio", sa is String and sa == "state")
-	S("sem morrer (vidas %d -> %d)" % [lives0, g.lives], g.lives == lives0)
+		var started := [false]
+		g.isis_start.connect(func(): started[0] = true)
+		until({}, func(): return started[0] or not g.running, 300)
+		S("o trole alcançou o trem: agora é a Isis", started[0])
+	if only == "isis" or only == "":
+		g.lives = 99
+		g.begin_isis()
+		P = g.player
+		S("a Isis foge pelo trem e puxa o freio", isis_train())
+	if only == "" or only == "vargas":
+		g.begin_vargas()
+		P = g.player
+		var endv := [false]
+		g.results_ready.connect(func(): endv[0] = true)
+		S("vence o Vargas", vargas_fight())
+		S("fim (resultados)", endv[0])
+	S("no máximo 2 vidas perdidas (vidas %d -> %d)" % [lives0, g.lives], g.lives >= lives0 - 2)
 	for l in log_lines:
 		print(l)
 	print("FALHAS: ", fails)

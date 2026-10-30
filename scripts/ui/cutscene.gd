@@ -73,16 +73,24 @@ func _ready() -> void:
 				{"d": _pic("cut_ep2fim", true), "txt": "A porta de ferro rangeu e cedeu. Atrás dela, um túnel subia por dentro da montanha.", "dur": 5.5},
 				{"d": _pic("cut_ep3_fort", true), "txt": "Lá no alto da serra, a fortaleza do Vargas. E na trilha, mais um lápis da Isis.", "dur": 6.5},
 				{"d": _pic("cut_ep3_b", false), "txt": "Do outro lado da fortaleza, o trem esperava na estação velha, com a Isis na janela.", "dur": 6.5},
-				{"d": _pic("cut_ep3_fort", false), "txt": "— Vamos, Pipoca. Hoje a gente traz a Isis para casa.", "dur": 5.0},
+				{"d": _pic("cut_ep3_fort", false), "txt": "— Aguenta firme, filha. Hoje eu levo você para casa.", "dur": 5.0},
+			]
+		"ep3trem":
+			shots = [
+				{"d": _pic("cut_ep3_c", true), "txt": "O trole voou pelos trilhos da serra, com o sol quase nascendo. Lá na frente, o trem do Vargas.", "dur": 5.5},
+				{"d": _pic("cut_ep3_d", false), "txt": "O trole encostou no último vagão. Lá de cima, o Vargas jogava barris: — Volta pra mina, velho!", "dur": 6.0},
+				{"d": _s_isis_trem, "txt": "Lá dentro, trancada no vagão de carga, a Isis ouviu a voz do pai. — É o papai! Se eu parar o trem... ele me alcança.", "dur": 7.0},
+			]
+		"ep3ponte":
+			shots = [
+				{"d": _s_ponte, "txt": "A Isis puxou o freio com toda a força. O trem parou rangendo, bem no meio da ponte, e ela passou o trinco da cabine.", "dur": 6.5},
+				{"d": _s_ponte_vargas, "txt": "Em cima dos vagões, com o sol nascendo, o Vargas esperava o Tomé, de picareta na mão.", "dur": 5.5},
 			]
 		"ep3fim":
 			shots = [
-				{"d": _pic("cut_ep3_c", true), "txt": "O trole voou pelos trilhos da serra, com o sol nascendo. Lá na frente, o trem do Vargas.", "dur": 6.0},
-				{"d": _pic("cut_ep3_d", false), "txt": "Barril atrás de barril, o Vargas tentou parar o Tomé. — Acabou, Vargas! Devolve a minha filha!", "dur": 6.5},
-				{"d": _pic("cut_ep3_e", true), "txt": "Foi o Pipoca quem resolveu: puxou a barra da calça do Vargas, que escorregou... direto no vagão de carvão.", "dur": 7.0},
-				{"d": _pic("cut_ep3_f", false), "txt": "— PAPAI! — Isis! Eu segui os seus lápis, filha. Todos eles. Eu sabia que você estava me esperando.", "dur": 7.5},
-				{"d": _pic("cut_ep3_g", true), "txt": "Naquela tarde, na varanda, a Isis desenhou a família inteira. E o pai voltou da mina antes da sombra.", "dur": 7.5},
-				{"d": _s_credits, "txt": "", "dur": 16.0},
+				{"d": _pic("cut_ep3_e", true), "txt": "O Vargas caiu sentado no vagão de carvão. — Tá bom, tá bom... eu desisto. A mina, o trem... nada disso vale um pai desses.", "dur": 7.0},
+				{"d": _pic("cut_ep3_f", false), "txt": "— PAPAI! — Isis! Eu segui os seus lápis, filha. Todos eles. E pela ponte veio correndo o Pipoca, que seguiu o trole a noite inteira.", "dur": 8.0},
+				{"d": _s_home, "txt": "", "dur": 44.0},
 			]
 		"mina":
 			shots = [
@@ -582,6 +590,188 @@ func _s_train(W: float, H: float, k: float) -> void:
 		Spr.restore()
 		Spr.glow(px2, py2, 24 + sin(t * 4) * 4, Color(1, .9, .4, .5))
 	_vignette(W, H, .55)
+
+## dentro do vagão de carga: a Isis escondida atrás das caixas, à luz do lampião
+func _s_isis_trem(W: float, H: float, k: float) -> void:
+	var bg: Texture2D = Spr.tex.get("bg_trem", Spr.tex.get("bg_esconderijo"))
+	if bg:
+		var sc: float = H / bg.get_height() * 1.12
+		var bw: float = bg.get_width() * sc
+		Spr.img(bg, (W - bw) / 2 - k * 50 + sin(t * 9.0) * 1.5, -H * .06 + sin(t * 13.0) * 1.0, bw, bg.get_height() * sc)
+	Spr.rect(0, 0, W, H, Color(0, 0, 0, .25))
+	var fy: float = H * .9
+	Spr.rect(0, fy, W, H - fy, Color("#2a1a10"))
+	for i in 9:
+		Spr.rect(i * W / 8.0, fy, 3, H - fy, Color(0, 0, 0, .3))
+	# caixas
+	for cx in [W * .18, W * .62, W * .78]:
+		Spr.rr(cx, fy - H * .2, H * .22, H * .2, 6, Color("#1a120c"))
+		Spr.rr(cx + 5, fy - H * .2 + 5, H * .22 - 10, H * .2 - 10, 4, Color("#8a5a2a"))
+		Spr.rect(cx + 5, fy - H * .11, H * .22 - 10, 5, Color("#5a3a1a"))
+	# a Isis espiando por trás da caixa
+	var ovt: Texture2D = Spr.opt("isis_scared")
+	var ix: float = W * .5
+	if ovt:
+		var hh: float = H * .42
+		var ww: float = hh * ovt.get_width() / ovt.get_height()
+		Spr.img(ovt, ix - ww / 2, fy - hh, ww, hh)
+	else:
+		Spr.sheet("isis2", 9, 150, 150, ix, fy, H * .42, false)
+	Spr.glow(W * .5, H * .25, H * .5, Color(1, .75, .4, .18 + .05 * sin(t * 5.0)))
+	_vignette(W, H, .7)
+
+## o trem freando na ponte, ao amanhecer
+func _s_ponte(W: float, H: float, k: float) -> void:
+	_ponte_bg(W, H, k)
+	var tr: Texture2D = Spr.opt("trem3")
+	var by: float = H * .62
+	var e: float = 1.0 - pow(1.0 - clamp(k / .6, 0.0, 1.0), 2.0)
+	var tx: float = lerpf(-W * .55, W * .02, e)
+	if tr:
+		var tw: float = W * 1.05
+		var th: float = tw * tr.get_height() / tr.get_width()
+		Spr.img(tr, tx, by - th + 6, tw, th)
+		if k < .6:
+			for i in 12:
+				var sx: float = tx + tw * (.1 + .07 * i)
+				Spr.glow(sx, by, 18 + randf() * 10, Color(1, .8, .3, .7))
+	_vignette(W, H, .45)
+
+func _ponte_bg(W: float, H: float, k: float) -> void:
+	var bg: Texture2D = Spr.tex.get("bg_amanhecer")
+	if bg:
+		var sc: float = H / bg.get_height() * 1.1
+		var bw: float = bg.get_width() * sc
+		Spr.img(bg, (W - bw) / 2 - k * 30, -H * .05, bw, bg.get_height() * sc)
+	var by: float = H * .62
+	# a ponte de cavaletes e o rio lá embaixo
+	Spr.rect(0, H * .9, W, H * .1, Color(.35, .5, .6, .9))
+	Spr.rect(0, by, W, 12, Color("#2a1a10"))
+	Spr.rect(0, by + 2, W, 6, Color("#6a4424"))
+	var x := 0.0
+	while x < W + 100:
+		Spr.seg(x, by + 12, x + 50, H, Color("#2a1a10"), 6)
+		Spr.seg(x + 100, by + 12, x + 50, H, Color("#2a1a10"), 6)
+		x += 100
+
+## o Vargas em cima dos vagões parados, picareta na mão
+func _s_ponte_vargas(W: float, H: float, k: float) -> void:
+	_ponte_bg(W, H, k)
+	var tr: Texture2D = Spr.opt("trem3")
+	var by: float = H * .62
+	var tw: float = W * 1.05
+	if tr:
+		var th: float = tw * tr.get_height() / tr.get_width()
+		Spr.img(tr, W * .02, by - th + 6, tw, th)
+	var vb: Texture2D = Spr.opt("vargas_boss")
+	if vb and tr:
+		var th2: float = tw * tr.get_height() / tr.get_width()
+		var z: float = 1.0 + k * .06
+		var hh: float = H * .36 * z
+		var feet: float = by - th2 + 6 + th2 * .37
+		Spr.ci.draw_texture_rect_region(vb, Rect2(W * .42 - hh / 2, feet - hh, hh, hh), Rect2(0, 0, 300, 300), Color(1, 1, 1, Spr.alpha))
+	Spr.glow(W * .66, by - H * .62, H * .3, Color(1, .8, .5, .15))
+	_vignette(W, H, .5)
+
+## os três voltando para casa pelo bosque, ao entardecer; os créditos sobem; chegam na casinha, a
+## Isis senta na varanda com os lápis... FIM
+func _s_home(W: float, H: float, k: float) -> void:
+	var gy: float = H * .86
+	var arrive: float = clamp((k - .7) / .14, 0.0, 1.0)
+	var scroll: float = min(k, .84) * 2600.0
+	var bg: Texture2D = Spr.tex.get("bg_tarde", Spr.tex.get("bg_bosque"))
+	if bg:
+		var sc: float = H / bg.get_height() * 1.05
+		var bw: float = bg.get_width() * sc
+		var ox: float = -fmod(scroll * .25, bw)
+		for i in 3:
+			Spr.img(bg, ox + i * bw, -H * .04, bw, bg.get_height() * sc)
+	# o céu vai ficando dourado e depois azul do entardecer
+	Spr.rect(0, 0, W, H, Color(1, .55, .25, .12 + .08 * k))
+	Spr.rect(0, 0, W, H, Color(.1, .1, .3, max(0.0, k - .6) * .5))
+	# capim e pedrinhas de perto passando
+	var tx0: float = -fmod(scroll * 1.0, 160.0)
+	for i in 10:
+		var x: float = tx0 + i * 160.0 + 30
+		for j in 5:
+			Spr.seg(x + j * 6, gy + 2, x + j * 6 + sin(t * 2.0 + j + i) * 3 - 4 + j * 2, gy - 14 - (j % 3) * 6, Color("#3a5a1a"), 3)
+	# a trilha de terra
+	Spr.rect(0, gy, W, H - gy, Color("#3a2a18"))
+	Spr.rect(0, gy, W, 6, Color("#5a7a2a"))
+	var stx: float = -fmod(scroll, 90.0)
+	for i in 16:
+		Spr.ellipse(stx + i * 90.0, gy + 18 + (i % 3) * 8, 10, 3, Color(0, 0, 0, .25))
+	# a casinha chegando pela direita
+	var hx: float = lerpf(W + 40, W * .56, arrive)
+	if arrive > 0:
+		var hs: float = H / 380.0
+		Spr.AB("o_cabin", hx, gy - 221 * hs * 1.25 + 8, 330 * hs * 1.25, 221 * hs * 1.25)
+		Spr.glow(hx + 150 * hs, gy - 90 * hs, 80 * hs, Color(1, .8, .4, .35))
+	# os três andando (no lugar, o cenário passa); na chegada, param na frente da casa
+	var walking: bool = arrive < 1.0
+	var bx: float = W * .2 + arrive * W * .12
+	var sit: bool = k > .86
+	var ph: float = t * 8.0
+	# Pipoca na frente, abanando o rabo
+	Spr.save()
+	Spr.translate(bx + H * .32, gy + 2 - (abs(sin(ph * .5)) * 4.0 if walking else 0.0))
+	Spr.scale(H / 540.0 * .5, H / 540.0 * .5)
+	WorldExtras._dog_frame("dog%d" % ((int(ph) % 4) if walking else 0), sin(t * 9.0) * .3)
+	Spr.restore()
+	# Tomé
+	var a: Dictionary = Spr.anim.get("walk", {})
+	if not a.is_empty():
+		var s2: float = float(a.s)
+		var hh: float = H * .36
+		var f: int = (int(ph) % int(a.n)) if walking else 0
+		Spr.ci.draw_texture_rect_region(a.tex, Rect2(bx - hh / 2, gy + 4 - hh, hh, hh), Rect2(f * s2, 0, s2, s2), Color(1, 1, 1, Spr.alpha))
+	# Isis (de mãos dadas, ao lado); na varanda, senta com os lápis
+	if not sit:
+		Spr.sheet("isis2", (int(ph) % 4) if walking else 4, 150, 150, bx + H * .14, gy + 2, H * .2, false)
+	else:
+		var px: float = hx + W * .08
+		var py: float = gy - H * .05
+		Spr.rect(px - H * .16, py, H * .36, H * .04, Color("#5a3a20"))
+		Spr.sheet("isis2", 7, 150, 150, px, py, H * .2, false)
+		var cols := [Color("#e0463a"), Color("#f59a2a"), Color("#f2d33a"), Color("#4fae4a"), Color("#3a7ad8"), Color("#8a4ac8")]
+		for i in 6:
+			Spr.save()
+			Spr.translate(px + H * .07 + i * 7, py - 2)
+			Spr.rotate(-.3 + i * .12)
+			Spr.rr(-2, -18, 4, 18, 1, cols[i])
+			Spr.restore()
+		Spr.rr(px - H * .12, py - 6, H * .09, 6, 1, Color(.95, .92, .85))
+	# vaga-lumes
+	for i in 14:
+		var fx: float = fmod(i * 137.0 + t * 20.0 * (1 + i % 3), W)
+		var fy: float = H * .35 + sin(t * .8 + i) * H * .2
+		Spr.glow(fx, fy, 10, Color(1, .95, .5, .35 + .3 * sin(t * 3 + i)))
+	# os créditos subindo na parte de cima
+	var lines: Array = CREDITS.slice(2)
+	var total := 0.0
+	for c in lines:
+		total += float(c[1]) + 16.0
+	var top: float = H * .06
+	var bot: float = H * .56
+	var y0: float = lerpf(bot, top - total - 20.0, clamp(k / .84, 0.0, 1.0))
+	var y: float = y0
+	Spr.vgrad(0, 0, W, H * .62, Color(0, 0, 0, .45), Color(0, 0, 0, 0))
+	for c in lines:
+		var sz: int = int(c[1])
+		y += sz + 16.0
+		if str(c[0]) == "" or y < top - 30 or y > bot + 30:
+			continue
+		var f2: Font = Spr.font_title if c[2] == "t" else (Spr.font_i if c[2] == "i" else Spr.font_b)
+		var col := Color(.95, .82, .55) if c[2] == "t" else (Color(.9, .85, .75) if c[2] == "i" else Color(1, .96, .88))
+		var al: float = clamp(min((y - top) / 60.0, (bot - y) / 60.0), 0.0, 1.0)
+		Spr.text(str(c[0]), W / 2, y, sz, Color(col.r, col.g, col.b, al), HORIZONTAL_ALIGNMENT_CENTER, f2, 4)
+	# FIM
+	var fa: float = clamp((k - .9) / .06, 0.0, 1.0)
+	if fa > 0:
+		Spr.rect(0, 0, W, H, Color(0, 0, 0, .35 * fa))
+		Spr.text("FIM", W / 2, H * .4, 96, Color(.98, .86, .58, fa), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_title, 8)
+		Spr.text("Obrigado por jogar!", W / 2, H * .4 + 70, 26, Color(.95, .9, .8, fa), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_i, 4)
+	_vignette(W, H, .45)
 
 ## créditos finais: o título, a família e os nomes subindo devagar
 const CREDITS := [

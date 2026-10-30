@@ -89,6 +89,7 @@ func _ready() -> void:
 	game.bag_wanted.connect(func(l): open_bag(l))
 	game.results_ready.connect(_on_level_end)
 	game.isis_start.connect(_on_isis_start)
+	game.isis_done.connect(_on_isis_done)
 	game.game_over.connect(_on_over)
 	game.level_won.connect(_on_results)
 	game.rest_reached.connect(_on_rest)
@@ -2378,8 +2379,10 @@ func play_cut(id: String, after: Callable) -> void:
 		Audio.set_song("tunel")
 	elif id == "ep3fim":
 		Audio.set_song("vitoria")
-	elif id in ["isis", "isis_fim"]:
+	elif id in ["isis", "isis_fim", "ep3trem"]:
 		Audio.set_song("noite")
+	elif id == "ep3ponte":
+		Audio.set_song("gaviao")
 	var c := preload("res://scripts/ui/cutscene.gd").new(id)
 	c.theme = theme_ui
 	ui_layer.add_child(c)
@@ -2392,9 +2395,24 @@ func _on_level_end() -> void:
 		return
 	play_cut(["mina", "ep2fim", "ep3fim"][clampi(game.level_idx, 0, 2)], _on_results)
 
+## Episódio 3: a Isis puxou o freio e se trancou na cabine; o trem parou na ponte. Volta o Tomé, para o Vargas
+func _on_isis_done() -> void:
+	play_cut("ep3ponte", func():
+		game.begin_vargas()
+		state = S.PLAY
+		_show_hud(true))
+
 ## Episódio 2: o Tomé chegou à porta de ferro. Cena da porta, cena da Isis do outro lado,
 ## e o último trecho do episódio é jogado com ela
 func _on_isis_start() -> void:
+	if game.L.has("isisTrain"):
+		# Episódio 3: o trole alcançou o último vagão. Agora a Isis foge por dentro do trem
+		play_cut("ep3trem", func():
+			game.begin_isis()
+			state = S.PLAY
+			_show_hud(true)
+			game.flash_tut("A Isis!", "Agora você joga com a Isis, dentro do trem. Ela é pequena: passa embaixo dos bancos e das malas, mas pula baixo. Fuja dos capangas: ↓ atrás das caixas e dos bancos. Lá na frente, o FREIO!", 320))
+		return
 	play_cut("ep2fim", func(): play_cut("isis", func():
 		game.begin_isis()
 		state = S.PLAY

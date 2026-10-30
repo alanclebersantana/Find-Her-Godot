@@ -714,6 +714,17 @@ func _glow_mush(x: float, y: float, t: int) -> void:
 	Spr.A("mu_1" if t > 5 else ("mu_2" if t > 0 else "mu_0"), x, y + 2, 1)
 
 func _campfire(c: Dictionary) -> void:
+	if game.L.has("isisTrain") and float(c.x) > float(game.L.isisTrain.x0):
+		# dentro do trem e em cima dos vagões: um lampião (aceso quando é o ponto de volta)
+		var on: bool = c.on
+		Spr.rr(c.x - 12, c.y - 30, 24, 30, 4, Color("#1a120c"))
+		Spr.rr(c.x - 8, c.y - 26, 16, 20, 3, Color(1, .82, .45) if on else Color(.25, .22, .18))
+		Spr.rect(c.x - 12, c.y - 34, 24, 5, Color("#3a3a40"))
+		Spr.seg(c.x - 6, c.y - 34, c.x, c.y - 44, Color("#1a120c"), 2)
+		Spr.seg(c.x + 6, c.y - 34, c.x, c.y - 44, Color("#1a120c"), 2)
+		if on:
+			Spr.glow(c.x, c.y - 16, 70 + sin(T * .2) * 4, Color(1, .75, .35, .35))
+		return
 	if c.has("rest"):
 		# fogueira grande: troncos de assento dos dois lados e fogo alto, sempre acesa (chama o Tomé)
 		Spr.glow(c.x, c.y - 30, 110 + sin(T * .2) * 6, Color(1, .7, .3, .4))
@@ -2776,6 +2787,19 @@ func _station(cx: float, gy: float, T: float, own: bool = false) -> void:
 			var aa: float = T * .06 + wh
 			Spr.seg(wx, gy - 34, wx + cos(aa) * 24, gy - 34 + sin(aa) * 24, Color("#1e1a18"), 5)
 		Spr.seg(lx + 50 + cos(T * .06) * 18, gy - 34 + sin(T * .06) * 18, lx + 202 + cos(T * .06 + 2) * 18, gy - 34 + sin(T * .06 + 2) * 18, Color("#c8c0b0"), 6)
+	var est: Texture2D = Spr.opt("estacao3")
+	if est != null:
+		# arte pintada: plataforma de madeira, casinha, lampiões e caixa d'água
+		var ew: float = 760.0
+		var eh: float = ew * est.get_height() / float(est.get_width())
+		var ex0: float = cx - 420
+		Spr.ci.draw_texture_rect(est, Rect2(ex0, gy - eh + 4, ew, eh), false, Color(1, 1, 1, Spr.alpha))
+		# brilho pulsante dos dois lampiões e da janela
+		var fl: float = .8 + .2 * sin(T * .21) * sin(T * .13)
+		Spr.glow(ex0 + ew * .101, gy - eh * .62, 70, Color(1, .82, .42, .32 * fl))
+		Spr.glow(ex0 + ew * .771, gy - eh * .62, 70, Color(1, .82, .42, .32 * fl))
+		Spr.glow(ex0 + ew * .495, gy - eh * .40, 60, Color(1, .8, .4, .22 * fl))
+		return
 	# plataforma de pedra
 	Spr.rect(cx - 250, gy - 34, 440, 34, Color("#2a2420"))
 	Spr.rect(cx - 246, gy - 30, 432, 26, Color("#8a8076"))

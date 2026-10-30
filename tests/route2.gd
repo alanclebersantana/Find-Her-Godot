@@ -202,8 +202,19 @@ func brutus_fight():
 ## Morcego-Rei: sobe em cada plataforma e acende a lamparina (✦ USAR)
 func bat_fight():
 	var h: Dictionary = g.K.HAWK
+	for pass_n in 6:
+		if h.done or h.st in ["dazzle", "fall", "down", "flee"]:
+			break
+		var r0 = _bat_pass(h)
+		if r0 is String:
+			return r0
+	var r = until({}, func(): return h.done or h.st in ["down", "flee"], 600)
+	hold({}, 40)
+	return r
+
+func _bat_pass(h: Dictionary):
 	var lamps: Array = h.lamps.duplicate()
-	lamps.sort_custom(func(a, c): return a.x < c.x)
+	lamps.sort_custom(func(a, c): return abs(a.x - px()) < abs(c.x - px()))
 	for l in lamps:
 		P = g.player
 		if h.done or h.st in ["dazzle", "fall", "down", "flee"]:
@@ -223,9 +234,7 @@ func bat_fight():
 		use()
 		if not l.lit:
 			return "não acendeu a lamparina em %d (y=%d)" % [int(l.x), int(P.y + P.h)]
-	var r = until({}, func(): return h.done or h.st in ["down", "flee"], 600)
-	hold({}, 40)
-	return r
+	return true
 
 ## pulando de vitória-régia em vitória-régia até a que fica em x
 func lily_hop(x: float):
@@ -607,12 +616,10 @@ func _initialize() -> void:
 	var D0: float = float(L.sections[3].x) - 420.0
 	S("pista 11", walk_to(D0 + 610) and n_clues() == 5)
 	g.lantern_lit = true
-	S("entra na caverna", until({"R": true}, func(): return g.K.HAWK.active, 400))
-	S("vence o Morcego-Rei", bat_fight())
-	walk_to(D0 + 1260)
-	S("tábua do roxo", jump_to(D0 + 1360))
-	hop("R", 0)
-	S("roxo", spec("roxo"))
+	walk_to(25400)
+	S("tábuas podres do poço", jump_to(25560) and jump_to(25820, true))
+	walk_to(26020)
+	S("espinhos da galeria", cross_spikes(trap_at("spikes", 26120), 26260))
 	var SLd: Dictionary = L.sled
 	S("chega no carrinho e parte sozinho", until({"R": true} if px() < float(SLd.x) else {"L": true}, func(): return g.VH.mode == "sled", 600))
 	S("subiu no carrinho", g.VH.mode == "sled")
@@ -642,7 +649,15 @@ func _initialize() -> void:
 		if o.hit:
 			hk.append(o.k + "@" + str(o.u))
 	S("carrinho sem batidas " + str(hk), P.hp == 5 and VH.tries == 0)
-	S("pista 12", walk_to(float(L.door.x) - 300) and n_clues() == 6)
+	S("espinhos depois do carrinho", walk_to(28260) and cross_spikes(trap_at("spikes", 28360), 28500))
+	S("entra na caverna", until({"R": true}, func(): return g.K.HAWK.active, 400))
+	S("vence o Morcego-Rei", bat_fight())
+	var hx0: float = float(L.hawk.x0)
+	walk_to(hx0 + 420)
+	S("tábua do roxo", jump_to(hx0 + 540))
+	hop("R", 0)
+	S("roxo", spec("roxo"))
+	S("pista 12", walk_to(float(L.door.x) - 70) and n_clues() == 6)
 	walk_to(float(L.door.x) + 30)
 	var sa = until({}, func(): return not g.running, 300)
 	S("porta do cofre (fim)", sa is String and sa == "state")

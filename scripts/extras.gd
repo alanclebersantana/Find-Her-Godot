@@ -70,7 +70,7 @@ func load_level() -> void:
 			continue
 		var bot: float = so.y + so.h
 		var surf: float = g._rest_y(so.x + so.w / 2, bot, 40)
-		var stand_h: float = 26.0 if (L.get("isis") or (L.has("isisPart") and so.x >= float(L.isisPart.x0))) else 34.0
+		var stand_h: float = 26.0 if (L.get("isis") or g.in_isis_part(so.x)) else 34.0
 		if surf > 0 and surf - bot >= 16 and surf - bot < stand_h:
 			CRAWL.append({"x": so.x, "w": so.w, "top": bot, "y": surf})
 	GHOST = []
@@ -272,7 +272,7 @@ func post() -> void:
 			g.keys.Ap = false
 			g.M.dog_action()
 	elif g.keys.get("Ap", false):
-		if g.RD.use() or g.VH.use() or g.EV.use() or (g.K and Ep2Bosses.use_lamp(g, g.K)) or (g.K and g.K.B3 and g.K.B3.use()) or _use_dog() or _use_toca() or _use_crack() or _use_mirror():
+		if g.RD.use() or g.VH.use() or g.EV.use() or (g.K and Ep2Bosses.use_lamp(g, g.K)) or (g.K and g.K.B3 and g.K.B3.use()) or (g.VL and g.VL.throw_pebble()) or g.use_brake() or _use_dog() or _use_toca() or _use_crack() or _use_mirror():
 			g.keys.Ap = false
 			focus_block = true
 	if not g.kd("A"):
@@ -418,6 +418,13 @@ func _use_crack() -> bool:
 func break_crack(c: Dictionary, fx: bool) -> void:
 	broken[c.id] = true
 	g.SOL.erase(c)
+	# o que estava escondido atrás da pedra solta / da rachadura aparece
+	for it in g.ITEMS:
+		if it.get("hidden") and it.get("crack") == c.id:
+			it.hidden = false
+	for d in g.DRWS:
+		if d.get("hidden") and d.get("crack") == c.id and not d.got:
+			d.hidden = false
 	# A7 pedra quebrando assusta os bichinhos por perto
 	Polish.g = g
 	Polish.scare(c.x + c.w / 2, 380.0)

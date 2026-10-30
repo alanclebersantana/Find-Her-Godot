@@ -79,7 +79,9 @@ func _ready() -> void:
 			tex[k] = load(ep)
 	for k in ["pai", "pai2", "javali", "chao", "tronco", "galho", "filha", "vigia", "cao", "vargas_pe", "isis2", "pai_climb", "pai_rope_a", "pai_rope_b", "pai_vine_a", "pai_vine_b", "gaviao", "bagre"]:
 		tex[k] = load("res://assets/sprites/%s.png" % k)
-	for k in ["bosque", "tarde", "pantano", "noite", "neve", "mina", "moinho", "vila", "esconderijo", "caverna", "fundicao", "cidade", "cofre", "amanhecer", "muralha", "patio", "poroes"]:
+	for k in ["bosque", "tarde", "pantano", "noite", "neve", "mina", "moinho", "vila", "esconderijo", "caverna", "fundicao", "cidade", "cofre", "amanhecer", "muralha", "patio", "poroes", "trem"]:
+		if not ResourceLoader.exists("res://assets/bg/%s.jpg" % k):
+			continue
 		tex["bg_" + k] = load("res://assets/bg/%s.jpg" % k)
 		# cenário em camadas pintadas (opcional): assets/bg/<trecho>/1_ceu.jpg, 2_longe.png, 3_meio.png, 4_perto.png
 		var layers: Array = []
@@ -767,7 +769,7 @@ func sheet_cycle(name: String, fpos: float, n: int, base: int, cw: float, ch: fl
 ## Tudo o que antes carregava na primeira vez que aparecia (poses novas, folhas x4, objetos pintados,
 ## silhuetas do contorno) começa a carregar numa linha separada logo na abertura do jogo e fica pronto
 ## antes da fase; carregar no meio do jogo dava as "travadinhas" no celular.
-const WARM_OPT := ["b3_eel_0", "b3_eel_1", "b3_eel_2", "b3_eel_3", "b3_sal_0", "b3_sal_1", "b3_sal_2", "b3_sal_3", "b3_sal_4", "b3_sal_5", "b3_gua_0", "b3_gua_1", "b3_gua_2", "b3_gua_3", "b3_gua_4", "trem3", "gaviao_rei", "coroa_gaviao", "boar_ko", "boar_wind", "boss_charge", "crow_dive", "crow_ko", "dog_dig", "dog_joy", "dog_sniff",
+const WARM_OPT := ["b3_eel_0", "b3_eel_1", "b3_eel_2", "b3_eel_3", "b3_sal_0", "b3_sal_1", "b3_sal_2", "b3_sal_3", "b3_sal_4", "b3_sal_5", "b3_gua_0", "b3_gua_1", "b3_gua_2", "b3_gua_3", "b3_gua_4", "trem3", "estacao3", "gaviao_rei", "coroa_gaviao", "boar_ko", "boar_wind", "boss_charge", "crow_dive", "crow_ko", "dog_dig", "dog_joy", "dog_sniff",
 	"dragonfly", "fish_bite", "frog_ko", "frog_tongue", "horse_free", "isis_run", "leaves", "morcego_rei", "ride_dis",
 	"ride_gallop", "ride_jump", "sapo_rei", "sled_tome", "urso", "esquilo", "cavalo",
 	"isis_climb", "isis_joy", "isis_scared", "p_tora_neve", "p_pedra_neve", "p_galho_neve"]

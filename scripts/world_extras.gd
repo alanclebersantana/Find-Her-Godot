@@ -536,6 +536,10 @@ static func _brutus(b: Dictionary, T: int, bd: float = 0.0) -> void:
 			fr = 7
 		"bite":
 			fr = 5 if b.t >= 8 else 4
+		"snap":
+			fr = 5
+		"skid":
+			fr = 5
 		"hurt":
 			fr = 6
 	var tint := Color(1, .45, .4, 1) if b.red > 0 and (T / 3) % 2 == 0 else Color(1, 1, 1, 1)
@@ -575,6 +579,14 @@ static func _brutus(b: Dictionary, T: int, bd: float = 0.0) -> void:
 		var bk: float = clamp(1.0 - abs(b.t - 12) / 8.0, 0, 1)
 		box = b.dir * 18.0 * bk
 		bsx = 1.0 + .06 * bk
+	elif b.st == "snap":
+		# salto abocanhando para cima
+		var sk: float = sin(clamp((b.t - 4) / 20.0, 0.0, 1.0) * PI)
+		gb = -70.0 * sk
+		bsy = 1.0 + .08 * sk
+	elif b.st == "skid":
+		box = b.dir * 8.0
+		bsy = .93
 	elif b.st == "stun":
 		Spr.save()
 		Spr.translate(b.x, b.y)

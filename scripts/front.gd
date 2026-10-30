@@ -24,7 +24,7 @@ const SIL := {"bosque": Color(.07, .13, .05), "tarde": Color(.14, .08, .04), "mo
 	"pantano": Color(.04, .09, .07), "noite": Color(.02, .03, .06), "vila": Color(.02, .03, .06),
 	"neve": Color(.55, .62, .78), "mina": Color(.05, .035, .025), "esconderijo": Color(.05, .035, .025), "caverna": Color(.02, .04, .06),
 	"fundicao": Color(.06, .03, .02), "cidade": Color(.02, .03, .06), "cofre": Color(.05, .035, .02), "amanhecer": Color(.1, .08, .12),
-	"muralha": Color(.02, .03, .07), "patio": Color(.03, .03, .06), "poroes": Color(.03, .03, .04)}
+	"muralha": Color(.02, .03, .07), "patio": Color(.03, .03, .06), "poroes": Color(.03, .03, .04), "trem": Color(.05, .035, .025)}
 ## folhas de cada cenário
 const LEAF_C := {
 	"bosque": [Color(.42, .6, .2), Color(.55, .7, .3), Color(.36, .52, .2), Color(.48, .66, .24), Color(.85, .75, .25)],

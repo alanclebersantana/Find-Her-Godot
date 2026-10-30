@@ -22,7 +22,9 @@
   "O pátio dos vigias",
   "Os porões",
   "As forjas",
-  "As torres"
+  "As torres",
+  "Dentro do trem",
+  "A ponte"
  ],
  "clueIds": [
   13,
@@ -105,6 +107,28 @@
    "per": 4,
    "tint": "rgba(255,170,130,.06)",
    "dawn": 1
+  },
+  {
+   "x": 36000,
+   "song": "tunel",
+   "bg": "trem",
+   "gt": "mina",
+   "night": 1,
+   "dark": 0.3,
+   "per": 5,
+   "map": "isis",
+   "tint": "rgba(255,170,80,.06)"
+  },
+  {
+   "x": 40800,
+   "song": "noite",
+   "bg": "amanhecer",
+   "gt": "vila",
+   "night": 0,
+   "dark": 0,
+   "per": 6,
+   "tint": "rgba(255,150,90,.08)",
+   "bridge": 1
   }
  ],
  "darkZones": [
@@ -429,6 +453,16 @@
    "trestle": 1
   },
   {
+   "t": "crack",
+   "x": 10060,
+   "y": 430,
+   "w": 70,
+   "h": 70,
+   "id": "crk1",
+   "kind": "boulder",
+   "msg": "A pedra solta rolou: tinha uma chave escondida atrás dela!"
+  },
+  {
    "t": "pgate",
    "id": "dg1",
    "x": 12520,
@@ -495,7 +529,7 @@
    "y": 320,
    "w": 22,
    "h": 180,
-   "dogpass": 1
+   "crank": 1
   },
   {
    "t": "brickw",
@@ -503,6 +537,16 @@
    "y": 280,
    "w": 3470,
    "h": 40
+  },
+  {
+   "t": "crack",
+   "x": 15660,
+   "y": 420,
+   "w": 80,
+   "h": 80,
+   "id": "crk2",
+   "kind": "boulder",
+   "msg": "Crack! Atrás das pedras, um desenho dobrado..."
   },
   {
    "t": "plat",
@@ -595,9 +639,9 @@
   },
   {
    "t": "dirt",
-   "x": 19400,
+   "x": 19470,
    "y": 500,
-   "w": 1100,
+   "w": 1030,
    "h": 140
   },
   {
@@ -632,8 +676,22 @@
    "t": "ground",
    "x": 12600,
    "y": 500,
-   "w": 6800,
+   "w": 6870,
    "h": 140
+  },
+  {
+   "t": "stone",
+   "x": 19230,
+   "y": 420,
+   "w": 70,
+   "h": 80
+  },
+  {
+   "t": "stone",
+   "x": 19300,
+   "y": 330,
+   "w": 170,
+   "h": 170
   },
   {
    "t": "ground",
@@ -821,6 +879,97 @@
    "y": 500,
    "w": 3100,
    "h": 140
+  },
+  {
+   "t": "rockw",
+   "x": 35700,
+   "y": -620,
+   "w": 300,
+   "h": 1260
+  },
+  {
+   "t": "wall",
+   "x": 36000,
+   "y": 500,
+   "w": 4200,
+   "h": 140
+  },
+  {
+   "t": "wall",
+   "x": 36000,
+   "y": -620,
+   "w": 4200,
+   "h": 790,
+   "ceil": 1
+  },
+  {
+   "t": "wall",
+   "x": 36000,
+   "y": 170,
+   "w": 40,
+   "h": 330
+  },
+  {
+   "t": "pgate",
+   "id": "tp1",
+   "x": 37089,
+   "y": 170,
+   "w": 22,
+   "h": 330,
+   "crank": 1
+  },
+  {
+   "t": "pgate",
+   "id": "tp2",
+   "x": 38089,
+   "y": 170,
+   "w": 22,
+   "h": 330,
+   "crank": 1
+  },
+  {
+   "t": "wall",
+   "x": 38220,
+   "y": 170,
+   "w": 160,
+   "h": 302
+  },
+  {
+   "t": "wall",
+   "x": 38860,
+   "y": 170,
+   "w": 160,
+   "h": 302
+  },
+  {
+   "t": "pgate",
+   "id": "tp3",
+   "x": 39089,
+   "y": 170,
+   "w": 22,
+   "h": 330,
+   "crank": 1
+  },
+  {
+   "t": "wall",
+   "x": 40080,
+   "y": 170,
+   "w": 120,
+   "h": 330
+  },
+  {
+   "t": "rockw",
+   "x": 40200,
+   "y": -620,
+   "w": 600,
+   "h": 1260
+  },
+  {
+   "t": "roof",
+   "x": 40800,
+   "y": 400,
+   "w": 2000,
+   "h": 240
   }
  ],
  "swamp": [
@@ -938,10 +1087,10 @@
  "bushes": [],
  "items": [
   {
-   "x": 10100,
+   "x": 10095,
    "y": 470,
    "id": "chave",
-   "toca": 1
+   "crack": "crk1"
   },
   {
    "x": 25800,
@@ -964,7 +1113,7 @@
    ],
    "short": "a porta dos porões",
    "where": {
-    "chave": "enterrada no jardim do pátio (o Pipoca fareja onde)"
+    "chave": "atrás de uma pedra solta no jardim do pátio (quebre com a picareta)"
    },
    "pre": "A porta dos porões está trancada.",
    "place": "Vá até a porta dos porões e toque em ✦ USAR.",
@@ -1040,13 +1189,13 @@
   {
    "x": 5500,
    "y": 920,
-   "txt": "Um desenho da Isis: o papai e o Pipoca entrando escondidos pelo bueiro do castelo."
+   "txt": "Um desenho da Isis: o papai entrando escondido pelo bueiro do castelo."
   },
   {
    "x": 15700,
    "y": 470,
-   "toca": 2,
-   "txt": "Um desenho da Isis, enterrado no porão: um labirinto, e no meio um coração."
+   "crack": "crk2",
+   "txt": "Um desenho da Isis, escondido no porão: um labirinto, e no meio um coração."
   },
   {
    "x": 20345,
@@ -1056,7 +1205,7 @@
   {
    "x": 33050,
    "y": 470,
-   "txt": "Um desenho da Isis: a estação de trem, e o papai chegando correndo com o Pipoca."
+   "txt": "Um desenho da Isis: a estação de trem, e o papai chegando correndo."
   }
  ],
  "vines": [],
@@ -2384,7 +2533,7 @@
   ],
   [
    19450,
-   360
+   300
   ],
   [
    19510,
@@ -3040,6 +3189,26 @@
   [
    34580,
    500
+  ],
+  [
+   36060,
+   500
+  ],
+  [
+   37105,
+   500
+  ],
+  [
+   38105,
+   500
+  ],
+  [
+   39105,
+   500
+  ],
+  [
+   40940,
+   400
   ]
  ],
  "hints": [
@@ -3051,7 +3220,7 @@
   {
    "a": 700,
    "b": 1050,
-   "t": "O Pipoca veio junto! Perto de um monte de terra revirada, toque ✦ USAR: ele fareja e cava o que estiver enterrado."
+   "t": "Pedras soltas e paredes rachadas escondem coisas: quebre com a picareta (✦ USAR perto delas)."
   },
   {
    "a": 1380,
@@ -3089,12 +3258,12 @@
   {
    "a": 9800,
    "b": 10050,
-   "t": "Terra revirada no jardim... Pipoca, fareja!"
+   "t": "Uma pedra solta no canteiro do jardim... a Isis riscou um X nela. Quebre com a picareta!"
   },
   {
    "a": 11880,
    "b": 12060,
-   "t": "Um vigia de guarita na frente da porta dos porões! Troque para o Pipoca (botão do cachorro) — o vigia não liga para cachorro. Leve o Pipoca para trás do Tomé (para a esquerda) e LATA (✦): o vigia sai do posto para ver. Quando ele passar, volte para o Tomé e corra até a porta.",
+   "t": "Um vigia de guarita na frente da porta dos porões! Atrás do caixote, toque ✦ USAR: o Tomé joga uma pedrinha no balde do poço lá atrás. Fique abaixado (↓) atrás do caixote até o vigia passar e corra até a porta.",
    "yl": -120
   },
   {
@@ -3105,13 +3274,13 @@
   {
    "a": 13950,
    "b": 14100,
-   "t": "Uma grade com portinhola de cachorro! Troque para o Pipoca, passe por ela e pare na placa: a grade sobe. Depois volte para o Tomé (o Pipoca fica segurando).",
+   "t": "Uma grade de ferro! Gire a manivela (toque várias vezes em ✦) para ela subir.",
    "yl": -60
   },
   {
    "a": 14400,
    "b": 14650,
-   "t": "Térreo: um beco... o Pipoca está farejando alguma coisa lá no fundo."
+   "t": "Térreo: um beco... lá no fundo tem um monte de pedras rachadas."
   },
   {
    "a": 15200,
@@ -3131,9 +3300,10 @@
    "yl": -120
   },
   {
-   "a": 19200,
-   "b": 19400,
-   "t": "A cisterna dos porões... alguma coisa brilha debaixo da água."
+   "a": 19100,
+   "b": 19470,
+   "t": "A cisterna dos porões: NÃO ENTRE NA ÁGUA, dá choque! Suba na laje e salte para o primeiro pilar.",
+   "yl": -150
   },
   {
    "a": 21000,
@@ -3200,10 +3370,28 @@
    "t": "A estação velha! O trem do Vargas está saindo... Pule no trole dos trilhos e vá atrás dele!"
   },
   {
-   "a": 35260,
-   "b": 35500,
-   "t": "O trole está amarrado no poste! Troque para o Pipoca e toque ✦ perto do poste: ele rói a corda.",
-   "yl": -120
+   "a": 36040,
+   "b": 36400,
+   "t": "A Isis! O Vargas a trancou no vagão de carga. Fuja pela frente do trem, vagão por vagão. Abaixe (↓) atrás das caixas e dos bancos quando a luz dos capangas vier.",
+   "yl": -170
+  },
+  {
+   "a": 36840,
+   "b": 37080,
+   "t": "A porta do vagão tem um trinco por dentro: gire (toque várias vezes em ✦).",
+   "yl": -170
+  },
+  {
+   "a": 38120,
+   "b": 38240,
+   "t": "Malas empilhadas até o teto... mas a Isis é pequena: passa por baixo!",
+   "yl": -170
+  },
+  {
+   "a": 39740,
+   "b": 40000,
+   "t": "A cabine da locomotiva! Puxe a alavanca do FREIO (✦ USAR).",
+   "yl": -170
   }
  ],
  "pits": [
@@ -3214,10 +3402,11 @@
  ],
  "water": [
   {
-   "x": 19400,
+   "x": 19470,
    "y": 430,
-   "w": 1100,
-   "h": 70
+   "w": 1030,
+   "h": 70,
+   "zap": 1
   }
  ],
  "mirrors": [
@@ -3243,14 +3432,7 @@
  "ghost": [],
  "secrets": [],
  "chalk": [],
- "plates": [
-  {
-   "x": 14190,
-   "y": 500,
-   "w": 60,
-   "gate": "pg3"
-  }
- ],
+ "plates": [],
  "traps": [
   {
    "k": "roll",
@@ -3386,7 +3568,28 @@
   }
  ],
  "oil": [],
- "cranks": [],
+ "cranks": [
+  {
+   "x": 14060,
+   "y": 500,
+   "gate": "pg3"
+  },
+  {
+   "x": 37055,
+   "y": 500,
+   "gate": "tp1"
+  },
+  {
+   "x": 38055,
+   "y": 500,
+   "gate": "tp2"
+  },
+  {
+   "x": 39055,
+   "y": 500,
+   "gate": "tp3"
+  }
+ ],
  "movers": [
   {
    "k": "path",
@@ -3418,20 +3621,7 @@
  "comics": [],
  "relics": [],
  "fireflies": [],
- "tocas": [
-  {
-   "x": 10100,
-   "y": 500,
-   "id": 1,
-   "dig": 1
-  },
-  {
-   "x": 15700,
-   "y": 500,
-   "id": 2,
-   "dig": 1
-  }
- ],
+ "tocas": [],
  "coolers": [
   {
    "x": 21520,
@@ -3454,11 +3644,6 @@
    "y": 380
   }
  ],
- "dog": {
-  "x": 120,
-  "y": 500,
-  "free": 1
- },
  "watchmen": [
   {
    "x0": 6700,
@@ -3475,7 +3660,52 @@
    "x0": 12360,
    "x1": 12360,
    "post": 1,
-   "spd": 1.6
+   "spd": 1.6,
+   "bucket": 11660
+  },
+  {
+   "x0": 36480,
+   "x1": 36700,
+   "spd": 1.2,
+   "any": 1,
+   "pause": 120,
+   "zone": [
+    36000,
+    37100
+   ]
+  },
+  {
+   "x0": 37480,
+   "x1": 37700,
+   "spd": 1.4,
+   "any": 1,
+   "pause": 120,
+   "zone": [
+    37100,
+    38100
+   ]
+  },
+  {
+   "x0": 38480,
+   "x1": 38700,
+   "spd": 1.6,
+   "any": 1,
+   "pause": 120,
+   "zone": [
+    38100,
+    39100
+   ]
+  },
+  {
+   "x0": 39480,
+   "x1": 39650,
+   "spd": 1.7,
+   "any": 1,
+   "pause": 120,
+   "zone": [
+    39100,
+    40100
+   ]
   }
  ],
  "dogs": [
@@ -3523,17 +3753,89 @@
    "w": 46,
    "k": "barrel",
    "h": 54
+  },
+  {
+   "x": 11960,
+   "w": 66,
+   "k": "crate",
+   "h": 48
+  },
+  {
+   "x": 36340,
+   "w": 66,
+   "k": "crate",
+   "h": 48
+  },
+  {
+   "x": 36540,
+   "w": 46,
+   "k": "barrel",
+   "h": 54
+  },
+  {
+   "x": 36860,
+   "w": 66,
+   "k": "crate",
+   "h": 48
+  },
+  {
+   "x": 37200,
+   "w": 70,
+   "k": "seat",
+   "h": 74
+  },
+  {
+   "x": 37360,
+   "w": 70,
+   "k": "seat",
+   "h": 74
+  },
+  {
+   "x": 37520,
+   "w": 70,
+   "k": "seat",
+   "h": 74
+  },
+  {
+   "x": 37680,
+   "w": 70,
+   "k": "seat",
+   "h": 74
+  },
+  {
+   "x": 37840,
+   "w": 70,
+   "k": "seat",
+   "h": 74
+  },
+  {
+   "x": 38530,
+   "w": 66,
+   "k": "crate",
+   "h": 48
+  },
+  {
+   "x": 38700,
+   "w": 46,
+   "k": "barrel",
+   "h": 54
+  },
+  {
+   "x": 39530,
+   "w": 66,
+   "k": "crate",
+   "h": 48
   }
  ],
  "bosses3": [
   {
    "id": "enguia",
-   "x0": 19330,
+   "x0": 19490,
    "x1": 20560,
    "y": 500,
    "home": 19950,
-   "trig": 19470,
-   "hp": 3,
+   "trig": 19500,
+   "hp": 4,
    "surf": 430,
    "ptop": 400,
    "pw": 90,
@@ -3543,7 +3845,13 @@
     20060,
     20300
    ],
-   "gateTop": -150
+   "gateTop": -150,
+   "wx0": 19470,
+   "wx1": 20500,
+   "sign": [
+    19400,
+    330
+   ]
   },
   {
    "id": "salamandra",
@@ -3552,7 +3860,7 @@
    "y": 500,
    "home": 27900,
    "trig": 27320,
-   "hp": 3,
+   "hp": 5,
    "tanks": [
     27450,
     27750,
@@ -3570,8 +3878,18 @@
    "y": 500,
    "home": 34050,
    "trig": 33340,
-   "hp": 4,
+   "hp": 6,
    "gateTop": 100
+  },
+  {
+   "id": "vargas",
+   "x0": 41100,
+   "x1": 42500,
+   "y": 400,
+   "home": 42250,
+   "trig": 41240,
+   "hp": 6,
+   "gateTop": -20
   }
  ],
  "watchMsg": "Um vigia te pegou com o lampião! Você foi levado de volta. Abaixe (↓) atrás dos caixotes e barris, ou vá pelas passarelas lá em cima.",
@@ -3589,10 +3907,6 @@
   "len": 6400,
   "skin": "cart",
   "train": 1,
-  "rope": [
-   35340,
-   500
-  ],
   "endMsg": "O trole alcançou o trem!",
   "pts": [
    [
@@ -3676,5 +3990,82 @@
    4000
   ]
  },
- "spanX": 35700
+ "isisPart": {
+  "x0": 36000,
+  "x1": 40200,
+  "spawn": [
+   36070,
+   500
+  ]
+ },
+ "isisTrain": {
+  "x0": 36000,
+  "x1": 40200,
+  "wagon": 1000
+ },
+ "drops": [
+  {
+   "x": 36240,
+   "c": "#e04a3a",
+   "msg": "A Isis fincou um lápis vermelho no chão do vagão: uma marca para o papai."
+  },
+  {
+   "x": 36500,
+   "c": "#f59a2a",
+   "msg": "Um lápis laranja fincado embaixo do banco: a trilha continua."
+  },
+  {
+   "x": 36400,
+   "c": "#f2d33a",
+   "msg": "Um lápis amarelo fincado entre as malas."
+  },
+  {
+   "x": 36600,
+   "c": "#4fae4a",
+   "msg": "Um lápis verde fincado perto do carvão."
+  }
+ ],
+ "tilefall": [
+  {
+   "x": 37415,
+   "y0": 230,
+   "y1": 486,
+   "per": 190,
+   "ph": 0,
+   "k": "mala"
+  },
+  {
+   "x": 37735,
+   "y0": 230,
+   "y1": 486,
+   "per": 190,
+   "ph": 80,
+   "k": "mala"
+  },
+  {
+   "x": 38400,
+   "y0": 230,
+   "y1": 486,
+   "per": 170,
+   "ph": 0,
+   "k": "mala"
+  },
+  {
+   "x": 38820,
+   "y0": 230,
+   "y1": 486,
+   "per": 170,
+   "ph": 60,
+   "k": "mala"
+  }
+ ],
+ "isisBrake": {
+  "x": 40005,
+  "y": 500
+ },
+ "vargasSpawn": [
+  40920,
+  400
+ ],
+ "spanX": 42800
 }

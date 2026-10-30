@@ -21,15 +21,20 @@ var HIDES: Array = []     # fase da Isis: caixotes e barris; abaixada atrás del
 var DROPS: Array = []     # fase da Isis: lápis que ela deixa cair pelo caminho
 var CATCH := {}           # fase da Isis: o Vargas a pega no fim do túnel
 var told := {}
+var PEB := {}              # a pedrinha que o Tomé joga no balde do poço (guarita do Ep. 3)
+var street_jump := false   # pulou da rua: no ar ainda conta como "na rua" para o lampião
 
-const CONE_LEN := 270.0
-const CONE_ANG := .42
+const CONE_LEN := 300.0
+const CONE_ANG := .56
+const TOUCH := 40.0        # encostou no vigia (na frente ou logo atrás) = pego, a menos que esteja escondido
 
 func _init(game) -> void:
 	g = game
 
 func load_level() -> void:
 	told = {}
+	PEB = {}
+	street_jump = false
 	HIDES = g.L.get("hides", []).duplicate(true)
 	DROPS = []
 	for d in g.L.get("drops", []):
@@ -48,8 +53,8 @@ func load_level() -> void:
 		o.wait = 0
 		o.t = 0
 		if o.get("post"):
-			# vigia de guarita (Ep. 3): fica parado no posto, de olho para a esquerda; o latido do
-			# Pipoca tira ele de lá por um tempo
+			# vigia de guarita (Ep. 3): fica parado no posto, de olho para a esquerda; a pedrinha no
+			# balde do poço tira ele de lá por um tempo
 			o.x = float(o.x0)
 			o.dir = -1
 			o.lt = 0
@@ -95,7 +100,7 @@ func hot_phase(h: Dictionary) -> int:
 		return 1
 	return 2
 
-## vigia de guarita: vai até onde o Pipoca latiu, fica olhando para lá e depois volta ao posto
+## vigia de guarita: vai até onde ouviu o barulho, fica olhando para lá e depois volta ao posto
 func _post_step(w: Dictionary) -> void:
 	var home: float = float(w.x0)
 	var spd: float = float(w.get("spd", 1.5))
@@ -119,21 +124,70 @@ func _post_step(w: Dictionary) -> void:
 		w.dir = -1
 		w.turnT = TURN_T
 
-## o Pipoca latiu em x: o vigia de guarita mais perto vai ver o que é (se estiver perto o bastante)
+## barulho em x: o vigia de guarita mais perto vai ver o que é (se estiver perto o bastante)
 func lure(x: float) -> bool:
 	var got := false
 	for w in WATCH:
-		if not w.get("post") or abs(float(w.x) - x) > 720:
+		if not w.get("post") or abs(float(w.x) - x) > 900:
 			continue
 		w.lx = x + (60.0 if x < float(w.x) else -60.0)
-		w.lt = 420
+		w.lt = 560
 		got = true
 		if not told.has("lure"):
 			told.lure = 1
-			g.flash_tut("— Quem está aí?!", "O vigia saiu do posto para ver o latido! Volte para o Tomé (botão do cachorro) e passe por trás dele.", 260)
+			g.flash_tut("— Quem está aí?!", "O vigia saiu do posto para ver o barulho! Fique abaixado atrás do caixote até ele passar e corra até a porta.", 260)
 		else:
-			g.flash("Vigia: — Quem está aí?! Cachorro sem-vergonha...", 140)
+			g.flash("Vigia: — Quem está aí?! ...deve ser rato.", 140)
 	return got
+
+## o vigia de guarita perto, no posto, e o Tomé à esquerda dele: dá para jogar a pedrinha no balde
+func _pebble_guard():
+	var p: Dictionary = g.player
+	if not PEB.is_empty() or p.get("isis") or not p.onGround:
+		return null
+	var pcx: float = p.x + p.w / 2
+	for w in WATCH:
+		if w.get("post") and w.has("bucket") and int(w.lt) == 0 and abs(float(w.x) - float(w.x0)) < 4 \
+				and pcx < float(w.x) - 120 and pcx > float(w.bucket) + 80 and float(w.x) - pcx < 560:
+			return w
+	return null
+
+func near_pebble() -> bool:
+	return _pebble_guard() != null
+
+## ✦ perto da guarita: o Tomé joga uma pedrinha no balde do poço lá atrás (para a esquerda)
+func throw_pebble() -> bool:
+	var w = _pebble_guard()
+	if w == null:
+		return false
+	var p: Dictionary = g.player
+	var sx: float = p.x + p.w / 2
+	var sy: float = p.y + 14
+	var tx: float = float(w.bucket)
+	var ty: float = 414.0
+	var n := 44.0
+	PEB = {"x": sx, "y": sy, "vx": (tx - sx) / n, "vy": (ty - sy - .5 * .45 * n * n) / n, "t": 0, "tx": tx}
+	p.face = -1
+	p.act = "throw1"
+	p.actT = 18
+	Audio.play("jump", -10, 1.6)
+	return true
+
+func _pebble_step() -> void:
+	if PEB.is_empty():
+		return
+	PEB.t = int(PEB.t) + 1
+	PEB.vy = float(PEB.vy) + .45
+	PEB.x = float(PEB.x) + float(PEB.vx)
+	PEB.y = float(PEB.y) + float(PEB.vy)
+	if int(PEB.t) >= 44:
+		var bx: float = float(PEB.tx)
+		Audio.play("unlock", -2, .7)
+		g.shake = max(g.shake, 2.0)
+		g.burst(bx, 414, 8, Color(.7, .75, .8))
+		g.flash("CLANG! A pedrinha acertou o balde.", 120)
+		lure(bx)
+		PEB = {}
 
 func _street(p: Dictionary) -> bool:
 	return p.y + p.h > 430.0
@@ -151,13 +205,17 @@ func pre() -> void:
 
 func post() -> void:
 	var p: Dictionary = g.player
-	if p.dyingT > 0 or not g.running:
+	if p.dyingT > 0 or not g.running or g.brakeT >= 0:
 		return
 	if p.get("isis"):
 		isis_step()
 		if not g.running or int(CATCH.get("t", -1)) >= 0:
 			return
 	var pc := Vector2(p.x + p.w / 2, p.y + p.h / 2)
+	if p.onGround:
+		street_jump = _street(p)
+	_pebble_step()
+	var on_st: bool = _street(p) or (not p.onGround and street_jump and p.y + p.h > 300.0)
 	# vigias
 	for w in WATCH:
 		w.t += 1
@@ -179,10 +237,16 @@ func post() -> void:
 			w.x += w.dir * float(w.get("spd", 1.1))
 			if w.x > float(w.x1) or w.x < float(w.x0):
 				w.x = clamp(w.x, float(w.x0), float(w.x1))
-				w.wait = 70
-		if (w.get("any") or _street(p)) and p.iframe == 0 and not no_catch and not p.get("dog") and not hidden(p) and in_cone(w, pc):
-			_caught(w)
-			return
+				w.wait = int(w.get("pause", 70))
+		# no trem: o capanga só enxerga dentro do próprio vagão (a porta fechada tapa a luz)
+		var zn: Array = w.get("zone", [])
+		var in_zone: bool = zn.is_empty() or (pc.x > float(zn[0]) and pc.x < float(zn[1]))
+		if in_zone and (w.get("any") or on_st) and p.iframe == 0 and not no_catch and not p.get("dog") and not hidden(p):
+			# no facho do lampião, ou encostando nele (na frente ou logo atrás)
+			var touch: bool = abs(pc.x - float(w.x)) < TOUCH + p.w / 2 and p.y + p.h > 400.0
+			if touch or in_cone(w, pc):
+				_caught(w)
+				return
 	# cães de guarda
 	for d in DOGS:
 		d.t += 1
@@ -281,7 +345,7 @@ static func lamp_pos(w: Dictionary) -> Vector2:
 	return Vector2(float(w.x) + float(w.dir) * 40.0, 458.0)
 
 ## facho logo depois de virar: cresce de 15% até o tamanho todo em TURN_T quadros
-const TURN_T := 24
+const TURN_T := 14
 static func cone_k(w: Dictionary) -> float:
 	return 1.0 - .85 * float(w.get("turnT", 0)) / TURN_T
 
@@ -345,6 +409,18 @@ func _caught(w: Dictionary) -> void:
 	# na fuga da Isis a fogueira de antes (do Tomé) fica do outro lado da porta de ferro: não vale
 	if k >= 0 and k < g.CHK.size() and p.get("isis") and g.L.has("isisPart") and float(g.CHK[k].x) < float(g.L.isisPart.x0):
 		k = -1
+	if p.get("isis") and g.L.has("isisTrain"):
+		# no trem: volta para o começo do vagão onde estava (o lampião do vagão)
+		var best := -1
+		for i in g.CHK.size():
+			var cx: float = float(g.CHK[i].x)
+			if cx >= float(g.L.isisTrain.x0) and cx <= p.x + p.w / 2 and (best < 0 or cx > float(g.CHK[best].x)):
+				best = i
+		k = best
+		if k < 0:
+			var sp: Array = g.L.isisPart.spawn
+			p.spawnX = float(sp[0]) - p.w / 2
+			p.spawnY = float(sp[1]) - p.h
 	if k >= 0 and k < g.CHK.size():
 		p.x = float(g.CHK[k].x) - p.w / 2
 		p.y = float(g.CHK[k].y) - p.h
@@ -390,14 +466,8 @@ func draw(T: int) -> void:
 			continue
 		_dog(d, T)
 	for w in WATCH:
-		if w.x > c1 or w.x < c0:
-			continue
-		if w.get("vargas"):
-			vargas_fig(w.x, 500.0, float(w.dir), T, w.t if w.wait == 0 else 0)
-		else:
-			_watchman(w, T)
-			if w.get("bribed"):
-				_bribe(w, T)
+		if w.has("bucket") and float(w.bucket) < c1 and float(w.bucket) > c0:
+			_well(float(w.bucket), T)
 	for d in DROPS:
 		if d.done:
 			_pencil(float(d.x), float(d.y), str(d.get("c", "#e04a3a")))
@@ -417,7 +487,15 @@ func draw_front(T: int) -> void:
 		var a: float = .72 if behind else 1.0
 		var hh: float = float(h.get("h", 46))
 		Spr.ellipse(x + w / 2, 501, w * .55, 5, Color(0, 0, 0, .35))
-		if str(h.get("k", "crate")) == "barrel":
+		if str(h.get("k", "crate")) == "seat":
+			# banco do vagão de passageiros (estofado vermelho, encosto alto)
+			Spr.rr(x, 500 - hh, 14, hh, 4, Color(.1, .07, .05, a))
+			Spr.rr(x + 3, 500 - hh + 3, 9, hh - 6, 3, Color(.55, .14, .12, a))
+			Spr.rr(x, 500 - 30, w, 12, 4, Color(.1, .07, .05, a))
+			Spr.rr(x + 2, 500 - 28, w - 4, 8, 3, Color(.62, .18, .14, a))
+			Spr.rect(x + 6, 500 - 18, 5, 18, Color(.15, .1, .07, a))
+			Spr.rect(x + w - 11, 500 - 18, 5, 18, Color(.15, .1, .07, a))
+		elif str(h.get("k", "crate")) == "barrel":
 			Spr.rr(x, 500 - hh, w, hh, 12, Color(.38, .24, .12, a))
 			Spr.rr(x + 4, 500 - hh + 3, w - 8, hh - 6, 10, Color(.5, .32, .16, a))
 			for k in 2:
@@ -426,6 +504,42 @@ func draw_front(T: int) -> void:
 			Spr.PR("crate", x, 500 - hh, w, hh, Color(1, 1, 1, a))
 		if behind and p.crouch:
 			Spr.text("escondida" if p.get("isis") else "escondido", x + w / 2, 500 - hh - 12, 12, Color(.85, 1, .85, .9), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_i, 2)
+	# os vigias (e o Vargas) passam NA FRENTE dos caixotes
+	var c0: float = g.cam - 300
+	var c1: float = g.cam + g.W + 300
+	for wv in WATCH:
+		if wv.x > c1 or wv.x < c0:
+			continue
+		if wv.get("vargas"):
+			vargas_fig(wv.x, 500.0, float(wv.dir), T, wv.t if wv.wait == 0 else 0)
+		else:
+			_watchman(wv, T)
+			if wv.get("bribed"):
+				_bribe(wv, T)
+	if not PEB.is_empty():
+		Spr.circle(float(PEB.x), float(PEB.y), 5, Color("#1a1612"))
+		Spr.circle(float(PEB.x), float(PEB.y), 3.6, Color("#8a8278"))
+
+## o poço com o balde (guarita): é aqui que a pedrinha faz barulho
+func _well(x: float, T: int) -> void:
+	Spr.ellipse(x, 501, 50, 6, Color(0, 0, 0, .35))
+	Spr.rr(x - 44, 444, 88, 58, 8, Color("#1a1612"))
+	Spr.rr(x - 40, 448, 80, 52, 6, Color("#6e665c"))
+	for k in 4:
+		Spr.rect(x - 40 + k * 20, 448, 2, 52, Color("#4e4840"))
+	Spr.rect(x - 40, 470, 80, 2, Color("#4e4840"))
+	Spr.rect(x - 38, 360, 7, 90, Color("#1a1612"))
+	Spr.rect(x + 31, 360, 7, 90, Color("#1a1612"))
+	Spr.rect(x - 36, 362, 3, 86, Color("#7a5232"))
+	Spr.rect(x + 33, 362, 3, 86, Color("#7a5232"))
+	Spr.rect(x - 46, 352, 92, 12, Color("#1a1612"))
+	Spr.rect(x - 43, 355, 86, 6, Color("#9c3a26"))
+	# o balde pendurado na corda
+	var sw: float = sin(T * .04) * 2.0
+	Spr.seg(x, 364, x + sw, 404, Color("#1a1612"), 2)
+	Spr.rr(x - 13 + sw, 404, 26, 22, 4, Color("#1a1612"))
+	Spr.rr(x - 10 + sw, 407, 20, 16, 3, Color("#8a8e96"))
+	Spr.rect(x - 10 + sw, 411, 20, 2, Color("#5a5e66"))
 
 ## a saída do esconderijo: o luar entrando por uma abertura na rocha
 func _exit(ex: float) -> void:
@@ -442,16 +556,21 @@ func _exit(ex: float) -> void:
 		Spr.circle(ex + 14 + st * 19, 360 + (st * 37) % 50, 1.4, Color(1, 1, 1, .8))
 	Spr.glow(ex + 50, 430, 120, Color(.6, .75, 1, .25))
 
+## o lápis que a Isis deixa de MARCA para o pai: fincado de pé no chão, com uma fitinha (não é um lápis
+## para pegar — esses ficam deitados e brilhando)
 func _pencil(x: float, y: float, c: String) -> void:
 	Spr.save()
-	Spr.translate(x, y - 4)
-	Spr.rotate(-.12)
-	Spr.scale(1.5, 1.5)
-	Spr.rr(-14, -3, 24, 6, 2, Color(c))
-	Spr.poly(PackedVector2Array([Vector2(10, -3), Vector2(17, 0), Vector2(10, 3)]), Color("#e8c890"))
-	Spr.circle(16, 0, 1.2, Color(.2, .2, .2))
+	Spr.translate(x, y + 2)
+	Spr.rotate(.18)
+	Spr.scale(1.4, 1.4)
+	# ponta enterrada, corpo para cima
+	Spr.rr(-3, -26, 6, 22, 2, Color("#1a120c"))
+	Spr.rr(-2, -25, 4, 20, 1.5, Color(c))
+	Spr.poly(PackedVector2Array([Vector2(-3, -4), Vector2(0, 2), Vector2(3, -4)]), Color("#e8c890"))
+	# fitinha de pano amarrada
+	var wv: float = sin(g.T * .12 + x) * 2.0
+	Spr.poly(PackedVector2Array([Vector2(1, -22), Vector2(11, -24 + wv), Vector2(9, -19 + wv), Vector2(1, -18)]), Color("#f4ead2"))
 	Spr.restore()
-	Spr.glow(x, y - 4, 16, Color(1, .95, .7, .25))
 
 ## o Vargas a pé (arte do Gemini: vargas_pe.png — 0-3 andando, 4 erguendo o lampião, 5 correndo,
 ## 6 abaixado agarrando, 7 rindo). fr < 0: escolhe pelo passo (wt = quadros andando; 0 = parado)
@@ -584,6 +703,9 @@ func _hot(h: Dictionary, T: int) -> void:
 
 func _tile(t: Dictionary, T: int) -> void:
 	var x: float = float(t.x)
+	if str(t.get("k", "")) == "mala":
+		_mala(t, T)
+		return
 	var c := Color("#b4502e")
 	if t.st == "shake":
 		var sx: float = sin(T * 1.5) * 2.0
@@ -598,6 +720,29 @@ func _tile(t: Dictionary, T: int) -> void:
 		Spr.restore()
 	else:
 		Spr.rr(x - 15, float(t.y0) - 8, 30, 12, 3, c)
+
+## mala no bagageiro do vagão: balança (aviso) e despenca
+func _mala(t: Dictionary, T: int) -> void:
+	var x: float = float(t.x)
+	var y: float = float(t.y0)
+	var rot := 0.0
+	if t.st == "shake":
+		rot = sin(T * 1.2) * .12
+	elif t.st == "fall":
+		y = float(t.y)
+		rot = (t.y - float(t.y0)) * .01
+	Spr.save()
+	Spr.translate(x, y)
+	Spr.rotate(rot)
+	Spr.rr(-24, -30, 48, 32, 5, Color("#1a120c"))
+	Spr.rr(-21, -27, 42, 26, 4, Color("#8a4a2a"))
+	Spr.rect(-21, -16, 42, 3, Color("#5a2e18"))
+	Spr.rr(-8, -36, 16, 8, 3, Color("#1a120c"))
+	Spr.rect(-14, -27, 3, 26, Color("#c8a050"))
+	Spr.rect(11, -27, 3, 26, Color("#c8a050"))
+	Spr.restore()
+	if t.st == "shake":
+		Spr.text("!", x, float(t.y0) - 46, 18, Color(1, .8, .4), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3)
 
 func _awning(a: Dictionary, T: int) -> void:
 	var x: float = float(a.x)

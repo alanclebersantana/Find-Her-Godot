@@ -16,7 +16,7 @@ const SKY := {"bosque": Color(.80, .90, .97), "tarde": Color(1, .78, .55), "pant
 	"noite": Color(.15, .2, .44), "neve": Color(.88, .92, 1), "mina": Color(.3, .19, .09), "moinho": Color(1, .84, .66),
 	"vila": Color(.16, .21, .46), "esconderijo": Color(.28, .17, .08), "caverna": Color(.07, .14, .2),
 	"fundicao": Color(.35, .16, .06), "cidade": Color(.12, .16, .3), "cofre": Color(.3, .2, .08), "amanhecer": Color(.98, .72, .62),
-	"muralha": Color(.12, .14, .32), "patio": Color(.12, .16, .34), "poroes": Color(.1, .12, .16)}
+	"muralha": Color(.12, .14, .32), "patio": Color(.12, .16, .34), "poroes": Color(.1, .12, .16), "trem": Color(.3, .18, .08)}
 ## névoa de distância na base do fundo
 # (névoas com cor: verde-água no pântano, azul de luar à noite, âmbar de lamparina na mina — cinza
 # e marrom-escuro lavavam a cena)
@@ -24,14 +24,14 @@ const FOGC := {"bosque": Color(.86, .94, .82), "tarde": Color(1, .78, .5), "pant
 	"noite": Color(.2, .27, .55), "neve": Color(.92, .95, 1), "mina": Color(.36, .22, .1), "moinho": Color(1, .82, .6),
 	"vila": Color(.18, .24, .52), "esconderijo": Color(.32, .19, .09), "caverna": Color(.1, .2, .28),
 	"fundicao": Color(.42, .2, .08), "cidade": Color(.14, .2, .36), "cofre": Color(.34, .22, .1), "amanhecer": Color(1, .86, .72),
-	"muralha": Color(.16, .2, .42), "patio": Color(.16, .2, .4), "poroes": Color(.14, .16, .2)}
+	"muralha": Color(.16, .2, .42), "patio": Color(.16, .2, .4), "poroes": Color(.14, .16, .2), "trem": Color(.34, .2, .1)}
 ## quanto o fundo puxa para a cor do céu (x) e perde cor (y) com a distância (pouca perda de cor: a
 ## distância vem da névoa colorida, não de deixar o fundo cinza)
 ## (metade do que era: o fundo longe ainda some no ar, mas sem lavar as cores)
 const HAZE := {"bosque": Vector2(.05, .02), "tarde": Vector2(.04, .01), "pantano": Vector2(.06, .02), "noite": Vector2(.03, .02),
 	"neve": Vector2(.05, .02), "mina": Vector2(0, .01), "moinho": Vector2(.04, .01), "vila": Vector2(.03, .02), "esconderijo": Vector2(0, .01), "caverna": Vector2(0, .01),
 	"fundicao": Vector2(0, .01), "cidade": Vector2(.02, .02), "cofre": Vector2(0, .01), "amanhecer": Vector2(.05, .02),
-	"muralha": Vector2(.03, .02), "patio": Vector2(.02, .02), "poroes": Vector2(0, .01)}
+	"muralha": Vector2(.03, .02), "patio": Vector2(.02, .02), "poroes": Vector2(0, .01), "trem": Vector2(0, .01)}
 ## onde está o sol pintado (pixels da pintura) e a força do brilho
 const SUN := {"tarde": Vector3(686, 322, 1.0), "moinho": Vector3(900, 224, .6)}
 
@@ -198,7 +198,7 @@ func _shooting_star(al: float, w: float, oy: float) -> void:
 ## faixa de névoa no horizonte, névoa na base, vapor dos vales de manhã e cortinas de chuva
 func _atmos(nw: Dictionary, w: float, oy: float, bh: float) -> void:
 	var H: float = game.H
-	var inside: float = FxClock.wsum(nw, ["mina", "esconderijo", "caverna", "fundicao", "cidade", "cofre", "poroes"])
+	var inside: float = FxClock.wsum(nw, ["mina", "esconderijo", "caverna", "fundicao", "cidade", "cofre", "poroes", "trem"])
 	var fc: Color = FxClock.blend(nw, FOGC, Color(.9, .9, .9)).lerp(FxClock.blend(nw, SKY, Color(.9, .9, .9)), .3)
 	# névoa de distância na base do fundo (no Ep. 1 mais leve: o fundo pintado já é claro e a névoa
 	# deixava tudo esbranquiçado); a neblina do clima engrossa aqui, atrás do Tomé
