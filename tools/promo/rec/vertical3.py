@@ -8,7 +8,7 @@ Um vídeo curto por episódio: python3 vertical3.py [1 2 3]. Roteiro em /tmp/vid
 O aviso do controle aparece uma vez só (cartela "pad")."""
 import json, math, os, subprocess, sys
 import numpy as np
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
 R = '/home/claude/find-her-godot/'
 V = '/tmp/vid3/'
@@ -147,10 +147,12 @@ def bg_from(im):
     return Image.blend(big, Image.new('RGB', (W, H), NIGHT), .55)
 
 
-def compose_game(im, cx, top, cap, fade):
+def compose_game(im, cx, top, cap, fade, gain=1.0):
     bg = bg_from(im)
     x0 = int(round(cx - 480))
     g = im.crop((x0, 0, x0 + 960, 720)).resize((GW, GH), Image.LANCZOS)
+    if gain != 1.0:   # trechos muito escuros (noite, caverna): clareia um pouco
+        g = ImageEnhance.Brightness(g).enhance(gain)
     out = bg
     d = ImageDraw.Draw(out)
     d.rectangle([0, GY - 6, W, GY + GH + 5], fill=(0, 0, 0))
@@ -237,7 +239,8 @@ def main(ep):
                 enc.stdin.write(f.tobytes())
                 total += 1
             continue
-        src, start, secs, ep, cap = sg
+        src, start, secs, ep, cap = sg[:5]
+        gain = sg[5] if len(sg) > 5 else 1.0
         n = int(secs * FPS)
         pos = load_pos(src)
         us = [pos[min(start + i, len(pos) - 1)][0] for i in range(n)]
@@ -245,7 +248,7 @@ def main(ep):
         capL = caption_layer(cap)
         for i, im in enumerate(frames(src, start, n)):
             fade = min(1.0, (i + 1) / 6, (n - i) / 6)
-            enc.stdin.write(compose_game(im, cs[i], tops[ep], capL, fade).tobytes())
+            enc.stdin.write(compose_game(im, cs[i], tops[ep], capL, fade, gain).tobytes())
             total += 1
         print('seg', src, start, secs, file=sys.stderr)
     enc.stdin.close()

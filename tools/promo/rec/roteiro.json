@@ -1,0 +1,197 @@
+{
+ "1": [
+  [
+   "intro",
+   2.6
+  ],
+  [
+   "ep1",
+   25,
+   4.2,
+   1,
+   "Corra pela floresta"
+  ],
+  [
+   "ep1",
+   478,
+   4.2,
+   1,
+   "Suba os muros"
+  ],
+  [
+   "ep1",
+   700,
+   4.5,
+   1,
+   "Abaixe-se dos troncos"
+  ],
+  [
+   "ep1",
+   1150,
+   4.2,
+   1,
+   "Cuidado com as colmeias"
+  ],
+  [
+   "ep1",
+   1290,
+   3.5,
+   1,
+   "Mergulhe no pântano"
+  ],
+  [
+   "ep1",
+   1830,
+   4.0,
+   1,
+   "Fuja das bolas de neve"
+  ],
+  [
+   "ep1",
+   2040,
+   4.5,
+   1,
+   "Galope pela neve"
+  ],
+  [
+   "ep1",
+   2272,
+   4.2,
+   1,
+   "Fuja do Urso-Rei!"
+  ],
+  [
+   "pad",
+   2.6
+  ],
+  [
+   "fim",
+   3.4
+  ]
+ ],
+ "2": [
+  [
+   "intro",
+   2.6
+  ],
+  [
+   "ep2",
+   60,
+   4.0,
+   2,
+   "Entre na mina"
+  ],
+  [
+   "ep2",
+   245,
+   4.2,
+   2,
+   "Pule entre as plataformas"
+  ],
+  [
+   "ep2",
+   470,
+   4.5,
+   2,
+   "Atravesse o moinho"
+  ],
+  [
+   "ep2",
+   700,
+   4.0,
+   2,
+   "Pule nas vitórias-régias"
+  ],
+  [
+   "ep2",
+   950,
+   4.5,
+   2,
+   "Corra pelos telhados"
+  ],
+  [
+   "brutus",
+   350,
+   4.2,
+   2,
+   "Pule na cabeça do Brutus",
+   1.3
+  ],
+  [
+   "morcego",
+   330,
+   4.2,
+   2,
+   "Enfrente o Morcego-Rei",
+   1.45
+  ],
+  [
+   "pad",
+   2.6
+  ],
+  [
+   "fim",
+   3.4
+  ]
+ ],
+ "3": [
+  [
+   "intro",
+   2.6
+  ],
+  [
+   "ep3",
+   90,
+   4.2,
+   3,
+   "Suba a trilha da serra",
+   1.2
+  ],
+  [
+   "ep3",
+   480,
+   4.5,
+   3,
+   "Esconda-se dos vigias",
+   1.15
+  ],
+  [
+   "ep3",
+   960,
+   4.2,
+   3,
+   "Atravesse os porões",
+   1.2
+  ],
+  [
+   "ep3",
+   1150,
+   4.5,
+   3,
+   "Desvie do metal derretido"
+  ],
+  [
+   "salamandra",
+   400,
+   4.5,
+   3,
+   "Esfrie a Salamandra de Fogo"
+  ],
+  [
+   "guardiao",
+   800,
+   4.5,
+   3,
+   "Derrube o Guardião de Ferro",
+   1.1
+  ],
+  [
+   "pad",
+   2.6
+  ],
+  [
+   "fim",
+   3.4
+  ]
+ ]
+}
