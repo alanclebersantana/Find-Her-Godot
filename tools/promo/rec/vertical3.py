@@ -23,8 +23,8 @@ URL = 'alanclebersantana.github.io/Find-Her-Godot'
 
 EPS = {1: ('EPISÓDIO 1', 'O Bosque'), 2: ('EPISÓDIO 2', 'As Profundezas da Mina'), 3: ('EPISÓDIO 3', 'A Fortaleza na Serra')}
 ROT = json.load(open(V + 'roteiro.json'))   # {"1": [...trechos], "2": ..., "3": ...}
-ART = {1: 'assets/ui/cena1.jpg', 2: 'assets/ui/cut_ep2_a.jpg', 3: 'assets/ui/cut_ep3_fort.jpg'}
-TAG = {1: 'A Isis sumiu. Siga a trilha de lápis!', 2: 'A trilha desce para dentro da mina', 3: 'A trilha sobe até a fortaleza'}
+ART = {1: 'assets/ui/cena1.jpg', 2: 'assets/ui/cut_ep2_a.jpg', 3: 'assets/ui/cut_ep3_a.jpg'}
+TAG = {1: 'A Isis sumiu. Siga a trilha de lápis!', 2: 'A trilha desce para dentro da mina', 3: 'A trilha entra na fortaleza'}
 MUS = {1: 'mus_tema', 2: 'mus_tunel', 3: 'mus_perseguicao'}
 
 _fc = {}
