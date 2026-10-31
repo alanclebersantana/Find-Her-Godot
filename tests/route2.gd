@@ -651,7 +651,7 @@ func _initialize() -> void:
 	S("carrinho sem batidas " + str(hk), P.hp == 5 and VH.tries == 0)
 	S("espinhos depois do carrinho", walk_to(28260) and cross_spikes(trap_at("spikes", 28360), 28500))
 	S("entra na caverna", until({"R": true}, func(): return g.K.HAWK.active, 400))
-	S("vence o Morcego-Rei", bat_fight())
+	S("vence o Morcego-Rei", hawk_fight())
 	var hx0: float = float(L.hawk.x0)
 	walk_to(hx0 + 420)
 	S("tábua do roxo", jump_to(hx0 + 540))

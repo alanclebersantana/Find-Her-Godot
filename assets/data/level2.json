@@ -3669,10 +3669,6 @@
    500
   ],
   [
-   2000,
-   500
-  ],
-  [
    3250,
    500
   ],
@@ -3690,10 +3686,6 @@
   ],
   [
    7200,
-   500
-  ],
-  [
-   8650,
    500
   ],
   [
@@ -3719,18 +3711,10 @@
    -150
   ],
   [
-   14670,
-   -150
-  ],
-  [
    16300,
    -150,
    "rest",
    2
-  ],
-  [
-   16880,
-   -10
   ],
   [
    18049,
@@ -3755,10 +3739,6 @@
    3
   ],
   [
-   24676,
-   500
-  ],
-  [
    25300,
    500
   ],
@@ -3768,10 +3748,6 @@
   ],
   [
    28186,
-   500
-  ],
-  [
-   28700,
    500
   ],
   [
@@ -3967,7 +3943,7 @@
   {
    "a": 28460,
    "b": 28880,
-   "t": "Uma caverna enorme e escura... algo grande dorme pendurado lá no alto. Ali tem lamparinas apagadas."
+   "t": "Uma caverna enorme e escura... algo grande dorme pendurado lá no alto. Ali tem lamparinas: acesas, elas mostram a sombra de quem mergulha."
   },
   {
    "a": 29840,
@@ -4394,7 +4370,7 @@
   "x1": 29840,
   "y": 500,
   "trig": 28900,
-  "hp": 4,
+  "hp": 5,
   "skin": "bat",
   "lamps": [
    [

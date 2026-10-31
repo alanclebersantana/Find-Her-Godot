@@ -769,7 +769,7 @@ func sheet_cycle(name: String, fpos: float, n: int, base: int, cw: float, ch: fl
 ## Tudo o que antes carregava na primeira vez que aparecia (poses novas, folhas x4, objetos pintados,
 ## silhuetas do contorno) começa a carregar numa linha separada logo na abertura do jogo e fica pronto
 ## antes da fase; carregar no meio do jogo dava as "travadinhas" no celular.
-const WARM_OPT := ["b3_eel_0", "b3_eel_1", "b3_eel_2", "b3_eel_3", "b3_sal_0", "b3_sal_1", "b3_sal_2", "b3_sal_3", "b3_sal_4", "b3_sal_5", "b3_gua_0", "b3_gua_1", "b3_gua_2", "b3_gua_3", "b3_gua_4", "trem3", "estacao3", "gaviao_rei", "coroa_gaviao", "boar_ko", "boar_wind", "boss_charge", "crow_dive", "crow_ko", "dog_dig", "dog_joy", "dog_sniff",
+const WARM_OPT := ["b3_eel_0", "b3_eel_1", "b3_eel_2", "b3_eel_3", "b3_sal_0", "b3_sal_1", "b3_sal_2", "b3_sal_3", "b3_sal_4", "b3_sal_5", "b3_gua_0", "b3_gua_1", "b3_gua_2", "b3_gua_3", "b3_gua_4", "trem3", "estacao3", "vagao3", "vagao3_base", "vargas_boss", "gaviao_rei", "coroa_gaviao", "boar_ko", "boar_wind", "boss_charge", "crow_dive", "crow_ko", "dog_dig", "dog_joy", "dog_sniff",
 	"dragonfly", "fish_bite", "frog_ko", "frog_tongue", "horse_free", "isis_run", "leaves", "morcego_rei", "ride_dis",
 	"ride_gallop", "ride_jump", "sapo_rei", "sled_tome", "urso", "esquilo", "cavalo",
 	"isis_climb", "isis_joy", "isis_scared", "p_tora_neve", "p_pedra_neve", "p_galho_neve"]

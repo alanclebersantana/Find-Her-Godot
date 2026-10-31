@@ -2047,6 +2047,9 @@ func cam_bounds() -> Rect2:
 ## na tela. Buracos e fundos de lago perto não puxam a câmera (ocupam pouca largura).
 func cam_ty(px: float, focus: float) -> float:
 	var feet: float = focus + player.h
+	# em cima dos vagões na ponte: a câmera mostra os vagões inteiros e a ponte embaixo
+	if L.has("bridge") and px > float(L.bridge.x0) - 900:
+		return minf(float(L.bridge.y) - H * .5, focus - H * .12)
 	var gy: float = floor_under(px, feet - 4.0)
 	# fundo de lago/brejo com o Tomé por cima (vitória-régia, pulo): não é chão para a câmera
 	if gy < 90000.0 and _submerged(px, gy, feet):

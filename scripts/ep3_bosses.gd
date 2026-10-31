@@ -126,6 +126,7 @@ func on_respawn() -> void:
 #  passo
 # ======================================================================
 func post() -> void:
+	_zap_water()
 	if B.is_empty():
 		return
 	for b in B:
@@ -227,6 +228,39 @@ func _stomp(hb: Dictionary) -> bool:
 func _touch(box: Dictionary) -> bool:
 	var p: Dictionary = g.player
 	return p.dyingT == 0 and not p.get("dog") and Game.hit(p, box)
+
+## água que dá choque (a cisterna dos porões): cair nela machuca e devolve o Tomé para o pilar mais perto
+func _zap_water() -> void:
+	var p: Dictionary = g.player
+	if p.dyingT > 0 or p.iframe > 0:
+		return
+	var pcx: float = p.x + p.w / 2
+	var feet: float = p.y + p.h
+	for w in g.L.get("water", []):
+		if not w.get("zap"):
+			continue
+		if pcx < float(w.x) or pcx > float(w.x) + float(w.w) or feet < float(w.y) + 6:
+			continue
+		g.hurt(1, pcx)
+		g.burst(pcx, float(w.y), 22, Color("#9ff4ff"))
+		Audio.play("unlock", -4, 1.6)
+		g.shake = max(g.shake, 6)
+		var best: float = float(w.x) - 60.0
+		var bd := 1e9
+		for px0 in w.get("pillars", []):
+			var c: float = float(px0) + float(w.get("pw", 90)) / 2
+			if abs(c - pcx) < bd:
+				bd = abs(c - pcx)
+				best = c
+		p.x = best - p.w / 2
+		p.y = float(w.get("ptop", 400)) - p.h - 2
+		p.vy = -6.0
+		p.vx = 0.0
+		p.swim = false
+		if not g.L.get("_zap_tip", false):
+			g.L["_zap_tip"] = true
+			g.tip("NÃO ENTRE NA ÁGUA: dá choque! Pule de pilar em pilar.", 200)
+		return
 
 # ======================================================================
 #  ENGUIA DE CRISTAL
@@ -644,6 +678,9 @@ func _gua(b: Dictionary) -> void:
 	var fury: int = int(b.fury)
 	var lo: float = float(b.x0) + 110
 	var hi: float = float(b.x1) - 110
+	# o Tomé lá em cima da passarela: se ficar muito tempo, o Guardião soca o pilar e derruba ele
+	var up: bool = p.onGround and p.y + p.h < float(b.y) - 60 and pcx > float(b.x0) and pcx < float(b.x1)
+	b.upT = int(b.get("upT", 0)) + 1 if up else maxi(0, int(b.get("upT", 0)) - 2)
 	match b.st:
 		"fight0":
 			b.st = "walk"
@@ -656,7 +693,12 @@ func _gua(b: Dictionary) -> void:
 				Audio.play("stomp", -14, .6)
 				g.shake = max(g.shake, 2)
 			b.cd -= 1
-			if b.cd <= 0 and abs(pcx - b.x) < 340 and p.dyingT == 0:
+			if int(b.upT) > 130 and p.dyingT == 0:
+				b.st = "raise"
+				b.t = 0
+				b.pillar = true
+				b.upT = 0
+			elif b.cd <= 0 and abs(pcx - b.x) < 340 and p.dyingT == 0:
 				b.st = "raise"
 				b.t = 0
 				b.dbl = fury >= 2 and randf() < .45
@@ -677,6 +719,17 @@ func _gua(b: Dictionary) -> void:
 					g.hurt(1, b.x)
 				for s in [-1, 1]:
 					SHOTS.append({"k": "wave", "x": b.x + s * 80, "y": float(b.y), "vx": s * (8.0 + fury * .7), "vy": 0.0, "t": 0})
+				if b.get("pillar", false):
+					# socou o pilar: a passarela treme e o Tomé cai lá de cima
+					b.pillar = false
+					g.shake = max(g.shake, 22)
+					if p.onGround and p.y + p.h < float(b.y) - 60 and pcx > float(b.x0) and pcx < float(b.x1):
+						p.y += 16
+						p.vy = 3.0
+						p.onGround = false
+					if not g.L.get("_gua_pilar", false):
+						g.L["_gua_pilar"] = true
+						g.flash("O Guardião socou o pilar: a passarela tremeu! Não dá para ficar lá em cima muito tempo.", 200)
 				# o tranco solta pedras do teto, perto do Tomé (sombra no chão avisa)
 				for r in (1 + (1 if fury >= 3 else 0)):
 					var rx: float = clamp(pcx + randf_range(-160, 160), float(b.x0) + 30, float(b.x1) - 30)
@@ -826,11 +879,11 @@ func _vargas(b: Dictionary) -> void:
 			b.cd -= 1
 			if b.cd <= 0 and p.dyingT == 0:
 				var opts: Array = ["barrel", "coal", "lamp", "charge"]
-				var pick: String = opts[int(b.n) % 4] if ph == 1 else opts[randi() % 4]
+				var pick: String = opts[int(b.get("n", 0)) % 4] if ph == 1 else opts[randi() % 4]
 				if pick == str(b.get("last", "")):
 					pick = opts[(opts.find(pick) + 1) % 4]
 				b.last = pick
-				b.n = int(b.n) + 1
+				b.n = int(b.get("n", 0)) + 1
 				b.st = pick
 				b.t = 0
 				b.def = false

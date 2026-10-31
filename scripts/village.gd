@@ -219,6 +219,11 @@ func post() -> void:
 	# vigias
 	for w in WATCH:
 		w.t += 1
+		# passo: a fase da caminhada anda junto com a distância percorrida (na lógica, não no desenho)
+		var mv: float = abs(float(w.x) - float(w.get("_px", w.x)))
+		w._px = float(w.x)
+		w.mv = mv
+		w.wph = float(w.get("wph", 0.0)) + mv / 8.0
 		if w.get("bribed") and not told.has("bribed") and abs(float(w.x) - pc.x) < 700:
 			told.bribed = 1
 			g.tip("Um vigia da vila aqui embaixo: o Vargas subornou os vigias para guardar o esconderijo!", 300)
@@ -599,9 +604,16 @@ func draw_glow(T: int) -> void:
 		var pts := PackedVector2Array([lp])
 		var cols := PackedColorArray([Color(1, .85, .45, .38)])
 		var ck: float = cone_k(w)
+		var zn: Array = w.get("zone", [])
 		for k in 9:
 			var a: float = -CONE_ANG + 2.0 * CONE_ANG * k / 8.0
-			pts.push_back(lp + dirv.rotated(a) * CONE_LEN * ck)
+			var rv: Vector2 = dirv.rotated(a)
+			var lim: float = CONE_LEN * ck
+			if not zn.is_empty():
+				# no trem a luz para na porta do vagão
+				var edge: float = float(zn[1]) if float(w.dir) > 0 else float(zn[0])
+				lim = minf(lim, absf(edge - lp.x) / maxf(.3, absf(rv.x)))
+			pts.push_back(lp + rv * lim)
 			cols.push_back(Color(1, .85, .45, .0))
 		Spr.ci.draw_polygon(pts, cols)
 		Spr.glow(lp.x, lp.y, 46, Color(1, .8, .4, .5))
@@ -614,7 +626,7 @@ func _watchman(w: Dictionary, T: int) -> void:
 	var d: float = float(w.dir)
 	var wd: float = Spr.edist(w)
 	Spr.ellipse(x, 501, 28, 5, Color(0, 0, 0, .32))
-	if w.wait > 0:
+	if w.wait > 0 or float(w.get("mv", 1.0)) < .05:
 		var fr: int = 6 if int(w.get("alarm", 0)) > 0 else (5 if w.wait > 30 else 4)
 		# parado: respira (o peito sobe e desce de leve)
 		Spr.save()
@@ -623,9 +635,10 @@ func _watchman(w: Dictionary, T: int) -> void:
 		Spr.sheet("vigia", fr, 220, 200, 0, 0, VIGIA_H, d < 0)
 		Spr.restore()
 	else:
-		# andando: o quadro segue a distância (passo de ~16 px por quadro, sem patinar)
-		var bob: float = -abs(sin(wd / 16.0 * PI / 2.0)) * 1.5
-		Spr.sheet_cycle("vigia", wd / 16.0, 4, 0, 220, 200, x, 502 + bob, VIGIA_H, d < 0)
+		# andando: o quadro segue a distância andada (fase calculada na lógica: passo firme, sem patinar)
+		var ph: float = float(w.get("wph", 0.0))
+		var bob: float = -abs(sin(ph * PI / 2.0)) * 3.0
+		Spr.sheet_cycle("vigia", ph / 2.0, 4, 0, 220, 200, x, 502 + bob, VIGIA_H, d < 0)
 	if w.wait > 40:
 		Spr.text("?", x, 380 + sin(T * .2) * 2, 18, Color(1, .9, .6), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3)
 

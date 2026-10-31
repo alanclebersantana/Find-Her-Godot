@@ -536,10 +536,30 @@ static func bat_step(g, K) -> void:
 				h.active = false
 				Polish.smoke_cloud(h.x, h.y - 40)
 
+## Morcego-Rei no molde do Gavião-Rei: aqui só o que é da caverna (as lamparinas acendendo, o vulto no
+## escuro e as estalactites); o resto da luta é a do Gavião (Kings._hawk)
+static func bat_extras(g, K) -> void:
+	var h: Dictionary = K.HAWK
+	if h.is_empty():
+		return
+	_lamp_lights(g, h)
+	if h.done:
+		return
+	if h.red > 0:
+		h.red -= 1
+	var p: Dictionary = g.player
+	var pc := Vector2(p.x + p.w / 2, p.y + p.h / 2)
+	var bc := bat_center(h)
+	var seen: bool = lit_at(h, bc, LAMP_R + 20.0) or bc.distance_to(pc) < 220.0 or not g.CINE.is_empty() or h.st in ["wait", "stuck", "flee", "dive"]
+	h.vis = move_toward(float(h.get("vis", 1.0)), 1.0 if seen else .18, .06)
+	if int(h.get("snuffT", 0)) > 0:
+		h.snuffT -= 1
+	_stalactites(g, h, pc)
+
 ## estalactites que despencam do teto da caverna perto do Tomé (com aviso: poeira e sombra)
 static func _stalactites(g, h: Dictionary, pc: Vector2) -> void:
 	var st: Array = h.get("stal", [])
-	var fight: bool = h.st in ["lurk", "warn", "swoop", "recoil", "snuff"]
+	var fight: bool = h.get("active", false) and h.st in ["circle", "mark", "dive", "stuck", "rise"]
 	if fight:
 		h.stalT = int(h.get("stalT", 160)) - 1
 		if int(h.stalT) <= 0:
@@ -592,7 +612,7 @@ static func near_lamp(g, K):
 	var h: Dictionary = K.HAWK
 	if h.is_empty() or h.get("skin", "") != "bat" or not h.get("active", false) or h.get("done", false):
 		return null
-	if h.st in ["wait", "dazzle", "fall", "down", "flee"]:
+	if h.st in ["wait", "dive", "flee"]:
 		return null
 	var p: Dictionary = g.player
 	if not p.onGround or p.get("dog"):
@@ -608,29 +628,16 @@ static func use_lamp(g, K) -> bool:
 	var l = near_lamp(g, K)
 	if l == null:
 		return false
-	var h: Dictionary = K.HAWK
 	l.lit = true
-	h.hp = 0
-	for o in h.lamps:
-		if not o.lit:
-			h.hp += 1
-	h.red = 20
 	Audio.play("fire", -2)
 	Audio.play("special", -8)
 	Audio.vib(60)
 	g.burst(float(l.x), float(l.y) - 74, 18, Color("#ffcf6a"))
-	if h.hp <= 0:
-		h.st = "dazzle"
-		h.t = 0
-		Polish.final_blow()
-		K._gate("hawkL", false, Rect2())
-		K._gate("hawkR", false, Rect2())
-		g.player.hp = Game.MAXHP
-		Audio.play("door", -4)
-		g.flash("Tudo aceso! O Morcego-Rei ficou ofuscado e despencou! O caminho está livre.", 240)
-	else:
-		Audio.play("roar", -10, 2.6)
-		g.flash("A lamparina acendeu! O escuro diminuiu. Falta%s %d." % ["m" if h.hp > 1 else "", h.hp], 160)
+	var n := 0
+	for o in K.HAWK.lamps:
+		if o.lit:
+			n += 1
+	g.flash("A lamparina acendeu! Perto da luz dá para ver a sombra do mergulho dele (%d/%d)." % [n, K.HAWK.lamps.size()], 160)
 	return true
 
 # ======================================================================

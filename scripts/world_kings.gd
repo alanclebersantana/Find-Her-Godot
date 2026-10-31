@@ -227,6 +227,11 @@ static func _hawk(g: Game, K: Kings, T: int) -> void:
 	var sh := K.hawk_shadow()
 	if sh.x > 0:
 		var k: float = sh.y
+		if h.get("skin", "") == "bat":
+			# no escuro a sombra mal aparece; perto de lamparina acesa ou da lanterna do Tomé, bem nítida
+			var pl: Dictionary = g.player
+			var lit: bool = Ep2Bosses.lit_at(h, Vector2(sh.x, h.gy - 74), Ep2Bosses.LAMP_R + 60.0) or abs(pl.x + pl.w / 2 - sh.x) < 200.0
+			k *= 1.0 if lit else .35
 		var pul: float = .8 + sin(T * .4) * .2
 		Spr.ellipse(sh.x, h.gy + 2, 74 * k * pul, 15 * k, Color(0, 0, 0, .6 * k))
 		Spr.ellipse(sh.x, h.gy + 2, 40 * k * pul, 8 * k, Color(0, 0, 0, .5 * k))

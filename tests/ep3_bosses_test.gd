@@ -28,21 +28,17 @@ func _initialize() -> void:
 	g.lantern_lit = true
 	var only: String = OS.get_environment("CHEFE")
 	var lives0: int = g.lives
-	if only == "" or only == "enguia":
-		_at(19400, 330)
-		S("pilar 1", jump_to(19605, true))
-		S("vence a Enguia de Cristal", eel_fight())
 	if only == "" or only == "salamandra":
-		_at(21000 + 5950, 500)
+		_at(float(g.L.sections[3].x) + 5950, 500)
 		S("vence a Salamandra de Fogo", sal_fight())
 	if only == "" or only == "guardiao":
-		_at(28700 + 4300, 500)
+		_at(float(g.L.sections[4].x) + 4300, 500)
 		S("vence o Guardião de Ferro", gua_fight())
 	if only == "" or only == "trem":
 		for b in g.K.B3.B:
 			if b.id != "vargas":
 				b.done = true
-		_at(28700 + 5800, 500)
+		_at(float(g.L.sections[4].x) + 5800, 500)
 		S("o trem partiu", walk_to(float(g.L.door.x) - 100) and g.VH.dep_t >= 0)
 		g.VH.tied = false
 		S("sobe no trole", until({"R": true}, func(): return g.VH.mode == "sled", 500))

@@ -1081,6 +1081,9 @@ static func mech(g: Game, T: int) -> void:
 	for gt in M.GATES:
 		if gt.x + gt.w < c0 or gt.x > c1:
 			continue
+		if gt.get("door"):
+			_train_door(gt)
+			continue
 		if not gt.get("crank") and float(gt.h) > 200.0:
 			_palisade_gate(g, gt)
 			continue
@@ -1236,6 +1239,29 @@ static func _pal_log_top(lx: float, top: float) -> float:
 	return top - 10.0 + float((int(lx * 7.3) % 5) * 7)
 
 ## parte de trás: chão de dentro, o vão escuro, a porta subindo e o batente esquerdo (o Tomé passa na frente deles)
+## porta entre os vagões do trem: batente de madeira, a porta com janelinha sobe com o trinco (manivela)
+static func _train_door(gt: Dictionary) -> void:
+	var x0: float = gt.x - 24
+	var x1: float = gt.x + gt.w + 24
+	var top: float = gt.y
+	var bot: float = gt.y + gt.h
+	var lift: float = gt.open * (gt.h - 40)
+	# o vão (escuro: a passagem para o outro vagão)
+	Spr.rect(x0, top, x1 - x0, gt.h, Color(.08, .05, .03, .85))
+	# a porta
+	var dy: float = top - lift
+	Spr.rr(x0 + 2, dy, x1 - x0 - 4, gt.h, 4, Color("#1a100a"))
+	Spr.rr(x0 + 5, dy + 3, x1 - x0 - 10, gt.h - 6, 3, Color("#7a4a26"))
+	Spr.rr(x0 + 9, dy + 22, x1 - x0 - 18, 70, 4, Color("#1a100a"))
+	Spr.rr(x0 + 12, dy + 25, x1 - x0 - 24, 64, 3, Color(1, .82, .5, .55))
+	Spr.rect(x0 + 9, dy + gt.h * .55, x1 - x0 - 18, 4, Color("#4a2a14"))
+	Spr.circle(x1 - 14, dy + gt.h * .62, 4, Color("#e8c050"))
+	# o batente (fica parado; a porta some no teto do vagão)
+	Spr.rect(x0 - 6, top, 8, gt.h, Color("#2a180c"))
+	Spr.rect(x1 - 2, top, 8, gt.h, Color("#2a180c"))
+	Spr.rect(x0 - 6, top - 6, x1 - x0 + 12, 8, Color("#2a180c"))
+	Spr.rect(x0 - 6, bot - 4, x1 - x0 + 12, 6, Color("#3a2414"))
+
 static func _palisade_gate(g: Game, gt: Dictionary) -> void:
 	var bot: float = float(gt.y) + float(gt.h)
 	var top: float = palisade_top(g, gt)

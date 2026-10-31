@@ -1453,13 +1453,44 @@ static func _cart_track(g: Game, VH: Vehicles, T: int) -> void:
 					fall = min(float(ft), 40.0)
 					fall = fall * fall * .25
 				var by: float = oy - 66
-				# o teto baixo de rocha em cima da viga (fica no lugar mesmo depois da batida)
-				var rk := PackedVector2Array([Vector2(o.x - 70, oy - 260), Vector2(o.x + 80, oy - 260), Vector2(o.x + 72, by - 30),
-					Vector2(o.x + 50, by - 6), Vector2(o.x - 40, by - 6), Vector2(o.x - 62, by - 28)])
-				Spr.poly(rk, Color("#2a1d14"))
-				Spr.line(PackedVector2Array([Vector2(o.x - 62, by - 28), Vector2(o.x - 40, by - 6), Vector2(o.x + 50, by - 6), Vector2(o.x + 72, by - 30)]), Color("#4a3a2c"), 4)
-				for k in 4:
-					Spr.ellipse(o.x - 40 + k * 28, by - 16 - (k % 2) * 10, 10, 7, Color("#3a2c20"))
+				if VH.SL.get("train"):
+					# céu aberto (trole): um pórtico de madeira com a viga baixa pendurada em correntes
+					for px2 in [o.x - 64, o.x + 62]:
+						Spr.rect(px2 - 6, oy - 230, 12, 230, Color("#1a120c"))
+						Spr.rect(px2 - 4, oy - 228, 8, 226, Color("#6a4424"))
+					Spr.rect(o.x - 76, oy - 238, 152, 14, Color("#1a120c"))
+					Spr.rect(o.x - 74, oy - 236, 148, 10, Color("#7a5232"))
+					for cx3 in [o.x - 40, o.x + 40]:
+						var cy3: float = oy - 224
+						while cy3 < by - 4:
+							Spr.ring(cx3, cy3 + 5, 4, Color("#2a2420"), 2.5)
+							cy3 += 10
+				else:
+					# o teto baixo de rocha em cima da viga (fica no lugar mesmo depois da batida)
+					var rk := PackedVector2Array([Vector2(o.x - 70, oy - 260), Vector2(o.x + 80, oy - 260), Vector2(o.x + 72, by - 30),
+						Vector2(o.x + 50, by - 6), Vector2(o.x - 40, by - 6), Vector2(o.x - 62, by - 28)])
+					Spr.poly(rk, Color("#2a1d14"))
+					Spr.line(PackedVector2Array([Vector2(o.x - 62, by - 28), Vector2(o.x - 40, by - 6), Vector2(o.x + 50, by - 6), Vector2(o.x + 72, by - 30)]), Color("#4a3a2c"), 4)
+					for k in 4:
+						Spr.ellipse(o.x - 40 + k * 28, by - 16 - (k % 2) * 10, 10, 7, Color("#3a2c20"))
+				if ft < 0:
+					# ABAIXE: setas laranja descendo em cima da viga e a placa amarela antes dela
+					for k in 2:
+						var u2: float = fposmod(T * .03 + k * .5, 1.0)
+						var ay2: float = by - 96 + u2 * 46
+						Spr.line(PackedVector2Array([Vector2(o.x - 14, ay2 - 10), Vector2(o.x, ay2), Vector2(o.x + 14, ay2 - 10)]), Color(1, .55, .1, sin(u2 * PI) * .95), 6)
+					var sx2: float = o.x - 230
+					var sy2: float = VH.sled_y(float(o.u) - 230)
+					Spr.rect(sx2 - 3, sy2 - 70, 6, 70, Color("#3a2414"))
+					Spr.save()
+					Spr.translate(sx2, sy2 - 92)
+					Spr.rotate(PI / 4)
+					Spr.rr(-22, -22, 44, 44, 4, Color("#1a120c"))
+					Spr.rr(-19, -19, 38, 38, 3, Color(1, .78, .1))
+					Spr.restore()
+					Spr.text("↓", sx2, sy2 - 80, 30, Color("#1a120c"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b)
+					if (T / 10) % 2 == 0:
+						Spr.glow(sx2, sy2 - 92, 40, Color(1, .6, .1, .35))
 				# esteios dos dois lados do trilho
 				for px in [o.x - 50, o.x + 48]:
 					Spr.rect(px, by - 6, 12, oy - by + 6, Color("#4a3018"))
@@ -1702,6 +1733,9 @@ static func _train_img(x: float, gy: float, ang: float, T: int, moving: bool) ->
 	Spr.translate(x, gy - 6 + bob)
 	Spr.rotate(ang)
 	Spr.ci.draw_texture_rect(t, Rect2(0, -h, TRAIN_W, h), false, Color(1, 1, 1, Spr.alpha))
+	# a Isis espiando pela primeira janela do último vagão (com as mãos no vidro, iluminada)
+	var kk: float = TRAIN_W / float(t.get_width())
+	WorldEp3.isis_peek(Rect2(73 * kk, -h + 188 * kk, 25 * kk, 40 * kk), T)
 	# fumaça saindo da chaminé, ficando para trás
 	var cx: float = TRAIN_W * .905
 	for pf in 6:
@@ -1713,11 +1747,23 @@ static func _train_img(x: float, gy: float, ang: float, T: int, moving: bool) ->
 	Spr.restore()
 
 ## o Vargas na plataforma de trás do último vagão
-static func _vargas_back(x: float, gy: float, T: int, throw: float) -> void:
+static func _vargas_back(x: float, gy: float, T: int, throw: float, ang: float = 0.0) -> void:
+	# o mesmo Vargas da luta final (capacete com lâmpada, casaco comprido), na plataforma de trás:
+	# erguendo o lampião, ou jogando o barril
+	var t: Texture2D = Spr.opt("vargas_boss")
+	if t == null:
+		return
+	var tt: Texture2D = Spr.opt("trem3")
+	var kk: float = TRAIN_W / float(tt.get_width()) if tt else .833
+	var h: float = TRAIN_W * 371.0 / 1200.0
 	Spr.save()
-	Spr.translate(x + 30, gy - 40)
-	Spr.rotate(-.15 * throw)
-	Spr.sheet("vargas_pe", 0 if throw <= 0.0 else 3, 200, 200, 0, 0, 118.0, true)
+	Spr.translate(x, gy - 6)
+	Spr.rotate(ang)
+	Spr.translate(16 * kk, -h + 302 * kk)
+	var fr: int = 2 if throw > 0.0 else 1
+	var s: float = 150.0 / 280.0
+	Spr.scale(-s, s)
+	Spr.ci.draw_texture_rect_region(t, Rect2(-150, -296, 300, 300), Rect2(fr * 300, 0, 300, 300), Color(1, 1, 1, Spr.alpha))
 	Spr.restore()
 
 ## na estação: o trem parado (e depois saindo) à direita da casinha
@@ -1730,9 +1776,8 @@ static func station_train(g: Game, cx: float, gy: float, T: int) -> void:
 	if x > g.cam + g.W + 200:
 		return
 	_train_img(x, gy, 0.0, T, VH.dep_t >= 0)
-	# a Isis na janela do último vagão e o Vargas atrás
+	# o Vargas na plataforma de trás (a Isis está na janela, desenhada junto com o trem)
 	_vargas_back(x, gy, T, 0.0)
-	Spr.sheet("isis2", 0, 150, 150, x + 110, gy - 120, 58.0, false)
 
 ## durante a perseguição: o trem lá na frente; o Vargas joga barris da plataforma de trás
 static func _train_ahead(g: Game, VH: Vehicles, T: int, t0: float) -> void:
@@ -1751,12 +1796,7 @@ static func _train_ahead(g: Game, VH: Vehicles, T: int, t0: float) -> void:
 			if dd > -60 and dd < 40:
 				thr = 1.0 - abs(dd + 10) / 50.0
 	_train_img(x, y0, ang, T, moving)
-	_vargas_back(x, y0, T, thr)
-	Spr.save()
-	Spr.translate(x, y0)
-	Spr.rotate(ang)
-	Spr.sheet("isis2", (T / 12) % 2, 150, 150, 110, -120, 58.0, false)
-	Spr.restore()
+	_vargas_back(x, y0, T, thr, ang)
 
 ## barril de madeira que o Vargas jogou nos trilhos (aparece quando o trem passa por ali)
 static func _barrel(g: Game, VH: Vehicles, o: Dictionary, oy: float, ft: int, T: int) -> void:

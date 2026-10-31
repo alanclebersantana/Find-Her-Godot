@@ -297,109 +297,103 @@ check(11960, GY, 2)
 #  C · OS PORÕES  (12600 .. 21000)   — labirinto de três andares
 #      térreo (chão 500) · meio (chão 280) · alto (chão 60); teto em -160
 # ======================================================================
-C0, C1 = B1, 21000
+C0 = B1
+C1 = C0 + 6300
 L["sections"].append({"x": C0, "song": "tunel", "bg": "poroes", "gt": "vila", "night": 1, "dark": .5, "per": 2,
                       "tint": "rgba(40,60,80,.10)"})
 L["darkZones"].append({"x": C0, "w": C1 - C0, "dark": .62})
-ground(C0, C1)
 wall(C0, C1, -620, -160, ceil=1)                     # o teto dos porões
 F1, F2 = 280, 60
-hint(C0 + 60, C0 + 500, "Os porões: um labirinto de corredores em três andares. Tem caminho que não leva a lugar nenhum... "
-                        "e tem prêmio escondido nos becos!")
 
-# C1 · térreo: passagens baixas (abaixado) e morcegos
-wall(12900, 13300, F1 + 40, 474)       # passagem baixa 1
-wall(13600, 14000, F1 + 40, 474)       # passagem baixa 2
-wall(12600, 14300, F1, F1 + 40)        # piso do andar do meio (por cima das passagens)
-bat(13450, F1 + 140, [13350, 13560], F1 + 40)
-coins_line(12900, 14000, 487, 70)
-check(12720)
-# a grade do térreo: abre na manivela
-L["cranks"].append({"x": 14060, "y": GY, "gate": "pg3"})
-S.append({"t": "pgate", "id": "pg3", "x": 14110, "y": F1 + 40, "w": 22, "h": GY - F1 - 40, "crank": 1})
-hint(13950, 14100, "Uma grade de ferro! Gire a manivela (toque várias vezes em ✦) para ela subir.", yl=-60)
-# a escada para o andar do meio
-ladder(14370, F1, GY)
-check(14290)
-# térreo continua: o beco (um desenho atrás da parede rachada) e espinhos
-wall(14400, 17870, F1, F1 + 40)        # piso do meio
-spikes(14700, 100, per=140)
-spikes(15100, 100, per=140, ph=70)
-S.append({"t": "crack", "x": 15660, "y": 420, "w": 80, "h": 80, "id": "crk2", "kind": "boulder",
+
+def X(n):
+    return C0 + n
+
+
+hint(X(60), X(400), "Os porões: corredores em três andares. Tem beco com prêmio escondido!")
+
+# C1 · térreo: passagens baixas (abaixado), morcego, a grade da manivela
+ground(C0, X(4920))
+wall(X(300), X(560), F1 + 40, 474)     # passagem baixa 1
+wall(X(860), X(1100), F1 + 40, 474)    # passagem baixa 2
+wall(C0, X(1360), F1, F1 + 40)         # piso do andar do meio (por cima das passagens)
+bat(X(710), F1 + 140, [X(620), X(800)], F1 + 40)
+coins_line(X(300), X(1100), 487, 70)
+check(X(120))
+L["cranks"].append({"x": X(1190), "y": GY, "gate": "pg3"})
+S.append({"t": "pgate", "id": "pg3", "x": X(1240), "y": F1 + 40, "w": 22, "h": GY - F1 - 40, "crank": 1})
+hint(X(1100), X(1240), "Uma grade de ferro! Gire a manivela (toque várias vezes em ✦) para ela subir.", yl=-60)
+ladder(X(1400), F1, GY)                # a escada do térreo para o andar do meio
+# térreo continua: espinhos, a parede rachada com o desenho e o lápis amarelo no beco
+wall(X(1430), X(3700), F1, F1 + 40)    # piso do meio
+spikes(X(1560), 100, per=130)
+spikes(X(1780), 100, per=130, ph=65)
+S.append({"t": "crack", "x": X(2040), "y": 420, "w": 80, "h": 80, "id": "crk2", "kind": "boulder",
           "msg": "Crack! Atrás das pedras, um desenho dobrado..."})
-L["drawings"].append({"x": 15700, "y": 470, "crack": "crk2", "txt": "Um desenho da Isis, escondido no porão: um labirinto, e no meio um coração."})
-L["specials"].append({"x": 16100, "y": 380, "c": "amarelo"})
-plat(16040, 420, 120, trestle=1)
-wall(16400, 16470, F1 + 40, GY)        # fim do beco (sem saída pelo térreo)
-coins_line(14500, 16300, 470, 70)
-hint(14400, 14650, "Térreo: um beco... lá no fundo tem um monte de pedras rachadas.")
+L["drawings"].append({"x": X(2080), "y": 470, "crack": "crk2", "txt": "Um desenho da Isis, escondido no porão: um labirinto, e no meio um coração."})
+bat(X(2280), F1 + 150, [X(2180), X(2420)], F1 + 40)
+L["specials"].append({"x": X(2500), "y": 380, "c": "amarelo"})
+plat(X(2440), 420, 120, trestle=1)
+wall(X(2620), X(2690), F1 + 40, GY)    # fim do beco (sem saída pelo térreo)
+coins_line(X(1450), X(2580), 470, 70)
+hint(X(1400), X(1560), "Térreo: um beco... lá no fundo tem pedras rachadas.")
+# o vão escuro entre o beco e a cisterna (sem caminho): rocha maciça
+S.append({"t": "brickw", "x": X(2690), "y": F1 + 40, "w": 2080, "h": GY - F1 - 40})
 
-# C2 · andar do meio: espelhos e cristal abrem a grade
-wall(12600, 14700, F2, F2 + 40)        # piso do andar de cima = teto do meio (com os buracos das escadas)
-wall(14760, 17540, F2, F2 + 40)
-wall(17600, 19060, F2, F2 + 40)
-S.append({"t": "bars", "x": 15900, "y": F1 - 120, "w": 24, "h": 120, "id": "crc1"})
-wall(15880, 15950, F2 + 40, F1 - 120)
-L["mirrors"] += [{"x": 15560, "y": F1 - 26, "s": 1}, {"x": 15560, "y": F2 + 70, "s": 0, "ceil": 1}]
-L["crystals"].append({"x": 15860, "y": F2 + 70, "door": "crc1"})
-hint(15200, 15500, "Uma grade... e um cristal lá no alto. Segure ✦ USAR para concentrar a luz da lanterna; perto do espelho, ✦ USAR vira o espelho.", yl=-200)
-coins_line(14400, 15800, F1 - 30, 70)
-check(14500, F1)
-# depois da grade: rachaduras na parede (picareta) e a pista 17
-S.append({"t": "crack", "x": 16300, "y": F2 + 40, "w": 60, "h": F1 - F2 - 40, "id": "cr1", "kind": "boulder", "msg": "Crack! A parede rachada virou cascalho."})
-L["clues"].append({"x": 16700, "y": F1 - 30, "id": 17})
-spider(16900, F1, F2 + 50)
-coins_line(16000, 17500, F1 - 30, 70)
-check(16050, F1)
-hint(16150, 16300, "Parede rachada: chegue perto e use a picareta (⛏).")
-# beco do meio que volta para cima (labirinto): escada para o andar de cima no começo
-ladder(14730, F2, F1)
-# o andar de cima, à esquerda: beco sem saída com a pista 15 (prêmio do labirinto)
-L["clues"].append({"x": 13300, "y": F2 - 30, "id": 15})
-coins_line(13000, 14600, F2 - 30, 70)
-bat(13900, F2 - 110, [13700, 14100], -160)
-wall(12600, 12700, -160, F2)
-# o andar de cima, à direita: escada no fim do meio
-ladder(17570, F2, F1)
-check(17500, F1)
-wall(17800, 17870, F2 + 40, F1)        # fim do corredor do meio
+# C2 · andar do meio: parede rachada (picareta), aranha, a pista 17 e espinhos no corredor
+wall(C0, X(1680), F2, F2 + 40)         # piso do andar de cima = teto do meio (buracos das escadas)
+wall(X(1760), X(3560), F2, F2 + 40)
+ladder(X(1730), F2, F1)                # do meio para o beco de cima (à esquerda)
+wall(X(3640), X(4760), F2, F2 + 40)
+check(X(1500), F1)
+S.append({"t": "crack", "x": X(1900), "y": F2 + 40, "w": 60, "h": F1 - F2 - 40, "id": "cr1", "kind": "boulder", "msg": "Crack! A parede rachada virou cascalho."})
+hint(X(1700), X(1900), "Parede rachada: chegue perto e use a picareta (⛏).")
+spider(X(2250), F1, F2 + 50)
+L["clues"].append({"x": X(2600), "y": F1 - 30, "id": 17})
+spikes(X(2850), 100, y=F1, per=120)
+spikes(X(3150), 100, y=F1, per=120, ph=60)
+coins_line(X(1460), X(3500), F1 - 30, 70)
+wall(X(3700), X(3770), F2 + 40, F1)    # fim do corredor do meio
+ladder(X(3610), F2, F1)                # sobe para o andar de cima, à direita
+check(X(3300), F1)
 
-# C3 · andar de cima, à direita: corda sobre os espinhos e o lápis verde
-L["bars"].append({"x0": 18050, "x1": 18650, "y": F2 - 110, "floor": F2})
-spikes(18100, 520, y=F2, per=9999, ph=0, always=1)
-L["specials"].append({"x": 18350, "y": F2 - 90, "c": "verde"})
-hint(17850, 18050, "Espinhos no chão do corredor! Pule na corda e vá pendurado.", yl=-120)
-coins_line(18100, 18600, F2 - 150, 60)
-check(17700, F2)
-check(18800, F2)
+# C3 · andar de cima, à esquerda: beco sem saída com a pista 15 (prêmio do labirinto)
+L["clues"].append({"x": X(500), "y": F2 - 30, "id": 15})
+coins_line(X(300), X(1300), F2 - 30, 70)
+bat(X(900), F2 - 110, [X(700), X(1100)], -160)
+wall(C0, X(100), -160, F2)
+# andar de cima, à direita: corda sobre os espinhos e o lápis verde
+L["bars"].append({"x0": X(3850), "x1": X(4400), "y": F2 - 110, "floor": F2})
+spikes(X(3900), 460, y=F2, per=9999, ph=0, always=1)
+L["specials"].append({"x": X(4120), "y": F2 - 90, "c": "verde"})
+hint(X(3640), X(3850), "Espinhos no chão do corredor! Pule na corda e vá pendurado.", yl=-120)
+coins_line(X(3900), X(4350), F2 - 150, 60)
+check(X(4560), F2)
 # o buraco no fim do andar de cima: desce para a cisterna
-wall(19200, 19260, -160, F2 + 40)
-ladder(19060, F2, GY)
+wall(X(4900), X(4960), -160, F2 + 40)
+ladder(X(4760), F2, GY)
 
-# C4 · a cisterna (água esverdeada, pilares de pedra)
-#      o Tomé entra por uma laje ALTA (não começa na água): do degrau sobe na laje e salta no 1º pilar
-L["water"].append({"x": 19470, "y": 430, "w": 1030, "h": 70, "zap": 1})
-S.append({"t": "dirt", "x": 19470, "y": 500, "w": 1030, "h": 140})
-for sx in [19560, 19800, 20060, 20300]:
+# C4 · a cisterna: água que dá choque e pilares; o Tomé entra por uma laje alta
+CI = X(5100)
+PIL = [CI + 90, CI + 330, CI + 570]
+L["water"].append({"x": CI, "y": 430, "w": 800, "h": 70, "zap": 1, "pillars": PIL, "pw": 90, "ptop": 400,
+                   "sign": [CI - 70, 330]})
+S.append({"t": "dirt", "x": CI, "y": 500, "w": 800, "h": 140})
+for sx in PIL:
     stone(sx, 400, 90)
-ground(C0, 19470)
-S.append({"t": "stone", "x": 19230, "y": 420, "w": 70, "h": 80})        # degrau
-S.append({"t": "stone", "x": 19300, "y": 330, "w": 170, "h": 170})      # a laje alta na beira da cisterna
-ground(20500, C1)
-coins_line(19450, 20450, 360, 60)
-L["drawings"].append({"x": 20345, "y": 370, "txt": "Um desenho da Isis: um peixe enorme de cristal, sorrindo para o papai."})
-# CHEFE: a Enguia de Cristal mora na cisterna (borbulha embaixo do pilar do Tomé e salta em cima dele)
-L["bosses3"].append({"id": "enguia", "x0": 19490, "x1": 20560, "y": GY, "home": 19950, "trig": 19500, "hp": 4,
-                     "surf": 430, "ptop": 400, "pw": 90, "pillars": [19560, 19800, 20060, 20300], "gateTop": -150,
-                     "wx0": 19470, "wx1": 20500, "sign": [19400, 330]})
-hint(19100, 19470, "A cisterna dos porões: NÃO ENTRE NA ÁGUA, dá choque! Suba na laje e salte para o primeiro pilar.", yl=-150)
-check(19250)
-check(20700, GY, 3)
+S.append({"t": "stone", "x": X(4860), "y": 420, "w": 70, "h": 80})        # degrau
+S.append({"t": "stone", "x": CI - 170, "y": 330, "w": 170, "h": 170})     # a laje alta na beira da cisterna
+ground(CI + 800, C1)
+coins_line(CI + 60, CI + 760, 360, 60)
+L["drawings"].append({"x": PIL[2] + 45, "y": 370, "txt": "Um desenho da Isis: um peixe enorme de cristal, sorrindo para o papai."})
+hint(X(4820), CI, "A cisterna: NÃO ENTRE NA ÁGUA, dá choque! Suba na laje e salte de pilar em pilar.", yl=-150)
+check(C1 - 200, GY, 3)
 
 # ======================================================================
 #  D · AS FORJAS  (21000 .. 27600)   — o calor da fortaleza
 # ======================================================================
-D0, D1 = C1, 28700
+D0 = C1
+D1 = D0 + 7700
 L["sections"].append({"x": D0, "song": "tunel", "bg": "fundicao", "gt": "mina", "night": 1, "dark": .4, "per": 3,
                       "tint": "rgba(255,110,30,.07)", "forge": 1})
 L["darkZones"].append({"x": D0, "w": D1 - D0, "dark": .55})
@@ -503,6 +497,10 @@ check(E0 + 4250)
 # E5 · CHEFE: o Guardião de Ferro, o porteiro da estação
 L["bosses3"].append({"id": "guardiao", "x0": E0 + 4500, "x1": E0 + 5700, "y": GY, "home": E0 + 5350, "trig": E0 + 4640, "hp": 6,
                      "gateTop": 100})
+# a passarela no meio da arena: degraus dos dois lados e a passarela alta, para passar por cima dele
+plat(E0 + 4500 + 300, 380, 100, trestle=1)
+plat(E0 + 4500 + 800, 380, 100, trestle=1)
+plat(E0 + 4500 + 430, 240, 340, trestle=1, catwalk=1)
 hint(E0 + 4300, E0 + 4500, "Que barulho de ferro é esse?...")
 # E6 · a estação velha: o trem do Vargas parte, e o Tomé vai atrás no trole
 F0 = E0 + 6000
@@ -528,9 +526,9 @@ L["sections"].append({"x": IT0 - 100, "song": "tunel", "bg": "trem", "gt": "mina
                       "map": "isis", "tint": "rgba(255,170,80,.06)"})
 TW = 1000                               # cada vagão
 NW = 4
-S.append({"t": "wall", "x": IT0 - 100, "y": GY, "w": NW * TW + 200, "h": 140})           # o assoalho
-S.append({"t": "wall", "x": IT0 - 100, "y": -620, "w": NW * TW + 200, "h": 790, "ceil": 1})   # o teto do vagão
-S.append({"t": "wall", "x": IT0 - 100, "y": 170, "w": 40, "h": 330})                    # fundo do último vagão
+S.append({"t": "tremchao", "x": IT0 - 100, "y": GY, "w": NW * TW + 200, "h": 140})       # o assoalho
+S.append({"t": "tremteto", "x": IT0 - 100, "y": -620, "w": NW * TW + 200, "h": 790, "ceil": 1})   # o teto do vagão
+S.append({"t": "tremparede", "x": IT0 - 100, "y": 170, "w": 40, "h": 330})              # fundo do último vagão
 L["isisPart"] = {"x0": IT0 - 100, "x1": IT0 + NW * TW + 100, "spawn": [IT0 - 30, GY]}
 L["isisTrain"] = {"x0": IT0 - 100, "x1": IT0 + NW * TW + 100, "wagon": TW}
 
@@ -550,7 +548,7 @@ for hx, k in [(240, "crate"), (440, "barrel"), (760, "crate")]:
 L["watchmen"].append({"x0": IT0 + 380, "x1": IT0 + 600, "spd": 1.2, "any": 1, "pause": 120, "zone": [IT0 - 100, IT0 + TW]})
 idrop(140, "#e04a3a", "A Isis fincou um lápis vermelho no chão do vagão: uma marca para o papai.")
 # a porta do vagão: o trinco abre de dentro (manivela)
-S.append({"t": "pgate", "id": "tp1", "x": IT0 + TW - 11, "y": 170, "w": 22, "h": 330, "crank": 1})
+S.append({"t": "pgate", "id": "tp1", "x": IT0 + TW - 11, "y": 170, "w": 22, "h": 330, "crank": 1, "door": 1})
 L["cranks"].append({"x": IT0 + TW - 45, "y": GY, "gate": "tp1"})
 hint(IT0 + TW - 260, IT0 + TW - 20, "A porta do vagão tem um trinco por dentro: gire (toque várias vezes em ✦).", yl=-170)
 # F2 · o vagão de passageiros: bancos (ela passa por baixo e se esconde atrás), dois capangas, malas
@@ -562,13 +560,13 @@ L["watchmen"].append({"x0": W2 + 380, "x1": W2 + 600, "spd": 1.4, "any": 1, "pau
 for i, mx in enumerate([315, 635]):
     L["tilefall"].append({"x": W2 + mx, "y0": 230, "y1": 486, "per": 190, "ph": i * 80, "k": "mala"})
 idrop(400, "#f59a2a", "Um lápis laranja fincado embaixo do banco: a trilha continua.")
-S.append({"t": "pgate", "id": "tp2", "x": W2 + TW - 11, "y": 170, "w": 22, "h": 330, "crank": 1})
+S.append({"t": "pgate", "id": "tp2", "x": W2 + TW - 11, "y": 170, "w": 22, "h": 330, "crank": 1, "door": 1})
 L["cranks"].append({"x": W2 + TW - 45, "y": GY, "gate": "tp2"})
 # F3 · o vagão-bagageiro: escotilhas baixas de malas empilhadas (só a Isis passa por baixo), malas caindo
 W3 = W2 + TW
 check(W3 + 5)
 for hx in [120, 760]:
-    S.append({"t": "wall", "x": W3 + hx, "y": 170, "w": 160, "h": 302})          # pilha de malas: vão de 28 px embaixo
+    S.append({"t": "malas", "x": W3 + hx, "y": 170, "w": 160, "h": 302})         # pilha de malas: vão de 28 px embaixo
 hint(W3 + 20, W3 + 140, "Malas empilhadas até o teto... mas a Isis é pequena: passa por baixo!", yl=-170)
 for i, mx in enumerate([300, 720]):
     L["tilefall"].append({"x": W3 + mx, "y0": 230, "y1": 486, "per": 170, "ph": i * 60, "k": "mala"})
@@ -576,7 +574,7 @@ L["watchmen"].append({"x0": W3 + 380, "x1": W3 + 600, "spd": 1.6, "any": 1, "pau
 L["hides"].append({"x": W3 + 430, "w": 66, "k": "crate", "h": 48})
 L["hides"].append({"x": W3 + 600, "w": 46, "k": "barrel", "h": 54})
 idrop(300, "#f2d33a", "Um lápis amarelo fincado entre as malas.")
-S.append({"t": "pgate", "id": "tp3", "x": W3 + TW - 11, "y": 170, "w": 22, "h": 330, "crank": 1})
+S.append({"t": "pgate", "id": "tp3", "x": W3 + TW - 11, "y": 170, "w": 22, "h": 330, "crank": 1, "door": 1})
 L["cranks"].append({"x": W3 + TW - 45, "y": GY, "gate": "tp3"})
 # F4 · o tênder de carvão e a cabine da locomotiva: o FREIO
 W4 = W3 + TW
@@ -586,24 +584,27 @@ L["watchmen"].append({"x0": W4 + 380, "x1": W4 + 550, "spd": 1.7, "any": 1, "pau
 idrop(500, "#4fae4a", "Um lápis verde fincado perto do carvão.")
 L["isisBrake"] = {"x": W4 + 905, "y": GY}
 hint(W4 + 640, W4 + 900, "A cabine da locomotiva! Puxe a alavanca do FREIO (✦ USAR).", yl=-170)
-S.append({"t": "wall", "x": W4 + TW - 20, "y": 170, "w": 120, "h": 330})        # a frente da locomotiva
+S.append({"t": "tremparede", "x": W4 + TW - 20, "y": 170, "w": 120, "h": 330})  # a frente da locomotiva
 
 # ======================================================================
 #  G · A PONTE AO AMANHECER (joga-se com o Tomé) — o trem parou na ponte; a Isis está trancada na
 #      cabine. Em cima dos vagões parados, o Tomé enfrenta o Vargas.
 # ======================================================================
-VG0 = W4 + TW + 1000                   # (42700)
-S.append({"t": "rockw", "x": W4 + TW + 100, "y": -620, "w": VG0 - 300 - (W4 + TW + 100), "h": 1260})
-L["sections"].append({"x": VG0 - 300, "song": "noite", "bg": "amanhecer", "gt": "vila", "night": 0, "dark": 0, "per": 6,
+VG0 = W4 + TW + 1500
+RX0 = VG0 - 400                        # a plataforma de trás do último vagão (onde a cena começa)
+WL = 360                               # cada vagão
+L["sections"].append({"x": RX0 - 520, "song": "noite", "bg": "amanhecer", "gt": "vila", "night": 0, "dark": 0, "per": 6,
                       "tint": "rgba(255,150,90,.08)", "bridge": 1})
 RY = 400                                # o teto dos vagões
-S.append({"t": "roof", "x": VG0 - 300, "y": RY, "w": 2000, "h": 240})
-VX0, VX1 = VG0, VG0 + 1400
-L["bosses3"].append({"id": "vargas", "x0": VX0, "x1": VX1, "y": RY, "home": VX0 + 1150, "trig": VX0 + 140, "hp": 6,
-                     "gateTop": RY - 420})
-L["vargasSpawn"] = [VG0 - 180, RY]
-check(VG0 - 160, RY)
-L["spanX"] = VG0 + 1700
+L["bridge"] = {"x0": RX0, "y": RY, "wl": WL, "coal": 3}
+S.append({"t": "roof", "x": RX0, "y": RY, "w": 3 * WL, "h": 240})
+S.append({"t": "barrier", "x": RX0 - 24, "y": RY - 700, "w": 24, "h": 1000})
+VX0, VX1 = RX0 + 150, RX0 + 1050
+L["bosses3"].append({"id": "vargas", "x0": VX0, "x1": VX1, "y": RY, "home": VX0 + 700, "trig": VX0 + 160, "hp": 6,
+                     "gateTop": RY - 420, "coalX": RX0 + 3 * WL + WL / 2})
+L["vargasSpawn"] = [RX0 + 60, RY]
+check(RX0 + 40, RY)
+L["spanX"] = RX0 + 5 * WL + 600
 
 # ----------------------------------------------------------------------
 assert sorted(c["id"] for c in L["clues"]) == [13, 14, 15, 16, 17, 18]
@@ -630,6 +631,12 @@ for c in L["coins"]:
     _fix_coin(c)
 L["coins"] = [c for c in L["coins"] if c[1] > -600]
 
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from space_checks import space
+# (os pontos de volta dentro do trem e na ponte ficam todos: cada vagão tem o seu lampião)
+_keep = [c[0] for c in L["checks"] if c[0] >= L["isisPart"]["x0"]]
+L["checks"] = space(L["checks"], _keep)
 json.dump(L, open(os.path.join(ROOT, "assets", "data", "level3.json"), "w"), ensure_ascii=False, indent=1)
 print("level3.json: %d sólidos, %d lápis, spanX %d, pistas %s" % (len(L["solids"]), len(L["coins"]), L["spanX"],
                                                                   sorted(c["id"] for c in L["clues"])))

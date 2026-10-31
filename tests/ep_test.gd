@@ -52,7 +52,11 @@ func _initialize() -> void:
 	await process_frame
 	# salvar numa fogueira do Ep. 2 e continuar
 	m.game.player.x = 9440
-	m.game.save_checkpoint(8)
+	var ri := 0
+	for i in m.game.CHK.size():
+		if absf(float(m.game.CHK[i].x) - 9450.0) < 5:
+			ri = i
+	m.game.save_checkpoint(ri)
 	m.start_level(true)
 	await process_frame
 	if m.game.level_idx != 1:

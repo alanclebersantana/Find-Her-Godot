@@ -125,8 +125,9 @@ func bat_drop() -> float:
 
 func _hawk() -> void:
 	if HAWK.get("skin", "") == "bat":
-		Ep2Bosses.bat_step(g, self)
-		return
+		# Morcego-Rei: a luta do Gavião-Rei (sombra, mergulho, garras presas, picareta), na caverna escura:
+		# lamparinas que iluminam a sombra, o vulto no escuro e estalactites caindo
+		Ep2Bosses.bat_extras(g, self)
 	if HAWK.is_empty() or HAWK.done:
 		return
 	var h: Dictionary = HAWK
@@ -138,7 +139,8 @@ func _hawk() -> void:
 		h.red -= 1
 	if h.get("landT", 0) > 0:
 		h.landT -= 1
-	var enraged: bool = h.hp <= 2
+	var bat: bool = h.get("skin", "") == "bat"
+	var enraged: bool = h.hp <= (3 if bat else 2)
 	match h.st:
 		"wait":
 			if pcx > h.trig and pcx < h.x1 and feet <= gy + 4 and feet > gy - 300 and p.dyingT == 0:
@@ -153,7 +155,7 @@ func _hawk() -> void:
 				Audio.play("thunder", -8)
 				if h.skin == "bat":
 					g.start_cine("morcego", (h.x0 + h.x1) / 2.0, gy - 160, 250,
-						[[150, 245, "TOMÉ", "Um morcego gigante! Ele mergulha onde a sombra marca... e a minha lanterna ofusca os olhos dele.", "tome"]],
+						[[150, 245, "TOMÉ", "Um morcego gigante! Ele mergulha onde a sombra marca... Se eu acender as lamparinas, enxergo a sombra melhor. E quando as garras prenderem: picareta!", "tome"]],
 						[60, 150, "MORCEGO-REI", "o dono das profundezas"])
 				else:
 					g.start_cine("gaviao", (h.x0 + h.x1) / 2.0, gy - 160, 250,
@@ -166,7 +168,7 @@ func _hawk() -> void:
 			h.dir = 1 if cos(h.t * .022) > 0 else -1
 			h.x = lerpf(h.x, cx, .06)
 			h.y = lerpf(h.y, gy - 165 + sin(h.t * .07) * 12, .05)
-			if h.t > (70 if enraged else 110) and p.dyingT == 0:
+			if h.t > ((48 if enraged else 76) if bat else (70 if enraged else 110)) and p.dyingT == 0:
 				_mark(h, pcx)
 		"mark":
 			h.t += 1
@@ -184,7 +186,7 @@ func _hawk() -> void:
 				Audio.play("dj", -6)
 				g.note("O facho ofuscou o Morcego-Rei!" if h.skin == "bat" else "O facho ofuscou o Gavião-Rei!")
 			# antecipação: nos últimos quadros sobe um pouco e recolhe as asas antes de mergulhar
-			var lim: int = 26 if h.second else (40 if enraged else 52)
+			var lim: int = (20 if h.second else (32 if enraged else 42)) if bat else (26 if h.second else (40 if enraged else 52))
 			if h.t > lim - 12:
 				h.y = lerpf(h.y, gy - 195, .18)
 			if h.t > lim:
@@ -225,7 +227,7 @@ func _hawk() -> void:
 		"stuck":
 			h.t += 1
 			h.y = gy + sin(h.t * .9) * 1.5
-			if h.t > (110 if enraged else 150):
+			if h.t > ((80 if enraged else 105) if bat else (110 if enraged else 150)):
 				h.st = "rise"
 				h.t = 0
 				Audio.play("dj", -8)
