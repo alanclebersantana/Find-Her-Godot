@@ -558,11 +558,8 @@ func _zoom_target() -> float:
 	var tz: float = g.tall_zoom(get_viewport().get_visible_rect().size.y)
 	if tz < 1.0:
 		return tz
-	# calma: perto de uma fogueira, parado
-	if abs(p.vx) < .5 and p.onGround:
-		for c in g.CHK:
-			if abs(c.x - (p.x + p.w / 2)) < 220 and abs(c.y - (p.y + p.h)) < 80:
-				return 1.1
+	# (o zoom de "calma" perto da fogueira saiu: aproximar sozinho fazia o cenário se mexer com o
+	# jogador parado)
 	return 1.0
 
 func _physics_process(_d: float) -> void:

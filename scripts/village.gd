@@ -636,9 +636,20 @@ func _watchman(w: Dictionary, T: int) -> void:
 		Spr.restore()
 	else:
 		# andando: o quadro segue a distância andada (fase calculada na lógica: passo firme, sem patinar)
+		# ciclo de 8 quadros = 2 passos (4 quadros cada); o corpo sobe uma vez por passo, no ritmo das pernas.
+		# Quadro inteiro, sem mistura com o seguinte (a mistura dobrava as pernas e parecia que mancava)
 		var ph: float = float(w.get("wph", 0.0))
-		var bob: float = -abs(sin(ph * PI / 2.0)) * 3.0
-		Spr.sheet_cycle("vigia", ph / 2.0, 4, 0, 220, 200, x, 502 + bob, VIGIA_H, d < 0)
+		var bob: float = -abs(sin(ph * PI / 4.0)) * 2.5
+		var wt: Texture2D = Spr.opt("vigia_walk")
+		if wt:
+			var s4: float = VIGIA_H / 200.0
+			Spr.save()
+			Spr.translate(x, 502 + bob)
+			Spr.scale(-s4 if d < 0 else s4, s4)
+			Spr.ci.draw_texture_rect_region(wt, Rect2(-110, -200, 220, 200), Rect2((int(floor(ph)) % 8) * 220, 0, 220, 200), Color(1, 1, 1, Spr.alpha))
+			Spr.restore()
+		else:
+			Spr.sheet_cycle("vigia", ph / 2.0, 4, 0, 220, 200, x, 502 + bob, VIGIA_H, d < 0)
 	if w.wait > 40:
 		Spr.text("?", x, 380 + sin(T * .2) * 2, 18, Color(1, .9, .6), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3)
 
