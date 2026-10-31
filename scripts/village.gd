@@ -223,7 +223,7 @@ func post() -> void:
 		var mv: float = abs(float(w.x) - float(w.get("_px", w.x)))
 		w._px = float(w.x)
 		w.mv = mv
-		w.wph = float(w.get("wph", 0.0)) + mv / 8.0
+		w.wph = float(w.get("wph", 0.0)) + mv / 6.35   # 8 quadros = 2 passos = 51 px (o pé de apoio não patina)
 		if w.get("bribed") and not told.has("bribed") and abs(float(w.x) - pc.x) < 700:
 			told.bribed = 1
 			g.tip("Um vigia da vila aqui embaixo: o Vargas subornou os vigias para guardar o esconderijo!", 300)
@@ -636,12 +636,12 @@ func _watchman(w: Dictionary, T: int) -> void:
 		Spr.restore()
 	else:
 		# andando: o quadro segue a distância andada (fase calculada na lógica: passo firme, sem patinar)
-		# ciclo de 8 quadros = 2 passos (4 quadros cada); o corpo sobe uma vez por passo, no ritmo das pernas.
-		# Quadro inteiro, sem mistura com o seguinte (a mistura dobrava as pernas e parecia que mancava)
+		# ciclo de 8 quadros = 2 passos (tools/make_vigia_walk.py: pernas giradas no quadril, o corpo já desce
+		# no passo dentro da folha). Quadro inteiro, sem mistura com o seguinte
 		var ph: float = float(w.get("wph", 0.0))
-		var bob: float = -abs(sin(ph * PI / 4.0)) * 2.5
 		var wt: Texture2D = Spr.opt("vigia_walk")
 		if wt:
+			var bob := 0.0
 			var s4: float = VIGIA_H / 200.0
 			Spr.save()
 			Spr.translate(x, 502 + bob)
@@ -649,7 +649,7 @@ func _watchman(w: Dictionary, T: int) -> void:
 			Spr.ci.draw_texture_rect_region(wt, Rect2(-110, -200, 220, 200), Rect2((int(floor(ph)) % 8) * 220, 0, 220, 200), Color(1, 1, 1, Spr.alpha))
 			Spr.restore()
 		else:
-			Spr.sheet_cycle("vigia", ph / 2.0, 4, 0, 220, 200, x, 502 + bob, VIGIA_H, d < 0)
+			Spr.sheet_cycle("vigia", ph / 2.0, 4, 0, 220, 200, x, 502, VIGIA_H, d < 0)
 	if w.wait > 40:
 		Spr.text("?", x, 380 + sin(T * .2) * 2, 18, Color(1, .9, .6), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3)
 
