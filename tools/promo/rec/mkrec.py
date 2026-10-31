@@ -65,6 +65,7 @@ func _rec_setup(lvl: int) -> void:
 func _rstep() -> void:
 	Interp.restore()
 	g.step()
+	g.slowmo = 0   # quem tira a câmera lenta é o main (desligado aqui); senão as faixas de cinema ficam
 	rec_steps += 1
 	var mx := OS.get_environment("REC_MAXX")
 	if mx != "" and g.player.x > float(mx):
