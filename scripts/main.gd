@@ -411,7 +411,7 @@ func _process(_d: float) -> void:
 		sh += game.shake_dir * amp * .9
 		game.shake_dir *= .86
 		# câmera chega mais perto nas cenas calmas e abre nas de ação
-		var zt: float = _zoom_target() * (1.12 if game.slowmo > 0 else 1.0)
+		var zt: float = _zoom_target() * (1.12 if game.slowmo > 0 else 1.0) * rec_zoom
 		# abrir é mais rápido que fechar (nada fica cortado por muito tempo)
 		cam_zoom = lerpf(cam_zoom, zt, .04 if zt < cam_zoom else .02)
 		game.camera.zoom = Vector2(cam_zoom, cam_zoom)
@@ -525,6 +525,9 @@ func _danger_level() -> float:
 	return 0.0
 
 var cam_zoom := 1.0
+## aproximação extra só para gravar vídeo (tests/rec); no jogo fica 1
+var rec_zoom := 1.0
+
 func _zoom_target() -> float:
 	var g := game
 	if not g.CINE.is_empty():
