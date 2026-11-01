@@ -54,11 +54,11 @@ b['obs'].sort(key=lambda o: o['x'])
 L['coins'] = [c for c in L['coins'] if not (51745 < c[0] < 53745)]
 L['coins'] += [[x, 470] for x in range(51800, 53700, 70) if all(abs(x - (o['x'] + o['w'] / 2)) > 90 for o in b['obs'])]
 
-# ---- bola de pedra: mais rápida e com desabamentos (vigas caídas com pedras até o teto) para se abaixar
+# ---- bola de pedra: um pouco mais rápida que a original e com desabamentos (vigas caídas com pedras até o teto) para se abaixar
 for t in L['traps']:
     if t['k'] == 'boulder':
-        t['vmax'] = 5.0
-        t['acc'] = .05
+        t['vmax'] = 4.5
+        t['acc'] = .043
         for i, x in enumerate([76350, 78700]):
             sid = 'bo%d' % (8 + i)
             S.append({'t': 'bob', 'bob': 'collapse', 'id': sid, 'x': x, 'y': 500 - 26 - TALL, 'w': 64, 'h': TALL})

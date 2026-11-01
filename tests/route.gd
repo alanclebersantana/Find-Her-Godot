@@ -838,7 +838,7 @@ func boulder_run(o: Dictionary):
 				dk = true
 		frame({"R": true, "J": jt > 0 and not dk, "S": dk})
 	# entra no buraco e se abaixa até a bola passar
-	for it in 400:
+	for it in 900:
 		P = g.player
 		if o.get("passed", false) or o.st in ["break", "done"]:
 			break
