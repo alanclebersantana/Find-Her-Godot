@@ -93,6 +93,11 @@ func _initialize() -> void:
 					g.low_fx = true
 				elif k == "dark":
 					g.lantern_lit = false
+				elif k == "shield":
+					g.player.armor = 1
+				elif k.begins_with("fuel"):
+					g.FUEL = float(k.substr(4)) / 100.0
+					g.fuel_vis = g.FUEL
 				elif k == "drain":
 					for sw in g.SWAMP:
 						if sw.get("id") == "canal":

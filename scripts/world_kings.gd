@@ -23,8 +23,16 @@ static func _crown(x: float, y: float, s: float, rot: float = 0.0) -> void:
 #  Origem no meio da base (onde assenta na cabeça); sobe uns 30 px (escala 1).
 # ======================================================================
 const CROWN_IDS := ["javali", "gaviao", "bagre", "urso"]
-const CROWN_NAME := {"javali": "Coroa de Folhas", "gaviao": "Coroa de Rubi", "bagre": "Coroa de Pérolas", "urso": "Coroa de Gelo"}
-const CROWN_KING := {"javali": "Javali-Rei", "gaviao": "Gavião-Rei", "bagre": "Bagre-Rei", "urso": "Urso-Pardo-Rei"}
+## coroas por episódio (1, 2, 3): cada chefe vencido deixa a sua
+const CROWN_EP := [["javali", "gaviao", "bagre", "urso"], ["brutus", "morcego", "sapo"], ["salamandra", "guardiao"]]
+const CROWN_NAME := {"javali": "Coroa de Folhas", "gaviao": "Coroa de Rubi", "bagre": "Coroa de Pérolas", "urso": "Coroa de Gelo",
+	"brutus": "Coroa de Pregos", "morcego": "Coroa da Noite", "sapo": "Coroa de Vitória-Régia",
+	"salamandra": "Coroa de Brasa", "guardiao": "Coroa de Ferro"}
+const CROWN_KING := {"javali": "Javali-Rei", "gaviao": "Gavião-Rei", "bagre": "Bagre-Rei", "urso": "Urso-Pardo-Rei",
+	"brutus": "Brutus", "morcego": "Morcego-Rei", "sapo": "Sapo-Rei", "salamandra": "Salamandra de Fogo", "guardiao": "Guardião de Ferro"}
+
+static func crowns_of(ep: int) -> Array:
+	return CROWN_EP[clamp(ep, 0, CROWN_EP.size() - 1)]
 const _OL := Color("#24160c")
 
 ## polígono pintado: preenchimento, uma luz do lado de cima e o contorno escuro
@@ -62,9 +70,87 @@ static func crown_art(kind: String, x: float, y: float, s: float, rot: float = 0
 			_crown_pearl(T)
 		"urso":
 			_crown_ice(T)
+		"brutus":
+			_crown_spikes()
+		"morcego":
+			_crown_night(T)
+		"sapo":
+			_crown_lily()
+		"salamandra":
+			_crown_ember(T)
+		"guardiao":
+			_crown_iron()
 		_:
 			_crown(0, 0, 1.0)
 	Spr.restore()
+
+## Brutus: coleira de ferro com pregos de prata virados para cima
+static func _crown_spikes() -> void:
+	for i in 5:
+		var x: float = -12.0 + i * 6.0
+		var hh: float = 20.0 if i == 2 else (16.0 if i % 2 == 1 else 13.0)
+		_cp(PackedVector2Array([Vector2(x - 3.4, -8), Vector2(x, -8 - hh), Vector2(x + 3.4, -8)]), Color("#c9ced6"), 1.1)
+		Spr.seg(x - 1.0, -10, x, -6 - hh, Color(1, 1, 1, .6), 1.0)
+	_cp(PackedVector2Array([Vector2(-16, 0), Vector2(-16, -9), Vector2(16, -9), Vector2(16, 0)]), Color("#4e535b"), 1.1)
+	Spr.rect(-15, -8, 30, 2, Color("#7a8089"))
+	for i in 4:
+		var rx: float = -11.0 + i * 7.3
+		Spr.circle(rx, -4.5, 1.8, Color("#d8dce2"))
+		Spr.circle(rx, -4.5, .8, Color("#3a3e44"))
+
+## Morcego-Rei: pontas de asa de morcego (roxo-escuro) e uma lua amarela no meio
+static func _crown_night(T: int) -> void:
+	var pts := PackedVector2Array([Vector2(-16, 0), Vector2(-16, -10), Vector2(-17, -22), Vector2(-11, -15), Vector2(-7, -19),
+		Vector2(-4, -12), Vector2(0, -26), Vector2(4, -12), Vector2(7, -19), Vector2(11, -15), Vector2(17, -22), Vector2(16, -10), Vector2(16, 0)])
+	_cp(pts, Color("#4a2a6e"))
+	Spr.poly(PackedVector2Array([Vector2(-15, -2), Vector2(-15, -8), Vector2(15, -8), Vector2(15, -2)]), Color("#6a42a0"))
+	var pu: float = .5 + .5 * sin(T * .08)
+	Spr.glow(0, -9, 9, Color(1, .9, .4, .25 + pu * .15))
+	Spr.circle(0, -9, 4.6, Color("#ffe27a"))
+	Spr.circle(1.8, -10.2, 3.8, Color("#4a2a6e"))
+	Spr.ring(0, -9, 4.6, _OL, 1.2, -2.2, 2.2)
+
+## Sapo-Rei: folhas de vitória-régia em volta e uma flor rosa no meio
+static func _crown_lily() -> void:
+	for i in 5:
+		var a: float = -PI / 2 + (i - 2) * .5
+		_cp(_leaf_pts(Vector2((i - 2) * 6.0, -6), a, 17.0, 5.5), Color("#4f9a3c") if i % 2 == 0 else Color("#3f8530"))
+	_cp(PackedVector2Array([Vector2(-16, 0), Vector2(-15, -8), Vector2(15, -8), Vector2(16, 0)]), Color("#5aa844"), 1.1)
+	for i in 5:
+		var a2: float = -PI / 2 + (i - 2) * .5
+		_cp(_leaf_pts(Vector2(0, -7), a2, 15.0, 5.2), Color("#f6a8c6"), .9)
+		Spr.poly(_leaf_pts(Vector2(0, -7), a2, 10.0, 2.4), Color("#ffd2e2"))
+	Spr.circle(0, -8.5, 3.0, Color("#ffd75a"))
+
+## Salamandra de Fogo: chamas laranja que tremem e brasas acesas na faixa
+static func _crown_ember(T: int) -> void:
+	for i in 5:
+		var x: float = -12.0 + i * 6.0
+		var fl: float = sin(T * .25 + i * 1.7) * 2.0
+		var hh: float = (19.0 if i == 2 else 14.0) + fl
+		_cp(PackedVector2Array([Vector2(x - 4.2, -7), Vector2(x - 2.0, -7 - hh * .6), Vector2(x + fl * .3, -7 - hh), Vector2(x + 2.4, -7 - hh * .55), Vector2(x + 4.2, -7)]), Color("#ff7a22"), 1.1)
+		Spr.poly(PackedVector2Array([Vector2(x - 2, -7), Vector2(x + fl * .2, -7 - hh * .6), Vector2(x + 2, -7)]), Color("#ffd04a"))
+	_cp(PackedVector2Array([Vector2(-16, 0), Vector2(-16, -8), Vector2(16, -8), Vector2(16, 0)]), Color("#7a2412"), 1.1)
+	for i in 3:
+		var pu: float = .5 + .5 * sin(T * .2 + i * 2.0)
+		Spr.glow(-9.0 + i * 9.0, -4, 5, Color(1, .5, .1, .25 + pu * .25))
+		Spr.circle(-9.0 + i * 9.0, -4, 2.2, Color(1, .55 + pu * .3, .15))
+
+## Guardião de Ferro: ameias de torre em ferro rebitado e uma engrenagem no meio
+static func _crown_iron() -> void:
+	var pts := PackedVector2Array([Vector2(-16, 0), Vector2(-16, -20), Vector2(-10, -20), Vector2(-10, -14), Vector2(-4, -14), Vector2(-4, -20),
+		Vector2(4, -20), Vector2(4, -14), Vector2(10, -14), Vector2(10, -20), Vector2(16, -20), Vector2(16, 0)])
+	_cp(pts, Color("#6c747e"))
+	Spr.rect(-15, -19, 30, 2, Color("#9aa2ac"))
+	Spr.rect(-15, -3, 30, 2, Color("#4a5058"))
+	for i in 5:
+		Spr.circle(-13.0 + i * 6.5, -2.0, 1.1, Color("#c8ced6"))
+	for k in 8:
+		var a: float = k * TAU / 8.0
+		Spr.circle(cos(a) * 5.0, -9 + sin(a) * 5.0, 1.8, Color("#b07a3a"))
+	Spr.circle(0, -9, 5.0, Color("#c48a42"))
+	Spr.circle(0, -9, 2.0, Color("#5a3a1a"))
+	Spr.ring(0, -9, 5.0, _OL, 1.0)
 
 static func _crown_leaf() -> void:
 	# fundo de folhas escuras (fecha os vãos entre as folhas da frente)
@@ -517,7 +603,7 @@ static func gate(s: Dictionary, T: int, sink: float = -1.0) -> void:
 	var cx: float = s.x + s.w * .5
 	var wx: float = s.x - 14
 	var ww: float = s.w + 28
-	var snow: bool = s.y + s.h <= 520 and s.x > 32000 and s.x < 56000
+	var snow: bool = s.y + s.h <= 520 and s.x > 32000 and s.x < 58000
 	# as pedras de cada fileira são sempre as mesmas: calculadas uma vez e guardadas no muro
 	# (antes eram ~4 ruídos e um nome montado por pedra a cada quadro; o muro do urso tem 900 px)
 	var rows: Array = s.get("_gc", [])
@@ -672,6 +758,16 @@ static func _bear_obs(g: Game, K: Kings, T: int) -> void:
 					for sd in [-1.0, 1.0]:
 						var rx2: float = o.x + o.w / 2.0 + sd * (o.w / 2.0 + 8.0)
 						Spr.ci.draw_texture_rect(pt, Rect2(rx2 - 34, o.y + o.h + 6 - 62, 68, 62), sd > 0, Color(.72, .78, .9, Spr.alpha))
+				if not fallen and o.h > 100 and pt:
+					# passagem baixa: pedras de neve empilhadas em cima do tronco até lá no alto (não dá para pular)
+					var yy: float = o.y + o.h - 40
+					var k := 0
+					while yy > o.y - 20:
+						var off: float = sin(k * 2.1) * 10
+						var sz: float = 74 + fmod(k * 17.0, 24.0)
+						Spr.ci.draw_texture_rect(pt, Rect2(o.x + o.w / 2.0 - sz / 2 + off, yy - sz * .9, sz, sz * .9), k % 2 == 1, Color(.8, .86, .96, Spr.alpha))
+						yy -= sz * .58
+						k += 1
 				if not fallen:
 					Spr.ellipse(o.x + o.w / 2.0, o.y + o.h + 26, o.w * .6, 4, Color(0, 0, 0, .18))
 					if lt:
@@ -679,7 +775,7 @@ static func _bear_obs(g: Game, K: Kings, T: int) -> void:
 				else:
 					_splinters(o.x + o.w / 2.0, o.y + o.h + 26)
 		if not fallen and o.has("crawl"):
-			_duck_hint(g, o.x + o.w / 2.0, o.y - 40, abs(g.player.x + g.player.w / 2 - (o.x + o.w / 2.0)) < o.w / 2.0 + 170, T)
+			_duck_hint(g, o.x + o.w / 2.0, o.y + o.h - 110, abs(g.player.x + g.player.w / 2 - (o.x + o.w / 2.0)) < o.w / 2.0 + 170, T)
 
 static func _splinters(x: float, y: float) -> void:
 	for k in 4:

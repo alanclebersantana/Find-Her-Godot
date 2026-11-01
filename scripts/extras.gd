@@ -1026,7 +1026,7 @@ func _use_dog() -> bool:
 		Audio.play("item")
 		g.start_cine("cao", DOG.x - 40, DOG.y - 40, 215,
 			[[24, 110, "TOMÉ", "Calma, amigão... Você é o Pipoca! O vira-lata que a Isis alimentava todo dia!", "tome"],
-			[110, 205, "TOMÉ", "O Vargas te amarrou aqui para você não seguir a Isis, né? Vem comigo, vamos achá-la!", "tome"]],
+			[110, 205, "TOMÉ", "Quem te amarrou aqui não queria que você seguisse a Isis, né? Vem comigo, vamos achá-la!", "tome"]],
 			[150, 205, "PIPOCA", "o melhor amigo da Isis"])
 		return true
 	return false
@@ -1099,9 +1099,33 @@ func _dog() -> void:
 	elif DOG.st == "bait" and not boss_active():
 		DOG.st = "follow"
 		_resync()
+	# gruta da enchente tóxica: o Pipoca não desce atrás do Tomé; espera lá em cima, no alto da escada,
+	# e volta a seguir quando o Tomé sobe de novo
+	var fl: Dictionary = g.EV.FL if g.EV else {}
+	if not fl.is_empty() and DOG.st in ["follow", "sit", "wait_up"]:
+		var inside: bool = pcx > float(fl.x0) - 20 and pcx < float(fl.x1) + 20 and feet > float(fl.ytop) - 10 and p.dyingT == 0
+		if inside and DOG.st != "wait_up":
+			DOG.st = "wait_up"
+			DOG.wx = DOG.x
+			DOG.wy = DOG.y
+			for i in range(TRAIL.size() - 1, -1, -1):
+				if TRAIL[i].y <= float(fl.ytop) - 10:
+					DOG.wx = TRAIL[i].x
+					DOG.wy = TRAIL[i].y
+					break
+		elif not inside and DOG.st == "wait_up":
+			DOG.st = "follow"
+			TRAIL = [Vector2(DOG.x, DOG.y)]
+			DOG.i = 0
 	match DOG.st:
 		"ctrl", "dig":
 			pass
+		"wait_up":
+			if _run_to(float(DOG.wx), float(DOG.wy), 5.0):
+				DOG.moving = false
+				DOG.face = 1 if pcx > DOG.x else -1
+				if DOG.t % 150 == 0:
+					_bark()
 		"bait":
 			Ep2Bosses.pipoca_bait(g, self)
 		"door":

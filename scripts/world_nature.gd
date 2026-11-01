@@ -373,8 +373,8 @@ static func draw_bogs(g: Game, T: int) -> void:
 		var i := 0
 		while x < b.x + b.w - 10:
 			var t: float = fmod(T * .018 + i * .37, 1.0)
-			if i % 3 == 0:
-				# sanguessuga se contorcendo para fora da lama
+			if false:
+				# (as sanguessugas saíram do jogo: o lamaçal só borbulha)
 				var hgt: float = sin(t * PI) * 30
 				var sw: float = sin(T * .2 + i) * 5
 				if hgt < 10:

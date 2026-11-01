@@ -235,6 +235,9 @@ static func _brutus_win(g, X, b: Dictionary) -> void:
 	b.sulk = false
 	b.hp = 0
 	Polish.final_blow()
+	if g.K:
+		# a coroa de pregos salta da cabeça do Brutus e cai no quintal
+		g.K.drop_crown("brutus", b.x + b.dir * 30, b.y - 110, -b.dir * 2.4, -6.0)
 	Polish.loot_arc(b.x, b.y - 80, 12, 500.0)
 	X._gate_on(false)
 	if str(b.get("open", "")) != "":
@@ -922,6 +925,8 @@ static func _frog_stomp(g, K, f: Dictionary, p: Dictionary) -> void:
 		f.st = "down"
 		f.t = 0
 		Polish.final_blow()
+		# a coroa de vitória-régia salta da cabeça do Sapo-Rei e para na margem (não afunda)
+		K.drop_crown("sapo", float(f.x1) + 70.0, float(f.y0) - 220.0, -1.2, -5.0)
 		K._gate("fishR", false, Rect2())
 		K._gate("fishL", false, Rect2())
 		for k in 10:

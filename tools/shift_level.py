@@ -110,6 +110,35 @@ def shift(L, X, D, mode='widen'):
         for kk in ['x', 'edge', 'x1', 'r0', 'vend']:
             if kk in pl: pl[kk] = f(pl[kk])
         for o in pl.get('obs', []): o['x'] = f(o['x'])
+    # chaves que vieram depois (relíquias, alavancas, trenó, mergulho, óleo, manivelas, enchente)
+    for e in L.get('relics', []):
+        e['x'] = f(e['x'])
+    lv = L.get('levers')
+    if lv:
+        for e in lv.get('list', []):
+            e['x'] = f(e['x'])
+        if 'gate' in lv: lv['gate']['x'] = f(lv['gate']['x'])
+    sl = L.get('sled')
+    if sl:
+        for kk in ['x', 'x1', 'tx0']:
+            if kk in sl: sl[kk] = f(sl[kk])
+    sm = L.get('slam')
+    if sm:
+        for e in sm.get('stakes', []):
+            e['x'] = f(e['x'])
+            if 'bridge' in e: e['bridge']['x'] = f(e['bridge']['x'])
+        for e in sm.get('seesaw', []):
+            e['x'] = f(e['x'])
+            if 'target' in e: e['target'][0] = f(e['target'][0])
+        for e in sm.get('fruit', []):
+            e['x'] = f(e['x'])
+    L['oil'] = [[f(a), b] for a, b in L.get('oil', [])]
+    for e in L.get('cranks', []):
+        e['x'] = f(e['x'])
+    fl = L.get('flood')
+    if fl:
+        for kk in ['x0', 'x1']: fl[kk] = f(fl[kk])
+        fl['trig'][0] = f(fl['trig'][0]); fl['trig'][1] = f(fl['trig'][1])
     return L
 
 # só mexe em números que são posições x nos testes (não em contagens de quadros nem em alturas)
@@ -127,4 +156,4 @@ if __name__ == '__main__':
     L = json.load(open(P))
     shift(L, X, D, mode)
     open(P, 'w').write(json.dumps(L, ensure_ascii=False, indent=1))
-    shift_tests(X, D, ['tests/route.gd', 'tests/trap_test.gd'])
+    shift_tests(X, D, ['tests/route.gd', 'tests/trap_test.gd', 'tests/adv_test.gd'])

@@ -153,7 +153,8 @@ class _Painter extends Node2D:
 			var pc: Vector2 = Vector2(p.x + p.w / 2, p.y + p.h / 2)
 			var fv: float = clamp(g.fuel_vis, 0.0, 1.0)
 			var rw: float = lerpf(420.0, 680.0, fv) * k
-			var e: float = (.7 - amb) / .7 * lerpf(.4, .62, fv) * (.25 + .75 * float(p.get("wal", 1.0)))
+			var e: float = (.7 - amb) / .7 * lerpf(.4, .62, fv) * (.25 + .75 * float(p.get("wal", 1.0))) * lerpf(.06, 1.0, clamp(fv / .5, 0.0, 1.0))
+			rw *= lerpf(.35, 1.0, clamp(fv / .5, 0.0, 1.0))
 			var c2 := Color(1, .9, .74) * e
 			c2.a = 1.0
 			draw_texture_rect(lm.wide_tex(), Rect2((pc - cp) * k - Vector2(rw, rw * .8), Vector2(rw * 2, rw * 1.6)), false, c2)

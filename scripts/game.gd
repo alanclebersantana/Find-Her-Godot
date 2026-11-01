@@ -164,6 +164,7 @@ func _ready() -> void:
 #  CARREGAR
 # ======================================================================
 func load_level(i: int) -> void:
+	SHIELD_SAFE = []
 	brakeT = -1
 	HEAT = 0.0
 	Polish.reset(self)
@@ -844,8 +845,11 @@ func ambient() -> void:
 	if px < 2400 and not indoors() and str(S[0].get("song", "")) == "manha":
 		AMB.fog = max(AMB.fog, .4 * (1.0 - px / 2400.0))
 	if AMB.song in ["noite", "perseguicao"] and S.size() > 0:
-		var n0: float = 64250.0
+		var n0: float = 66250.0
 		AMB.dark = min(.9, AMB.dark + .12 * clamp((px - n0) / 13000.0, 0, 1))
+	# óleo da lanterna acabando: a noite fecha aos poucos (sem óleo, quase breu)
+	if lantern_lit and AMB.dark > .45 and not chase_on():
+		AMB.dark = min(.985, AMB.dark + (1.0 - clamp(fuel_vis / .5, 0.0, 1.0)) * .3)
 	# dentro do túnel e debaixo da terra não chove nem venta
 	if indoors():
 		AMB.rain = 0.0
@@ -1420,7 +1424,9 @@ func step() -> void:
 			# a queda pesa um pouco mais que a subida (pulo com peso)
 			# (cair mais pesado ao soltar PULAR encurtava os pulos nos precipícios da montanha: ficou só no desenho)
 			g *= 1.08
-		player.vy = clamp(player.vy + g, -34 if player.get("launchT", 0) > 0 else -20, maxv)
+		if player.get("sprUp", false) and player.vy >= 0:
+			player.sprUp = false
+		player.vy = clamp(player.vy + g, -34 if (player.get("launchT", 0) > 0 or player.get("sprUp", false)) else -20, maxv)
 		# deslizar na parede só encostado nela de verdade (a memória de alguns quadros deixava o Tomé
 		# "flutuando" devagar no ar depois que a parede acabava, e marcava deslize já pousado no chão)
 		if player.wall != 0 and player.get("wtouch", false) and not player.onGround and player.vy > 1.5 and kd("R" if player.wall > 0 else "L") and player.wlock == 0:
@@ -1597,6 +1603,8 @@ func step() -> void:
 			if player.x < s.x + 28 and player.x + player.w > s.x - 28 and player.y + player.h >= top_y and player.y + player.h <= s.y + 12:
 				player.y = top_y - player.h
 				player.vy = s.pow
+				# cogumelo forte (mais que o pulo máximo): a subida não é cortada no limite normal de velocidade
+				player.sprUp = float(s.pow) < -26.0
 				Audio.play("spring")
 				player.onGround = false
 				player.airJumps = 0 if (player.dog or player.get("isis")) else 1
@@ -1647,6 +1655,7 @@ func step() -> void:
 			burst(c.x, c.y, 14, Color("#bfe3ff"))
 	_fuel_step()
 	_auto_safe()
+	_track_shield_safe()
 	_plat_dips()
 	EV.step()
 	SL.step()
@@ -2615,6 +2624,56 @@ func _plat_dips() -> void:
 			d.dip = 0.0
 	DIPS = keep
 
+## escudo: lugares firmes por onde o Tomé acabou de passar (para onde ele volta se o escudo o salvar
+## de cair em água tóxica, água elétrica ou metal derretido)
+var SHIELD_SAFE: Array = []
+func _track_shield_safe() -> void:
+	if T % 8 != 0 or not player.onGround or player.dyingT > 0 or player.swim or player.get("dog") or player.get("_g") == null:
+		return
+	if X.water_at(player.x + player.w / 2, player.y + player.h + 4) != null or player.mud:
+		return
+	SHIELD_SAFE.append(Vector2(player.x, player.y))
+	if SHIELD_SAFE.size() > 14:
+		SHIELD_SAFE.pop_front()
+
+const SHIELD_DIES := ["metal derretido", "brejo", "água tóxica", "veneno", "choque"]
+## o escudo segura UMA queda num líquido mortal: estoura e joga o Tomé de volta para o chão firme
+func shield_saves(msg: String) -> bool:
+	if int(player.armor) <= 0 or player.get("dog"):
+		return false
+	var ok := false
+	for k in SHIELD_DIES:
+		if msg.findn(k) >= 0:
+			ok = true
+	if not ok:
+		return false
+	player.armor = 0
+	burst(player.x + player.w / 2, player.y + player.h / 2, 26, Color("#ffe08a"))
+	Polish.impact(player.x + player.w / 2, player.y + player.h / 2, Color(1, .9, .55), 8, 30.0)
+	# volta para um chão firme de pouco antes (não o último passo, que pode ser a beirada)
+	var dest := Vector2(player.spawnX, player.spawnY)
+	var fl: Dictionary = EV.FL if EV else {}
+	var i: int = SHIELD_SAFE.size() - 4
+	while i >= 0:
+		var c: Vector2 = SHIELD_SAFE[i]
+		if fl.is_empty() or not (c.x + player.w / 2 > float(fl.x0) and c.x + player.w / 2 < float(fl.x1) and c.y + player.h > float(fl.get("level", fl.y0)) - 40):
+			dest = c
+			break
+		i -= 1
+	player.x = dest.x
+	player.y = dest.y - 2
+	player.vx = 0.0
+	player.vy = -4.0
+	player.swim = false
+	player.iframe = 90
+	player.ladder = null
+	player.vine = null
+	shake = max(shake, 6)
+	Audio.play("item", -2, .7)
+	flash("O escudo te salvou! (ele estourou)")
+	burst(player.x + player.w / 2, player.y + player.h / 2, 18, Color("#ffe08a"))
+	return true
+
 ## ponto seguro automático: em chão firme, longe de buracos, armadilhas, inimigos e arenas de chefe,
 ## bem depois da última fogueira — ao cair, o Tomé volta logo antes do desafio
 func _auto_safe() -> void:
@@ -3206,7 +3265,7 @@ func crank_tap(c: Dictionary) -> void:
 	player.crankC = c
 	# encosta no poste: a mão alcança a manivela
 	var hub: Vector2 = crank_hub(c)
-	var want: float = hub.x - player.face * 14.0 - player.w / 2
+	var want: float = hub.x - player.face * (14.0 if player.get("isis") else 30.0) - player.w / 2
 	if abs(player.x - want) < 90 and player.onGround:
 		player.x = move_toward(player.x, want, 20.0)
 	Audio.play("climb", -2, .8 + c.turn * .4)
@@ -3339,8 +3398,12 @@ func _fuel_step() -> void:
 		FUEL = 1.0
 		fuel_vis = min(1.0, fuel_vis + .02)
 		return
-	if AMB.dark > .45:
-		FUEL = max(.15, FUEL - 1.0 / 3000.0)
+	# perto de uma fogueira acesa a lanterna reabastece; no escuro o óleo gasta (parado também) até acabar
+	for ch in CHK:
+		if ch.on and abs(ch.x - pcx0) < 150 and abs(ch.y - (player.y + player.h)) < 120:
+			FUEL = min(1.0, FUEL + .01)
+	if AMB.dark > .45 and lantern_lit:
+		FUEL = max(0.0, FUEL - 1.0 / 2400.0)
 	# a luz cresce aos poucos (~3 s) e diminui ainda mais devagar
 	if fuel_vis < FUEL:
 		fuel_vis = min(FUEL, fuel_vis + .005)
@@ -3909,7 +3972,7 @@ func break_crate(c: Dictionary) -> void:
 	var it: String = c.get("item", "")
 	if it == "armor":
 		player.armor = 1
-		flash("Armadura! Ela aguenta 1 golpe.")
+		flash("Escudo! Protege de 1 golpe ou de 1 queda na água tóxica, elétrica ou no metal derretido.")
 		Audio.play("item", -2, .85)
 	elif it == "heart":
 		if player.hp < MAXHP:
@@ -3967,7 +4030,7 @@ func hurt(d: int, from_x: float) -> void:
 		kb.call()
 		# o brilho do escudo estoura em faíscas douradas
 		burst(player.x + player.w / 2, player.y + player.h / 2, 22, Color("#ffe08a"))
-		flash("A armadura aguentou o golpe!")
+		flash("O escudo aguentou o golpe! (ele estourou)")
 		return
 	player.hp -= d
 	kb.call()
@@ -3988,6 +4051,8 @@ func die(msg: String) -> void:
 		died_log.append([int(player.x), int(player.y), msg])
 	if player.get("dog"):
 		M.dog_hurt()
+		return
+	if shield_saves(msg):
 		return
 	lives -= 1
 	if STATS.has("pdeath"):
@@ -4094,6 +4159,9 @@ func _heat_step(pcx: float, pcy: float) -> void:
 		flash("O calor das forjas tirou um coração!", 160)
 
 func respawn() -> void:
+	# renasce com um pouco de óleo (nunca no escuro total)
+	FUEL = max(FUEL, .5)
+	fuel_vis = max(fuel_vis, .5)
 	HEAT = 0.0
 	var msg: String = player.dieMsg
 	if lives < 0:

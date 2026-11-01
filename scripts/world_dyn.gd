@@ -1609,6 +1609,9 @@ func _isis_draw(p: Dictionary) -> void:
 			Spr.ci.draw_texture_rect_region(td, Rect2(-75, -150, 150, 150), Rect2(6 * 150, 0, 150, 150), Color(1, 1, 1, Spr.alpha))
 			Spr.restore()
 		return
+	# girando a manivela: o braço de trás dela vai até o cabo (atrás do corpo)
+	if p.get("crankTip") != null and p.onGround:
+		_crank_arm(p, cx, by, Color("#d8707a"), ISIS_H * .62, ISIS_H * .26)
 	if p.get("bar"):
 		fr = 10
 		by = game.NT.bar_y(p.bar, cx) + ISIS_H * .66
@@ -1991,13 +1994,13 @@ func _player_draw(g: Game) -> void:
 			key = "cheer"
 		elif p.onGround and p.get("pushT", 0) > 0 and abs(p.vx) > .2 and Spr.anim.has("push"):
 			key = "push"
-		elif p.get("crankTip") != null and Spr.anim.has("push"):
-			# girando a manivela: o corpo vai e vem junto com a volta da manivela
+		elif p.get("crankTip") != null and Spr.anim.has("look"):
+			# girando a manivela: em pé, de frente para ela, o lampião numa mão e a outra no cabo da manivela
 			key = "crank"
-		elif p.onGround and abs(p.vx) > 1.2 and p._g is Dictionary and str(p._g.get("t", "")) == "ice" and not g.kd("L") and not g.kd("R") and Spr.anim.has("ice"):
+		elif p.onGround and abs(p.vx) > 1.2 and p._g is Dictionary and str(p._g.get("t", "")) == "ice" and Spr.anim.has("ice"):
 			key = "ice"
 		if key == "crank" or Spr.anim.has(key):
-			var a: Dictionary = Spr.anim["push" if key == "crank" else key]
+			var a: Dictionary = Spr.anim["look" if key == "crank" else key]
 			var n: int = a.n
 			# deslizando na parede: de costas para ela, braços abertos, a mão de trás apoiada na parede
 			var wsl: bool = key == "fall" and p.get("wslide", false)
@@ -2025,13 +2028,12 @@ func _player_draw(g: Game) -> void:
 				"land":
 					f = min(n - 1, int((1 - p.landT / 8.0) * n))
 				"crank":
-					var cu: float = fposmod(float(p.get("crankA", 0.0)) / TAU, 1.0)
-					var ff2: float = (.5 - .5 * cos(cu * TAU)) * (n - 1)
-					f = int(ff2)
-					fnext = min(n - 1, f + 1)
-					fmix = ff2 - floor(ff2)
+					f = 0
 			var sz: float = a.s
 			var k2 := 78.0 / sz
+			if key == "crank":
+				# o braço de trás sai de trás do casaco até o cabo da manivela (desenhado antes do corpo)
+				_crank_arm(p, cx, by)
 			var air3: float = clamp(1 - abs(p.vy) / 16.0, .35, 1) if not p.onGround else 1.0
 			var sq3: float = p.squash
 			var st: Vector2 = _body_flex(p, key, f, n)
@@ -2136,8 +2138,6 @@ func _player_draw(g: Game) -> void:
 			Spr.restore()
 			if not front_t:
 				_turn_other(p, tst, tx3, src3, dst3, cx3, by, rot3, sx3, sy3)
-			if key == "crank":
-				_crank_arm(p, cx, by)
 			_armor(p, cx, by)
 			return
 	# folhas de sprites antigas (parado, andar, pulo, planar, mergulho)
@@ -2719,17 +2719,27 @@ func _blink(p: Dictionary) -> void:
 
 func _armor(p: Dictionary, cx: float, by: float) -> void:
 	if p.armor > 0:
-		# escudo: um brilho quente e macio que respira, com faíscas douradas girando em volta
+		# escudo: uma bolha dourada bem visível em volta do Tomé (respira devagar), com borda escura,
+		# reflexo no alto e faíscas douradas girando
 		var pu: float = .5 + .5 * sin(T * .07)
-		Spr.glow(cx, by - 30, 44 + pu * 6, Color(1, .85, .5, .16 + pu * .08))
+		var r: float = 33.0 + pu * 2.0
+		Spr.glow(cx, by - 32, 58 + pu * 8, Color(1, .82, .4, .2 + pu * .08))
+		Spr.save()
+		Spr.translate(cx, by - 33)
+		Spr.scale(1.0, 1.28)
+		Spr.circle(0, 0, r, Color(1, .86, .45, .13 + pu * .05))
+		Spr.ring(0, 0, r + 1.8, Color(.12, .08, .02, .75), 1.6)
+		Spr.ring(0, 0, r, Color(1, .84, .32, .9), 3.2)
+		Spr.ring(0, 0, r - 3.0, Color(1, .97, .78, .5), 1.4)
+		Spr.ring(0, 0, r - 7.0, Color(1, 1, .92, .55 + pu * .25), 2.6, -2.5, -1.6)
+		Spr.restore()
 		for i in 6:
 			var a: float = T * .045 + TAU * i / 6.0
-			var r2: float = 24 + sin(T * .09 + i) * 3
-			var sx: float = cx + cos(a) * r2
-			var sy: float = by - 30 + sin(a) * r2 * 1.25
+			var sx: float = cx + cos(a) * (r + 2)
+			var sy: float = by - 33 + sin(a) * (r + 2) * 1.28
 			var tw: float = .5 + .5 * sin(T * .2 + i * 1.7)
-			Spr.glow(sx, sy, 6, Color(1, .9, .55, .35 * tw))
-			Spr.circle(sx, sy, 1.3 + tw * .6, Color(1, .95, .7, .85 * tw))
+			Spr.glow(sx, sy, 7, Color(1, .9, .55, .4 * tw))
+			Spr.circle(sx, sy, 1.5 + tw * .7, Color(1, .95, .7, .9 * tw))
 
 
 ## porta redonda de ferro do cofre do Vargas (fim do Episódio 2), com o V gravado
@@ -2850,15 +2860,15 @@ func _vault(cx: float, gy: float) -> void:
 		Spr.seg(wx - cos(a2) * 20, cy + 10 - sin(a2) * 20, wx + cos(a2) * 20, cy + 10 + sin(a2) * 20, Color("#2a2c30"), 4)
 	Spr.circle(wx, cy + 10, 5, Color("#8a8e96"))
 
-## o braço do Tomé esticado até o cabo da manivela, girando junto com ela
-func _crank_arm(p: Dictionary, cx: float, by: float) -> void:
+## o braço de trás do Tomé (ou da Isis) esticado até o cabo da manivela, girando junto com ela: sai de trás
+## do corpo (é desenhado antes dele), manga da roupa e a mão fechada no cabo
+func _crank_arm(p: Dictionary, cx: float, by: float, sleeve: Color = Color("#6b3f22"), sh_y: float = 53.0, L: float = 27.0) -> void:
 	var tip = p.get("crankTip")
 	if tip == null:
 		return
-	var sh := Vector2(cx + p.face * 6.0, by - 37.0)
+	var sh := Vector2(cx - p.face * 5.0, by - sh_y)
 	var hand: Vector2 = tip
 	# braço de dois segmentos (ombro-cotovelo-mão), o cotovelo dobra para baixo
-	var L := 18.0
 	var d: Vector2 = hand - sh
 	var dl: float = min(d.length(), L * 2 - .5)
 	if d.length() > dl:
@@ -2870,8 +2880,9 @@ func _crank_arm(p: Dictionary, cx: float, by: float) -> void:
 	var el: Vector2 = sh.lerp(hand, .5) + nrm * h
 	var ink := Color(.06, .05, .04)
 	var pts := PackedVector2Array([sh, el, hand])
-	Spr.ci.draw_polyline(pts, ink, 6.4, true)
-	Spr.ci.draw_polyline(pts, Color("#5e2219"), 3.8, true)
-	Spr.circle(el.x, el.y, 1.9, Color("#5e2219"))
-	Spr.circle(hand.x, hand.y, 4.0, ink)
-	Spr.circle(hand.x, hand.y, 2.8, Color("#e9b58e"))
+	Spr.ci.draw_polyline(pts, ink, 10.0, true)
+	Spr.ci.draw_polyline(pts, sleeve, 7.0, true)
+	Spr.ci.draw_polyline(PackedVector2Array([sh.lerp(el, .2), el]), sleeve.lightened(.18), 2.0, true)
+	Spr.circle(el.x, el.y, 3.4, sleeve)
+	Spr.circle(hand.x, hand.y, 5.2, ink)
+	Spr.circle(hand.x, hand.y, 4.0, Color("#e9b58e"))

@@ -325,12 +325,15 @@ func _update_lights() -> void:
 	player_light.position = pc + Vector2(p.face * 6 + sw * 7, -4 + abs(sw) * 3)
 	# o raio depende do óleo (ou dos vaga-lumes, com a lanterna apagada) e cresce aos poucos
 	var fv: float = game.fuel_vis
-	player_light.texture_scale = (lerpf(100.0, 185.0, fv) if out else lerpf(150.0, 300.0, fv)) * 2 / 256.0
-	player_light.energy = dark * (1.4 + sin(game.T * .21) * .05) * (.25 + .75 * p.get("wal", 1.0))
+	# óleo acabando (abaixo da metade): a luz encolhe e enfraquece aos poucos; sem óleo, só um brilho fraquinho
+	var low: float = clamp(fv / .5, 0.0, 1.0) if game.lantern_lit else 1.0
+	var rad: float = lerpf(100.0, 185.0, fv) if out else (lerpf(150.0, 300.0, fv) if fv >= .5 else lerpf(42.0, 150.0, low))
+	player_light.texture_scale = rad * 2 / 256.0
+	player_light.energy = dark * (1.4 + sin(game.T * .21) * .05) * (.25 + .75 * p.get("wal", 1.0)) * lerpf(.45, 1.0, low)
 	if cone_light:
 		cone_light.position = player_light.position + Vector2(p.face * 10, 0)
 		cone_light.rotation = 0.0 if p.face > 0 else PI
-		cone_light.energy = 0.0 if out else dark * .9 * (.25 + .75 * p.get("wal", 1.0))
+		cone_light.energy = 0.0 if out else dark * .9 * (.25 + .75 * p.get("wal", 1.0)) * low
 	for l in lights:
 		var n: LightMap.Dot = l.n
 		if l.has("chk"):
@@ -2184,12 +2187,12 @@ func _render_bag(msg: String) -> void:
 		ic2.modulate = Color(1, 1, 1, 1 if game.SPECGOT.has(c) else .2)
 		pens.add_child(ic2)
 	vb.add_child(pens)
-	if game.level_idx == 0:
+	if true:
 		var crw := HBoxContainer.new()
 		crw.alignment = BoxContainer.ALIGNMENT_CENTER
 		crw.add_theme_constant_override("separation", 6)
-		crw.add_child(_label("COROAS DOS REIS ", 13, Color("#b8a888")))
-		for cid in WorldKings.CROWN_IDS:
+		crw.add_child(_label("COROAS DOS REIS " if game.level_idx == 0 else "COROAS DOS CHEFES ", 13, Color("#b8a888")))
+		for cid in WorldKings.crowns_of(game.level_idx):
 			crw.add_child(_CrownIcon.new(cid, Save.getv("gallery", "crown_" + cid, false), 26.0))
 		vb.add_child(crw)
 	vb.add_child(_label("CADERNO DE PISTAS", 13, Color("#b8a888")))
@@ -2558,13 +2561,13 @@ func show_gallery(ep: int = 1) -> void:
 		fd.position = Vector2(1, 4)
 		hold.add_child(fd)
 		row.add_child(hold)
-	if ep == 1:
-		# coroas dos reis: cada rei vencido deixa a sua (pegas no chão depois da luta)
+	if ep >= 1 and ep <= 3:
+		# coroas dos reis/chefes: cada um vencido deixa a sua (pegas no chão depois da luta)
 		var crl := HBoxContainer.new()
 		crl.alignment = BoxContainer.ALIGNMENT_CENTER
 		crl.add_theme_constant_override("separation", 14)
-		crl.add_child(_label("COROAS DOS REIS", 13, Color("#b8a888")))
-		for cid in WorldKings.CROWN_IDS:
+		crl.add_child(_label("COROAS DOS REIS" if ep == 1 else "COROAS DOS CHEFES", 13, Color("#b8a888")))
+		for cid in WorldKings.crowns_of(ep - 1):
 			var have: bool = Save.getv("gallery", "crown_" + cid, false)
 			var cc := VBoxContainer.new()
 			cc.add_theme_constant_override("separation", 0)

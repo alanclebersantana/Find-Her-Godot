@@ -905,7 +905,7 @@ func _boulder(o: Dictionary, p: Dictionary, pcx: float) -> void:
 				Audio.play("stomp", -2)
 				g.shake = max(g.shake, 10)
 				g.want_comic("bola")
-				g.flash_tut("Fuja!", "Uma pedra gigante! Fuja para a frente, pule os obstáculos e se abaixe (↓) no buraco do chão lá na frente!", 260)
+				g.flash_tut("Fuja!", "Uma pedra gigante! CORRA para a frente: pule as caixas, passe ABAIXADO (↓) embaixo das vigas caídas e se abaixe no buraco do chão lá na frente!", 300)
 		"drop":
 			o.vy += .9
 			o.by += o.vy
@@ -921,7 +921,7 @@ func _boulder(o: Dictionary, p: Dictionary, pcx: float) -> void:
 		"roll":
 			# rola um pouco mais devagar que o passo normal do Tomé (dá para fugir andando, contando
 			# o tempo dos pulos); começa devagar e só depois embala
-			o.vx = move_toward(o.vx, o.vmax, .035)
+			o.vx = move_toward(o.vx, o.vmax, float(o.get("acc", .035)))
 			o.bx += o.vx
 			o.rot += o.vx / R
 			if g.T % 5 == 0:

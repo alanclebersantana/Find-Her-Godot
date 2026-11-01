@@ -186,12 +186,12 @@ func post() -> void:
 	var p: Dictionary = g.player
 	var pcx: float = p.x + p.w / 2
 	var feet: float = p.y + p.h
-	# lamaçal: sanguessugas não deixam passar
+	# lamaçal: afunda quem entra
 	for b in BOGS:
 		if pcx > b.x and pcx < b.x + b.w and feet > b.y + 8 and p.dyingT == 0 and not p.get("dog"):
 			g.burst(pcx, b.y, 18, Color("#4a3a22"))
 			Audio.play("splash", -4)
-			g.die("As sanguessugas do lamaçal te pegaram! Vá de cipó em cipó.")
+			g.die("Você afundou no lamaçal! Vá de cipó em cipó.")
 			return
 	# água gelada
 	for h in HOLES:

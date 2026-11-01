@@ -1130,12 +1130,42 @@ static func _bobs(g: Game, T: int) -> void:
 				_box(s.x + 4, s.y, s.w - 8, s.h / 2)
 			"cart":
 				Spr.AB("mi_cart", s.x - 8, s.y + s.h - 70, s.w + 16, 70)
+			"collapse":
+				# desabamento: uma viga caída na altura da cabeça e as pedras do teto empilhadas em cima até lá no
+				# alto — só passa abaixado por baixo da viga
+				var bot: float = s.y + s.h
+				var yy: float = bot - 26
+				var k := 0
+				while yy > s.y - 10:
+					var off: float = sin(k * 2.3) * 9
+					var sz: float = 58 + fmod(k * 13.0, 20.0)
+					Spr.PR("rock0", s.x + s.w / 2 - sz / 2 + off, yy - sz * .85, sz, sz * .85, Color(.78, .72, .66), k % 2 == 1)
+					yy -= sz * .6
+					k += 1
+				# a viga (madeira de escora) atravessada, apoiada em dois toquinhos
+				Spr.rr(s.x - 22, bot - 30, s.w + 44, 22, 4, Color("#7a5232"))
+				Spr.rect(s.x - 22, bot - 30, s.w + 44, 5, Color("#9a7044"))
+				Spr.ci.draw_rect(Rect2(s.x - 22, bot - 30, s.w + 44, 22), OUT, false, 2.0)
+				for sd in [-1.0, 1.0]:
+					var px: float = s.x + s.w / 2 + sd * (s.w / 2 + 14)
+					Spr.rect(px - 6, bot - 8, 12, 8, Color("#5e3e22"))
+				_duck_sign(g, s, T)
 			"barricade":
 				for k in 4:
 					Spr.rr(s.x - 6, s.y + 6 + k * 28, s.w + 12, 20, 3, Color("#7a5232").darkened(k * .05))
 					Spr.rect(s.x - 6, s.y + 6 + k * 28, s.w + 12, 4, Color("#9a7044"))
 				Spr.seg(s.x - 4, s.y + 8, s.x + s.w + 4, s.y + s.h - 8, Color("#4e331d"), 4)
 				Spr.text("PERIGO", s.x + s.w / 2, s.y + 60, 11, Color("#f0d070"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3, Color(0, 0, 0, .8))
+
+## ícone de "abaixe" em cima da passagem baixa, quando o Tomé chega perto
+static func _duck_sign(g: Game, s: Dictionary, T: int) -> void:
+	var cx: float = s.x + s.w / 2
+	if g.player.crouch or abs(g.player.x + g.player.w / 2 - cx) > s.w / 2 + 190:
+		return
+	var by: float = s.y + s.h - 80 + sin(T * .15) * 4
+	Spr.circle(cx, by, 22, Color(0, 0, 0, .4))
+	Spr.ci.draw_texture_rect(Spr.tex.pad_S, Rect2(cx - 18, by - 18, 36, 36), false, Color(1, 1, 1, .95))
+	Spr.text("abaixe", cx, by + 34, 13, Color(1, .93, .7, .95), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 3)
 
 static func _box(x: float, y: float, w: float, h: float) -> void:
 	Spr.rect(x, y, w, h, Color("#8a5e34"))

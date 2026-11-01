@@ -89,7 +89,7 @@ func _initialize() -> void:
 	say("picareta voltou", g.TR.PICK.is_empty())
 
 	# 5) machado machuca
-	put(64640, 500)
+	put(66640, 500)
 	hp0 = g.player.hp
 	for i in 160:
 		frame()
@@ -106,21 +106,21 @@ func _initialize() -> void:
 
 	# 7) rede: Pipoca rói a corda
 	g.X.DOG.st = "follow"
-	g.X.DOG.x = 71030.0
+	g.X.DOG.x = 73030.0
 	g.X.DOG.y = 500.0
-	g.X.TRAIL = [Vector2(71030, 500)]
-	put(71040, 500)
+	g.X.TRAIL = [Vector2(73030, 500)]
+	put(73040, 500)
 	for i in 30:
 		frame({"R": true})
-	say("rede segura o Tomé", g.player.x + 24 < 71102, str(int(g.player.x)))
+	say("rede segura o Tomé", g.player.x + 24 < 73102, str(int(g.player.x)))
 	say("Pipoca disponível", g.X.dog_free())
 	g.keys["Dp"] = true
 	frame()
 	say("virou Pipoca", g.M.ctrl)
 	for i in 120:
-		if abs(g.player.x + g.player.w / 2 - 71065) < 8:
+		if abs(g.player.x + g.player.w / 2 - 73065) < 8:
 			break
-		frame({"R" if g.player.x + 15 < 71065 else "L": true})
+		frame({"R" if g.player.x + 15 < 73065 else "L": true})
 	g.keys["Ap"] = true
 	frame()
 	for i in 10:
@@ -130,20 +130,20 @@ func _initialize() -> void:
 	frame()
 
 	# 8) jaula
-	put(71160, 500)
+	put(73160, 500)
 	for i in 60:
 		frame({"R": true})
 	say("jaula prendeu", g.TR.trapped != null)
 	for i in 30:
 		frame({"R": true})
-	say("preso não anda", g.player.x < 71200 + 64)
+	say("preso não anda", g.player.x < 73200 + 64)
 	g.keys["Dp"] = true
 	frame()
 	say("Pipoca no controle", g.M.ctrl)
 	for i in 200:
-		if abs(g.player.x + g.player.w / 2 - 71162) < 10:
+		if abs(g.player.x + g.player.w / 2 - 73162) < 10:
 			break
-		frame({"R" if g.player.x + 15 < 71162 else "L": true})
+		frame({"R" if g.player.x + 15 < 73162 else "L": true})
 	g.keys["Ap"] = true
 	frame()
 	for i in 5:

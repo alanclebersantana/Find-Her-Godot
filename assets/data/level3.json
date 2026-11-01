@@ -1221,7 +1221,38 @@
  ],
  "vines": [],
  "springs": [],
- "crates": [],
+ "crates": [
+  {
+   "t": "break",
+   "x": 5750,
+   "y": 462,
+   "item": "armor"
+  },
+  {
+   "t": "break",
+   "x": 12400,
+   "y": 462,
+   "item": "armor"
+  },
+  {
+   "t": "break",
+   "x": 18600,
+   "y": 462,
+   "item": "armor"
+  },
+  {
+   "t": "break",
+   "x": 24790,
+   "y": 462,
+   "item": "armor"
+  },
+  {
+   "t": "break",
+   "x": 30740,
+   "y": 462,
+   "item": "armor"
+  }
+ ],
  "enemies": [
   {
    "k": "crow",

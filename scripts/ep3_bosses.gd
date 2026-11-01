@@ -192,6 +192,9 @@ func _win(b: Dictionary, msg: String) -> void:
 	b.hp = 0
 	WON[b.id] = 1
 	Polish.final_blow()
+	if b.id in ["salamandra", "guardiao"] and g.K:
+		# a coroa salta da cabeça do chefe e cai brilhando no chão da arena
+		g.K.drop_crown(b.id, b.x, float(b.y) - (130.0 if b.id == "salamandra" else 170.0), -float(b.get("dir", 1)) * 2.2, -6.0)
 	Polish.loot_arc(b.x, b.y - 60, 12, float(b.y))
 	_gate(b, false)
 	SHOTS = []

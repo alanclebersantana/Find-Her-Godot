@@ -637,6 +637,9 @@ from space_checks import space
 # (os pontos de volta dentro do trem e na ponte ficam todos: cada vagão tem o seu lampião)
 _keep = [c[0] for c in L["checks"] if c[0] >= L["isisPart"]["x0"]]
 L["checks"] = space(L["checks"], _keep)
+# caixas de escudo antes da trilha, dos porões (água elétrica), das forjas (metal derretido) e dos chefes
+import shield_crates
+print("escudos", shield_crates.add(L, [5600, 12400, 18600, 24400, 30500]))
 json.dump(L, open(os.path.join(ROOT, "assets", "data", "level3.json"), "w"), ensure_ascii=False, indent=1)
 print("level3.json: %d sólidos, %d lápis, spanX %d, pistas %s" % (len(L["solids"]), len(L["coins"]), L["spanX"],
                                                                   sorted(c["id"] for c in L["clues"])))

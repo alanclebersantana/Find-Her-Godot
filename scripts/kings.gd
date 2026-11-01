@@ -288,6 +288,9 @@ func swing_hits(hb: Dictionary) -> void:
 		if h.get("skin", "hawk") != "bat":
 			# a coroa de penas salta da cabeça e cai na arena
 			drop_crown("gaviao", h.x + h.dir * 38, h.y - 84, h.dir * 2.2, -6.0)
+		else:
+			# a coroa da noite escapa da cabeça do Morcego-Rei e cai na caverna
+			drop_crown("morcego", clamp(h.x, h.x0 + 80, h.x1 - 80), min(h.y - 40, h.gy - 120), -h.dir * 1.6, -5.0)
 		Polish.loot_arc(h.x, h.y - 40, 10, h.gy)
 		_gate("hawkL", false, Rect2())
 		_gate("hawkR", false, Rect2())
@@ -1158,6 +1161,8 @@ func restore(d: Dictionary) -> void:
 ## a coroa de um rei saltou da cabeça: cai (ou afunda, na água), quica, para no chão e fica
 ## brilhando até o Tomé pegar. "to": desliza pelo chão até ali (a do urso rola pela fresta)
 func drop_crown(id: String, x: float, y: float, vx: float, vy: float, water: bool = false, to: float = -1.0) -> void:
+	if TOOK.has(id):
+		return
 	for c in CROWNS:
 		if c.id == id:
 			return
@@ -1201,6 +1206,19 @@ func _crown_fallback() -> void:
 	if not FISH.is_empty() and FISH.get("skin", "fish") == "fish" and _beaten(FISH) and not have.has("bagre"):
 		var fx: float = (FISH.x0 + FISH.x1) / 2.0
 		_put_crown("bagre", fx, _crown_floor(fx, FISH.y0), true)
+	# chefes dos Episódios 2 e 3
+	if X and not X.BOSS.is_empty() and X.BOSS.get("skin", "") == "dog" and (X.BOSS.done or X.BOSS.get("st", "") == "down") and not have.has("brutus"):
+		_put_crown("brutus", float(X.BOSS.x), _crown_floor(float(X.BOSS.x), 300.0), false)
+	if not HAWK.is_empty() and HAWK.get("skin", "hawk") == "bat" and _beaten(HAWK) and not have.has("morcego"):
+		_put_crown("morcego", (HAWK.x0 + HAWK.x1) / 2.0, HAWK.gy, false)
+	if not FISH.is_empty() and FISH.get("skin", "fish") == "frog" and _beaten(FISH) and not have.has("sapo"):
+		var sx0: float = float(FISH.x1) + 70.0
+		_put_crown("sapo", sx0, _crown_floor(sx0, 200.0), false)
+	if B3:
+		for bb in B3.B:
+			if bb.id in ["salamandra", "guardiao"] and B3.WON.has(bb.id) and not have.has(bb.id):
+				var bx: float = (float(bb.x0) + float(bb.x1)) / 2.0
+				_put_crown(bb.id, bx, float(bb.y), false)
 	if not BEAR.is_empty() and _beaten(BEAR) and not have.has("urso"):
 		BEAR.crown = false
 		BEAR.lump = true
@@ -1290,4 +1308,5 @@ func _take_crown(c: Dictionary) -> void:
 	g.burst(c.x, c.y - 12, 20, Color(1, .9, .5))
 	var nm: String = WorldKings.CROWN_NAME.get(c.id, "Coroa")
 	var kg: String = WorldKings.CROWN_KING.get(c.id, "rei")
-	g.flash(("%s do %s! Uma nova coroa na sua coleção (veja na Galeria)." if first else "%s do %s! Ela já estava na sua coleção.") % [nm, kg], 240)
+	var art: String = "da" if str(c.id) == "salamandra" else "do"
+	g.flash(("%s %s %s! Uma nova coroa na sua coleção (veja na Galeria)." if first else "%s %s %s! Ela já estava na sua coleção.") % [nm, art, kg], 240)
