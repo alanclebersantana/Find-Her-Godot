@@ -198,12 +198,11 @@ static func brutus_step(g, X) -> void:
 			p.vx = 7.0 if pcx > b.x else -7.0
 			b.barkT = 10
 			Audio.play("bark", -2)
-			g.hurt(1, b.x)
 			if not g.L.get("_br_bite", false):
 				g.L["_br_bite"] = true
-				g.tip("Acordado o Brutus morde quem pula nele! Espere ele bater no muro e ficar tonto.", 220)
+				g.tip("Acordado o Brutus te sacode de cima! Espere ele bater no muro e ficar tonto.", 220)
 		return
-	if b.st in ["charge", "skid"] and Game.hit(p, bb):
+	if b.st == "charge" and Game.hit(p, bb):
 		g.hurt(1, b.x)
 
 static func _brutus_hit(g, X, b: Dictionary) -> void:
@@ -784,14 +783,12 @@ static func frog_step(g, K) -> void:
 			if f.t > 90:
 				f.done = true
 				f.active = false
-	# contato: encostar no sapo (sem estar tonto) machuca; tonto, um pulo na cabeça vale um golpe
+	# encostar no sapo não machuca (só a língua); tonto, um pulo na cabeça vale um golpe
 	if p.dyingT == 0 and not p.get("dog") and f.st not in ["down", "wait"]:
 		var fb := frog_box(g, f)
 		if Game.hit(p, fb):
 			if f.st == "dizzy" and p.vy > .8 and feet - fb.y < 34:
 				_frog_stomp(g, K, f, p)
-			elif f.st not in ["dizzy", "hurt"]:
-				g.hurt(1, f.x)
 
 static func _tongue_step(g, K, f: Dictionary, tg: Dictionary, p: Dictionary) -> void:
 	var mouth := frog_mouth(f)

@@ -802,7 +802,7 @@ func _boss() -> void:
 				p.cutOk = false
 				Audio.play("spring", -8)
 				g.tip("Ele é forte demais! Faça ele bater a cabeça no muro." if b.skin == "dog" else "O couro dele é duro! Faça ele bater a cabeça na árvore ou no barranco.")
-			elif b.st == "charge" or b.st == "intro":
+			elif b.st == "charge":
 				g.hurt(1, b.x)
 
 ## o Javali-Rei bateu a cabeça: perde uma vida

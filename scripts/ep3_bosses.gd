@@ -602,14 +602,14 @@ func _sal(b: Dictionary) -> void:
 			g.flash("Toma! Falta%s %d vez%s." % ["m" if n > 1 else "", n, "es" if n > 1 else ""], 140)
 		return
 	if b.st in ["walk", "breath", "relight", "fight0", "flare"]:
-		# pegando fogo: encostar ou pular nela queima
+		# pegando fogo: pular nela não adianta (só os golpes de fogo dela tiram vida)
 		if _touch(sal_back(b)) and g.player.vy > .5:
-			g.hurt(1, b.x)
+			# pular nas costas em chamas: ricocheteia (não tira vida, só o fogo dela tira)
+			g.player.vy = -7.0
+			g.player.vx = 5.0 if g.player.x + g.player.w / 2 > b.x else -5.0
 			if not g.L.get("_sal_quente", false):
 				g.L["_sal_quente"] = true
-				g.tip("Ai! Ela está pegando fogo! Apague com a caixa d'água primeiro (✦ USAR na corrente, lá no balcão).", 240)
-		elif _touch(sal_box(b)):
-			g.hurt(1, b.x)
+				g.tip("Ela está pegando fogo, não dá pra pular nela! Apague com a caixa d'água primeiro (✦ USAR na corrente, lá no balcão).", 240)
 
 ## ✦ USAR perto da corrente de uma caixa d'água cheia
 func near_lever() -> Dictionary:
@@ -771,9 +771,6 @@ func _gua(b: Dictionary) -> void:
 			if b.t > 200:
 				b.done = true
 				b.active = false
-	# (levantando do chão ele ainda não machuca: dá tempo de se afastar)
-	if ((b.st == "walk" and b.t > 24) or b.st == "raise") and _touch(gua_box(b)):
-		g.hurt(1, b.x)
 
 ## golpe de picareta (Kings.swing_hits passa a caixa do golpe)
 func swing_hits(hb: Dictionary) -> void:

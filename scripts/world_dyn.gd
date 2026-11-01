@@ -816,7 +816,7 @@ func _enemy_fx_under(g: Game, e: Dictionary, eo: Vector2) -> void:
 const OUT_SHAPES := {"spider": 1, "mole": 1, "plant": 1}
 const OUT8 := [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1), Vector2(.7, .7), Vector2(-.7, .7), Vector2(.7, -.7), Vector2(-.7, -.7)]
 ## estados em que o bicho começa um ataque (aparece o "!" vermelho antes)
-const ATK := {"crow": [5], "squirrel": [1], "spider": [1], "bat": [1], "owl": [1], "mole": [2]}
+const ATK := {"crow": [5], "squirrel": [1], "spider": [1], "bat": [5], "fly": [5], "owl": [1], "mole": [2]}
 ## nomes para a dica do primeiro encontro
 const EN_NAME := {"crow": "Corvo", "bat": "Morcego", "fly": "Mosca", "spider": "Aranha", "squirrel": "Esquilo bravo",
 	"frog": "Sapo", "piranha": "Piranha", "leech": "Sanguessuga", "boar": "Javali", "owl": "Coruja brava", "mole": "Toupeira"}

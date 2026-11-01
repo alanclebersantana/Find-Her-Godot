@@ -3610,6 +3610,9 @@ func _update_enemy_core(e: Dictionary) -> void:
 			if e.t > 140:
 				e.st = 0
 		return
+	if e.k == "fly":
+		_fly(e)
+		return
 	if FLY.has(e.k):
 		_glide(e, 1.8)
 		e.y = e.cy + sin(T * .05 + e.x * .02) * 30
@@ -3792,34 +3795,84 @@ func floor_under(x: float, y: float) -> float:
 	_floor_cache[key] = best
 	return best
 
-## morcego: dorme pendurado; acorda quando o Tomé chega perto e foge da luz
+## morcego: dorme pendurado; acorda quando o Tomé chega perto, fica rondando por cima dele e dá
+## rasantes como o corvo (para no ar com o "!" e mergulha); foge da luz
 func _bat(e: Dictionary) -> void:
 	var st: int = e.get("st", 0)
 	var pc := Vector2(player.x + player.w / 2, player.y + player.h / 2)
 	e.cd = max(0, e.get("cd", 0) - 1)
+	if st in [1, 5, 6]:
+		e.at = e.get("at", 0) + 1
+		if X.lit(e.x, e.y, 95.0) or X.scare(e.x, e.y) or e.at > 720 or player.dyingT > 0:
+			e.st = 2
+			e.t = 0
+			e.erase("xl")
+			return
 	if st == 0:
 		e.y = e.cy
 		if e.cd == 0 and pc.distance_to(Vector2(e.x, e.y)) < 230 and player.dyingT == 0:
 			e.st = 1
 			e.t = 0
+			e.at = 0
 			Audio.play("dj", -12)
 	elif st == 1:
+		# ronda por cima do Tomé com inércia (faz curvas em vez de virar num quadro)
 		e.t += 1
-		var to := (pc - Vector2(e.x, e.y))
-		# voo com inércia: faz curvas em vez de mudar de direção num quadro
-		var want := to.normalized() * 2.3
+		var side: float = -1.0 if float(e.x) < pc.x else 1.0
+		var hover: Vector2 = Vector2(pc.x + side * 90.0, min(pc.y - 120.0, floor_under(e.x, e.cy) - 60.0))
+		hover.y = max(hover.y, e.cy)
+		var to: Vector2 = hover - Vector2(e.x, e.y)
+		var want: Vector2 = to.normalized() * min(2.8, to.length() * .05 + .4)
 		var bv: Vector2 = e.get("bv", Vector2.ZERO)
 		bv = bv.lerp(want, .07)
 		e.bv = bv
-		var v := bv + Vector2(0, sin(e.t * .25) * 2.2)
+		var v: Vector2 = bv + Vector2(0, sin(e.t * .25) * 1.6)
 		e.x = clamp(e.x + v.x, e.r[0], e.r[1])
-		# voa baixo atrás do Tomé, mas não entra no chão
 		e.y = clamp(e.y + v.y, e.cy, min(e.cy + 260, floor_under(e.x, e.cy) - 14.0))
-		if abs(bv.x) > .3:
-			e.dir = 1 if bv.x > 0 else -1
-		if X.lit(e.x, e.y, 95.0) or X.scare(e.x, e.y) or e.t > 420:
-			e.st = 2
+		var fx: float = pc.x - e.x
+		if abs(fx) > 4:
+			e.dir = 1 if fx > 0 else -1
+		if e.t > 70 and abs(pc.x - e.x) < 230 and pc.y > e.y + 40:
+			# para no ar batendo as asas e mostra o "!" vermelho antes do rasante
+			e.st = 5
 			e.t = 0
+			e.dir = 1 if pc.x > e.x else -1
+	elif st == 5:
+		e.t += 1
+		e.y += sin(T * .5) * .6 - .25
+		if e.t >= 26:
+			e.st = 6
+			e.t = 0
+			e.sx = e.x
+			e.sy = e.y
+			e.tx = pc.x + player.vx * 14
+			var lowx: float = clamp(e.sx + (e.tx - e.sx) * .8, e.r[0], e.r[1])
+			var fl: float = min(floor_under(clamp(e.tx, e.r[0], e.r[1]), e.y + 20.0), floor_under(lowx, e.y + 20.0))
+			e.ty = min(pc.y, fl - 18.0)
+			e.dir = 1 if e.tx > e.x else -1
+			Audio.play("dj", -12)
+	elif st == 6:
+		# rasante em arco (igual ao do corvo), sem atravessar rocha nem teto
+		e.t += 1
+		var u: float = e.t / 52.0
+		var nx: float = clamp(e.sx + (e.tx - e.sx) * u * 1.6, e.r[0], e.r[1])
+		var ny: float = e.sy + (e.ty - e.sy) * sin(min(1.0, u) * PI)
+		if e.has("xl"):
+			nx = e.xl
+		if _crow_blocked(nx, ny):
+			if not _crow_blocked(e.x, ny):
+				e.xl = e.x
+				nx = e.x
+			else:
+				nx = e.x
+				ny = e.y
+		e.bv = Vector2(nx - e.x, ny - e.y)
+		e.x = nx
+		e.y = ny
+		if e.t >= 52:
+			e.st = 1
+			e.t = 0
+			e.erase("xl")
 	else:
 		e.t += 1
 		var home := Vector2(e.x0, e.cy)
@@ -3839,6 +3892,68 @@ func _bat(e: Dictionary) -> void:
 			e.y += bv2.y
 			if abs(bv2.x) > .3:
 				e.dir = 1 if bv2.x > 0 else -1
+
+## mosca: zanza de um lado a outro e, vendo o Tomé perto, voa atrás dele em zigue-zague e dá
+## investidas rápidas (para um instante zumbindo, com o "!", e dispara)
+func _fly(e: Dictionary) -> void:
+	var st: int = e.get("st", 0)
+	var pc := Vector2(player.x + player.w / 2, player.y + player.h / 2 - 6)
+	var d: Vector2 = pc - Vector2(e.x, e.y)
+	e.t = e.get("t", 0) + 1
+	var near: bool = d.length() < 260 and player.dyingT == 0 and not X.scare(e.x, e.y)
+	if st == 0:
+		e.pv = Vector2(float(e.get("fv", e.dir * 1.8)), 0.0)
+		_glide(e, 1.8)
+		e.y = lerpf(e.y, e.cy + sin(T * .05 + e.x * .02) * 30, .1)
+		if near and e.t > 40:
+			e.st = 1
+			e.t = 0
+	elif st == 1:
+		# persegue com inércia e um zumbido tremido
+		var pv: Vector2 = e.get("pv", Vector2.ZERO)
+		var want: Vector2 = d.normalized() * 2.4 + Vector2(sin(T * .3 + float(e.x)) * 1.2, cos(T * .23 + float(e.cy)) * 1.4)
+		pv = pv.lerp(want, .08)
+		e.pv = pv
+		e.fv = pv.x
+		e.x = clamp(e.x + pv.x, e.r[0] - 120, e.r[1] + 120)
+		e.y = clamp(e.y + pv.y, e.cy - 140, min(e.cy + 220, floor_under(e.x, e.y - 30) - 12.0))
+		if abs(pv.x) > .4:
+			e.dir = 1 if pv.x > 0 else -1
+		if not near or e.t > 600:
+			e.st = 3
+			e.t = 0
+		elif e.t > 60 and d.length() < 150:
+			e.st = 5
+			e.t = 0
+			e.dir = 1 if d.x > 0 else -1
+	elif st == 5:
+		# zumbe parada (aviso) e mira
+		e.x += sin(T * 1.3) * 1.2
+		e.y += cos(T * 1.1) * 1.0
+		if e.t >= 20:
+			e.st = 6
+			e.t = 0
+			e.pv = d.normalized() * 6.5
+	elif st == 6:
+		var pv6: Vector2 = e.pv
+		e.x = clamp(e.x + pv6.x, e.r[0] - 120, e.r[1] + 120)
+		e.y = clamp(e.y + pv6.y, e.cy - 140, min(e.cy + 220, floor_under(e.x, e.y - 30) - 12.0))
+		e.pv = pv6 * .96
+		if e.t >= 28:
+			e.st = 1
+			e.t = 0
+	else:
+		# volta para a rota dela
+		var hx: float = clamp(e.x, e.r[0], e.r[1])
+		var h: Vector2 = Vector2(hx, e.cy) - Vector2(e.x, e.y)
+		var pv3: Vector2 = (e.get("pv", Vector2.ZERO) as Vector2).lerp(h.normalized() * min(2.6, h.length() * .06 + .4), .08)
+		e.pv = pv3
+		e.x += pv3.x
+		e.y += pv3.y
+		if h.length() < 6 or e.t > 300:
+			e.st = 0
+			e.t = 0
+			e.fv = pv3.x
 
 ## aranha: desce do teto num fio quando o Tomé passa por baixo
 func _spider(e: Dictionary) -> void:

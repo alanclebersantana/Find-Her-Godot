@@ -698,8 +698,8 @@ func _bear() -> void:
 			if b.t > 260 or b.x < float(b.den):
 				b.done = true
 				b.active = false
-	# encostar no urso machuca
-	if b.st in BEAR_CHASE and not b.won and p.dyingT == 0 and Game.hit(p, bear_box()):
+	# só a investida machuca (encostar nele parado/andando não)
+	if b.st == "charge" and not b.won and p.dyingT == 0 and Game.hit(p, bear_box()):
 		_bear_dmg()
 
 ## anda com a velocidade atual: arrebenta troncos e galho no caminho e nunca passa da rocha
