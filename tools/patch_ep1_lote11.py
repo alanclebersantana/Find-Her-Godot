@@ -80,9 +80,6 @@ sp['pow'] = -30
 NX = sp['x'] - 60
 NY = -300
 S.append({'t': 'plat', 'x': NX, 'y': NY, 'w': 120, 'nest': 1})
-S.append({'t': 'wall', 'x': NX - 20, 'y': NY - 100, 'w': 160, 'h': 40, 'nest': 1})
-S.append({'t': 'wall', 'x': NX - 20, 'y': NY - 60, 'w': 20, 'h': 52, 'nest': 1})
-S.append({'t': 'wall', 'x': NX + 120, 'y': NY - 60, 'w': 20, 'h': 52, 'nest': 1})
 S.append({'t': 'trunk', 'x': NX + 128, 'y': NY + 10, 'w': 40, 'h': 500 - NY - 10, 'deco': 1})
 for it in L['items']:
     if it['id'] == 'pavio':
