@@ -11,6 +11,8 @@ signal isis_done       # Episódio 3: a Isis puxou o freio do trem — volta o T
 signal game_over
 signal level_won
 signal rest_reached(n: int)
+## passou pela fogueira grande (salvou e zerou o tempo do período), sem abrir a tela de descanso
+signal rest_saved(n: int)
 signal drawing_found(i: int)
 
 # ---------- física (mesmos números da versão HTML) ----------
@@ -929,9 +931,22 @@ func period_stars() -> Array:
 	return out
 
 ## o botão da mão (USAR) só aparece quando há algo para usar ou quando o facho da lanterna serve
+var _ap_age := 0
+## fogueira grande ao alcance (para abrir a tela de descanso com ✦ USAR)
+func near_rest():
+	if player.dog or player.dyingT > 0 or (X and X.boss_active()):
+		return null
+	var pcx: float = player.x + player.w / 2
+	for c in CHK:
+		if c.has("rest") and c.on and abs(pcx - float(c.x)) < 70 and abs(player.y + player.h - float(c.y)) < 60:
+			return c
+	return null
+
 func use_available() -> bool:
 	if not running or player.dyingT > 0 or not CINE.is_empty():
 		return false
+	if near_rest() != null:
+		return true
 	if player.nearL != null or (M and M.is_dog()):
 		return true
 	if RD and RD.near_horse():
@@ -1678,14 +1693,27 @@ func step() -> void:
 		else:
 			note("Progresso salvo.")
 		if c.has("rest") and not RESTED.has(c.rest):
+			# fogueira grande: salva e zera o tempo do período; a tela de descanso (lembrança da Isis)
+			# só abre se apertar ✦ USAR perto dela, senão o jogo segue
 			RESTED[c.rest] = 1
 			time_left = int(L.get("period", L.get("time", 300))) * 60
-			player.vx = 0.0
 			save_checkpoint(k)
-			running = false
-			rest_reached.emit(c.rest)
-			return
+			rest_saved.emit(c.rest)
+			if not L.get("_rest_tip", false):
+				L["_rest_tip"] = true
+				tip("Fogueira grande! Toque na mãozinha (✦ USAR) para descansar e ver uma lembrança — ou siga em frente.", 220)
+			continue
 		save_checkpoint(k)
+	# ✦ USAR perto da fogueira grande: abre a tela de descanso
+	# (um toque antigo em USAR que ficou guardado não conta: só um toque de agora)
+	var rc = near_rest()
+	_ap_age = _ap_age + 1 if keys.get("Ap", false) else 0
+	if rc != null and keys.get("Ap", false) and _ap_age <= 8:
+		keys.Ap = false
+		player.vx = 0.0
+		running = false
+		rest_reached.emit(rc.rest)
+		return
 	Spr.pt("s_items", __m); __m = Time.get_ticks_usec()
 	# inimigos
 	var camc: float = cam + W * .5

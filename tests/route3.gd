@@ -547,7 +547,7 @@ func _initialize() -> void:
 	for e in g.EN:
 		e.dead = 99
 	P = g.player
-	g.rest_reached.connect(func(n):
+	g.rest_saved.connect(func(n):
 		rests.append(n)
 		print("REST ", n, " T=", g.T)
 		g.running = true)

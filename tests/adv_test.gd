@@ -29,7 +29,7 @@ func _initialize() -> void:
 		e.dead = 99
 	g.lives = 9
 	P = g.player
-	g.rest_reached.connect(func(n):
+	g.rest_saved.connect(func(n):
 		rests.append(n)
 		g.running = true)
 	var args := OS.get_cmdline_user_args()

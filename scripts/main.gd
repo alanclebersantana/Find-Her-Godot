@@ -1744,30 +1744,20 @@ func _on_rest(n: int) -> void:
 			panel.queue_free()
 			panel = null
 		show_title())
-	# os botões só valem depois que a lembrança termina de aparecer (antes, um toque de quem vinha
-	# correndo ou um Enter/A apertado pulava a fogueira grande sem querer)
+	# abre direto com tudo à mostra (agora a tela só abre apertando ✦ USAR na fogueira)
 	for b in [b_go, b_later]:
-		b.disabled = true
 		row.add_child(b)
 	for c in [title, mem, line, row]:
-		c.modulate.a = 0.0
 		vb.add_child(c)
 	ui_layer.add_child(root)
 	panel = root
 	Audio.set_song("tema")
+	# o Enter/A só vale um instante depois (o mesmo toque que abriu não fecha na hora)
 	var tw := root.create_tween()
-	tw.tween_interval(1.4)
-	tw.tween_property(title, "modulate:a", 1.0, .5)
-	tw.tween_property(mem, "modulate:a", 1.0, .8)
-	tw.tween_interval(1.2)
-	tw.tween_property(line, "modulate:a", 1.0, .8)
-	tw.tween_interval(.6)
-	tw.tween_property(row, "modulate:a", 1.0, .5)
+	tw.tween_interval(.3)
 	tw.tween_callback(func():
 		if panel != root or not is_instance_valid(root):
 			return
-		for b in [b_go, b_later]:
-			b.disabled = false
 		root.set_meta("ok", go))
 
 ## no começo de um jogo novo: quer as dicas do tutorial?
