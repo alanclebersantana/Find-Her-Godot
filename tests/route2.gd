@@ -155,7 +155,7 @@ func brutus_fight():
 	var b: Dictionary = g.X.BOSS
 	until({"R": true}, func(): return b.active and b.st != "wait", 300)
 	var mid: float = (float(b.x0) + float(b.x1)) / 2.0
-	for it in 3000:
+	for it in 6000:
 		P = g.player
 		if OS.get_environment("DBG") != "" and it % 10 == 0:
 			print("BR it=%d st=%s t=%d hp=%d bx=%d px=%d py=%d php=%d" % [it, b.st, b.t, b.hp, int(b.x), int(px()), int(P.y + P.h), P.hp])
