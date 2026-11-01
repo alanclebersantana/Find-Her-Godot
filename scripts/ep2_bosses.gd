@@ -703,7 +703,8 @@ static func frog_step(g, K) -> void:
 	_hives_step(g, f)
 	match f.st:
 		"wait":
-			if pc.x > f.trig and pc.x < f.x1 and feet < float(f.y0) + 10.0 and feet > float(f.y0) - 140.0 and p.dyingT == 0 and not p.get("dog"):
+			# entra na arena por qualquer caminho (nas vitórias-régias, nadando ou pulando alto): começa a luta
+			if pc.x > f.trig and pc.x < f.x1 and feet < float(f.y1) and feet > float(f.y0) - 320.0 and p.dyingT == 0 and not p.get("dog"):
 				f.active = true
 				f.st = "idle"
 				f.t = 0
