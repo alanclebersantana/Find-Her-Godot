@@ -200,7 +200,7 @@ func _win(b: Dictionary, msg: String) -> void:
 	SHOTS = []
 	for i in 10:
 		g.gain_coin(b.x, b.y - 80, true)
-	g.player.hp = Game.MAXHP
+	g.player.hp = g.max_hp
 	Audio.play("door", -4)
 	g.flash(msg, 280)
 

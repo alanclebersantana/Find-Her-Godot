@@ -929,7 +929,7 @@ static func _frog_stomp(g, K, f: Dictionary, p: Dictionary) -> void:
 		K._gate("fishL", false, Rect2())
 		for k in 10:
 			g.gain_coin(f.x, f.y - 60, true)
-		g.player.hp = Game.MAXHP
+		g.player.hp = g.max_hp
 		Audio.play("door", -4)
 		g.flash("O Sapo-Rei fugiu para o fundo do lago! O caminho está livre.", 260)
 	else:

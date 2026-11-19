@@ -299,7 +299,7 @@ func swing_hits(hb: Dictionary) -> void:
 				g.kill_enemy(e, "hit")
 		for i in 10:
 			g.gain_coin(h.x, h.y - 40, true)
-		g.player.hp = Game.MAXHP
+		g.player.hp = g.max_hp
 		Audio.play("door", -4)
 		g.flash("O Morcego-Rei fugiu para o fundo da mina! O caminho está livre." if h.skin == "bat" else "O Gavião-Rei fugiu para as nuvens! O caminho está livre.", 240)
 		return
@@ -670,7 +670,7 @@ func _bear() -> void:
 				g.flash("O Urso-Rei entalou na fresta! A coroa dele caiu e rolou para o seu lado. Pegue!", 260)
 				for i in 10:
 					g.gain_coin(rock.end.x + 40, gy - 60, true)
-				p.hp = Game.MAXHP
+				p.hp = g.max_hp
 			if b.t == 26:
 				# senta tonto (afasta um pouco da pedra)
 				b.x = stop_x - 20.0
@@ -980,7 +980,7 @@ func harpoon_hit(hp: Dictionary) -> bool:
 					_gate("fishL", false, Rect2())
 					for k in 10:
 						g.gain_coin(f.x, f.y, true)
-					g.player.hp = Game.MAXHP
+					g.player.hp = g.max_hp
 					Audio.play("door", -4)
 					g.flash(("O Sapo-Rei" if f.skin == "frog" else "O Bagre-Rei") + " foi vencido! Uma corrente de bolhas se abriu à direita: entre nela para subir.", 280)
 				else:

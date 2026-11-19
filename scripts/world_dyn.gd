@@ -130,6 +130,7 @@ func __draw_raw() -> void:
 	WorldVehicles.draw(g, T)
 	Spr.pt("d_Vehicles_draw", __d_Vehicles_draw)
 	var __d_Extras_boss := Time.get_ticks_usec()
+	WorldCombat.boss_aura(g, T)
 	WorldExtras.boss(g, T)
 	Spr.pt("d_Extras_boss", __d_Extras_boss)
 	var __d_Kings_draw := Time.get_ticks_usec()
@@ -161,6 +162,7 @@ func __draw_raw() -> void:
 	for c in g.CR:
 		if not c.dead and c.t != "push" and c.x > cx0 and c.x < cx1:
 			_crate(c)
+	WorldCombat.draw_back(g, T)
 	Critters.draw(g, T)
 	Spr.pt("d_fircrit", __q_fircrit)
 	var __d_Extras_tocas := Time.get_ticks_usec()
@@ -231,6 +233,11 @@ func _draw_enemy_node_raw(n: CanvasItem) -> void:
 			var oa: float = (.35 + .5 * dn) * (.55 + .45 * pul)
 			Spr.glow(e.x, e.y - 14, 46 + 10 * dn, Color(1, .15, .08, .10 + .12 * dn * pul))
 			Spr.sil_c = Color(1, .12, .06, oa)
+			var wk: float = 2.6
+			if Combat.warn(e):
+				# prestes a atacar: o contorno pisca forte (vermelho e amarelo) e engrossa
+				Spr.sil_c = Color(1, .92, .3, .95) if (T / 3) % 2 == 0 else Color(1, .1, .05, .95)
+				wk = 3.8
 			if not e.k in OUT_SHAPES:
 				# o desenho do bicho roda uma vez só, gravando as silhuetas, e a gravação é repetida nos
 				# 8 deslocamentos (antes o desenho inteiro, com toda a sua conta, rodava 8 vezes)
@@ -239,17 +246,28 @@ func _draw_enemy_node_raw(n: CanvasItem) -> void:
 				var rr: Array = Spr.rec
 				Spr.rec = null
 				for d in OUT8:
-					Spr.replay(rr, d * 2.6)
+					Spr.replay(rr, d * wk)
 			else:
 				for d in OUT8:
 					Spr.save()
-					Spr.translate(d.x * 2.6, d.y * 2.6)
+					Spr.translate(d.x * wk, d.y * wk)
 					_enemy(e)
 					Spr.restore()
 			Spr.sil_c = Color(0, 0, 0, 0)
 		_enemy(e)
 		if not e.dead:
 			_enemy_eyes(e)
+			# elite: tingido de vermelho; levou golpe e sobreviveu: piscada branca
+			if e.get("elite"):
+				Spr.sil_c = Color(1, .22, .06, .3 + .08 * sin(T * .2))
+				_enemy(e)
+				Spr.sil_c = Color(0, 0, 0, 0)
+			if int(e.get("hitT", 0)) > 0:
+				Spr.sil_c = Color(1, 1, 1, .9 * int(e.hitT) / 8.0)
+				_enemy(e)
+				Spr.sil_c = Color(0, 0, 0, 0)
+			if e.get("shield", 0) > 0:
+				WorldCombat.shield(e)
 		# clarão branco logo que leva o golpe
 		if e.dead > 0 and e.dead <= 5:
 			Spr.sil_c = Color(1, 1, 1, .9 * (1.0 - (e.dead - 1) / 5.0))
@@ -262,6 +280,8 @@ func _draw_enemy_node_raw(n: CanvasItem) -> void:
 			if e.stun > 0:
 				dizzy(e.x + eo.x, e.y + eo.y - 46, T)
 		_enemy_fx_over(g, e, eo, hop_u)
+		WorldCombat.hp_bar(e, eo.x, eo.y)
+		WorldCombat.warn_mark(e, eo.x, eo.y, T)
 
 ## cor do ambiente: mais quente no fim da tarde, mais azulada na neve e à noite
 func _env(g: Game) -> Color:
@@ -328,6 +348,7 @@ func _draw_front_node(n: CanvasItem) -> void:
 	WorldExtras.grass(g, T)
 	Spr.pt("d_Extras_grass", __d_Extras_grass)
 	WorldTraps.draw_shadows(g, T)
+	WorldCombat.draw_front(g, T)
 	Polish.draw_front(g, T)
 	for f in g.FXS:
 		Spr.A(f.n, f.x, f.y, f.sc, false, 1.0 - float(f.t) / f.life)
@@ -793,7 +814,7 @@ func _crate(c: Dictionary) -> void:
 		if it == "armor":
 			Spr.circle(c.x + c.w / 2 + o, c.y + c.h / 2, 7, Color(.25, .3, .4, .8))
 			Spr.circle(c.x + c.w / 2 + o, c.y + c.h / 2, 5, Color(.65, .8, 1, .9))
-	if c.get("item") == "heart" and game.player.hp >= Game.MAXHP:
+	if c.get("item") == "heart" and game.player.hp >= game.max_hp:
 		Spr.rect(c.x, c.y, c.w, c.h, Color(0, 0, 0, .25))
 
 # ---------- inimigos ----------
@@ -948,6 +969,9 @@ func _enemy(e: Dictionary) -> void:
 	var dist: float = e.get("_dd", 0.0)
 	var fs: float = e.get("_fs", 1.0 if e.dir > 0 else -1.0)
 	Spr.translate(e.x, e.y)
+	var esc: float = float(e.get("sc", 1.0))
+	if esc != 1.0:
+		Spr.scale(esc, esc)
 	if not e.dead:
 		_enemy_body(e, dist)
 	if e.dead:
@@ -1889,8 +1913,8 @@ func _player_draw(g: Game) -> void:
 				n = "pai_crouch"
 		elif p.actT > 0 and p.act in ["throw1", "throw2", "gear"]:
 			n = "pai_" + p.act
-		elif p.actT > 0 and p.act == "swing":
-			n = "pai_throw1" if p.actT > 14 else "pai_throw2"
+		elif p.actT > 0 and p.act in ["swing", "spin"]:
+			n = WorldCombat.swing_pose(p)
 		elif p.pushT > 0 and p.onGround:
 			cyk = "pai_push"
 			cyn = ["pai_push1", "pai_push2", "pai_push3"]

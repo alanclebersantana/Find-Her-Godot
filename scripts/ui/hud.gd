@@ -329,6 +329,31 @@ func __draw_raw() -> void:
 	var X: Extras = game.X
 	_draw_bars_and_hints(W, p, X)
 	_draw_place(W)
+	_draw_combat(W)
+
+## contador de combo (canto direito) e a placa da arena (ondas e inimigos restantes)
+func _draw_combat(W: float) -> void:
+	var CB: Combat = game.CB
+	if CB == null:
+		return
+	if CB.hits >= 2:
+		var a: float = clamp(CB.hits_t / 30.0, 0.0, 1.0)
+		var pop: float = 1.0 + .35 * CB.hits_pop
+		Spr.save()
+		Spr.translate(W - 120, 104)
+		Spr.scale(pop, pop)
+		Spr.alpha = a
+		var c := Color("#ffd76a") if CB.hits < 10 else Color("#ff8a5a")
+		Spr.text("x%d" % CB.hits, 0, 0, 34, c, HORIZONTAL_ALIGNMENT_CENTER, Spr.font_title, 6, Color(.16, .08, .03, .9))
+		Spr.text("COMBO", 0, 20, 13, Color("#f0e4c8"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b, 4, Color(.16, .08, .03, .9))
+		Spr.alpha = 1.0
+		Spr.restore()
+	if CB.arena != null:
+		var ar: Dictionary = CB.arena
+		var txt := "ARENA · ONDA %d/%d · faltam %d" % [int(ar.wave) + 1, ar.waves.size(), CB.arena_left()]
+		var y0: float = 52.0 if Polish.bosses().is_empty() else 98.0
+		_box(W / 2 - 150, y0, 300, 30)
+		Spr.text(txt, W / 2, y0 + 21, 15, Color("#ffcf9a"), HORIZONTAL_ALIGNMENT_CENTER, Spr.font_b)
 
 ## J1: meio coração (metade esquerda ou direita do desenho), girado em volta do centro
 func _half(n: String, x: float, y: float, sc: float, left: bool, rot: float, al: float) -> void:
@@ -350,7 +375,7 @@ func _draw_stats(ci: Control) -> void:
 	var W := size.x
 	var p: Dictionary = game.player
 	Spr.begin(ci)
-	var o := 40.0   # 5 corações: o resto do painel anda para a direita
+	var o := 40.0 + 23.0 * (game.max_hp - 5)   # 5 corações (ou mais, com a melhoria): o resto do painel anda para a direita
 	_plaque(8, 8, 290 + o, 42)
 	# corações: batem de leve; com pouca vida o último pulsa forte.
 	# Perdeu: o coração racha, as duas metades se abrem e caem (com um tremidinho no painel).
@@ -360,11 +385,11 @@ func _draw_stats(ci: Control) -> void:
 			heart_fx.append({"i": i, "t": 0.0, "k": "crack"})
 		heart_shake = 1.0
 	elif last_hp >= 0 and p.hp > last_hp:
-		for i in range(last_hp, min(p.hp, Game.MAXHP)):
+		for i in range(last_hp, min(p.hp, game.max_hp)):
 			heart_fx.append({"i": i, "t": 0.0, "k": "pop"})
 	last_hp = p.hp
 	var shx: float = sin(Time.get_ticks_msec() * .06) * 2.5 * heart_shake
-	for i in Game.MAXHP:
+	for i in game.max_hp:
 		var hx: float = 26 + i * 23 + shx
 		var fx = null
 		for f in heart_fx:
@@ -479,6 +504,13 @@ func _draw_bars_and_hints(W: float, p: Dictionary, X: Extras) -> void:
 		if fr > 0:
 			var pc: Color = Color("#e0463a").lerp(Color("#ff8a5a"), .5 + .5 * sin(game.T * .2)) if bb.hp == 1 else Color("#e0463a")
 			Spr.rr(W / 2 - bw / 2 + sx, 74, bw * fr, 10, 5, pc)
+		# fases do chefe: marcas na barra e a fase atual ao lado do nome
+		if int(bb.max) >= 3:
+			for q in [1, 2]:
+				var mx: float = W / 2 - bw / 2 + sx + bw * (1.0 - q / 3.0)
+				Spr.rect(mx - 1, 72, 3, 14, Color(.16, .08, .03, .9))
+			var ph: int = Combat.phase_of(int(bb.hp), int(bb.max))
+			Spr.text("FASE %d" % ph, W / 2 + bw / 2 + sx - 4, 68, 11, Color("#ffcf9a") if ph == 1 else (Color("#ff9a5a") if ph == 2 else Color("#ff5a4a")), HORIZONTAL_ALIGNMENT_RIGHT, Spr.font_b)
 	else:
 		boss_name = ""
 	# dica do lugar: pergaminho com o rostinho do Tomé; aparece, fica uns segundos e some sozinha

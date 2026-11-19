@@ -135,8 +135,11 @@ static func pose_for(p: Dictionary, T: int) -> Dictionary:
 	var t := float(T)
 	var ps := {"t": t}
 	var ph: float = p.anim * 2.2
-	if p.get("act", "") == "swing" and p.actT > 0:
-		var u: float = clamp((22 - p.actT) / 14.0, 0, 1)
+	if p.get("act", "") in ["swing", "spin"] and p.actT > 0:
+		var sd: float = float(p.get("swd", 22))
+		var u: float = clamp((sd - p.actT) / (sd * .64), 0, 1)
+		if int(p.get("swk", 0)) == 1:
+			u = 1.0 - u
 		ps.ab = lerpf(2.3, 5.45, u * u * (3 - 2 * u))
 		ps.pick = true
 		ps.pk = .35

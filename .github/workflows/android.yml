@@ -81,6 +81,9 @@ jobs:
       - name: Teste automático (Epílogo do Episódio 2 — a fuga da Isis)
         run: ~/godot/godot --headless --path . -s tests/isis_test.gd
 
+      - name: Teste do combate (combo, esquiva, contra-ataque, arenas, objetos, loja)
+        run: ~/godot/godot --headless --path . -s tests/combat_test.gd
+
       - name: Teste dos controles de toque (diagonal e analógico)
         run: ~/godot/godot --headless --path . -s tests/touch.gd | tee /tmp/touch.log && grep -q "TOUCH OK" /tmp/touch.log
 

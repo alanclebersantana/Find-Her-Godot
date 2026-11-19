@@ -123,7 +123,7 @@ func _begin(x0: float, v0: float) -> void:
 	for s in g.SOL.duplicate():
 		if s.get("id") == "horsebank":
 			g.SOL.erase(s)
-	p.hp = Game.MAXHP
+	p.hp = g.max_hp
 	p.vine = null
 	p.ladder = null
 	p.bar = null
@@ -440,7 +440,7 @@ func _hurt(o: Dictionary) -> void:
 
 ## sem corações: volta para o último marco (ou para o começo da trilha), com os corações cheios
 func _from_mark() -> void:
-	g.player.hp = Game.MAXHP
+	g.player.hp = g.max_hp
 	if cp_i >= 0:
 		var x0: float = float(cps()[cp_i]) - 140.0
 		_begin(x0, spd_at(x0) * .7)

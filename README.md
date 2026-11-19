@@ -36,6 +36,19 @@ Talvez seja preciso permitir "instalar apps desconhecidos" para o navegador.
 Para publicar na Play Store mais tarde, cadastre a chave de assinatura nos *Secrets* do repositório:
 `KEYSTORE_BASE64`, `KEYSTORE_USER` e `KEYSTORE_PASSWORD`. O workflow passa a gerar a versão *release*.
 
+## Plataforma de ação (pacote de combate)
+
+`scripts/combat.gd` (lógica) e `scripts/world_combat.gd` (desenho), sem arte nova:
+- picareta: combo de 3 golpes (4 com a melhoria), golpe carregado (segurar a defesa até brilhar e soltar),
+  mergulho com área de dano, contra-ataque (defesa levantada na hora do golpe) e esquiva (botão da bota com a seta,
+  Shift/L no teclado, RT no controle);
+- pausa no impacto, tremor, empurrão, piscada branca, câmera lenta e contador de combo;
+- bichos com vida, aviso piscando antes do ataque e versões elite (vermelho, mais rápido), grande e com escudo;
+- arenas trancadas com ondas de inimigos (`"arenas"` nos JSON, gravadas por `tools/patch_arenas.py`);
+- pedras, caixas e barris de pólvora para levantar (✦) e arremessar (⛏); a lanterna concentrada ofusca;
+- chefes com 3 fases (cor, velocidade e, na fase 3, pedras caindo ou bichos de apoio);
+- melhorias compradas com lápis na fogueira grande e nota S/A/B por trecho.
+
 ## Abrir e editar
 
 - Abra a pasta no Godot 4.6 (PC ou o editor do Godot para Android).
@@ -64,6 +77,8 @@ Para publicar na Play Store mais tarde, cadastre a chave de assinatura nos *Secr
 godot --headless --path . -s tests/route.gd              # fase inteira, sem inimigos
 godot --headless --path . -s tests/route2.gd             # Episódio 2 inteiro
 godot --headless --path . -s tests/route.gd -- inimigos  # com inimigos (o robô não desvia)
+godot --headless --path . -s tests/combat_test.gd        # combate: combo, esquiva, arenas, objetos, loja
+godot --headless --path . -s tests/arena_bot.gd          # robô que vence todas as arenas
 ```
 
 Fontes: Lora e Cinzel (SIL Open Font License, em `assets/fonts`).

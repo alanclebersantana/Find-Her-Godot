@@ -268,7 +268,7 @@ func use() -> bool:
 
 func _common_start() -> void:
 	var p: Dictionary = g.player
-	p.hp = Game.MAXHP
+	p.hp = g.max_hp
 	p.vine = null
 	p.ladder = null
 	p.bar = null
@@ -662,7 +662,7 @@ func _hurt_sled(o: Dictionary = {}) -> void:
 			if float(ob.u) > u0 - 20.0:
 				ob.hit = false
 				ob.erase("ft")
-		p.hp = Game.MAXHP
+		p.hp = g.max_hp
 		p.iframe = 40
 		_sled_place(u0, 4.0)
 		g.iris_t = 30

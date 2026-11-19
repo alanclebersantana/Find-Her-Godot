@@ -1033,7 +1033,9 @@ static func tool_fx(g: Game, T: int) -> void:
 	var p: Dictionary = g.player
 	var cx: float = p.x + p.w / 2
 	var f: float = p.face
-	if p.get("act", "") == "swing" and p.actT > 0:
+	if p.get("act", "") in ["swing", "spin"] and p.actT > 0 and WorldCombat.swing_arc(g, p, T):
+		pass
+	elif p.get("act", "") == "swing" and p.actT > 0:
 		# arco do golpe da picareta
 		var k: float = 1.0 - (p.actT - 0.0) / 22.0
 		if p.actT <= 17 and p.actT >= 6:
@@ -1057,6 +1059,7 @@ static func tool_fx(g: Game, T: int) -> void:
 	if p.get("guard", false):
 		var lx: float = cx + f * 18
 		var ly: float = p.y + 12
+		WorldCombat.charge_fx(g, lx, ly, T)
 		Spr.glow(lx, ly, 46 + sin(T * .4) * 3, Color(1, .9, .55, .45))
 		Spr.ci.draw_arc(Vector2(lx, ly), 28, -1.1 if f > 0 else PI - 1.1, 1.1 if f > 0 else PI + 1.1, 18, Color(1, .95, .7, .75), 3, true)
 	if p.get("wslide", false):

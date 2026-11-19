@@ -42,7 +42,7 @@ var last_touch_ms := -9999   # último toque na tela (o gesto de "voltar" da bor
 const KEYMAP := {
 	KEY_LEFT: "L", KEY_A: "L", KEY_RIGHT: "R", KEY_D: "R", KEY_UP: "U", KEY_W: "U", KEY_DOWN: "S", KEY_S: "S",
 	KEY_SPACE: "J", KEY_Z: "J", KEY_K: "J", KEY_C: "P", KEY_F: "A", KEY_E: "A", KEY_X: "A", KEY_V: "A", KEY_R: "B",
-	KEY_G: "G", KEY_J: "G", KEY_Q: "D",
+	KEY_G: "G", KEY_J: "G", KEY_Q: "D", KEY_SHIFT: "E", KEY_L: "E",
 }
 const GOLD := Color("#e8d39a")
 const INK := Color("#f0e4c8")
@@ -475,7 +475,7 @@ func _process(_d: float) -> void:
 			top_buttons.visible = not in_cine
 			stick.visible = not in_cine
 			for b in touch:
-				b.visible = not in_cine and not (b.get_meta("k") == "G" and game.player.get("isis"))
+				b.visible = not in_cine and not (b.get_meta("k") in ["G", "E"] and game.player.get("isis"))
 			if in_cine:
 				stick._release()
 	# desenho liso entre passos: chefes, Pipoca, plataformas... (volta ao normal no frame_pre_draw)
@@ -696,6 +696,9 @@ func _input(e: InputEvent) -> void:
 		elif e.axis == JOY_AXIS_LEFT_Y:
 			_set_key("U", e.axis_value < -.55)
 			_set_key("S", e.axis_value > .55)
+		elif e.axis == JOY_AXIS_TRIGGER_RIGHT:
+			# gatilho direito (RT): esquiva
+			_set_key("E", e.axis_value > .5)
 
 # ---------- menus pelo controle ----------
 func _joy_collect(n: Node, out: Array) -> void:
@@ -908,7 +911,7 @@ func _make_touch() -> void:
 	stick.mode = Save.getv("opt", "stick", "analog")
 	stick.changed.connect(_on_stick)
 	hud_layer.add_child(stick)
-	var defs = [["J", "btn_jump", 112], ["A", "btn_use", 90], ["G", "btn_golpe", 86]]
+	var defs = [["J", "btn_jump", 112], ["A", "btn_use", 90], ["G", "btn_golpe", 86], ["E", "btn_dodge", 74]]
 	for d in defs:
 		var b := TouchScreenButton.new()
 		var t: Texture2D = load("res://assets/ui/%s.png" % d[1])
@@ -916,7 +919,7 @@ func _make_touch() -> void:
 		var sc: float = d[2] / float(t.get_width())
 		b.scale = Vector2(sc, sc)
 		var sh := CircleShape2D.new()
-		sh.radius = t.get_width() * .70   # área de toque um pouco maior que o desenho
+		sh.radius = t.get_width() * (.56 if d[0] == "E" else .70)   # área de toque um pouco maior que o desenho
 		b.shape = sh
 		b.shape_centered = true
 		b.visibility_mode = TouchScreenButton.VISIBILITY_TOUCHSCREEN_ONLY
@@ -993,6 +996,8 @@ func _layout() -> void:
 			"J": pos = Vector2(vs.x - 52 - sz, vs.y - 37 - sz)
 			"A": pos = Vector2(vs.x - 52 - js - 30 - sz, vs.y - 55 - sz)
 			"G": pos = Vector2(vs.x - 58 - (js + sz) / 2, vs.y - 39 - js - 18 - sz)
+			# esquiva: acima do PULAR, à direita da picareta
+			"E": pos = Vector2(vs.x - 16 - sz, vs.y - 37 - js - 54 - sz)
 		if left:
 			pos.x = vs.x - pos.x - sz
 		var off: Array = Save.getv("opt", "pos_" + k, [0, 0])
@@ -1291,7 +1296,7 @@ func show_title() -> void:
 	ob.custom_minimum_size = Vector2(150, 46)
 	row.add_child(ob)
 	vb.add_child(row)
-	vb.add_child(_label("Teclado: ← → andar · ↑ ↓ subir/abaixar · Espaço pular · F usar · M mochila · N mapa", 12, Color(.8, .75, .65, .8)))
+	vb.add_child(_label("Teclado: ← → andar · ↑ ↓ subir/abaixar · Espaço pular · G golpe · Shift esquiva · F usar · M mochila · N mapa", 12, Color(.8, .75, .65, .8)))
 	panel.set_meta("ok", func(): start_level(not run.is_empty()))
 	# voltar na tela inicial: pergunta antes de fechar o jogo
 	panel.set_meta("back", func(): _confirm("SAIR DO JOGO?", "O progresso da última fogueira continua salvo.", "SAIR", func(): get_tree().quit(), show_title))
@@ -1513,7 +1518,7 @@ func _edit_controls(from_pause: bool) -> void:
 		panel = null
 		show_options(from_pause))
 	var rst := _button("RESTAURAR", func():
-		for k in ["J", "A", "G", "stick", "bag", "dog"]:
+		for k in ["J", "A", "G", "E", "stick", "bag", "dog"]:
 			Save.setv("opt", "pos_" + k, [0, 0])
 		_layout())
 	hb.add_child(rst)
@@ -1744,8 +1749,15 @@ func _on_rest(n: int) -> void:
 			panel.queue_free()
 			panel = null
 		show_title())
+	# melhorias: compradas com os lápis guardados (a cada fogueira os lápis pegos vão para a carteira)
+	var b_shop := _button("MELHORIAS  ✏ %d" % Combat.bank(), func(): pass)
+	b_shop.pressed.connect(func():
+		vb.visible = false
+		_shop_panel(root, func():
+			vb.visible = true
+			b_shop.text = "MELHORIAS  ✏ %d" % Combat.bank()))
 	# abre direto com tudo à mostra (agora a tela só abre apertando ✦ USAR na fogueira)
-	for b in [b_go, b_later]:
+	for b in [b_go, b_shop, b_later]:
 		row.add_child(b)
 	for c in [title, mem, line, row]:
 		vb.add_child(c)
@@ -1759,6 +1771,72 @@ func _on_rest(n: int) -> void:
 		if panel != root or not is_instance_valid(root):
 			return
 		root.set_meta("ok", go))
+
+## loja da fogueira: melhorias da picareta e da vida, pagas com os lápis guardados
+func _shop_panel(host: Control, on_close: Callable) -> void:
+	var box := CenterContainer.new()
+	box.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, .74)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	host.add_child(dim)
+	host.add_child(box)
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 8)
+	box.add_child(vb)
+	var close := func():
+		dim.queue_free()
+		box.queue_free()
+		on_close.call()
+	_shop_fill(vb, close)
+
+## (re)monta a lista da loja
+func _shop_fill(vb: VBoxContainer, close: Callable) -> void:
+	for c in vb.get_children():
+		vb.remove_child(c)
+		c.queue_free()
+	vb.add_child(_label("MELHORIAS", 22, GOLD, Spr.font_title))
+	vb.add_child(_label("✏ %d lápis guardados  ·  os lápis que você pega entram na carteira a cada fogueira" % Combat.bank(), 13, Color("#cdbfa6"), Spr.font_i, 640))
+	for it in Combat.SHOP:
+		var id: String = it[0]
+		var lv: int = Combat.level_of(id)
+		var mx: int = it[3].size()
+		var row := HBoxContainer.new()
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.add_theme_constant_override("separation", 14)
+		var info := VBoxContainer.new()
+		info.add_theme_constant_override("separation", 0)
+		info.custom_minimum_size = Vector2(380, 0)
+		var t := _label("%s  %s" % [it[1], "●".repeat(lv) + "○".repeat(mx - lv)], 16, INK, Spr.font_b)
+		t.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		var dsc := _label(it[2], 12, Color("#cdbfa6"), Spr.font_i, 380)
+		dsc.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		info.add_child(t)
+		info.add_child(dsc)
+		row.add_child(info)
+		var cost: int = Combat.cost_of(id)
+		var b: Button
+		if cost < 0:
+			b = _button("COMPLETO", func(): pass)
+			b.disabled = true
+		else:
+			b = _button("COMPRAR  ✏ %d" % cost, func(): _shop_buy(id, vb, close))
+			b.disabled = Combat.bank() < cost
+		b.custom_minimum_size = Vector2(190, 42)
+		row.add_child(b)
+		vb.add_child(row)
+	vb.add_child(_button("VOLTAR", close))
+
+func _shop_buy(id: String, vb: VBoxContainer, close: Callable) -> void:
+	if not Combat.buy(id):
+		Audio.play("hurt", -12, 1.4)
+		return
+	Audio.play("special", -4)
+	if id == "vida":
+		game.max_hp += 1
+		game.player.hp = min(game.max_hp, int(game.player.hp) + 1)
+	Save.flush()
+	_shop_fill.call_deferred(vb, close)
 
 ## no começo de um jogo novo: quer as dicas do tutorial?
 func _ask_tutorial(next: Callable) -> void:
@@ -2687,6 +2765,19 @@ func _on_results() -> void:
 		prow.add_child(col)
 	right.add_child(prow)
 	Save.setv("conq", sk, best)
+	# nota de cada trecho (tempo, golpes levados, combo) e a nota do episódio
+	var grades: Array = game.CB.final_grades()
+	var eg: String = Combat.avg_grade(grades)
+	var grow := HBoxContainer.new()
+	grow.add_theme_constant_override("separation", 10)
+	grow.add_child(_label("Nota  ", 14, Color("#cdbfa6")))
+	grow.add_child(_label(eg, 26, Color("#ffd76a") if eg == "S" else INK, Spr.font_title))
+	grow.add_child(_label("   trechos: " + "  ".join(grades), 13, Color("#cdbfa6"), Spr.font_b))
+	right.add_child(grow)
+	var rk: String = "rank%d" % (game.level_idx + 1)
+	var prevr: String = str(Save.getv("conq", rk, ""))
+	if prevr == "" or {"S": 3, "A": 2, "B": 1}.get(eg, 0) > {"S": 3, "A": 2, "B": 1}.get(prevr, 0):
+		Save.setv("conq", rk, eg)
 	var kings := 0
 	if game.X.BOSS.get("done", false):
 		kings += 1

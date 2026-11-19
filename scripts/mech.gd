@@ -165,33 +165,45 @@ func pre() -> void:
 		if g.pressed("G"):
 			g.keys["Ap"] = true
 		return
+	var CB: Combat = g.CB
 	if swing_t > 0:
 		swing_t -= 1
-	if g.TR.pick_out() and g.pressed("G"):
+		if swing_t == 0:
+			if CB.combo_q and not p.ladder and not p.vine and not p.get("bar") and not p.crouch:
+				# apertou GOLPE durante o golpe: emenda o próximo do combo
+				CB.start_swing(true)
+			else:
+				CB.combo_win = 12 if CB.sw_kind == "hit" else 0
+				if CB.sw_kind != "hit":
+					CB.combo_i = 0
+	if CB.holding() and g.pressed("G"):
+		# com uma pedra, caixa ou barril na mão, o GOLPE arremessa
+		CB.throw_held()
+		hold_g = -30
+	elif g.TR.pick_out() and g.pressed("G"):
 		g.TR.recall_pick()
 	elif g.TR.want_throw() and swing_t == 0 and g.pressed("G"):
 		g.TR.throw_pick()
 		hold_g = -30
 	# debaixo d'água também dá picaretada (um pouco mais lenta); com o arpão, o GOLPE na água dispara o arpão
-	if g.pressed("G") and swing_t == 0 and not p.ladder and not p.vine and not p.get("bar") and not p.crouch:
-		swing_t = 26 if p.swim else 22
-		swing_hit = {}
-		p.act = "swing"
-		p.actT = 22
-		# "vush" da picareta: o mesmo som do deslize, mais agudo e curto (não confunde com o deslizar)
-		Audio.play("slide", -8, randf_range(1.3, 1.45))
+	if g.pressed("G"):
+		if swing_t > 0:
+			# combo: o toque no meio do golpe fica guardado para emendar o próximo
+			if swing_t <= CB.sw_dur - 4 and CB.sw_kind == "hit":
+				CB.combo_q = true
+		elif not p.ladder and not p.vine and not p.get("bar") and not p.crouch and not CB.dodging():
+			CB.start_swing(CB.combo_win > 0)
 	if g.kd("G"):
 		hold_g += 1
 	else:
 		hold_g = 0
-	p.guard = hold_g > 14 and swing_t == 0 and not p.ladder and not p.vine and not p.swim and p.dyingT == 0
-	if swing_t >= 8 and swing_t <= 16:
+	p.guard = hold_g > 14 and swing_t == 0 and not p.ladder and not p.vine and not p.swim and p.dyingT == 0 and not CB.holding() and not CB.dodging()
+	CB.guard_step(hold_g, g.kd("G"))
+	if swing_t > 0 and CB.swing_active():
 		_swing_hits()
 
 func swing_box() -> Dictionary:
-	var p: Dictionary = g.player
-	var cx: float = p.x + p.w / 2
-	return g.R(cx + 2 if p.face > 0 else cx - 58, p.y - 10, 56, p.h + 16)
+	return g.CB.swing_box()
 
 func _swing_hits() -> void:
 	var hb := swing_box()
@@ -211,7 +223,7 @@ func _swing_hits() -> void:
 				g.tip("Clanc! O capacete aguenta a picareta. O Pipoca consegue puxá-la para fora.")
 				e.stun = 30
 			else:
-				g.kill_enemy(e, "hit")
+				g.CB.swing_enemy(e)
 	g.PR.swing_hits(hb)
 	for r in g.X.RELICS:
 		if not r.broken and Game.hit(hb, g.R(r.x - 26, r.y - 46, 52, 46)):

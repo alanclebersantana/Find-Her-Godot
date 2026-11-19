@@ -83,6 +83,8 @@ var SL: Slam
 var WV: Waves
 var MV: Movers
 var VL: Village
+var CB: Combat           # combate de ação (combo, esquiva, arenas, objetos, fases dos chefes, nota)
+var max_hp := 5          # corações (5 + a melhoria "Mais um coração")
 var RESTED := {}        # fogueiras grandes já descansadas
 var player: Dictionary = {}
 var keys := {}
@@ -318,7 +320,10 @@ func load_level(i: int) -> void:
 	VL = Village.new(self)
 	VL.load_level()
 	RESTED = {}
+	max_hp = MAXHP + Combat.level_of("vida")
 	_reset_player(L.spawn.x - 12, L.spawn.y - 34)
+	CB = Combat.new(self)
+	CB.load_level()
 	time_left = int(L.get("time", 180)) * 60
 	coins = 0
 	T = 0
@@ -484,7 +489,7 @@ func _reset_player(x: float, y: float, adjust: bool = true) -> void:
 
 func make_body(x: float, y: float) -> Dictionary:
 	return {"x": x, "y": y, "w": 24, "h": 34, "vx": 0.0, "vy": 0.0, "onGround": false, "face": 1, "puff": false, "slam": false,
-		"coyote": 0, "jbuf": 0, "airJumps": 1, "cutOk": false, "hp": MAXHP, "iframe": 0, "armor": 0, "squash": 0.0, "landT": 0, "anim": 0.0,
+		"coyote": 0, "jbuf": 0, "airJumps": 1, "cutOk": false, "hp": max_hp, "iframe": 0, "armor": 0, "squash": 0.0, "landT": 0, "anim": 0.0,
 		"run": 0, "rdir": 1, "tR": -99, "tL": -99, "hR": false, "hL": false, "holdT": 0, "skidT": 0, "spawnX": x, "spawnY": y,
 		"vine": null, "vr": 0.0, "vineCD": 0, "dyingT": 0, "exitT": 0, "_g": null, "actT": 0, "act": "", "pushT": 0, "leap": 0,
 		"crouch": false, "slideT": 0, "ladder": null, "ladderCD": 0, "dropT": 0, "lookT": 0, "climbA": 0.0, "mud": false,
@@ -1182,6 +1187,7 @@ func step() -> void:
 		return
 	NT.pre()
 	M.pre()
+	CB.pre()
 	TR.pre()
 	ZN.pre()
 	Spr.pt("s_pre", __m); __m = Time.get_ticks_usec()
@@ -1459,6 +1465,8 @@ func step() -> void:
 			if T % 6 == 0:
 				PARTS.append({"x": player.x + (player.w if player.wall > 0 else 0.0), "y": player.y + 6, "vx": -player.wall * .6, "vy": -.4, "life": 14, "col": Color(.85, .78, .62, .7)})
 
+	# esquiva: o tranco curto substitui o andar por uns quadros
+	CB.dodge_phys()
 	var prev_vy: float = player.vy
 	var was_ground: bool = player.onGround
 	if not player.vine and not player.get("bar"):
@@ -1507,9 +1515,11 @@ func step() -> void:
 		for c in CR:
 			if not c.dead and c.t == "break" and hit(r, c):
 				break_crate(c)
+		# o golpe no ar para baixo tem área de dano (pega quem está em volta do pouso)
+		var rs := R(player.x - 84, player.y - 30, player.w + 168, player.h + 46)
 		for e in EN:
-			if not e.dead and hit(r, ebox(e)):
-				kill_enemy(e, "stomp")
+			if not e.dead and hit(rs, ebox(e)):
+				CB.hit_enemy(e, 2 + CB.force(), "slam", 1.0 if e.x > player.x + player.w / 2 else -1.0)
 		SL.on_slam(player.x + player.w / 2, player.y + player.h)
 		player.slam = false
 	# correndo, chuta uma pedrinha de vez em quando
@@ -1697,6 +1707,7 @@ func step() -> void:
 			# só abre se apertar ✦ USAR perto dela, senão o jogo segue
 			RESTED[c.rest] = 1
 			time_left = int(L.get("period", L.get("time", 300))) * 60
+			CB.on_rest_fire()
 			save_checkpoint(k)
 			rest_saved.emit(c.rest)
 			if not L.get("_rest_tip", false):
@@ -1756,7 +1767,7 @@ func step() -> void:
 			if e.k == "mole" and e.get("st", 0) == 5 and not stomp:
 				continue
 			if stomp:
-				kill_enemy(e, "stomp")
+				CB.hit_enemy(e, 2 if player.slam else 1, "slam" if player.slam else "stomp", 1.0 if e.x > player.x + player.w / 2 else -1.0)
 				player.vy = STOMP * .6 if player.slam else (STOMP * 1.3 if kd("J") else STOMP)
 				player.slam = false
 				player.squash = .6
@@ -3120,6 +3131,7 @@ func _p1_post(pcx: float, _pcy: float) -> void:
 	var __qK := Time.get_ticks_usec()
 	K.post()
 	Spr.pt("p_K", __qK)
+	CB.post()
 	var __qNT := Time.get_ticks_usec()
 	NT.post()
 	Spr.pt("p_NT", __qNT)
@@ -3442,6 +3454,16 @@ func _fuel_step() -> void:
 #  INIMIGOS, DANO E MORTE
 # ======================================================================
 func ebox(e: Dictionary) -> Dictionary:
+	var b := _ebox(e)
+	var sc: float = float(e.get("sc", 1.0))
+	if sc != 1.0 and b.w > 0:
+		# bicho grande: a caixa cresce para cima e para os lados a partir dos pés
+		var bot: float = b.y + b.h
+		var cx: float = b.x + b.w / 2
+		b = R(cx - b.w * sc / 2, bot - b.h * sc, b.w * sc, b.h * sc)
+	return b
+
+func _ebox(e: Dictionary) -> Dictionary:
 	if e.k == "plant":
 		if e.dead or e.stun > 0:
 			return R(-9999, -9999, 0, 0)
@@ -4118,7 +4140,7 @@ func break_crate(c: Dictionary) -> void:
 		flash("Escudo! Protege de 1 golpe ou de 1 queda na água tóxica, elétrica ou no metal derretido.")
 		Audio.play("item", -2, .85)
 	elif it == "heart":
-		if player.hp < MAXHP:
+		if player.hp < max_hp:
 			player.hp += 1
 			flash("+1 coração.")
 			Audio.play("item", -2, 1.2)
@@ -4137,10 +4159,15 @@ func break_crate(c: Dictionary) -> void:
 func hurt(d: int, from_x: float) -> void:
 	if player.iframe > 0 or player.dyingT > 0:
 		return
+	# esquivando: o golpe passa direto
+	if CB and CB.dodging() and not player.get("dog"):
+		return
 	if TR and TR.trapped != null and not player.get("dog"):
 		return
 	if player.get("dog"):
 		M.dog_hurt()
+		return
+	if CB and CB.try_parry(from_x):
 		return
 	if M.blocks(from_x):
 		M.on_block(from_x)
@@ -4176,6 +4203,9 @@ func hurt(d: int, from_x: float) -> void:
 		flash("O escudo aguentou o golpe! (ele estourou)")
 		return
 	player.hp -= d
+	CB.tr.dmg = int(CB.tr.get("dmg", 0)) + d
+	CB.hits = 0
+	CB.hits_t = 0
 	kb.call()
 	# impacto: clarão branco curto e corpo achatado com o tranco
 	player.hitFx = 10
@@ -4197,6 +4227,8 @@ func die(msg: String) -> void:
 		return
 	if shield_saves(msg):
 		return
+	if CB:
+		CB.tr.deaths = int(CB.tr.get("deaths", 0)) + 1
 	lives -= 1
 	if STATS.has("pdeath"):
 		STATS.pdeath[clamp(period_index(), 0, 5)] += 1
@@ -4259,6 +4291,7 @@ func _back_to_fire() -> void:
 	K.reset_on_respawn()
 	EV.on_respawn()
 	VH.on_respawn()
+	CB.on_respawn()
 	X.breath = Extras.BREATH
 	snap_camera()
 	_tick_fx()
@@ -4327,6 +4360,7 @@ func respawn() -> void:
 	K.reset_on_respawn()
 	EV.on_respawn()
 	VH.on_respawn()
+	CB.on_respawn()
 	X.breath = Extras.BREATH
 	snap_camera()
 	flash(msg + " Vidas: %d" % lives)
@@ -4335,6 +4369,7 @@ func respawn() -> void:
 #  SALVAR
 # ======================================================================
 func save_checkpoint(k: int) -> void:
+	CB.bank_pen()
 	var got_items: Array = []
 	for it in ITEMS:
 		if it.got:
@@ -4349,7 +4384,7 @@ func save_checkpoint(k: int) -> void:
 	Save.save_run({"level": level_idx, "chk": k, "lives": lives, "inv": INV.duplicate(), "items": got_items, "locks": locks,
 		"clues": CLUEGOT.keys(), "specs": SPECGOT.keys(), "drawn": DRAWN.keys(), "coins": coins_got, "coin_life": coin_life,
 		"pen": STATS.pen, "lit": lantern_lit, "fuel": FUEL, "oil": OIL.filter(func(c): return c.got).map(func(c): return OIL.find(c)), "fires": CHK.filter(func(c): return c.on).map(func(c): return CHK.find(c)), "time": time_left, "x": X.save_data(), "m": M.save_data(), "tr": TR.save_data(),
-		"nt": NT.save_data(), "k": K.save_data(), "rd": RD.save_data(), "vh": VH.save_data(), "ev": EV.save_data(), "sl": SL.save_data(), "rested": RESTED.keys(), "cranks": CRANKS.map(func(c): return c.done), "mv": MV.save_data()})
+		"nt": NT.save_data(), "k": K.save_data(), "rd": RD.save_data(), "vh": VH.save_data(), "ev": EV.save_data(), "sl": SL.save_data(), "rested": RESTED.keys(), "cranks": CRANKS.map(func(c): return c.done), "mv": MV.save_data(), "cb": CB.save_data()})
 
 func restore_run(d: Dictionary) -> void:
 	## Continua do ponto salvo: refaz a fase no estado da fogueira
@@ -4402,6 +4437,7 @@ func restore_run(d: Dictionary) -> void:
 	VH.restore(d.get("vh", {}))
 	EV.restore(d.get("ev", {}))
 	SL.restore(d.get("sl", {}))
+	CB.restore(d.get("cb", {}))
 	for r in d.get("rested", []):
 		RESTED[int(r)] = 1
 	var ck: Array = d.get("cranks", [])

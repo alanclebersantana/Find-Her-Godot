@@ -115,7 +115,7 @@ func step() -> void:
 		if Game.hit(p, g.R(d.x - 12, d.y - 22, 24, 24)):
 			d.got = true
 			if d.k == "apple":
-				if p.hp < Game.MAXHP:
+				if p.hp < g.max_hp:
 					p.hp += 1
 					g.flash("Uma fruta fresquinha! +1 coração.", 100)
 					Audio.play("item", -4, 1.2)
