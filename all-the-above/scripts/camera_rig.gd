@@ -48,7 +48,11 @@ func _process(dt: float) -> void:
 		idle_cam += dt
 	# volta sozinha para trás do Tomé quando ele anda e você não mexe na câmera
 	if idle_cam > 1.2 and main.inp.move.length() > .3 and p.state in ["ground", "air"]:
-		yaw = lerp_angle(yaw, p.face_yaw + PI, .02)
+		yaw = lerp_angle(yaw, p.face_yaw + PI, 1.0 - exp(-1.2 * dt))
+	# balançando ou voando rápido, a câmera vai virando para onde o Tomé está indo
+	var hvel := Vector3(p.velocity.x, 0, p.velocity.z)
+	if idle_cam > .6 and p.state in ["swing", "zip", "air"] and hvel.length() > 9.0:
+		yaw = lerp_angle(yaw, atan2(hvel.x, hvel.z) + PI, 1.0 - exp(-1.6 * dt))
 	var col: Colossus = main.colossus
 	var center := p.center() + Vector3(0, .6, 0)
 	var want_dist := 7.0
@@ -70,8 +74,10 @@ func _process(dt: float) -> void:
 				bias = -.05
 			fov = 72.0
 		"swing", "zip", "hookfly":
-			want_dist = 8.5
-			fov = 80.0
+			want_dist = 8.5 + clampf(p.velocity.length() / 34.0, 0.0, 1.0) * 3.0
+			fov = 78.0 + clampf(p.velocity.length() / 34.0, 0.0, 1.0) * 10.0
+			# olha um pouco à frente do movimento
+			look = center + p.velocity * .12
 		_:
 			if near_k > 0.0 and p.global_position.y < 10.0:
 				# perto do colosso, no chão: câmera baixa olhando para cima
@@ -80,11 +86,15 @@ func _process(dt: float) -> void:
 				fov = lerpf(70.0, 80.0, near_k)
 				var head_pos: Vector3 = col.head.global_position
 				look = center.lerp(head_pos, .22 * near_k)
-	dist = lerpf(dist, want_dist, .05)
-	cam.fov = lerpf(cam.fov, fov, .05)
+	if p.state == "air" and p.velocity.length() > 12.0:
+		fov = maxf(fov, 76.0 + clampf(p.velocity.length() / 34.0, 0.0, 1.0) * 10.0)
+		want_dist = maxf(want_dist, 9.0)
+	var k_slow := 1.0 - exp(-3.0 * dt)
+	dist = lerpf(dist, want_dist, k_slow)
+	cam.fov = lerpf(cam.fov, fov, k_slow)
 	var ep := clampf(pitch + bias, -1.3, .95)
 	var off := Vector3(sin(yaw) * cos(ep), -sin(ep), cos(yaw) * cos(ep)) * dist
-	look_pt = look_pt.lerp(look, .2) if look_pt != Vector3.ZERO else look
+	look_pt = look_pt.lerp(look, 1.0 - exp(-12.0 * dt)) if look_pt != Vector3.ZERO else look
 	var want := center + off
 	if want.y < .4:
 		want.y = .4
@@ -98,7 +108,9 @@ func _process(dt: float) -> void:
 	var hit := space.intersect_ray(_ray)
 	if not hit.is_empty():
 		want = hit.position + (center - want).normalized() * .4
-	var pos := cam.global_position.lerp(want, .25) if cam.global_position.distance_to(want) < 40 else want
+	# quando bate em algo a câmera chega rápido (não atravessa); livre, ela segue macia
+	var kp := 1.0 - exp((-30.0 if not hit.is_empty() else -14.0) * dt)
+	var pos := cam.global_position.lerp(want, kp) if cam.global_position.distance_to(want) < 40 else want
 	if shake > 0.0:
 		pos += Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * shake * .35
 	cam.global_position = pos

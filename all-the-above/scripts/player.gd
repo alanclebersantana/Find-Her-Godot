@@ -36,6 +36,12 @@ var dead_t := 0.0
 var aim: Node3D = null
 var tired_msg := 0.0
 var regrip := false           # a mão cansou: só agarra de novo depois de soltar o botão
+var coyote := 0.0             # ainda dá para pular logo depois de sair da beirada
+var jump_buf := 0.0           # apertou pular um pouco antes de tocar o chão: pula ao pousar
+var jumping := false          # soltar o botão no meio do pulo corta a altura
+var climb_target := Vector3.ZERO
+var zip_v := 0.0
+const MAX_FLY := 34.0
 
 func _ready() -> void:
 	collision_layer = 1
@@ -103,19 +109,44 @@ func _physics_process(dt: float) -> void:
 	_rope_draw()
 	if global_position.y < -40.0:
 		respawn()
-	model.rotation.y = lerp_angle(model.rotation.y, face_yaw, .25)
+	model.rotation.y = lerp_angle(model.rotation.y, face_yaw, 1.0 - exp(-14.0 * dt))
 
 # ------------------------------------------------------------------ andar e pular
 func _walk(dt: float, inp: InputState) -> void:
 	var dir := move_dir()
-	var target := dir * SPEED
-	var acc := ACC if is_on_floor() else AIR_ACC
-	velocity.x = move_toward(velocity.x, target.x, acc * dt)
-	velocity.z = move_toward(velocity.z, target.z, acc * dt)
-	if not is_on_floor():
-		velocity.y -= GRAV * dt
-	if inp.pressed.jump and is_on_floor():
+	var on_floor := is_on_floor()
+	var hv := Vector3(velocity.x, 0, velocity.z)
+	if on_floor:
+		var target := dir * SPEED
+		velocity.x = move_toward(velocity.x, target.x, ACC * dt)
+		velocity.z = move_toward(velocity.z, target.z, ACC * dt)
+	else:
+		# no ar o embalo do balanço não se perde: o joystick só desvia
+		var spd := maxf(hv.length(), SPEED)
+		var want := hv + dir * AIR_ACC * 1.6 * dt
+		if dir.length() < .1 and hv.length() <= SPEED:
+			want = hv.move_toward(Vector3.ZERO, 2.0 * dt)
+		want = want.limit_length(spd)
+		# arrasto leve do ar só acima da velocidade de corrida
+		if want.length() > SPEED:
+			want = want.move_toward(want.normalized() * SPEED, 1.2 * dt)
+		velocity.x = want.x
+		velocity.z = want.z
+		var g := GRAV
+		if velocity.y < 0.0:
+			g *= 1.25
+		elif jumping and not inp.held.jump:
+			g *= 2.2
+		velocity.y -= g * dt
+	coyote = .12 if on_floor else maxf(0.0, coyote - dt)
+	jump_buf = .14 if inp.pressed.jump else maxf(0.0, jump_buf - dt)
+	if velocity.y <= 0.0:
+		jumping = false
+	if jump_buf > 0.0 and coyote > 0.0:
 		velocity.y = JUMP
+		jump_buf = 0.0
+		coyote = 0.0
+		jumping = true
 		main.sfx.play("jump", -6.0)
 	var vy_before := velocity.y
 	move_and_slide()
@@ -130,6 +161,8 @@ func _walk(dt: float, inp: InputState) -> void:
 		state = "air"
 	if dir.length() > .1:
 		face_yaw = atan2(dir.x, dir.z)
+	elif state == "air" and Vector2(velocity.x, velocity.z).length() > 4.0:
+		face_yaw = atan2(velocity.x, velocity.z)
 	var hs := Vector2(velocity.x, velocity.z).length()
 	model.speed = hs
 	model.pose = ("walk" if hs > .5 else "idle") if state == "ground" else "air"
@@ -208,6 +241,7 @@ func _hookfly(dt: float, inp: InputState) -> void:
 				rope_len = max(4.0, d * .92)
 			"colossus":
 				state = "zip"
+				zip_v = velocity.length()
 				main.sfx.play("swish", -4.0)
 			"alien":
 				var al = hook_target.get_parent()
@@ -225,12 +259,19 @@ func _swing(dt: float, inp: InputState) -> void:
 		return
 	var hp_ := hook_target.global_position
 	velocity.y -= GRAV * dt
-	var dir := move_dir()
-	velocity += dir * 9.0 * dt
-	# recolhe a corda devagar: ganha velocidade no balanço
-	rope_len = max(5.0, rope_len - 1.5 * dt)
 	var hand := global_position + HAND
 	var rel := hand - hp_
+	var rn0 := rel.normalized()
+	var dir := move_dir()
+	# o joystick dá impulso só na direção do balanço (perpendicular à corda), como balançar as pernas
+	var tdir := dir - rn0 * dir.dot(rn0)
+	velocity += tdir * 13.0 * dt
+	# no ponto mais baixo, embalado, ganha um pouco mais
+	if rn0.y < -.85 and velocity.length() > 6.0:
+		velocity += velocity.normalized() * 2.5 * dt
+	velocity = velocity.limit_length(MAX_FLY)
+	# recolhe a corda devagar: ganha velocidade no balanço
+	rope_len = max(5.0, rope_len - 1.5 * dt)
 	if rel.length() >= rope_len:
 		var rn := rel.normalized()
 		var vr := velocity.dot(rn)
@@ -247,8 +288,9 @@ func _swing(dt: float, inp: InputState) -> void:
 	model.pose = "swing"
 	if inp.pressed.jump or not inp.held.hook:
 		# solta e voa: um empurrão a mais na direção do balanço
-		var boost := velocity.normalized() * 3.0 + Vector3(0, 4.0 if inp.pressed.jump else 2.5, 0)
-		velocity += boost
+		var boost := velocity.normalized() * 3.0 + Vector3(0, 5.5 if inp.pressed.jump else 2.5, 0)
+		velocity = (velocity + boost).limit_length(MAX_FLY)
+		jumping = false
 		hook_target = null
 		state = "air"
 		main.sfx.play("swish", -6.0)
@@ -266,7 +308,10 @@ func _zip(dt: float, inp: InputState) -> void:
 		return
 	var to := hook_target.global_position - center()
 	var d := to.length()
-	velocity = to.normalized() * 30.0
+	# acelera até 34 m/s e freia no fim para não bater seco
+	zip_v = minf(zip_v + 70.0 * dt, 34.0)
+	var spd := minf(zip_v, maxf(8.0, d * 6.0))
+	velocity = velocity.lerp(to.normalized() * spd, 1.0 - exp(-14.0 * dt))
 	global_position += velocity * dt
 	face_yaw = atan2(to.x, to.z)
 	model.pose = "swing"
@@ -329,7 +374,22 @@ func _place_on_surface() -> void:
 	climb_n = climb_part.normal_world(climb_axis, climb_sgn)
 	var s := _surface_point()
 	var up_k := clampf(climb_n.y, 0.0, 1.0)
-	global_position = s + climb_n * .42 * (1.0 - up_k) - Vector3(0, .85, 0) * (1.0 - up_k)
+	climb_target = s + climb_n * .42 * (1.0 - up_k) - Vector3(0, .85, 0) * (1.0 - up_k)
+	global_position = climb_target
+
+## escalando: segue o ponto da superfície suavemente (troca de face e de parte sem tranco)
+func _follow_surface(dt: float) -> void:
+	climb_n = climb_part.normal_world(climb_axis, climb_sgn)
+	var s := _surface_point()
+	var up_k := clampf(climb_n.y, 0.0, 1.0)
+	climb_target = s + climb_n * .42 * (1.0 - up_k) - Vector3(0, .85, 0) * (1.0 - up_k)
+	# o colosso se mexe: anda junto com a parte e só suaviza a diferença
+	var carried := climb_part.point_velocity(climb_local, dt) * dt
+	var pos := global_position + carried
+	if pos.distance_to(climb_target) > 3.0:
+		global_position = climb_target
+	else:
+		global_position = pos.lerp(climb_target, 1.0 - exp(-18.0 * dt))
 
 func _climb(dt: float, inp: InputState) -> void:
 	if not is_instance_valid(climb_part):
@@ -400,7 +460,7 @@ func _climb(dt: float, inp: InputState) -> void:
 			climb_axis = r.axis
 			climb_sgn = r.sgn
 			break
-	_place_on_surface()
+	_follow_surface(dt)
 	var n := climb_n
 	if rest:
 		var hv := Vector3(want_dir(inp).x, 0, want_dir(inp).z)
