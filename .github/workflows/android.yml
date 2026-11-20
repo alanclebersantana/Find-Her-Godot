@@ -3,6 +3,9 @@ name: APK Android
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "all-the-above/**"
+      - ".github/workflows/ata.yml"
   workflow_dispatch:
 
 permissions:

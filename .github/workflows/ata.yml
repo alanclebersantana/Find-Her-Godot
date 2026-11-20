@@ -1,0 +1,92 @@
+name: APK All the Above (protótipo)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "all-the-above/**"
+      - ".github/workflows/ata.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GODOT_VERSION: "4.6.2"
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: all-the-above
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Cache do Godot e dos modelos de exportação
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot
+            ~/.local/share/godot/export_templates
+          key: godot-${{ env.GODOT_VERSION }}
+
+      - name: Baixar Godot ${{ env.GODOT_VERSION }}
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot && cd ~/godot
+          wget -q https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
+          unzip -q Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
+          mv Godot_v${GODOT_VERSION}-stable_linux.x86_64 godot
+          wget -q https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz
+          mkdir -p ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          unzip -q Godot_v${GODOT_VERSION}-stable_export_templates.tpz
+          mv templates/* ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable/
+          rm -rf templates *.zip *.tpz
+
+      - name: Configurar Android SDK e chave
+        run: |
+          ~/godot/godot --headless --editor --path . --quit || true
+          F=$(ls ~/.config/godot/editor_settings-*.tres | head -1)
+          sed -i '/export\/android\/android_sdk_path/d;/export\/android\/java_sdk_path/d' "$F"
+          echo "export/android/android_sdk_path = \"$ANDROID_SDK_ROOT\"" >> "$F"
+          echo "export/android/java_sdk_path = \"$JAVA_HOME\"" >> "$F"
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > $HOME/release.keystore
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_PATH=$HOME/release.keystore" >> $GITHUB_ENV
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_USER=${{ secrets.KEYSTORE_USER }}" >> $GITHUB_ENV
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
+            echo "RELEASE_BUILD=1" >> $GITHUB_ENV
+          fi
+
+      - name: Importar recursos
+        run: ~/godot/godot --headless --path . --import || true
+
+      - name: Teste do protótipo (gancho, escalada, pontos fracos, alienígenas)
+        run: ~/godot/godot --headless --path . --fixed-fps 60 -s tests/proto_test.gd
+
+      - name: Gerar APK
+        run: |
+          mkdir -p build
+          sed -i "s/^version\/code=.*/version\/code=${{ github.run_number }}/" export_presets.cfg
+          sed -i "s/^version\/name=.*/version\/name=\"0.0.${{ github.run_number }}\"/" export_presets.cfg
+          if [ "$RELEASE_BUILD" = "1" ]; then MODE=--export-release; else MODE=--export-debug; fi
+          ~/godot/godot --headless --path . $MODE "Android" build/all-the-above.apk
+          ls -la build
+
+      - name: Publicar na página de versões (para baixar no celular)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ata-${{ github.run_number }}
+          name: All the Above — protótipo ${{ github.run_number }}
+          body: |
+            Protótipo do jogo de ação "All the Above — O Planeta dos Colossos".
+            No celular: baixe o arquivo e toque nele para instalar.
+          files: all-the-above/build/all-the-above.apk
+          prerelease: true
