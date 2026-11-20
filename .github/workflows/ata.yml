@@ -6,6 +6,7 @@ on:
     paths:
       - "all-the-above/**"
       - ".github/workflows/ata.yml"
+      - "!all-the-above/art_ref/**"
   workflow_dispatch:
 
 permissions:
