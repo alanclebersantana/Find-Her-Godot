@@ -10,6 +10,7 @@ signal fell_asleep
 const RING := 150.0
 const WALK := 4.2
 const S := 2.3                 # escala: o corpo é montado em ~25 m e aumentado para ~58 m
+const MODEL := "res://assets/models/chifrudo.glb"
 
 var main
 var parts: Array = []          # CPart (todas dá para escalar)
@@ -20,6 +21,8 @@ var legs: Array = []           # {"hip": Node3D, "knee": Node3D, "hoof": CPart, 
 var neck: Node3D
 var head: Node3D
 var eyes: Array = []
+var tail: Node3D
+var warn_light: OmniLight3D
 var ang := 0.0                 # posição no anel
 var phase := 0.0
 var state := "walk"            # walk, stagger, sleep
@@ -39,7 +42,8 @@ var HORN := Color("#cfc6b0")
 
 func _ready() -> void:
 	ang = 0.35
-	_build()
+	if not ColossusSkin.build(self, MODEL):
+		_build()
 	_place()
 
 func _m(c: Color, rough: float = .95, emit: float = 0.0) -> StandardMaterial3D:
@@ -52,6 +56,32 @@ func _m(c: Color, rough: float = .95, emit: float = 0.0) -> StandardMaterial3D:
 		m.emission_energy_multiplier = emit
 	m.set_meta("c0", c)
 	mats.append(m)
+	return m
+
+## só a caixa de escalada (invisível), para o colosso feito a partir do modelo 3D
+func cpart(parent: Node3D, half: Vector3, pos: Vector3) -> CPart:
+	var p := CPart.new()
+	p.colossus = self
+	p.position = pos
+	parent.add_child(p)
+	p.setup(half)
+	parts.append(p)
+	return p
+
+func weak_at(p: CPart, local: Vector3, n: Vector3, lbl: String) -> void:
+	_weak(p, local, n, lbl)
+
+func own_mat(m: Material) -> Material:
+	if m is StandardMaterial3D:
+		var d: StandardMaterial3D = m.duplicate()
+		# pelo não é metal: sem o mapa de metal ele fica claro como na imagem
+		d.metallic = 0.0
+		d.metallic_texture = null
+		d.roughness = 1.0
+		d.albedo_color = Color(1.18, 1.14, 1.1)
+		d.set_meta("c0", d.albedo_color)
+		mats.append(d)
+		return d
 	return m
 
 func _part(parent: Node3D, half: Vector3, pos: Vector3, fur := true) -> CPart:
@@ -280,6 +310,11 @@ func _physics_process(dt: float) -> void:
 			if state == "walk":
 				body.rotation.x = lerpf(body.rotation.x, 0.0, .1)
 		var red := warn_t > 0.0 or shake_t > 0.0
+		if warn_light:
+			warn_light.light_energy = lerpf(warn_light.light_energy, 9.0 if red else 0.0, .15)
+		if tail:
+			tail.rotation.y = sin(Time.get_ticks_msec() * .0021) * .25
+			tail.rotation.x = sin(Time.get_ticks_msec() * .0013) * .08
 		for e in eyes:
 			var m2: StandardMaterial3D = e.material_override
 			m2.emission = Color(1, .2, .1) if red else Color("#ffcf6a")

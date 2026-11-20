@@ -31,7 +31,16 @@ func _ready() -> void:
 	anim = inst.find_child("AnimationPlayer", true, false)
 	skel = inst.find_child("Skeleton3D", true, false)
 	for mi in inst.find_children("*", "MeshInstance3D", true, false):
-		(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		var m3: MeshInstance3D = mi
+		m3.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		for si in m3.mesh.get_surface_count():
+			var sm := m3.mesh.surface_get_material(si)
+			if sm is StandardMaterial3D:
+				var d: StandardMaterial3D = sm.duplicate()
+				d.metallic = 0.0
+				d.metallic_texture = null
+				d.roughness = 1.0
+				m3.set_surface_override_material(si, d)
 	if anim:
 		for a in anim.get_animation_list():
 			var an := anim.get_animation(a)
